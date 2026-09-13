@@ -1,0 +1,685 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Dbce.Wheel.Ffb</name>
+    </assembly>
+    <members>
+        <member name="T:Dbce.Wheel.Ffb.AxleForceCurve">
+            <summary>Version 1 axle-force compatibility pipeline: gain, fade, clamp, then EMA. Existing model profiles are unchanged.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.AxleForceCurve.FadeStartKmh">
+            <summary>Below this speed, in km/h, there is no force at all.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.AxleForceCurve.FadeFullKmh">
+            <summary>At and above this speed the force is at full strength.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.AxleForceCurve.LimitTrail">
+            <summary>
+            Pneumatic trail at twice the ideal slip angle, as a fraction of the
+            straight-ahead trail. The shrinking trail is what makes the wheel
+            lighten as the front starts to slide.
+            </summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.AxleForceCurve.Clamp01(System.Single)">
+            <summary>Unity's <c>Mathf.Clamp01</c>.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.AxleForceCurve.Lerp(System.Single,System.Single,System.Single)">
+            <summary>Unity's <c>Mathf.Lerp</c> - the interpolant is clamped.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.AxleForceCurve.SmoothStep01(System.Single)">
+            <summary>Unity's <c>Mathf.SmoothStep(0, 1, t)</c>: cubic, clamped.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.AxleForceCurve.Trail(System.Single,System.Single)">
+            <summary>
+            Pneumatic trail as a fraction of its straight-ahead value: 1.0 at
+            zero slip, falling linearly to <see cref="F:Dbce.Wheel.Ffb.AxleForceCurve.LimitTrail"/> at twice the
+            ideal slip angle and held there. This is the term that makes the
+            wheel lighten as the front starts to slide.
+            </summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.AxleForceCurve.Normalised(System.Single,System.Single,System.Single,System.Single,System.Single,System.Single,System.Boolean)">
+            <summary>
+            The steering force, normalised to -1..1, before smoothing.
+            </summary>
+            <param name="frontLateralForce">
+            Sum of the front axle's lateral forces, newtons (<c>lw.Fy + rw.Fy</c>).
+            Not <c>Mz</c>: the game's aligning torque reverses sign past about 8
+            degrees of slip and this game's tyres run 12-29 in ordinary corners.
+            </param>
+            <param name="absSlipDeg">Mean absolute front slip angle, degrees.</param>
+            <param name="idealSlipDeg">Peak-grip slip angle, degrees.</param>
+            <param name="speedKmh">Road speed, km/h, for the low-speed fade.</param>
+            <param name="fyReference">Lateral force counting as full scale, newtons.</param>
+            <param name="gain">Strength as a multiplier: <c>Strength / 50</c>.</param>
+            <param name="invert">Flip the sign for devices reading the axis the other way.</param>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.AxleForceCurve.Smooth(System.Single,System.Single,System.Single)">
+            <summary>
+            First-order smoothing, applied to <see cref="M:Dbce.Wheel.Ffb.AxleForceCurve.Normalised(System.Single,System.Single,System.Single,System.Single,System.Single,System.Single,System.Boolean)"/>. Raw
+            per-step force is noisy over kerbs and rocks and reads as rattle
+            rather than detail.
+            </summary>
+            <remarks>
+            <paramref name="smoothing"/> is the weight kept from the previous
+            output, so 0 is unfiltered and 0.5 is an even blend. Symmetric: it
+            does not distinguish a rising force from a falling one.
+            </remarks>
+        </member>
+        <member name="T:Dbce.Wheel.Ffb.DevicePreference">
+            <summary>
+            Which device the user meant. Accepts <c>vid:pid</c> hex (the precise,
+            portable key — <c>346e:0006</c> is a MOZA R12), <c>#N</c> for an index, or a
+            case-insensitive name substring. Also knows which "controllers" are virtual
+            pads that must never be picked as a wheel.
+            </summary>
+            <remarks>
+            vJoy reports 8 axes / 128 buttons like a MOZA R12, advertises force
+            feedback, and often enumerates first; a game or mod that takes "first FFB
+            device" picks it and every force is absorbed silently. That cost a long
+            debugging session and a wrongly-filed upstream bug (OutRun2006Tweaks-FFB,
+            commit 02e3028). Blocklist first, rank FFB-capable real devices, then apply
+            the preference.
+            </remarks>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.DevicePreference.ProductKey(System.Int32,System.Int32)">
+            <summary>DirectInput's <c>guidProduct.Data1</c> for a VID/PID pair: <c>(PID &lt;&lt; 16) | VID</c>.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.DevicePreference.IsVirtualDevice(System.String)">
+            <summary>True for known virtual/emulated controllers that must not be treated as a wheel.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.DevicePreference.Choose(Dbce.Wheel.Ffb.WheelFfbNative.DeviceInfo[])">
+            <summary>
+            Returns an array position. An explicit preference must match exactly one
+            FFB device; missing/ambiguous preferences never fall back to another wheel.
+            Without a preference, picks the first FFB-capable non-virtual device.
+            VID/PID requires identity metadata supplied by the caller; the legacy DLL
+            enumeration exposes instance GUIDs but does not expose product IDs.
+            </summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.DevicePreference.Resolve(Dbce.Wheel.Ffb.WheelFfbNative.DeviceInfo[])">
+            <summary>Explains a selection for setup UI without loading or acquiring a device.
+            Success identifies a candidate only; native strict selection must still enforce identity at open.</summary>
+        </member>
+        <member name="T:Dbce.Wheel.Ffb.DeviceSelectionStatus">
+            <summary>Stable UI status codes; consumers may localize their own wording.</summary>
+        </member>
+        <member name="T:Dbce.Wheel.Ffb.DeviceSelectionResult">
+            <summary>A read-only selection decision, not evidence of a connected or acquired wheel.</summary>
+        </member>
+        <member name="P:Dbce.Wheel.Ffb.DeviceSelectionResult.ArrayPosition">
+            <summary>Position in the supplied snapshot; -1 on failure. Not necessarily the native device index.</summary>
+        </member>
+        <member name="P:Dbce.Wheel.Ffb.DeviceSelectionResult.PersistentId">
+            <summary>Save only after a deliberate picker choice. Null means stable identity is unavailable.
+            Resolving an old name or index alone is not permission to rewrite a saved preference.</summary>
+        </member>
+        <member name="T:Dbce.Wheel.Ffb.FfbDiagnostics">
+            <summary>
+            The two diagnostics every FFB bug this month was solved with: a windowed
+            peak of the raw signal (to set the reference), and a low-rate trace line
+            of the quantities the force is built from (to see sign and liveness).
+            Pure formatting; the caller decides where lines go.
+            </summary>
+        </member>
+        <member name="P:Dbce.Wheel.Ffb.FfbDiagnostics.DeliveryAttempts">
+            <summary>Calls actually attempted at the output API, independent of computed samples.</summary>
+        </member>
+        <member name="P:Dbce.Wheel.Ffb.FfbDiagnostics.LastDeliverySucceeded">
+            <summary>Null until the consumer reports a delivery. Acceptance is not measured wheel movement.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.FfbDiagnostics.PeakWindowSeconds">
+            <summary>Seconds between peak reports (default 5).</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.FfbDiagnostics.TraceHz">
+            <summary>Trace lines per second (default 5).</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.FfbDiagnostics.RecordOutput(System.Single,System.Single,System.Single,System.Single,System.Int32,System.Single)">
+            <summary>Record one output; returns a peak-report line when the window elapsed, else null.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.FfbDiagnostics.Trace(System.Single,Dbce.Wheel.Ffb.ForceInputs@,System.Single,System.Single)">
+            <summary>A trace line at <see cref="F:Dbce.Wheel.Ffb.FfbDiagnostics.TraceHz"/>, or null between ticks.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.FfbDiagnostics.Summary(System.Int32)">
+            <summary>Support-bundle paragraph: counts, range, sign balance, with a reading.</summary>
+        </member>
+        <member name="T:Dbce.Wheel.Ffb.ForceInputs">
+            <summary>
+            What a game's sampler can supply to the force model each tick. Fields the
+            game does not have are left at their defaults and the matching
+            <c>Has*</c> flag false; the model uses what is available.
+            </summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceInputs.Steer">
+            <summary>Steering position, -1..1 (left negative).</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceInputs.SteerRate">
+            <summary>Steering rate, units of full travel per second.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceInputs.SpeedMps">
+            <summary>Vehicle speed, metres per second (absolute).</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceInputs.FrontLateralForce">
+            <summary>Sum of lateral tyre force on the steered axle, newtons (sign: positive pushes the wheel toward +Steer).</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceInputs.LateralG">
+            <summary>Lateral acceleration in g, when tyre forces are not available.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceInputs.LongitudinalG">
+            <summary>Longitudinal acceleration in g (positive accelerating).</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceInputs.FrontSlipAngleDeg">
+            <summary>Mean absolute slip angle of the steered axle, degrees, and the tyre model's peak-grip slip angle.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceInputs.IdealSlipAngleDeg">
+            <summary>Mean absolute slip angle of the steered axle, degrees, and the tyre model's peak-grip slip angle.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceInputs.DriftAmount">
+            <summary>0..1 how far into a drift the car is, if the game knows.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceInputs.Texture">
+            <summary>0..1 surface texture level for this tick (rumble strip, gravel).</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceInputs.Impact">
+            <summary>Set for one tick on collision; magnitude 0..1.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceInputs.ImpactDirection">
+            <summary>Signed direction hint for the impact (-1 left, +1 right, 0 unknown).</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceInputs.GearShift">
+            <summary>Set for one tick on a gear change.</summary>
+        </member>
+        <member name="T:Dbce.Wheel.Ffb.ForceModelSettings">
+            <summary>Tuning for <see cref="T:Dbce.Wheel.Ffb.ForceModel"/>; the vocabulary shared by every mod.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceModelSettings.SpringStrength">
+            <summary>Virtual centring spring: force per unit steer at speed.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceModelSettings.DamperStrength">
+            <summary>Damping: force per unit steer rate.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceModelSettings.SteeringWeight">
+            <summary>Lateral load term: 1.0 = reference lateral force gives full output.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceModelSettings.LateralForceReference">
+            <summary>Reference lateral force in newtons treated as full scale (per steered axle).</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceModelSettings.LateralGReference">
+            <summary>Reference lateral acceleration in g treated as full scale when only g is available.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceModelSettings.TrailFloor">
+            <summary>Fraction of lateral force retained at twice the ideal slip angle (trail floor). 1 = no lightening.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceModelSettings.GripLoss">
+            <summary>Extra lightening from an explicit drift signal, 0..1 of the lateral term.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceModelSettings.WeightTransfer">
+            <summary>Weight transfer: multiplies the structural force by 1 + clamp(-longG × this, -0.2, +0.3).</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceModelSettings.SpringFullSpeedMps">
+            <summary>Speed (m/s) at which the spring reaches full strength.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceModelSettings.TextureStrength">
+            <summary>Texture amplitude at full texture level.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceModelSettings.ImpactStrength">
+            <summary>Impulse amplitude for an impact of 1.0.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceModelSettings.ShiftPulseStrength">
+            <summary>Amplitude of the symmetric gear-shift double pulse.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceModelSettings.DamperStaticFraction">
+            <summary>Damper authority at a standstill, as a fraction of its authority at speed. 1 = speed-independent.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceModelSettings.TrailSlipSpan">
+            <summary>Multiple of the ideal slip angle at which the trail reaches <see cref="F:Dbce.Wheel.Ffb.ForceModelSettings.TrailFloor"/>.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceModelSettings.WeightTransferMin">
+            <summary>Bounds on the weight-transfer multiplier: how much braking may add and throttle may shed.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceModelSettings.WeightTransferMax">
+            <summary>Bounds on the weight-transfer multiplier: how much braking may add and throttle may shed.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceModelSettings.TextureHz">
+            <summary>Texture oscillator frequency in Hz. Above ~15 the zero-order hold at 60 Hz eats it.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceModelSettings.ImpactSeconds">
+            <summary>Duration of the decaying impact impulse, seconds.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceModelSettings.ShiftPulseSeconds">
+            <summary>Duration of the positive half of the gear-shift pulse, seconds.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.ForceModelSettings.SimLite">
+            <summary>
+            The model half of <see cref="M:Dbce.Wheel.Ffb.ForceProfile.SimLite"/>: lateral tyre force
+            through a pneumatic trail that shrinks toward the limit, no virtual
+            spring. art of rally 0.2.2, where the game exposes per-wheel lateral
+            force.
+            </summary>
+            <remarks>
+            <b>This is half a tune.</b> Pairing it with a default
+            <see cref="T:Dbce.Wheel.Ffb.ForceShaper"/> adds a deadzone, an output deadband and a ramp
+            that the game does not have — which is exactly what shipped as
+            <c>simlite@1</c>, and stood until the game's own force curve was
+            compared against. Use <see cref="M:Dbce.Wheel.Ffb.ForceProfile.SimLite"/> for the whole
+            tune, or better, load a named version from the file beside the game.
+            </remarks>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.ForceModelSettings.Arcade">
+            <summary>
+            The model half of <see cref="M:Dbce.Wheel.Ffb.ForceProfile.Arcade"/>: the "center-out"
+            model — spring + damper + lateral load lightening in a drift, weight
+            transfer, events. Starting values, not truth; every game retunes.
+            </summary>
+            <remarks>
+            <b>This is half a tune</b>, and the missing half matters here too: the
+            arcade conditioning wants soft saturation and a slew limit, and neither
+            is a <see cref="T:Dbce.Wheel.Ffb.ForceShaper"/> default. Use
+            <see cref="M:Dbce.Wheel.Ffb.ForceProfile.Arcade"/>.
+            This is also <b>not</b> OutRun's shipped tuning; several constants
+            differ. <c>arcade-outrun@1</c> in <c>profiles/force-profiles.ini</c> is
+            the one that matches the game, and is what OutRun2006Tweaks-FFB loads.
+            </remarks>
+        </member>
+        <member name="T:Dbce.Wheel.Ffb.ForceModel">
+            <summary>
+            Composable force model over <see cref="T:Dbce.Wheel.Ffb.ForceInputs"/>: the structure that
+            carried over between four games, with the constants that did not left as
+            settings. Output is normalised -1..1 before <see cref="T:Dbce.Wheel.Ffb.ForceShaper"/>.
+            </summary>
+            <remarks>
+            <para>
+            Sign convention: positive output pushes the wheel toward positive steer
+            (the direction the car is turning) — i.e. it is <b>anti</b>-centring — and
+            the model produces negative output for a positive steer input, which is
+            centring. Which DirectInput sign that maps to is a per-wheel fact handled
+            by <see cref="F:Dbce.Wheel.Ffb.ForceShaper.Invert"/>; measure it.
+            </para>
+            <para>
+            The <see cref="P:Dbce.Wheel.Ffb.ForceModel.Validator"/> watches the inputs, because the source signal
+            decides more than the model: art of rally's aligning torque reversed past
+            the slip peak, and OutRun's steer input sat at zero through corners while
+            the model's spring term silently produced nothing.
+            </para>
+            </remarks>
+        </member>
+        <member name="P:Dbce.Wheel.Ffb.ForceModel.LastWasEvent">
+            <summary>True when the last <see cref="M:Dbce.Wheel.Ffb.ForceModel.Compute(Dbce.Wheel.Ffb.ForceInputs@,System.Single)"/> carried an impulse that should bypass smoothing.</summary>
+        </member>
+        <member name="P:Dbce.Wheel.Ffb.ForceModel.LastStructural">
+            <summary>Last structural (non-event) force, for traces.</summary>
+        </member>
+        <member name="P:Dbce.Wheel.Ffb.ForceModel.LastInputRejected">
+            <summary>True if the last sample/settings were non-finite; model state was cleared.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.ForceModel.Compute(Dbce.Wheel.Ffb.ForceInputs@,System.Single)">
+            <summary>
+            One tick. <paramref name="dt"/> in seconds. The result is normalised
+            against the profile's references but is <b>not</b> bounded: a force
+            past full scale is real information, and clamping it here would throw
+            away exactly the headroom the fade and the soft saturation exist to
+            shape. <see cref="T:Dbce.Wheel.Ffb.ForceShaper"/> bounds the output at the device edge.
+            </summary>
+        </member>
+        <member name="T:Dbce.Wheel.Ffb.InputValidator">
+            <summary>
+            Watches the model's inputs for the two failures that were only ever found
+            by reading a trace: an input that never moves (OutRun's steer at zero
+            through corners) and a force whose sign disagrees with the steering by
+            speed band (art of rally's aligning torque past the slip peak).
+            </summary>
+        </member>
+        <member name="P:Dbce.Wheel.Ffb.InputValidator.SteerLooksDead">
+            <summary>True when the steer input never moved while lateral load did — a dead input.</summary>
+        </member>
+        <member name="P:Dbce.Wheel.Ffb.InputValidator.CentringFractionAtSpeed">
+            <summary>Fraction of samples (above 30 km/h) where the force centred; below ~0.7 the source signal is suspect.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.InputValidator.Report">
+            <summary>One paragraph for logs and support bundles.</summary>
+        </member>
+        <member name="T:Dbce.Wheel.Ffb.ForceProfile">
+            <summary>
+            A named, versioned set of every parameter that decides how a game feels:
+            the <see cref="T:Dbce.Wheel.Ffb.ForceModelSettings"/> and the <see cref="T:Dbce.Wheel.Ffb.ForceShaper"/>
+            conditioning chain together, as data.
+            </summary>
+            <remarks>
+            <para>
+            The point of versioning is that a tune can be swapped without rebuilding
+            a game and without losing the one it replaced. A consumer names a profile
+            (<c>arcade-outrun@1</c>); to try a different feel you add a new version,
+            point the game's config at it, and drive both. Comparing two builds is
+            how tuning stops being reproducible.
+            </para>
+            <para>
+            <b>A published version is immutable.</b> Editing <c>arcade-outrun@1</c>
+            makes every earlier report about it a lie, including the one in the case
+            file. Add <c>@2</c> instead; <c>inherits</c> keeps that to the lines that
+            actually changed.
+            </para>
+            <para>
+            The same files are parsed by <c>native/forcemodel/force_profile.h</c>, and
+            a conformance test pins the two readers to identical results. Add a key in
+            one and you must add it in the other.
+            </para>
+            </remarks>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceProfile.Name">
+            <summary>Family name, e.g. <c>arcade-outrun</c>. Lower case, no spaces.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceProfile.Version">
+            <summary>Version within the family. Immutable once published.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceProfile.Description">
+            <summary>What this tune is and where it came from. Shown in panels and traces.</summary>
+        </member>
+        <member name="P:Dbce.Wheel.Ffb.ForceProfile.Id">
+            <summary><c>name@version</c>, the id a game names in its config.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceProfile.UnknownKeys">
+            <summary>Keys the file carried that this build does not understand. Never silently dropped.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.ForceProfile.SimLite">
+            <summary>
+            <c>simlite@2</c> in code: art of rally 0.2.2, model and conditioning
+            together, as evidenced by its own force curve.
+            </summary>
+            <remarks>
+            Prefer <see cref="M:Dbce.Wheel.Ffb.ForceProfile.LoadFrom(System.String,System.String,System.String@)"/>. A profile read from the file beside the
+            game can be swapped, A/B tested and overridden by the player without a
+            rebuild; a preset compiled in can do none of those. This is for a
+            consumer that has no profiles file yet.
+            </remarks>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.ForceProfile.Arcade">
+            <summary>
+            <c>arcade-generic@1</c> in code: the neutral starting point for an
+            arcade racer that has no tune of its own yet. Retune it per game and
+            publish that as its own family.
+            </summary>
+            <remarks>
+            Not OutRun's tuning. <c>arcade-outrun@1</c> in the profiles file is the
+            one that matches that game, and is what OutRun2006Tweaks-FFB loads.
+            </remarks>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.ForceProfile.Get(System.String)">
+            <summary>Current value of a key, for round-tripping and for the conformance test.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.ForceProfile.ListIds(System.String)">
+            <summary>Every profile id defined in the text, in file order.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.ForceProfile.Parse(System.String,System.String)">
+            <summary>
+            Reads one profile out of the text. Resolves <c>inherits</c> first, so a
+            version can state only what it changes. Throws if the id is absent or
+            the inheritance chain loops.
+            </summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.ForceProfile.Strip(System.String)">
+            <summary>Strips a trailing comment (# or ;) and surrounding whitespace.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.ForceProfile.Load(System.String,System.String)">
+            <summary>Reads a profile from a file. <paramref name="id"/> is <c>name@version</c>.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceProfile.ShippedFileName">
+            <summary>The file a game ships; overwritten when the toolkit is updated.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceProfile.UserFileName">
+            <summary>The player's own tunes; never overwritten, and its sections win.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.ForceProfile.LoadFrom(System.String,System.String,System.String@)">
+            <summary>
+            Reads <paramref name="id"/> from <c>force-profiles.ini</c> in
+            <paramref name="directory"/>, with <c>force-profiles.user.ini</c>
+            layered on top when it exists, so a player's edits survive an update
+            and a profile of the same id in the user file wins outright.
+            </summary>
+            <returns>The profile, or null when neither file defines the id.</returns>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.ForceProfile.AvailableIn(System.String)">
+            <summary>Every profile id available in a directory, shipped and user.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.ForceProfile.ToIni">
+            <summary>Renders this profile as a section, every key explicit. Useful for a support bundle.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.ForceProfile.ToString">
+            <summary>A one-line summary for a trace or a log header.</summary>
+        </member>
+        <member name="T:Dbce.Wheel.Ffb.ForceRiseDetector">
+            <summary>
+            Detects a recent arrival at high source-force magnitude. This is a waveform
+            candidate, not proof of a collision. Feed every sample, including unchanged
+            values and zero, BEFORE wheel gain. Counterpart: native RiseDetector.
+            </summary>
+        </member>
+        <member name="T:Dbce.Wheel.Ffb.ForceShaper">
+            <summary>
+            The output conditioning chain every wheel mod ends up writing: deadzone,
+            dual-rate smoothing, gain, soft saturation, slew limiting with event
+            bypass, low-speed fade, warm-up ramp and inversion. Pure math, no device.
+            </summary>
+            <remarks>
+            Order matters and is fixed (see knowledge/FFB-SIGNAL-DESIGN.md):
+            deadzone → EMA → <b>gain/invert</b> → soft saturation → slew → fade →
+            ramp → clamp. Gain and invert are the boundary: above them the value is
+            in model units, below them in true output units and true output sign, and
+            every stage below is a device-side limit. They moved there in 0.8.0.
+            Applied last, gain re-inflated an already-saturated value into the hard
+            clamp - above about Strength 65 the slew limiter then latched the output
+            at full scale in whichever direction it first clipped, and the model could
+            not recover it. Invert applied last gave the slew limiter a <c>_last</c> of
+            the opposite sign, so with <c>Invert</c> on a steady input oscillated near
+            zero and no force ever arrived.
+            Structural force goes through all of it; an <c>isEvent</c> update
+            (crash impulse, shift pulse) bypasses the EMA and slew so it arrives as
+            a pulse rather than a shove. Rules lifted from OutRun2006Tweaks-FFB
+            (chain), art-of-sim-rally (fade, Strength as the only dial) and
+            cruisn-collection (slew and clamp as the instability ladder).
+            </remarks>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceShaper.Strength">
+            <summary>Strength 0–100; 50 is unity gain, so the slider's midpoint is the tuned default.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceShaper.Deadzone">
+            <summary>Subtractive deadzone in normalised units (0.0015 ≈ 15 of 10000).</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceShaper.AttackSmoothing">
+            <summary>EMA coefficient while |force| is rising (0 = no smoothing, higher = more).</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceShaper.DecaySmoothing">
+            <summary>EMA coefficient while |force| is falling.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceShaper.SoftSaturation">
+            <summary>Soft saturation: 0 = hard clamp only; 1 = tanh with full-scale knee.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceShaper.SlewPerSecond">
+            <summary>Maximum change per second in normalised units; 0 disables. 6 = full scale in 1/6 s.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceShaper.OutputDeadband">
+            <summary>Output deadband: values below this after shaping become 0 (stops a base buzzing at rest).</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceShaper.FadeStartKmh">
+            <summary>Speed below which force is zero and above which it is full; slip angles are meaningless at parking speed.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceShaper.FadeFullKmh">
+            <summary>Speed below which force is zero and above which it is full; slip angles are meaningless at parking speed.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceShaper.RampSeconds">
+            <summary>Seconds over which output ramps from zero at start and after <see cref="M:Dbce.Wheel.Ffb.ForceShaper.RestartRamp"/>.</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceShaper.PeakLimit">
+            <summary>Hard cap on |output| after everything else (peak limit; 1 = none).</summary>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceShaper.SmoothingMs">
+            <summary>
+            Low-pass time constant in MILLISECONDS. When &gt; 0 it replaces
+            <see cref="F:Dbce.Wheel.Ffb.ForceShaper.AttackSmoothing"/>/<see cref="F:Dbce.Wheel.Ffb.ForceShaper.DecaySmoothing"/> entirely.
+            </summary>
+            <remarks>
+            This is the frame-rate independent filter: <c>a = 1 - exp(-dt/tau)</c>,
+            so 50 ms means 50 ms whether the caller ticks at 60 Hz or 250 Hz. The
+            dimensionless coefficients do not - the same number smooths harder the
+            faster you call it, which makes a tune that was arrived at by driving
+            only valid at the rate it was tuned at. Prefer this one.
+            </remarks>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceShaper.ImpulseBypass">
+            <summary>
+            A jump of at least this much between consecutive inputs bypasses the
+            smoothing, so a crash arrives as a pulse rather than a shove. 0 = only
+            an explicit <c>isEvent</c> bypasses.
+            </summary>
+            <remarks>
+            Needed when the source has no event flag to give you. An arcade board
+            hands over a finished motor byte and never says "this one was a wall".
+            </remarks>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceShaper.SettleBelow">
+            <summary>
+            When the input is zero and the smoothed output is below this, snap to
+            zero so the effect can actually stop. 0 = off.
+            </summary>
+            <remarks>
+            Conditional on the input being zero, which is what makes it different
+            from <see cref="F:Dbce.Wheel.Ffb.ForceShaper.OutputDeadband"/>: it kills a dying tail without also
+            killing a small force the game genuinely asked for.
+            </remarks>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.ForceShaper.RelevelHysteresis">
+            <summary>
+            Report a new value only once it has moved at least this much, or
+            crossed zero. Stops sub-threshold chatter reaching the device. 0 = off.
+            </summary>
+        </member>
+        <member name="P:Dbce.Wheel.Ffb.ForceShaper.LastInputRejected">
+            <summary>True when the last sample or settings were non-finite; output and filter state were cleared.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.ForceShaper.Reset">
+            <summary>Clears filter state (between stages) so a stale force is not carried over.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.ForceShaper.RestartRamp">
+            <summary>Starts the ramp-in again, e.g. after the native layer recreated the effect.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.ForceShaper.Shape(System.Single,System.Single,System.Single,System.Boolean)">
+            <summary>
+            Shapes one normalised input (-1..1, before gain) into the value to send.
+            </summary>
+            <param name="normalised">Model output, -1..1 at full scale before Strength.</param>
+            <param name="speedKmh">Vehicle speed for the low-speed fade.</param>
+            <param name="dt">Seconds since the last call.</param>
+            <param name="isEvent">True for an impulse that must bypass smoothing and slew.</param>
+        </member>
+        <member name="P:Dbce.Wheel.Ffb.ForceShaper.Last">
+            <summary>Last shaped value, for panels and traces.</summary>
+        </member>
+        <member name="T:Dbce.Wheel.Ffb.ImpactMixer">
+            <summary>Bounded constant-force mix with explicit signed 100 ms impact envelopes.
+            Its budget excludes independently downloaded condition effects. No collision detection.</summary>
+        </member>
+        <member name="T:Dbce.Wheel.Ffb.WheelFfbNative">
+            <summary>
+            Managed binding to <c>WheelFfb.dll</c>, the toolkit's native DirectInput
+            force-feedback and device layer.
+            </summary>
+            <remarks>Exports are bound once from the exact loaded module. Renamed plugins work
+            on Mono and CoreCLR without an import-name resolver. Successful modules stay pinned
+            for the process lifetime; Shutdown releases devices, not the binding.</remarks>
+        </member>
+        <member name="F:Dbce.Wheel.Ffb.WheelFfbNative.ForceMax">
+            <summary>Full scale of <see cref="M:Dbce.Wheel.Ffb.WheelFfbNative.SetForce(System.Int32)"/>: DirectInput's nominal maximum.</summary>
+        </member>
+        <member name="P:Dbce.Wheel.Ffb.WheelFfbNative.LoadedFrom">
+            <summary>Absolute path the DLL was loaded from, or null.</summary>
+        </member>
+        <member name="P:Dbce.Wheel.Ffb.WheelFfbNative.LastError">
+            <summary>Last failure, for panels and support bundles.</summary>
+        </member>
+        <member name="P:Dbce.Wheel.Ffb.WheelFfbNative.Ready">
+            <summary>True once the device is open and the effect created.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.WheelFfbNative.Load(System.String,System.String)">
+            <summary>
+            Loads <c>WheelFfb.dll</c> from <paramref name="directory"/>. Call once,
+            before anything else; safe to call again.
+            </summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.WheelFfbNative.LogTo(System.String)">
+            <summary>Redirects the native log before device initialisation.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.WheelFfbNative.Initialise(System.String,System.Int32,System.Int32)">
+            <summary>Opens the preferred FFB device. Existing three-argument ABI is retained.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.WheelFfbNative.Initialise(System.String,System.Int32,System.Int32,System.Nullable{System.Guid})">
+            <summary>An explicit GUID never falls back to a different wheel. Requires native 0.5.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.WheelFfbNative.SetForce(System.Int32)">
+            <summary>Signed force, -<see cref="F:Dbce.Wheel.Ffb.WheelFfbNative.ForceMax"/>..+<see cref="F:Dbce.Wheel.Ffb.WheelFfbNative.ForceMax"/>. Cheap; call every physics step.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.WheelFfbNative.PreferGuid(System.Nullable{System.Guid})">
+            <summary>
+            Sets the next initialisation preference to a DirectInput instance GUID, which beats both
+            index and name. Use it when your own input layer has already chosen a
+            device: two Fanatec devices can carry the same name, so matching by
+            name is guesswork exactly where it hurts. Null clears it. Toolkit 0.2.0+.
+            </summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.WheelFfbNative.CreatePeriodic(System.Int32)">
+            <summary>
+            Creates a hardware sine effect (road texture, tyre slip) on the held
+            wheel, initially silent. Returns the slot for <see cref="M:Dbce.Wheel.Ffb.WheelFfbNative.UpdatePeriodic(System.Int32,System.Single,System.Single)"/>,
+            or -1 when the driver has no periodic support - then synthesise at
+            15 Hz or below through <see cref="M:Dbce.Wheel.Ffb.WheelFfbNative.SetForce(System.Int32)"/> instead. Toolkit 0.2.0+.
+            </summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.WheelFfbNative.UpdatePeriodic(System.Int32,System.Single,System.Single)">
+            <summary>Envelope update; safe to call every frame (unchanged envelopes never reach the driver).</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.WheelFfbNative.DeviceGuid(System.Int32)">
+            <summary>
+            Instance GUID of an enumerated force-feedback device, to hand back to
+            <see cref="M:Dbce.Wheel.Ffb.WheelFfbNative.PreferGuid(System.Nullable{System.Guid})"/>. Without this a mod with no DirectInput layer
+            of its own could not pin a device by identity, and matching by name
+            picks the wrong one of a Fanatec base's two entries. Toolkit 0.4.0+.
+            </summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.WheelFfbNative.AnyDeviceGuid(System.Int32)">
+            <summary>The same for the full controller list (shifters, pedal sets).</summary>
+        </member>
+        <member name="T:Dbce.Wheel.Ffb.WheelFfbNative.ConditionKind">
+            <summary>Condition effect kind for <see cref="M:Dbce.Wheel.Ffb.WheelFfbNative.CreateCondition(Dbce.Wheel.Ffb.WheelFfbNative.ConditionKind)"/>.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.WheelFfbNative.CreateCondition(Dbce.Wheel.Ffb.WheelFfbNative.ConditionKind)">
+            <summary>
+            Creates a hardware condition effect - the base computes force from axis
+            position or velocity continuously, rather than following our updates.
+            A hardware damper is smoother and more stable than damping synthesised
+            at 60 Hz, and is usually the right answer to a base that oscillates.
+            Returns the slot, or -1 when the driver has no such effect (normal;
+            fall back to damping in the model). Toolkit 0.4.0+.
+            </summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.WheelFfbNative.UpdateCondition(System.Int32,System.Single,System.Single,System.Single,System.Single)">
+            <summary>
+            Updates a condition slot. All four are -1..1 (saturation and deadband
+            0..1); safe to call every frame, since an unchanged condition never
+            reaches the driver.
+            </summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.WheelFfbNative.Shutdown">
+            <summary>Releases the device. Safe to call repeatedly.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.WheelFfbNative.ShutdownAll">
+            <summary>Final consumer shutdown, including all independently opened readers.
+            Use Shutdown alone when switching FFB without closing input devices.</summary>
+        </member>
+        <member name="P:Dbce.Wheel.Ffb.WheelFfbNative.DeviceInfo.Label">
+            <summary>Name plus capabilities, so two same-named devices differ.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.WheelFfbNative.ListFfbDevices">
+            <summary>Force-feedback-capable devices, in DirectInput order.</summary>
+        </member>
+        <member name="M:Dbce.Wheel.Ffb.WheelFfbNative.ListAllDevices">
+            <summary>Every attached game controller, force feedback or not.</summary>
+        </member>
+    </members>
+</doc>

@@ -1,0 +1,41 @@
+{
+  "status": "unpublished extension, not part of v0.12.0",
+  "repository": "https://github.com/d-b-c-e/dbce-wheel-mod-toolkit",
+  "dllSha256": "af0c081721e817f3e7e22c446d4c24589277d28ba8024f3b9a1c3daa9733fb12",
+  "baseRevision": "6f9c662e330af1ab790ca291a799265e0a50ef8a",
+  "sources": [
+    {
+      "path": "Dbce.Wheel.Recording.csproj",
+      "sha256": "1319a6381a5508ec099d06ede2f1fdb9a481d06644bbe31957948a1ab8d97c97"
+    },
+    {
+      "path": "JsonLines.cs",
+      "sha256": "651444bf56985eeebc364048d64e10892ad2ad2cc48182cb4d6f8129463adc19"
+    },
+    {
+      "path": "JsonSyntax.cs",
+      "sha256": "ed39f191758d6eb217cb0536560ffb15bff50711c27161886d04ba9a8b7bad59"
+    },
+    {
+      "path": "RecordingOptions.cs",
+      "sha256": "c24b950decc61d13bdedf6ad9b016cb3f419b67f914b1ff4a83af5dd7089336b"
+    },
+    {
+      "path": "SessionReader.cs",
+      "sha256": "3b46809eb5f209884dea1da40db0a1cb7a83e1ca860e0bb18f5988e0430e8386"
+    },
+    {
+      "path": "SessionRecorder.cs",
+      "sha256": "42b572010d98eb3ea778e156b51fbdfb906d2b6723940fefa579497e9a22c155"
+    },
+    {
+      "path": "SessionRecords.cs",
+      "sha256": "e00398dd2d19aba1d9dd8eee87967039d58cfadb63e219dbd795c4cbfe7bf0ea"
+    },
+    {
+      "path": "Validation.cs",
+      "sha256": "94ac35a6ebc7b55e53b065195e364ead3bd58112b121e64d2364a7049309b524"
+    }
+  ],
+  "dirty": true
+}

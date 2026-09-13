@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net6.0</TargetFramework><AssemblyName>WodenRallyEdgeWheel</AssemblyName><AllowUnsafeBlocks>true</AllowUnsafeBlocks><CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../WodenRallyEdge.Core/WodenRallyEdge.Core.csproj" />
+    <Reference Include="../../lib/core/BepInEx.Core.dll" Private="false" />
+    <Reference Include="../../lib/core/BepInEx.Unity.IL2CPP.dll" Private="false" />
+    <Reference Include="../../lib/core/Il2CppInterop.Runtime.dll" Private="false" />
+    <Reference Include="../../lib/core/0Harmony.dll" Private="false" />
+    <Reference Include="../../lib/interop/*.dll" Private="false" />
+    <Reference Include="Dbce.Wheel.Ffb" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Ffb.dll" />
+    <None Include="../../lib/toolkit/native/WheelFfb.dll" CopyToOutputDirectory="PreserveNewest" Link="WheelFfb.dll" />
+  </ItemGroup>
+</Project>
