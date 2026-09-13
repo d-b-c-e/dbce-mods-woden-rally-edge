@@ -24,6 +24,7 @@ public sealed class TelemetryOutput : IDisposable
     private string? _lastState;
     private string? _lastDiscontinuity;
     private string? _lastUnavailable;
+    private double? _recordOrigin;
     private volatile bool _stop;
     private long _overwrites, _sent, _errors;
     public long OverwrittenTicks => Interlocked.Read(ref _overwrites);
@@ -43,7 +44,7 @@ public sealed class TelemetryOutput : IDisposable
         {
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(options.RecordingPath))!);
             _recorder = new SessionRecorder(options.RecordingPath, new SessionMetadata {
-                Game = "Super Woden Rally Edge", PluginVersion = "0.1.0", ToolkitVersion = "v0.12.0 + separately pinned unpublished recording",
+                Game = "Super Woden Rally Edge", PluginVersion = "0.2.2", ToolkitVersion = "v0.12.0 + separately pinned unpublished recording",
                 StartedUtc = DateTime.UtcNow,
                 Properties = new() { ["sessionId"] = sessionId, ["recordingSource"] = recordingSource,
                     ["phase"] = "MainCar.FixedUpdate.postfix.prePhysicsSolve", ["schema"] = TelemetrySchema.Name + "/1",
@@ -63,12 +64,14 @@ public sealed class TelemetryOutput : IDisposable
         sample.Add("sample.simulationSeconds", sample.SimulationSeconds);
         sample.Add("sample.sequence", sample.Sequence);
         sample.Add("sample.driving", sample.Driving ? 1 : 0);
-        _recorder?.TryRecord(sample.ElapsedSeconds, sample.Channels);
-        if (_lastState != sample.State) _recorder?.TryMark(sample.ElapsedSeconds, "state", sample.State);
-        if (sample.Discontinuity != null && _lastDiscontinuity != sample.Discontinuity) _recorder?.TryMark(sample.ElapsedSeconds, "discontinuity", sample.Discontinuity);
+        _recordOrigin ??= sample.ElapsedSeconds;
+        double recordTime = sample.ElapsedSeconds - _recordOrigin.Value;
+        _recorder?.TryRecord(recordTime, sample.Channels);
+        if (_lastState != sample.State) _recorder?.TryMark(recordTime, "state", sample.State);
+        if (sample.Discontinuity != null && _lastDiscontinuity != sample.Discontinuity) _recorder?.TryMark(recordTime, "discontinuity", sample.Discontinuity);
         string unavailable = string.Join(",", sample.Unavailable);
         if (unavailable != _lastUnavailable && (unavailable.Length > 0 || _lastUnavailable?.Length > 0))
-            _recorder?.TryMark(sample.ElapsedSeconds, "unavailable", unavailable.Length <= 4096 ? unavailable : unavailable[..4096]);
+            _recorder?.TryMark(recordTime, "unavailable", unavailable.Length <= 4096 ? unavailable : unavailable[..4096]);
         _lastUnavailable = unavailable;
         _lastState = sample.State; _lastDiscontinuity = sample.Discontinuity;
         if (Interlocked.Exchange(ref _pending, new(sample, Stopwatch.GetTimestamp())) != null) Interlocked.Increment(ref _overwrites);

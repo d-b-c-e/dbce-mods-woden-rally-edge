@@ -9,7 +9,7 @@ namespace WodenRallyEdge;
 internal static class GameSampler
 {
     private static NVector V(Vector3 v) => new(v.x, v.y, v.z);
-    internal static TelemetrySample Read(MainCar car, InputLease? input)
+    internal static TelemetrySample Read(MainCar car, AppliedInput? input)
     {
         var s = new TelemetrySample {
             SessionId = Runtime.SessionId, Sequence = Runtime.Sequence++, ElapsedSeconds = Runtime.Clock.Elapsed.TotalSeconds,
@@ -27,11 +27,23 @@ internal static class GameSampler
             s.Add("game.rank", car.Rank); s.Add("game.laps", car.Laps); s.Add("game.checkpoint", car.CheckPoint);
         });
         Group("controls", () => {
+            s.Add("wheelInput.appliedTicks", Runtime.Wheel?.AppliedTicks ?? 0);
+            foreach (var name in new[] { "Steer", "Throttle", "Brake" })
+            {
+                var b = Runtime.Wheel?.Bindings.Axis(name);
+                var d = b == null ? null : Runtime.Devices?.Devices.FirstOrDefault(x => x.Info.InstanceGuid == b.DeviceGuid && x.Ok);
+                if (d != null) s.Add("wheelRaw." + name.ToLowerInvariant(), d.Axes[b!.Axis]);
+            }
             var c = car.MyControls; if (c == null) return;
             s.Add("controls.steer", c.Steering_float); s.Add("controls.throttle", c.Pedal_Acc); s.Add("controls.brake", c.Pedal_Bra);
             s.Add("game.handbrake", c.B_HandBrake ? 1 : 0);
             if (c.PauseScript != null) s.Add("game.photoMode", c.PauseScript.PhotomodeActive ? 1 : 0);
             if (input != null) { s.Add("wheelInput.steer", input.Steer); s.Add("wheelInput.throttle", input.Throttle); s.Add("wheelInput.brake", input.Brake); }
+        });
+        Group("camera", () => {
+            var cam = car.MyCamera; if (cam == null) return;
+            s.Add("camera.mode", (int)cam.Mode); s.Add("camera.mountedView", (int)MountedCamera.Cycle.View);
+            s.Add("camera.stockPreset", cam.PresetIndex); s.Add("camera.changing", cam.Changing ? 1 : 0); s.Add("camera.playerOwned", MountedCamera.PlayerOwned ? 1 : 0);
         });
         Group("engine", () => {
             var e = car.EngineSystem; if (e == null) return;
@@ -88,7 +100,7 @@ internal static class GameSampler
             s.Add(p + "steerAngle", wheel.steerAngle); s.Add(p + "motorTorque", wheel.motorTorque); s.Add(p + "brakeTorque", wheel.brakeTorque);
             wheel.GetWorldPose(out var hub, out _);
             s.Vector(p + "hubOffset.local", V(wheel.transform.InverseTransformPoint(hub)));
-            bool grounded = wheel.GetGroundHit(out var hit);
+            bool grounded = WheelContact.Read(wheel, out var hit);
             s.Add(p + "grounded", grounded ? 1 : 0);
             if (grounded && hit != null)
             {

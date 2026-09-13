@@ -98,5 +98,71 @@ Test("invalid clocks are reported without killing output", () => {
     using var output = new TelemetryOutput(new(0, 0), "synthetic", "fixture");
     output.Publish(Sample(double.NaN)); Check(output.SendErrors == 1, "invalid clock counted");
 });
+Test("binding capture rejects ambiguity and half steering sweeps; reversed pedals survive save/reload", () => {
+    Guid guid = Guid.NewGuid(); var baseline = new Dictionary<(Guid, int), int> { [(guid, 0)] = 32000, [(guid, 2)] = 65535 };
+    var capture = new AxisCapture(baseline, true);
+    capture.Observe(new() { [(guid, 0)] = 65535, [(guid, 2)] = 65535 });
+    Check(capture.Finish() == null, "half steering sweep refused");
+    capture.Observe(new() { [(guid, 0)] = 0, [(guid, 2)] = 65535 });
+    var steering = capture.Finish()!; Near(steering.Calibration.Normalize(32000), 0, "captured centre"); Near(steering.Calibration.Normalize(65535), 1, "right first");
+    var ambiguous = new AxisCapture(baseline, false); ambiguous.Observe(new() { [(guid, 0)] = 0, [(guid, 2)] = 0 });
+    Check(ambiguous.Ambiguous && ambiguous.Finish() == null, "multiple moving axes refused");
+    var pedal = new AxisCapture(baseline, false); pedal.Observe(new() { [(guid, 0)] = 32000, [(guid, 2)] = 0 });
+    var binding = pedal.Finish()!; Near(binding.Calibration.Normalize(0), 1, "inverted full pedal");
+    var bindings = new Bindings { Steer = steering, Throttle = binding, Brake = binding, Buttons = new() { ["Gear up"] = new(guid, 10) } };
+    string path = Path.Combine(Path.GetTempPath(), "woden-binding-test-" + Guid.NewGuid() + ".json");
+    bindings.Save(path); bindings.Save(path); var read = Bindings.Load(path);
+    Check(read.DrivingAxesReady && read.Buttons["Gear up"].DeviceGuid == guid, "identity and roles preserved");
+    Near(read.Throttle!.Calibration.Normalize(65535), 0, "released after reload"); Check(File.Exists(path + ".bak"), "previous file backed up");
+    File.Delete(path); File.Delete(path + ".bak");
+});
+TelemetrySample Contact(double time, double slip = .3, double speed = 20, string state = "driving") {
+    var s = Sample(time, state: state); s.Add("motion.speed", speed); s.Add("motion.velocity.local.z", speed);
+    foreach (var c in new[] { "fl", "fr" }) { s.Add("wheel." + c + ".grounded", 1); s.Add("wheel." + c + ".contactForce", 3000); s.Add("wheel." + c + ".sidewaysSlip", slip); }
+    s.Add("wheelInput.steer", 0); return s;
+}
+Test("shared force shaping: symmetric sign, literal gain, cap, ramp and low-speed fade", () => {
+    var left = new ForceSignal(); var right = new ForceSignal(); var inverted = new ForceSignal(); float final = 0;
+    for (int i = 1; i <= 100; i++) {
+        var a = left.Evaluate(Contact(i * .02), new()); var b = right.Evaluate(Contact(i * .02, -.3), new());
+        var inv = inverted.Evaluate(Contact(i * .02), new(Invert: true));
+        Check(a.Valid && Math.Abs(a.Preview) <= .10001, "default gain remains low"); Near(a.Preview, -b.Preview, "symmetric slip"); Near(a.Preview, -inv.Preview, "invert sign");
+        if (i == 1) Check(Math.Abs(a.Preview) < .01, "starts near zero"); final = a.Preview;
+    }
+    Check(final < -.01, "preview builds when not output-armed");
+    var cap = new ForceSignal(); float peak = 0;
+    for (int i = 1; i <= 80; i++) peak = Math.Max(peak, Math.Abs(cap.Evaluate(Contact(i * .02, 100), new(Strength: 100, PeakPercent: 5)).Preview));
+    Check(peak <= .05001 && peak > .01, "hard cap still permits signal");
+    Near(new ForceSignal().Evaluate(Contact(1, speed: 0), new()).Preview, 0, "stationary has no force");
+    Near(new ForceSignal().Evaluate(Contact(1), new(PeakPercent: 0)).Preview, 0, "zero peak disables force");
+});
+Test("force rejects stale, paused, replay, reverse, airborne and incomplete or nonfinite contacts", () => {
+    foreach (string state in new[] { "paused", "replay", "inactive", "respawning", "unfocused", "invalid-motion" })
+        Check(!new ForceSignal().Evaluate(Contact(1, state: state), new()).Valid, state + " blocked");
+    var signal = new ForceSignal(); signal.Evaluate(Contact(1), new()); Check(!signal.Evaluate(Contact(1.3), new()).Valid, "stale signal reset");
+    var missing = Contact(1); missing.Channels.Remove("wheel.fl.sidewaysSlip"); Check(!new ForceSignal().Evaluate(missing, new()).Valid, "missing contact refuses estimate");
+    var bad = Contact(1); bad.Add("wheel.fl.contactForce", double.NaN); Check(!new ForceSignal().Evaluate(bad, new()).Valid, "nonfinite refuses estimate");
+    var airborne = Contact(1); airborne.Add("wheel.fl.grounded", 0); airborne.Add("wheel.fr.grounded", 0); Check(!new ForceSignal().Evaluate(airborne, new()).Valid, "airborne zero");
+    Check(!new ForceSignal().Evaluate(Contact(1, speed: -2), new()).Valid, "reverse blocked");
+    Check(!new ForceSignal().Evaluate(Contact(1), new(Strength: float.NaN)).Valid, "bad tuning blocked");
+});
+Test("live capture starts at zero even hours after game launch", () => {
+    string path = Path.Combine(Path.GetTempPath(), "woden-late-capture-" + Guid.NewGuid() + ".jsonl");
+    using (var output = new TelemetryOutput(new(0, 0, 20, path), "fixture", "synthetic")) { output.Publish(Sample(7200)); output.Publish(Sample(7200.02)); }
+    var rows = SessionReader.Read(path).ToArray(); Check(rows.Count(x => x.Kind == SessionRecordKind.Sample) == 2, "late recording is not instantly duration-limited");
+    Check(rows.Last().Footer.Completed, "late capture complete"); File.Delete(path);
+});
+Test("camera button extends the stock cycle without saving invalid native indices and yields on takeover", () => {
+    var cycle = new CameraCycle();
+    cycle.StockChanged(0, 1, true, true); Check(cycle.View == MountedView.Stock, "stock intermediate view retained");
+    cycle.StockChanged(4, 0, true, true); Check(cycle.View == MountedView.Bonnet && cycle.ExpectedStockPreset == 0, "wrap inserts bonnet while native index remains legal");
+    Check(cycle.Advance(true, true) && cycle.View == MountedView.Bumper, "same action advances bumper");
+    Check(cycle.Advance(true, true) && cycle.View == MountedView.Stock, "same action returns to stock zero");
+    Check(!cycle.Advance(true, true), "next press delegated to stock");
+    cycle.StockChanged(4, 0, false, true); Check(cycle.View == MountedView.Bumper, "disabled bonnet skipped");
+    Check(cycle.Reconcile(2, true, true) && cycle.View == MountedView.Stock, "unexpected game preset wins");
+    cycle.StockChanged(4, 0, true, true); cycle.Handoff(); Check(cycle.View == MountedView.Stock, "photo/replay handoff drops mounted view");
+    cycle.StockChanged(0, 0, false, false); Check(cycle.View == MountedView.Stock, "all disabled leaves normal cycle");
+});
 Console.WriteLine($"{passed} suites passed; {failed} failed; {checks} assertions.");
 return failed == 0 ? 0 : 1;

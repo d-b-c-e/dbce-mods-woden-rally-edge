@@ -16,6 +16,13 @@ Detailed receivers must treat silence beyond 500 ms as stale, use `sessionId` pl
 
 ## Sampling and validity
 
+0.2.2 adds `wheelInput.appliedTicks` plus `camera.mode`, `camera.mountedView`,
+`camera.playerOwned`, `camera.changing` and `camera.stockPreset`. These distinguish
+device readings from a run through the Controls action-table hook and document
+the camera ownership gate used by FFB. There are 199 schema definitions;
+availability/meaning still require recorded runtime checks. Camera mode values
+retain the game's enum; mounted view is 0 stock, 1 bonnet, 2 bumper.
+
 The hook is **MainCar.FixedUpdate postfix, before the next Unity physics solve**. It reads the current game fields and last available PhysX state. A current input command and a wheel contact may belong to adjacent solve phases. This is explicitly included in the detailed packet and recording metadata. A truly post-solve sampler is a validation milestone.
 
 The selected car must have `IsPlayer`, the configured exact `PlayerIndex`, state `RACE`, focus, and no pause/replay/photo/respawn/locked state to count as driving. These field gates are implemented from static inspection and still need live validation. Countdown/warming state is inactive in this first build.
@@ -50,5 +57,15 @@ Standard Forza has no per-field validity mask. Unsupported fields therefore enco
 Forza velocity, acceleration and angular velocity use the vehicle's local frame. Position is world-space. This follows the [Forza Data Out specification](https://forums.forza.net/t/forza-motorsport-7-data-out-feature-details/74013). The toolkit encodes bytes without changing those coordinate frames.
 
 ## Validation drive
+
+### Experimental FFB and physical input channels (0.2.0)
+
+`wheelRaw.steer/throttle/brake` are bound DirectInput values before calibration, absent on device-read failure. `wheelInput.*` exists only when the mod applies its calibrated controls. Comparing both with `controls.*` and `game.*` helps establish whether the hook feeds the final game input.
+
+`ffb.frontLoad` sums the two front contact magnitudes. The provisional model computes `-sum(load * tanh(sidewaysSlip / slipScale)) / loadReference`, clamps it, and adds damping from calibrated steering velocity. `ffb.alignmentEstimate` and `ffb.dampingEstimate` retain those components; `ffb.preview` is toolkit-conditioned output before device permissions. It remains useful with FFB disarmed. These are estimates, not measured rack torque or signed lateral force.
+
+`ffb.sent` is the normalized request accepted by the native API. `ffb.accepted` is absent when no write was attempted. Delivery counters expose API/init failures; they do not establish physical torque. `ffb.armed` records session permission. `ffb.tuning.*` preserves strength, peak, reference load, slip scale, smoothing, damping, inversion and model version (1) per sample. Scene/pause/discontinuity markers remain in the recording. Richer per-gate suppression markers are still to be added.
+
+Live capture can be started after hours in-game: recording timestamps begin at the first captured sample, while `sample.simulationSeconds` preserves the game clock. Stopping/restarting capture creates a distinct file. Do not interpret a recorder limit as a complete normal shutdown.
 
 Capture separate short runs for stationary idle; constant-speed straight; acceleration/braking; left/right corner; reverse/gear changes; jump/landing; rough surface; pause/resume; respawn and stage restart. Compare speed/RPM/gear/timers with the HUD and compare left/right loads with the turn direction. Record scale/corner/contact findings in STATE with exact build and session filenames. Evaluate shaker effects with standard SimHub fields once verified; no extra SimHub plugin is required or supplied.

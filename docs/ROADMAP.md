@@ -10,24 +10,24 @@ The compiled foundation includes the Woden sampler, per-channel units/provenance
 
 Build an owner-facing setup panel with exact-device selection, raw-axis display, steering centre/endpoints, separate pedal calibration, inversion/deadzone, binding capture, persistence and reconnect status. Support separate USB devices, paddle/H-pattern shifter, handbrake and stalk buttons. Route menus and camera actions explicitly. Keep input changes confined to selected player controls; never switch the game's input backend or alter assists behind the UI.
 
-Experimental direct axes exist now. Calibration UI, button mapping and reconnect recovery do not. Verify the game's stock Logitech reader before deciding whether it should be disabled under explicit mod ownership.
+The 0.2.0 F6 panel implements direct axes, calibration, button capture, persistence and manual reconnect. Live R12 reads and stock Logitech ownership transfer have been observed in Woden. Effective driving input, paddle actions and reconnect under a loaded force effect still need a drive. H-pattern and stock menu navigation remain future work.
 
 ## Milestone 3 — meaningful force feedback
 
-Use the existing toolkit output/lifecycle/profile implementation. Investigate native Logitech behavior and obtain one force owner. Review front-wheel slip/contact-force records; neither WheelHit.force magnitude nor sidewaysSlip is already an aligning torque. Develop an explicitly labelled estimate if no signed force can be recovered. A no-output preview should report source validity, sign, load, gain, clipping and suppression reason. Validate sign and saturation offline against recorded left/right turns, then conduct an attended low-gain test.
+The 0.2.0 provisional model estimates alignment from front load and sideways slip, adds steering damping, and uses the toolkit output lifecycle and conditioning. Synthetic tests cover sign symmetry, inversion, gain, hard cap, ramp, fade and invalid sources. Obtain a real contact corpus and validate sign/load normalization during an attended low-gain test. Shared profile-data adoption and richer force suppression markers remain future improvements.
 
 Required output behavior: pause/focus/menu/respawn/replay/stale suppression, watchdog and exit guards, zero before the game window disappears, strict GUID/device ownership, virtual-device rejection, panic stop and ramp-in. Do not fix shaker complaints by retuning steering torque. Keep wheel force and telemetry-driven shaker channels independently diagnosable.
 
 ## Milestone 4 — mounted views and product polish
 
-Validate the experimental bonnet transform across cars and game modes. Add bumper view, per-car offsets, FOV and near-clip tuning, rear look, reliable stock restoration and camera actions. Test split-screen targeting explicitly. Then add a compact settings UI with controls, camera, telemetry/capture and force diagnostics; package transactional updates/backups and support bundles.
+0.2.2 builds bonnet/bumper in the native camera cycle, held rear look and camera-takeover FFB suppression. Validate those across cars and game modes, then add per-car offsets, FOV and near-clip tuning. Test split-screen targeting explicitly. Align the UI to toolkit UX-1; transactional player updates and support bundles remain future work.
 
 ## Reference lessons carried forward
 
 | Reference | Applied here | Still to implement |
 |---|---|---|
-| Toolkit | Pinned native/device and Forza artifacts, separate recording provenance, finite channels, no duplicated DirectInput layer | Force profile adoption and physical output lifecycle |
-| Art of Sim Rally | Raw-vs-derived telemetry, reset-safe acceleration, contact evidence discipline, independent shaker/steering reasoning | Attended corpus, contact-based force model, rich calibration/settings UX |
-| iRacing Arcade | BepInEx #788 / .NET 6, no Unity unstripping, per-game interop generation, minimal injected component, hook counters | Live hook proof, bindings/actions UI, reconnect and complete mounted-view behavior |
+| Toolkit | Pinned native/device and Forza artifacts, recording provenance, force shaping/lifecycle | Force profile adoption and physical lifecycle validation |
+| Art of Sim Rally | Raw/derived telemetry, reset-safe acceleration, contact estimate, saved-rig calibration seed | Attended contact corpus and force tune |
+| iRacing Arcade | BepInEx #788, per-game stripped interop, F6 settings/bindings, manual reconnect | Live driving-hook proof and complete mounted-view behavior |
 
 Current reference docs were inspected on 2026-09-12. Their own verification limits remain theirs; no physical or runtime validation transfers automatically to Woden.

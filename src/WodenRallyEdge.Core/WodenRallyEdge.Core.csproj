@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><TargetFramework>net6.0</TargetFramework></PropertyGroup>
   <ItemGroup>
+    <Reference Include="Dbce.Wheel.Ffb" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Ffb.dll" />
     <Reference Include="Dbce.Wheel.Telemetry" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Telemetry.dll" />
     <Reference Include="Dbce.Wheel.Recording" HintPath="../../lib/recording/Dbce.Wheel.Recording.dll" />
   </ItemGroup>

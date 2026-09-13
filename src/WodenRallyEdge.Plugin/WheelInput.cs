@@ -1,82 +1,110 @@
-using System.Text.Json;
-using Dbce.Wheel.Ffb;
 using WodenRallyEdge.Core;
+using Il2CppInterop.Runtime.InteropTypes.Arrays;
 
 namespace WodenRallyEdge;
 
-internal sealed record AxisBinding(Guid DeviceGuid, int Axis, AxisCalibration Calibration);
-internal sealed record WheelBindings(AxisBinding Steer, AxisBinding Throttle, AxisBinding Brake);
-
-internal sealed class WheelInput : IDisposable
+internal sealed class WheelInput
 {
-    private readonly WheelBindings _bindings;
-    private readonly Dictionary<Guid, int> _slots = new();
-    private readonly Dictionary<Guid, int[]> _axes = new();
-    private readonly byte[] _buttons = new byte[128];
-    private bool _failed;
-    internal WheelInput(string directory, string path)
+    internal static readonly string[] ButtonActions = { "Gear up", "Gear down", "Handbrake", "Camera", "Rear view", "Lights", "Horn", "Respawn", "Pause", "Settings panel", "Panic stop", "Records", "Next song" };
+    private readonly string _path;
+    internal Bindings Bindings { get; private set; } = new();
+    internal string Status { get; private set; } = "Ready to bind";
+    internal AxisCapture? Capture { get; private set; }
+    internal string? CaptureAxis { get; private set; }
+    internal string? CaptureButton { get; private set; }
+    private double _captureDeadline, _captureAfter;
+    private AppliedInput? _last;
+    internal long AppliedTicks { get; private set; }
+    internal AppliedInput? LastFor(MainCar car) => _last is { } last && last.Car == car.GetInstanceID() && Runtime.Clock.Elapsed.TotalSeconds - last.At < .1 ? last : null;
+    internal WheelInput(string path)
     {
-        _bindings = JsonSerializer.Deserialize<WheelBindings>(File.ReadAllText(path), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? throw new IOException("Empty bindings");
-        if (_bindings.Steer == null || _bindings.Throttle == null || _bindings.Brake == null) throw new IOException("All three wheel axes must be bound");
-        foreach (var b in new[] { _bindings.Steer, _bindings.Throttle, _bindings.Brake })
-            if (b.DeviceGuid == Guid.Empty || b.Axis is < 0 or > 7 || b.Calibration?.Valid != true) throw new IOException("Invalid GUID/axis/calibration");
-        if (_bindings.Steer.Calibration.Centre == null || _bindings.Throttle.Calibration.Centre != null || _bindings.Brake.Calibration.Centre != null)
-            throw new IOException("Steer needs a centre; pedals use rest/end only");
-        if (!WheelFfbNative.Load(directory)) throw new IOException(WheelFfbNative.LastError);
-        // Read slots are nonexclusive. Never Initialise(), create effects or send force.
-        try
+        _path = path;
+        try { Bindings = Bindings.Load(path); } catch (Exception ex) { Status = "Bindings could not load: " + ex.Message; }
+    }
+    internal void Save() { try { Bindings.Save(_path); Status = "Bindings saved"; } catch (Exception ex) { Status = "Save failed: " + ex.Message; } }
+    internal void BeginAxis(string name)
+    {
+        Cancel(); Runtime.Force?.Suspend("calibration"); Runtime.Devices?.Poll();
+        CaptureAxis = name; Capture = new(Runtime.Devices!.AxesSnapshot(), name == "Steer");
+        _captureDeadline = Runtime.Clock.Elapsed.TotalSeconds + 30;
+    }
+    internal void BeginButton(string name)
+    {
+        Cancel(); CaptureButton = name; _captureDeadline = Runtime.Clock.Elapsed.TotalSeconds + 20;
+        _captureAfter = Runtime.Clock.Elapsed.TotalSeconds + .3; Runtime.Devices?.ClearPresses();
+    }
+    internal void UpdateCapture()
+    {
+        if (Capture == null && CaptureButton == null) return;
+        if (Runtime.Clock.Elapsed.TotalSeconds > _captureDeadline) { Cancel(); Status = "Binding timed out; previous binding retained"; return; }
+        Capture?.Observe(Runtime.Devices!.AxesSnapshot());
+        if (CaptureButton != null && Runtime.Clock.Elapsed.TotalSeconds > _captureAfter)
         {
-            var devices = WheelFfbNative.ListAllDevices();
-            foreach (var guid in new[] { _bindings.Steer.DeviceGuid, _bindings.Throttle.DeviceGuid, _bindings.Brake.DeviceGuid }.Distinct())
-            {
-                var matching = devices.Where(x => x.InstanceGuid == guid).ToArray();
-                if (matching.Length != 1) throw new IOException("Exact bound device missing or ambiguous: " + guid);
-                var d = matching[0];
-                if (new[] { "vjoy", "vigem", "xoutput", "vxbox" }.Any(x => d.Name.Contains(x, StringComparison.OrdinalIgnoreCase))) throw new IOException("Virtual device rejected");
-                int slot = WheelFfbNative.OpenRead(d.Index);
-                if (slot < 0) throw new IOException("Cannot open " + d.Name);
-                _slots.Add(guid, slot); _axes.Add(guid, new int[8]);
-                Runtime.Log.LogInfo($"Wheel read slot: {d.Name}, GUID={guid}. No FFB acquisition.");
-            }
+            var pressed = Runtime.Devices!.PressedButtons().ToArray();
+            if (pressed.Length == 1) { Bindings.Buttons[CaptureButton] = pressed[0]; Cancel(); Save(); }
+            else if (pressed.Length > 1) Status = "Press one button at a time";
         }
-        catch { Dispose(); throw; }
     }
-    internal InputLease? Apply(MainCar car)
+    internal void FinishAxis()
     {
-        if (_failed || car.MyControls == null) return null;
-        foreach (var slot in _slots)
-            if (!WheelFfbNative.Read(slot.Value, _axes[slot.Key], _buttons))
-            {
-                _failed = true;
-                Runtime.Log.LogWarning("Wheel disconnected/read failed; stock controls retained. Restart to reopen calibrated devices.");
-                return null;
-            }
-        float Read(AxisBinding b) => (float)b.Calibration.Normalize(_axes[b.DeviceGuid][b.Axis]);
-        return new(car.MyControls, Read(_bindings.Steer), Read(_bindings.Throttle), Read(_bindings.Brake));
+        var b = Capture?.Finish();
+        if (b == null || CaptureAxis == null) { Status = "Sweep the required range before saving"; return; }
+        Bindings.SetAxis(CaptureAxis, b); Cancel(); Save();
     }
-    public void Dispose() { _failed = true; WheelFfbNative.CloseRead(); }
+    internal void Cancel() { Capture = null; CaptureAxis = null; CaptureButton = null; Runtime.Devices?.ClearPresses(); }
+    internal bool Button(string action, bool edge = true) => Bindings.Buttons.TryGetValue(action, out var b) && Runtime.Devices?.Button(b, edge) == true;
+    internal InputLease? Apply(Controls controls)
+    {
+        var car = controls.field_Private_MainCar_0;
+        if (car == null || !Runtime.Driving(car)) return null;
+        if (!Runtime.Settings.WheelEnabled || car.MyControls == null || !Bindings.DrivingAxesReady || Runtime.Devices == null) return null;
+        var hub = Runtime.Devices;
+        if (!hub.TryAxis(Bindings.Steer, out float steer) || !hub.TryAxis(Bindings.Throttle, out float throttle) || !hub.TryAxis(Bindings.Brake, out float brake))
+        { Status = "A bound device is not responding; stock controls retained. Use Refresh devices."; return null; }
+        var pads = controls.field_Private_GamePadSystem_0?.Game_Pads;
+        var pad = pads == null || pads.Count == 0 ? controls.field_Private_Game_Pad_0 :
+            controls.Controller_Int >= 0 && controls.Controller_Int < pads.Count ? pads[controls.Controller_Int] : null;
+        if (pad?.PadActions == null || pad.PadActions.Length < 18) { Status = "Waiting for Woden action table"; return null; }
+        var lease = new InputLease(pad.PadActions, steer, throttle, brake, this);
+        _last = new(car.GetInstanceID(), Runtime.Clock.Elapsed.TotalSeconds, steer, throttle, brake);
+        if (++AppliedTicks == 1) Runtime.Log.LogInfo("Wheel action-table route active: " + string.Join(", ", new[] { 6, 7, 16, 17 }.Select(i => i + "=" + pad.PadActions[i].name)));
+        Status = "Wheel action table active; ticks " + AppliedTicks;
+        return lease;
+    }
 }
+
+internal sealed record AppliedInput(int Car, double At, float Steer, float Throttle, float Brake);
 
 internal sealed class InputLease
 {
-    private Controls? _controls;
-    private readonly float _stockSteer, _stockThrottle, _stockBrake;
-    internal float Steer { get; }
-    internal float Throttle { get; }
-    internal float Brake { get; }
-    internal InputLease(Controls controls, float steer, float throttle, float brake)
+    private Il2CppReferenceArray<GamePadSystem.Actions>? _actions;
+    private readonly Dictionary<int, GamePadSystem.Actions> _original = new();
+    internal InputLease(Il2CppReferenceArray<GamePadSystem.Actions> actions, float steer, float throttle, float brake, WheelInput input)
     {
-        _controls = controls;
-        _stockSteer = controls.Steering_float; _stockThrottle = controls.Pedal_Acc; _stockBrake = controls.Pedal_Bra;
-        Steer = steer; Throttle = throttle; Brake = brake;
-        try { controls.Steering_float = steer; controls.Pedal_Acc = throttle; controls.Pedal_Bra = brake; }
+        _actions = actions;
+        void Set(int index, float value, bool merge = false)
+        {
+            // Actions is a non-blittable VALUE array. The indexer boxes a copy;
+            // write the changed value back through the array indexer explicitly.
+            _original[index] = actions[index];
+            var action = actions[index];
+            action.value = merge ? Math.Max(action.value, value) : value;
+            action.Pressed = merge ? action.Pressed || value > .5f : value > .5f;
+            actions[index] = action;
+        }
+        try
+        {
+            Set(7, throttle); Set(6, brake); Set(16, Math.Max(0, steer)); Set(17, Math.Max(0, -steer));
+            foreach (var (name, index) in new (string, int)[] { ("Handbrake", 0), ("Gear down", 1), ("Respawn", 2), ("Gear up", 3),
+                ("Lights", 4), ("Camera", 5), ("Next song", 8), ("Horn", 11), ("Records", 12) })
+                if (input.Bindings.Buttons.ContainsKey(name)) Set(index, input.Button(name, false) ? 1 : 0, true);
+        }
         catch { Restore(); throw; }
     }
     internal void Restore()
     {
-        var c = _controls; _controls = null;
-        if (c == null) return;
-        try { c.Steering_float = _stockSteer; c.Pedal_Acc = _stockThrottle; c.Pedal_Bra = _stockBrake; }
+        var actions = _actions; _actions = null; if (actions == null) return;
+        try { foreach (var entry in _original) actions[entry.Key] = entry.Value; }
         catch (Exception ex) { Runtime.Log.LogWarning("Input restore target gone: " + ex.Message); }
     }
 }

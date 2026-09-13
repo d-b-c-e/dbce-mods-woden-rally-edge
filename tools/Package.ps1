@@ -21,7 +21,7 @@ Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination $stage
 Copy-Item -LiteralPath (Join-Path $root 'docs\DEVELOPMENT-BUILD.md') -Destination (Join-Path $stage 'README.md')
 $manifest = @(Get-ChildItem -LiteralPath $stage -File -Recurse | Sort-Object FullName | ForEach-Object { @{ path = [IO.Path]::GetRelativePath($stage, $_.FullName); sha256 = (Get-FileHash -LiteralPath $_.FullName).Hash.ToLowerInvariant() } })
 $manifest | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $stage 'manifest.json') -Encoding utf8
-$zip = Join-Path $root 'dist\WodenRallyEdgeWheel-0.1.0-dev.zip'
+$zip = Join-Path $root 'dist\WodenRallyEdgeWheel-0.2.2-dev.zip'
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force
 Write-Host "Development package: $zip"
 Write-Host "Stage: $stage"

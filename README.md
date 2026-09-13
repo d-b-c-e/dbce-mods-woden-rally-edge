@@ -2,15 +2,15 @@
 
 A Windows mod for **Super Woden Rally Edge** that connects the game's vehicle simulation to a racing rig. Detailed, trustworthy telemetry is the first milestone; direct wheel controls, force feedback and bonnet/bumper views are the feature targets.
 
-**0.1.0 development foundation — compiled and tested offline, never run in Woden yet.** This is a private development repository, not a finished wheel-support release. Read [the evidence and next steps](docs/STATE.md) before treating an integration as verified.
+**0.2.2 development build.** The 0.2.1 level-entry crash fix ran successfully; the owner then reported no driving response. 0.2.2 moves input to the game's action-reading boundary, adds the normal bonnet/bumper cycle and camera/FFB handoff, and starts adopting the shared UX standard. Effective wheel handling, new views and physical FFB still need an attended retest. Read [the evidence and next steps](docs/STATE.md).
 
 | Area | Current implementation |
 |---|---|
-| Telemetry | Game sampler, versioned channel dictionary, standard 324-byte Forza output, detailed JSON UDP, bounded numeric recordings and an offline inspector. Real game sampling still needs validation. |
-| Wheel input | Opt-in direct physical-device axes, exact GUID selection, per-axis calibration, temporary override around the car update and stock-input restoration. Compiled; not driven. |
-| Camera | Opt-in bonnet transform override with restoration. Compiled; placement, clipping, culling and split-screen behavior untested. |
-| Force feedback | Toolkit device/force library pinned. **No force model or torque output implemented.** First validate wheel contact signals and stock Logitech ownership. |
-| Setup UI | Config files and a device-list command. Interactive binding/calibration/settings UI is planned. |
+| Telemetry | Game sampler, versioned channels, 324-byte Forza output, detailed JSON UDP and live bounded capture. Sustained real car/contact sampling observed; signal scales/coverage still need a recording. |
+| Wheel input | Exact-GUID devices, interactive steering/pedal calibration, inversion/deadzone, button capture and reconnect. R12 axes read live in F6; effective driving input still needs verification. |
+| Camera | Bonnet and bumper extend the normal camera-button cycle; held Look behind and game-camera handoff stop/restore behavior. Compiled; placement, clipping, transitions and split-screen behavior untested. |
+| Force feedback | Provisional front-contact/slip alignment estimate and steering damping through the toolkit. Session arming, exact FFB wheel, watchdog, exit guards, ramp, peak cap and driving gates. Physical direction/load normalization unverified. |
+| Setup UI | **F6**: Setup, Controls, FFB, Cameras, Telemetry, Help. **F8**: Stop FFB, latched until manually started again. Settings and bindings save live. See [UX adoption gaps](docs/UX-ADOPTION.md). |
 
 The initial build supports Steam app **3218630**, build **21802346**, Unity **6000.3.6f1**, x64 IL2CPP metadata **39**. The plugin checks the exact `GameAssembly.dll` SHA-256 before patching.
 
