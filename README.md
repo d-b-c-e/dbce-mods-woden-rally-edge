@@ -16,6 +16,10 @@ The initial build supports Steam app **3218630**, build **21802346**, Unity **60
 
 ## Build and inspect
 
+Continuing in another session? Read [STATE](docs/STATE.md), then the
+[handoff guide](docs/HANDOFF.md) for installed-build evidence, source entry
+points, retained local artifacts and the next attended test.
+
 Requires the .NET 10 SDK, the installed Windows game, and PowerShell 7. The plugin targets .NET 6 for BepInEx's bundled runtime; the core has no Unity dependencies.
 
 ```powershell

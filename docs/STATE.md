@@ -1,4 +1,10 @@
-# State — 2026-09-13
+# State — 2026-09-14
+
+Handoff audit: [HANDOFF.md](HANDOFF.md) now records source/installation paths,
+retained evidence and the next test. Read-only checks on 2026-09-14 matched all
+nine installed 0.2.2 payload files and the existing package hash, and verified
+dependency pins. No new game run or physical test occurred; code test results
+below remain from 2026-09-13. Implementation baseline is `f3b5c0a` on `main`.
 
 **0.2.2 development build installed for the next attended test.** 0.2.1's F6 UI, loader boot, device reading, stock Logitech ownership transfer and sustained car/contact sampling ran. The owner confirmed level entry after the WheelHit crash fix, then reported no effective throttle/brake/steering/camera response. 0.2.2 corrects the input boundary and builds camera cycling/handoff. No effective driving, new camera behavior or physical FFB is claimed verified yet.
 
@@ -20,7 +26,11 @@ Release build: zero warnings/errors; **14 suites / 405 assertions**, including n
 
 Next attended test: use Setup to check device bars, then start a short recording in Telemetry with FFB unstarted. Enter the same level; test all axes, Change camera and Look behind. Check `wheelTicks` in the log and camera/FFB state in the capture. Stop the recording before exiting. Only then perform a low-gain attended FFB test. The owner is away; no unattended force test or control injection substitutes for that check.
 
-## Implemented and checked
+## Earlier 0.2.0/0.2.1 implementation and checks
+
+This section preserves earlier evidence. The current 0.2.2 totals above are
+14 suites / 405 assertions and 199 definitions; the older counts below do not
+describe the current package.
 
 - Private repository; supported Steam build 21802346 / Unity 6000.3.6f1 / metadata 39, guarded by exact GameAssembly SHA-256.
 - Pinned BepInEx #788; 71 game-specific interop assemblies generated offline, and runtime generation completed on first actual launch. Empty UnityBaseLibrariesSource remains required.

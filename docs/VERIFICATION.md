@@ -1,5 +1,10 @@
 # Verification — 2026-09-13
 
+Handoff check, 2026-09-14: dependency verification passed and all nine installed
+0.2.2 payload files matched the existing staging manifest. The package hash
+matched STATE. This was read-only verification; no code suite, game session or
+force test was rerun. See [HANDOFF.md](HANDOFF.md) for evidence locations.
+
 ## 0.2.2 input boundary, native camera cycle and UX alignment
 
 Release solution build passes with zero warnings/errors. The executable harness
@@ -38,4 +43,7 @@ The final local package SHA-256 is `24e17dfd15e577b4f295716976db4ba6cee35474db1d
 
 Package: `dist/WodenRallyEdgeWheel-0.1.0-dev.zip`. Synthetic recordings, installer fixtures and inspector outputs are in ignored `artifacts/`; they are not gameplay evidence. The manifest in the ZIP hashes its actual payload. Repackaging can change the ZIP hash without changing the plugin binary.
 
-These checks establish a compilable and testable development foundation. Loader boot, hook execution, actual signal meanings/rates, driving controls, camera visibility and physical feedback remain the live gates in STATE.md.
+These historical 0.1.0 checks established a compilable development foundation.
+Later 0.2.1 evidence above establishes loader boot and car/contact hook execution.
+Effective 0.2.2 controls, signal meanings/coverage, camera visibility and physical
+feedback remain live gates in STATE.md.

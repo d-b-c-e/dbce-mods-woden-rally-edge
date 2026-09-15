@@ -1,13 +1,13 @@
 # Woden Rally Edge Wheel — working notes
 
-Read `docs/STATE.md` first. This repository begins with compiled, offline-tested code. Do not call game hooks, wheel controls, bonnet placement, SimHub reception or FFB physically verified until an actual run and its evidence are recorded there.
+Read `docs/STATE.md` first, then [the session handoff](docs/HANDOFF.md). The installed 0.2.2 build follows observed 0.2.1 boot/contact sampling and the owner's ineffective-input report. Do not extend that evidence to corrected controls, new cameras, SimHub reception or physical FFB until their actual runs are recorded. The handoff maps source, local artifacts, receipts and the next test; update STATE when evidence changes.
 
 ## Boundaries
 
 - Keep this repo private unless the owner explicitly requests otherwise.
 - Game hooks, channel semantics, input mapping, camera and any future force signals belong here. Device and force output infrastructure, Forza encoding and generic recording belong in dbce-wheel-mod-toolkit. Do not grow another native DirectInput implementation.
 - No proprietary game assemblies, generated interop, game assets, recorded owner sessions or loader caches in Git/release archives. Only the toolkit's MIT artifacts are vendored. Recording is separately pinned and unpublished; do not call it part of v0.12.0.
-- Never silently change vehicle physics or assists. Native Logitech wheel ownership must be investigated before enabling a force route.
+- Never silently change vehicle physics or assists. Preserve the implemented stock Logitech reader suspension/SDK shutdown and refusal to arm when ownership cannot be resolved; physical delivery and lifecycle acceptance remain unverified.
 - Experimental FFB now exists. Never enable physical force as an unattended test. Preserve session-only arming, toolkit watchdog, focus/stale/pause/panel gates, exact device selection, exit guards, ramp-in, peak cap and zero-before-window-destruction rules. No native condition/periodic effects bypass the constant-force hold watchdog.
 - Never stop a running game to deploy. Install only when closed. The initial installer refuses existing plugin installations; review backups/configuration when adding an update path.
 

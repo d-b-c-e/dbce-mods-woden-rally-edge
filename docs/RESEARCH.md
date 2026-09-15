@@ -2,6 +2,11 @@
 
 Source: local Steam install and original feasibility survey in dbce-wheel-mod-toolkit, 2026-09-12. [woden-rally-edge-wheel, 2026-09-12]
 
+This page preserves the initial static survey. For subsequent crash diagnosis,
+runtime evidence and the installed 0.2.2 input/camera/FFB implementation, read
+[STATE](STATE.md) and [HANDOFF](HANDOFF.md). Initial unknowns below are not a
+replacement for those versioned results. [woden-rally-edge-wheel, 2026-09-14]
+
 | Item | Observed |
 |---|---|
 | Game | Super Woden Rally Edge, Steam 3218630 |
@@ -16,7 +21,7 @@ MainCar exposes IsPlayer/PlayerIndex, a Rigidbody, Controls, detailed WheelData 
 
 Static candidate RVAs: MainCar.FixedUpdate 0x4FD330, Controls.FixedUpdate 0x9A41F0, Car_Cam.LateUpdate 0x8557E0. These are a research reference for this binary, not the runtime binding mechanism. Obfuscated managed method names should be treated as generated/build-specific.
 
-Native Logitech wrapper libraries and steering-reader components exist, with normalized steering/pedal fields and spring parameters. Their existence does not prove active native wheel support, correct DirectInput handling or useful FFB. The mod's initial force path is absent. The experimental direct-input route needs an ownership check during live testing.
+Native Logitech wrapper libraries and steering-reader components exist, with normalized steering/pedal fields and spring parameters. Their existence does not prove active native wheel support, correct DirectInput handling or useful FFB. The initial 0.1.0 survey had no mod force path. Later development added provisional toolkit FFB and stock-reader/SDK ownership transfer; stock-reader suspension was observed, while physical output acceptance remains pending in STATE.
 
 WheelCollider exposes GetWorldPose, GetGroundHit, RPM, radius, motor/brake torque and steer angle. WheelHit has direct `m_*` data fields even where property getters were stripped. Centre and suspensionDistance are missing from the generated WheelCollider API; Rigidbody has no readable mass/rotation getter. The sampler uses the body's transform quaternion and keeps absolute suspension travel/mass unavailable.
 

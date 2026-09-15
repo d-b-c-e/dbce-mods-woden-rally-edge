@@ -4,7 +4,12 @@ F6 opens settings and bindings. F8 immediately disarms mod FFB. This development
 
 Supports Windows Steam build 21802346, Unity 6000.3.6f1, GameAssembly SHA-256 `f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c`. Other native game builds leave hooks disabled.
 
-## Install
+## First installation only
+
+This machine already has 0.2.2 installed. Start with the
+[handoff and existing-install notes](HANDOFF.md) for its next test; the initial
+installer below deliberately refuses an existing plugin. It is not an updater.
+No repeat installation is needed to test the installed build.
 
 1. Close Woden normally. Run `tools/Initialize-Dependencies.ps1`, `tools/Package.ps1`, then `tools/Install-Dev.ps1` from the repository.
 2. Launch through Steam. First-start BepInEx reference generation can delay startup. The installer seeds the required empty `[IL2CPP] UnityBaseLibrariesSource =` setting.
