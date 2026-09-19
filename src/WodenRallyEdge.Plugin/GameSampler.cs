@@ -28,7 +28,8 @@ internal static class GameSampler
         });
         Group("controls", () => {
             s.Add("wheelInput.appliedTicks", Runtime.Wheel?.AppliedTicks ?? 0);
-            foreach (var name in new[] { "Steer", "Throttle", "Brake" })
+            s.Add("wheelInput.preRaceTicks", Runtime.Wheel?.PreRaceTicks ?? 0);
+            foreach (var name in new[] { "Steer", "Throttle", "Brake", "Handbrake" })
             {
                 var b = Runtime.Wheel?.Bindings.Axis(name);
                 var d = b == null ? null : Runtime.Devices?.Devices.FirstOrDefault(x => x.Info.InstanceGuid == b.DeviceGuid && x.Ok);
@@ -38,8 +39,9 @@ internal static class GameSampler
             s.Add("controls.steer", c.Steering_float); s.Add("controls.throttle", c.Pedal_Acc); s.Add("controls.brake", c.Pedal_Bra);
             s.Add("game.handbrake", c.B_HandBrake ? 1 : 0);
             if (c.PauseScript != null) s.Add("game.photoMode", c.PauseScript.PhotomodeActive ? 1 : 0);
-            if (input != null) { s.Add("wheelInput.steer", input.Steer); s.Add("wheelInput.throttle", input.Throttle); s.Add("wheelInput.brake", input.Brake); }
+            if (input != null) { s.Add("wheelInput.steer", input.Steer); s.Add("wheelInput.throttle", input.Throttle); s.Add("wheelInput.brake", input.Brake); s.Add("wheelInput.handbrake", input.Handbrake); }
         });
+        Group("timerAssist", () => CountdownTimerAssist.Record(s));
         Group("camera", () => {
             var cam = car.MyCamera; if (cam == null) return;
             s.Add("camera.mode", (int)cam.Mode); s.Add("camera.mountedView", (int)MountedCamera.Cycle.View);

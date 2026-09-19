@@ -25,10 +25,13 @@ internal static class Panel
     private static double _changedAt, _nextError;
     private static string _forza = "", _detail = "";
     private static bool _editBumper, _controlsButtons, _advancedFfb, _deviceDetails;
+    private static bool _cameraBindings;
+    private static bool _difficulty;
+    private static int _cameraBindingPage;
     private static string _saveStatus = "Saved";
     private static string ActionLabel(string action) => action switch
     {
-        "Steer" => "Steering", "Gear up" => "Shift up", "Gear down" => "Shift down", "Camera" => "Change camera",
+        "Steer" => "Steering", "Handbrake" => "E-Brake", "Gear up" => "Shift up", "Gear down" => "Shift down", "Camera" => "Change camera",
         "Rear view" => "Look behind", "Respawn" => "Reset car", "Settings panel" => "Settings", "Panic stop" => "Stop FFB", _ => action
     };
     private static readonly Color Accent = new(.95f, .73f, .3f, 1);
@@ -55,8 +58,8 @@ internal static class Panel
         {
             Cursor.visible = true; UiNative.CursorLock(CursorLockMode.None);
             Runtime.Wheel?.UpdateCapture();
-            if (_dirty && Runtime.Clock.Elapsed.TotalSeconds - _changedAt > .7) Save();
         }
+        if (_dirty && Runtime.Clock.Elapsed.TotalSeconds - _changedAt > .7) Save();
     }
     internal static void Toggle()
     {
@@ -90,6 +93,7 @@ internal static class Panel
         _events = null; _ownedPause = null;
         Runtime.Log.LogInfo("F6 panel closed");
     }
+    internal static void SettingsChanged() => Dirty();
     private static void Dirty() { _dirty = true; _saveStatus = "Saving…"; _changedAt = Runtime.Clock.Elapsed.TotalSeconds; }
     private static void Save() { try { Runtime.Settings.Save(); _dirty = false; _saveStatus = "Saved"; } catch (Exception ex) { _saveStatus = "Save failed"; Message = "Could not save settings: " + ex.Message; } }
     private static void Fill(Rect r, Color color)
@@ -170,10 +174,12 @@ internal static class Panel
     }
     private static void SetupPage()
     {
+        if (Button(620, 104, 292, "Difficulty", _difficulty)) _difficulty = !_difficulty;
+        if (_difficulty) { DifficultyPage(); return; }
         var cfg = Runtime.Settings;
         bool previous = cfg.WheelEnabled; Toggle(250, 150, 320, "Wheel controls", ref cfg.WheelEnabled);
-        if (previous != cfg.WheelEnabled) Runtime.Force?.Disarm("Wheel controls changed");
-        if (Button(640, 150, 272, "Refresh devices")) { Runtime.Force?.Disarm("Device refresh"); Runtime.Devices?.Refresh(); }
+        if (previous != cfg.WheelEnabled) Runtime.Force?.Suspend("Wheel controls changed");
+        if (Button(640, 150, 272, "Refresh devices")) { Runtime.Force?.Reconnect("Device refresh"); Runtime.Devices?.Refresh(); }
         Label(250, 207, 662, "Check your controls, then bind buttons and set up feedback. This panel applies no force.", true, 48);
         int row = 0;
         foreach (string name in new[] { "Steer", "Throttle", "Brake" })
@@ -190,38 +196,53 @@ internal static class Panel
         if (Button(250, 585, 310, "3. Set up FFB")) _page = 2;
         Label(580, 585, 332, "Close settings, then enter a level to check your controls.", true, 64);
     }
+    private static void DifficultyPage()
+    {
+        var cfg = Runtime.Settings;
+        Label(250, 165, 662, "More time to finish", false, 36);
+        Toggle(250, 215, 550, "Countdown assist", ref cfg.CountdownAssistEnabled);
+        Slider(280, "Countdown speed (%)", ref cfg.CountdownSpeed, 25, 100, "F0");
+        Label(250, 330, 662, $"At {cfg.CountdownSpeed:F0}%, 60 seconds on the timer lasts about {6000 / cfg.CountdownSpeed:F0} seconds of driving.", true, 50);
+        if (Button(250, 404, 190, "Normal / 100%")) { cfg.CountdownSpeed = 100; Dirty(); }
+        if (Button(455, 404, 190, "Gentler / 75%")) { cfg.CountdownSpeed = 75; Dirty(); }
+        if (Button(660, 404, 190, "Relaxed / 50%")) { cfg.CountdownSpeed = 50; Dirty(); }
+        Label(250, 471, 662, "Slows the single-player time limit. Car speed, force feedback and elapsed lap/stage clocks run normally. Checkpoint time bonuses keep their normal value.", true, 76);
+        Label(250, 569, 662, cfg.CountdownAssistEnabled ? CountdownTimerAssist.Status : "Off — normal countdown speed", true, 48);
+        Label(250, 630, 662, "Saved automatically. Changes affect future countdown ticks; they do not undo a timeout.", true, 44);
+    }
     private static void ControlsPage()
     {
-        if (Button(535, 104, 180, "Wheel and pedals", !_controlsButtons)) { Runtime.Wheel?.Cancel(); _controlsButtons = false; }
-        if (Button(730, 104, 182, "Buttons", _controlsButtons)) { Runtime.Wheel?.Cancel(); _controlsButtons = true; }
+        if (Button(600, 104, 145, "Axes", !_controlsButtons)) { Runtime.Wheel?.Cancel(); _controlsButtons = false; }
+        if (Button(760, 104, 152, "Buttons", _controlsButtons)) { Runtime.Wheel?.Cancel(); _controlsButtons = true; }
         if (_controlsButtons) ButtonsPage(); else WheelPage();
     }
     private static void WheelPage()
     {
         var cfg = Runtime.Settings; var input = Runtime.Wheel!;
         bool was = cfg.WheelEnabled; Toggle(250, 150, 320, "Wheel input", ref cfg.WheelEnabled);
-        if (was != cfg.WheelEnabled) Runtime.Force?.Disarm("Wheel route changed");
+        if (was != cfg.WheelEnabled) Runtime.Force?.Suspend("Wheel route changed");
         Label(605, 153, 180, "Local player: " + cfg.Player);
         if (Button(790, 150, 48, "-")) { cfg.Player = Math.Max(0, cfg.Player - 1); Dirty(); }
         if (Button(850, 150, 48, "+")) { cfg.Player = Math.Min(3, cfg.Player + 1); Dirty(); }
-        Label(250, 197, 660, "Release pedals and centre the wheel before Calibrate. Turn right first for steering.", true, 40);
+        Label(250, 197, 660, "Release pedals / E-Brake first. Centre the wheel; turn right first when calibrating.", true, 30);
         int row = 0;
-        foreach (string name in new[] { "Steer", "Throttle", "Brake" })
+        foreach (string name in new[] { "Steer", "Throttle", "Brake", "Handbrake" })
         {
-            float y = 248 + row++ * 120; var binding = input.Bindings.Axis(name);
+            float y = 228 + row++ * 91; var binding = input.Bindings.Axis(name);
             Label(250, y, 140, ActionLabel(name));
-            Label(385, y, 385, binding == null ? "Not bound" : Runtime.Devices!.Describe(binding.DeviceGuid) + " / " + Axes[binding.Axis], true, 30);
+            Label(385, y, 385, binding == null ? "Not bound" : (name == "Handbrake" && !input.Bindings.HandbrakeUsesAxis ? "Inactive / " : "") + Runtime.Devices!.Describe(binding.DeviceGuid) + " / " + Axes[binding.Axis], true, 30);
             if (Button(772, y - 3, 140, "Calibrate")) input.BeginAxis(name);
             float value = 0; bool available = Runtime.Devices!.TryAxis(binding, out value);
-            Bar(250, y + 38, 430, available ? value : 0, name == "Steer");
-            Label(698, y + 29, 75, available ? value.ToString("F2") : "--", true);
+            Bar(250, y + 33, 430, available ? value : 0, name == "Steer");
+            Label(698, y + 24, 75, available ? value.ToString("F2") : "--", true);
             if (binding != null)
             {
                 if (Button(772, y + 39, 66, "Invert")) { input.Bindings.SetAxis(name, binding with { Calibration = binding.Calibration with { Rest = binding.Calibration.End, End = binding.Calibration.Rest } }); input.Save(); }
-                if (Button(846, y + 39, 66, "Clear")) { input.Bindings.SetAxis(name, null); input.Save(); }
-                Label(250, y + 61, 210, "Deadzone: " + binding.Calibration.Deadzone.ToString("P0"), true);
-                if (Button(470, y + 61, 40, "-")) { input.Bindings.SetAxis(name, binding with { Calibration = binding.Calibration with { Deadzone = Math.Max(0, binding.Calibration.Deadzone - .01) } }); input.Save(); }
-                if (Button(520, y + 61, 40, "+")) { input.Bindings.SetAxis(name, binding with { Calibration = binding.Calibration with { Deadzone = Math.Min(.25, binding.Calibration.Deadzone + .01) } }); input.Save(); }
+                if (Button(846, y + 39, 66, "Clear")) { input.Bindings.SetAxis(name, null); if (name == "Handbrake") input.Bindings.HandbrakeUsesAxis = false; input.Save(); }
+                Label(250, y + 52, 210, "Deadzone: " + binding.Calibration.Deadzone.ToString("P0"), true);
+                if (Button(470, y + 52, 40, "-")) { input.Bindings.SetAxis(name, binding with { Calibration = binding.Calibration with { Deadzone = Math.Max(0, binding.Calibration.Deadzone - .01) } }); input.Save(); }
+                if (Button(520, y + 52, 40, "+")) { input.Bindings.SetAxis(name, binding with { Calibration = binding.Calibration with { Deadzone = Math.Min(.25, binding.Calibration.Deadzone + .01) } }); input.Save(); }
+                if (name == "Handbrake" && !input.Bindings.HandbrakeUsesAxis && Button(590, y + 52, 140, "Use axis")) { input.Bindings.HandbrakeUsesAxis = true; input.Save(); }
             }
         }
         if (input.Capture != null)
@@ -242,29 +263,31 @@ internal static class Panel
             int index = _buttonPage * 7 + i; if (index >= WheelInput.ButtonActions.Length) break;
             string action = WheelInput.ButtonActions[index]; float y = 222 + i * 51;
             Label(250, y, 160, ActionLabel(action));
-            string text = input.Bindings.Buttons.TryGetValue(action, out var b) ? Runtime.Devices!.Describe(b.DeviceGuid) + " / button " + (b.Button + 1) : "Not bound";
+            string text = BindingLabel(action);
+            if (action == "Handbrake" && input.Bindings.HandbrakeUsesAxis) text = "Inactive / " + text;
             Label(410, y, 320, text, true, 42);
             if (Button(742, y - 4, 90, "Bind")) input.BeginButton(action);
-            if (Button(842, y - 4, 70, "Clear")) { input.Bindings.Buttons.Remove(action); input.Save(); }
+            if (Button(842, y - 4, 70, "Clear")) { ClearBinding(action); }
         }
         if (Button(250, 591, 130, "Previous")) _buttonPage = 0;
         if (Button(393, 591, 130, "Next")) _buttonPage = 1;
         if (input.CaptureButton != null)
-        { Label(250, 637, 540, "Press a button for " + ActionLabel(input.CaptureButton) + "…", true); if (Button(820, 631, 92, "Cancel")) input.Cancel(); }
+        { Label(250, 637, 540, "Press a control for " + ActionLabel(input.CaptureButton) + "…", true); if (Button(820, 631, 92, "Cancel")) input.Cancel(); }
         else Label(250, 638, 660, "Driving buttons follow the stock actions. H-pattern and menu navigation are not added yet.", true, 38);
     }
     private static void ForcePage()
     {
         var cfg = Runtime.Settings; var force = Runtime.Force!;
-        bool prior = cfg.FfbEnabled; Toggle(250, 150, 290, "FFB", ref cfg.FfbEnabled);
-        if (prior != cfg.FfbEnabled) force.Disarm();
-        if (Button(552, 150, 360, force.Armed ? "Stop FFB" : "Start FFB for this session", force.Armed)) { if (force.Armed) force.Panic(); else force.Arm(); }
+        Label(250, 154, 165, "FFB:");
+        if (Button(425, 150, 95, "Off", !cfg.FfbEnabled)) force.SetEnabled(false);
+        if (Button(530, 150, 95, "On", cfg.FfbEnabled)) force.SetEnabled(true);
+        Label(650, 154, 262, "Remembers your choice", true);
         var wheels = Runtime.Devices!.Devices.Where(x => x.Info.ForceFeedback).ToArray();
         string selected = Guid.TryParse(cfg.FfbGuid, out var id) ? Runtime.Devices.Describe(id) : "Choose a wheel";
         Label(250, 202, 490, "Output: " + selected);
         if (Button(752, 194, 160, "Next wheel"))
         {
-            force.Disarm("Output device changed");
+            force.Reconnect("Output device changed");
             int current = Array.FindIndex(wheels, x => x.Info.InstanceGuid?.ToString() == cfg.FfbGuid);
             if (wheels.Length > 0) cfg.FfbGuid = wheels[(current + 1) % wheels.Length].Info.InstanceGuid!.Value.ToString();
             Dirty();
@@ -276,25 +299,68 @@ internal static class Panel
         if (Button(250, 430, 245, "Advanced", _advancedFfb)) _advancedFfb = !_advancedFfb;
         if (_advancedFfb)
         { Slider(473, "Reference front load", ref cfg.FfbLoadReference, 100, 50000, "F0"); Slider(517, "Slip response scale", ref cfg.FfbSlipScale, .02f, 3); }
-        bool invert = cfg.FfbInvert; Toggle(552, 430, 360, "Invert FFB", ref cfg.FfbInvert); if (invert != cfg.FfbInvert) force.Disarm("Direction changed; start the session output again when ready");
+        bool invert = cfg.FfbInvert; Toggle(552, 430, 360, "Invert FFB", ref cfg.FfbInvert); if (invert != cfg.FfbInvert) force.Suspend("Direction changed; close settings to drive");
         Label(250, 570, 662, force.Status + $". Accepted output {force.Sent:P1}; failed calls {force.Failures}.", true, 45);
-        Label(250, 625, 662, "Experimental FFB starts only for this session. Begin at 10%. Feedback is inactive while settings are open; close the panel to drive.", true, 46);
+        Label(250, 625, 662, "FFB starts while driving when On. Default strength: 50%. Settings and pauses stop force; F8 saves Off until you choose On.", true, 46);
+    }
+    private static string BindingLabel(string action)
+    {
+        var bindings = Runtime.Wheel!.Bindings;
+        var text = bindings.Buttons.TryGetValue(action, out var b) ? Runtime.Devices!.Describe(b.DeviceGuid) + " / button " + (b.Button + 1) : "";
+        if (bindings.CameraKeys.TryGetValue(action, out var key) && key != "None") text += (text.Length > 0 ? " + " : "") + key;
+        return text.Length == 0 ? "Not bound" : text;
+    }
+    private static void ClearBinding(string action)
+    {
+        var input = Runtime.Wheel!; input.Bindings.Buttons.Remove(action);
+        if (input.Bindings.CameraKeys.ContainsKey(action)) input.Bindings.CameraKeys[action] = "None";
+        input.Save();
     }
     private static void CameraPage()
     {
+        if (Button(590, 104, 150, "Position", !_cameraBindings)) { Runtime.Wheel?.Cancel(); _cameraBindings = false; }
+        if (Button(755, 104, 157, "Bindings", _cameraBindings)) { Runtime.Wheel?.Cancel(); _cameraBindings = true; }
+        if (_cameraBindings) { CameraBindingsPage(); return; }
         var cfg = Runtime.Settings;
-        Toggle(250, 154, 390, "Bonnet in camera cycle", ref cfg.Bonnet);
-        Toggle(250, 200, 390, "Bumper in camera cycle", ref cfg.Bumper);
-        if (Button(250, 253, 180, "Bonnet offsets", !_editBumper)) _editBumper = false;
-        if (Button(445, 253, 180, "Bumper offsets", _editBumper)) _editBumper = true;
-        if (_editBumper)
-        { Slider(317, "Height", ref cfg.BumperHeight, .1f, 3); Slider(373, "Forward offset", ref cfg.BumperForward, -2, 4); Slider(429, "Pitch (degrees)", ref cfg.BumperPitch, -30, 30, "F1"); }
-        else
-        { Slider(317, "Height", ref cfg.CameraHeight, .1f, 3); Slider(373, "Forward offset", ref cfg.CameraForward, -2, 4); Slider(429, "Pitch (degrees)", ref cfg.CameraPitch, -30, 30, "F1"); }
-        if (Button(250, 490, 260, "Reset this view"))
-        { if (_editBumper) { cfg.BumperHeight = .35f; cfg.BumperForward = 2.2f; cfg.BumperPitch = 0; } else { cfg.CameraHeight = .85f; cfg.CameraForward = .75f; cfg.CameraPitch = 3; } Dirty(); }
-        Label(250, 545, 662, "Camera: " + MountedCamera.Status, true, 42);
-        Label(250, 597, 662, "Use the game's normal Camera button: stock views, bonnet, bumper, then stock again. Game camera takeover releases the mounted view and stops FFB.", true, 67);
+        Toggle(250, 150, 390, "Bonnet in camera cycle", ref cfg.Bonnet);
+        Toggle(250, 190, 390, "Bumper in camera cycle", ref cfg.Bumper);
+        if (Button(250, 239, 160, "Bonnet", !_editBumper)) _editBumper = false;
+        if (Button(425, 239, 160, "Bumper", _editBumper)) _editBumper = true;
+        if (!_editBumper && Button(630, 239, 282, "Fit to car: " + (cfg.CameraAutoFit ? "On" : "Off"), cfg.CameraAutoFit))
+        { if (cfg.CameraAutoFit) cfg.SetCameraPose(false, MountedCamera.Pose(false)); cfg.CameraAutoFit = !cfg.CameraAutoFit; Dirty(); }
+        var pose = MountedCamera.Pose(_editBumper);
+        float side = pose.Side, height = pose.Height, forward = pose.Forward, pitch = pose.Pitch, fov = pose.Fov;
+        Slider(295, "Side position (m)", ref side, -2, 2);
+        Slider(343, "Height (m)", ref height, .1f, 3);
+        Slider(391, "Forward position (m)", ref forward, -2, 4);
+        Slider(439, "Pitch down (degrees)", ref pitch, -30, 30, "F1");
+        Slider(487, "Field of view", ref fov, 30, 110, "F0");
+        var edited = new CameraPose(side, height, forward, pitch, fov);
+        if (edited != pose) { cfg.SetCameraPose(_editBumper, edited); if (!_editBumper) cfg.CameraAutoFit = false; Dirty(); }
+        if (Button(250, 544, 260, "Reset this view")) { cfg.ResetCamera(_editBumper); Dirty(); }
+        Label(535, 546, 377, "Adjustments save automatically.", true);
+        Label(250, 590, 662, "Camera: " + MountedCamera.Status, true, 30);
+        Label(250, 629, 662, "Cycle to Bonnet or Bumper, then tune with the numpad. Open Bindings to change those keys or use wheel buttons. Fit to car needs a loaded vehicle.", true, 46);
+    }
+    private static void CameraBindingsPage()
+    {
+        var input = Runtime.Wheel!;
+        Label(250, 151, 662, "Bind a keyboard key or wheel button. Tuning affects the active Bonnet / Bumper view. F6 / F8 remain reserved; Escape cancels.", true, 43);
+        for (int i = 0; i < 7; i++)
+        {
+            int index = _cameraBindingPage * 7 + i; if (index >= CameraTuning.Actions.Length) break;
+            string action = CameraTuning.Actions[index]; float y = 212 + i * 51;
+            Label(250, y, 164, CameraTuning.Labels[index]);
+            Label(416, y, 318, BindingLabel(action), true, 42);
+            if (Button(742, y - 4, 90, "Bind")) input.BeginButton(action);
+            if (Button(842, y - 4, 70, "Clear")) ClearBinding(action);
+        }
+        if (Button(250, 584, 130, "Previous")) { input.Cancel(); _cameraBindingPage = 0; }
+        if (Button(393, 584, 130, "Next")) { input.Cancel(); _cameraBindingPage = 1; }
+        Label(550, 588, 130, $"Page {_cameraBindingPage + 1} / 2", true);
+        if (input.CaptureButton != null)
+        { Label(250, 638, 545, "Press a key or button for " + ActionLabel(input.CaptureButton) + "…", true, 38); if (Button(820, 632, 92, "Cancel")) input.Cancel(); }
+        else Label(250, 631, 662, "Numpad: 8/2 height, 9/7 forward/back, 4/6 side, 1/3 pitch, +/− field of view, 0 reset. The game's own camera keys still work.", true, 46);
     }
     private static void TelemetryPage()
     {
@@ -308,11 +374,10 @@ internal static class Panel
             { cfg.ForzaPort = f; cfg.DetailPort = d; Runtime.ApplyOutputs(); Dirty(); }
             else Message = "Use ports 0..65535; active ports must differ.";
         }
-        if (Button(565, 325, 347, cfg.Record ? "Stop recording" : "Start recording", cfg.Record)) { cfg.Record = !cfg.Record; Runtime.ApplyOutputs(); Dirty(); }
         Label(250, 389, 660, $"Forza packets: {Runtime.Output?.ForzaPackets}   Lost network ticks: {Runtime.Output?.OverwrittenTicks}   Errors: {Runtime.Output?.SendErrors}", false, 54);
         Label(250, 451, 660, $"Recording: {Runtime.Output?.RecordingStatus}   Dropped samples: {Runtime.Output?.RecordingDrops}", false, 42);
         Label(250, 503, 660, Runtime.Output?.LastError ?? "Outputs stay on this computer (127.0.0.1).", true, 40);
-        Label(250, 561, 660, "Capture is bounded to 20 minutes / 64 MiB. Files are in BepInEx/WodenRecordings. Raw engine/gear scales remain separate from validated motion.", true, 64);
+        Label(250, 561, 660, "Diagnostic recordings are managed outside the game. Any requested capture finishes automatically on normal exit (20 minutes / 64 MiB maximum).", true, 64);
     }
     private static void HelpPage()
     {
@@ -320,14 +385,14 @@ internal static class Panel
         if (_deviceDetails) { DevicesPage(); return; }
         Label(250, 162, 662, "Woden Rally Edge Wheel " + Plugin.Version + " / development build", false, 42);
         Label(250, 218, 662, "No controls? Enable Wheel controls in Setup, then check the bars. Use Controls to bind and calibrate each axis.", true, 70);
-        Label(250, 310, 662, "No feedback? Turn FFB on, select your physical wheel and start FFB for this session. Close settings and drive. F8 stops feedback.", true, 76);
+        Label(250, 310, 662, "No feedback? Check FFB is On and your wheel is selected. The FFB page shows why output is inactive. Close settings and drive. F8 saves Off.", true, 76);
         Label(250, 403, 662, "Camera: use the game's normal Change camera action. Bonnet and Bumper are added to that cycle. Scripted game cameras release our view and FFB.", true, 80);
-        Label(250, 504, 662, "For a problem report, start a short recording in Telemetry and stop it before exiting. Files: BepInEx/WodenRecordings. Loader log: BepInEx/LogOutput.log.", true, 80);
+        Label(250, 504, 662, "Report what happened and roughly when. Diagnostic recording can be prepared before launch; you do not need to manage it in the menu. Close the game normally to finish a capture.", true, 80);
         Label(250, 602, 662, "Setup currently requires a mouse. Menu navigation, H-pattern and a combined support-file action are still being built.", true, 60);
     }
     private static void DevicesPage()
     {
-        if (Button(250, 154, 280, "Refresh / reconnect devices")) { Runtime.Force?.Disarm("Device refresh"); Runtime.Devices?.Refresh(); }
+        if (Button(250, 154, 280, "Refresh / reconnect devices")) { Runtime.Force?.Reconnect("Device refresh"); Runtime.Devices?.Refresh(); }
         Label(250, 205, 665, Runtime.Devices?.Status ?? "No device service", true, 40);
         var devices = Runtime.Devices!.Devices;
         if (_devicePage >= Math.Max(1, devices.Count)) _devicePage = 0;

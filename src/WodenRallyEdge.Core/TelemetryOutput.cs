@@ -24,6 +24,7 @@ public sealed class TelemetryOutput : IDisposable
     private string? _lastState;
     private string? _lastDiscontinuity;
     private string? _lastUnavailable;
+    private string? _lastForceStatus;
     private double? _recordOrigin;
     private volatile bool _stop;
     private long _overwrites, _sent, _errors;
@@ -44,7 +45,7 @@ public sealed class TelemetryOutput : IDisposable
         {
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(options.RecordingPath))!);
             _recorder = new SessionRecorder(options.RecordingPath, new SessionMetadata {
-                Game = "Super Woden Rally Edge", PluginVersion = "0.2.2", ToolkitVersion = "v0.12.0 + separately pinned unpublished recording",
+                Game = "Super Woden Rally Edge", PluginVersion = "0.2.7", ToolkitVersion = "v0.12.0 + separately pinned unpublished recording",
                 StartedUtc = DateTime.UtcNow,
                 Properties = new() { ["sessionId"] = sessionId, ["recordingSource"] = recordingSource,
                     ["phase"] = "MainCar.FixedUpdate.postfix.prePhysicsSolve", ["schema"] = TelemetrySchema.Name + "/1",
@@ -69,6 +70,8 @@ public sealed class TelemetryOutput : IDisposable
         _recorder?.TryRecord(recordTime, sample.Channels);
         if (_lastState != sample.State) _recorder?.TryMark(recordTime, "state", sample.State);
         if (sample.Discontinuity != null && _lastDiscontinuity != sample.Discontinuity) _recorder?.TryMark(recordTime, "discontinuity", sample.Discontinuity);
+        if (sample.ForceStatus != null && sample.ForceStatus != _lastForceStatus) _recorder?.TryMark(recordTime, "ffb", sample.ForceStatus);
+        _lastForceStatus = sample.ForceStatus;
         string unavailable = string.Join(",", sample.Unavailable);
         if (unavailable != _lastUnavailable && (unavailable.Length > 0 || _lastUnavailable?.Length > 0))
             _recorder?.TryMark(recordTime, "unavailable", unavailable.Length <= 4096 ? unavailable : unavailable[..4096]);

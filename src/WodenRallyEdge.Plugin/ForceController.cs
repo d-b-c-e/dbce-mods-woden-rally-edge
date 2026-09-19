@@ -1,86 +1,150 @@
-using Dbce.Wheel.Ffb;
 using WodenRallyEdge.Core;
 
 namespace WodenRallyEdge;
 
+// Consumer lifecycle policy. The adapter uses only the pinned toolkit's device API.
+internal interface IForceDevice
+{
+    string? Error { get; }
+    bool CanOpen { get; }
+    bool Open(Guid guid);
+    bool Write(float force);
+    void ZeroAndStop();
+    void Panic();
+    void Close();
+}
+
 internal sealed class ForceController
 {
     private readonly ForceSignal _signal = new();
-    private bool _native, _stoppedByPlayer;
-    private double _retryAfter;
-    internal bool Armed { get; private set; }
-    internal string Status { get; private set; } = "FFB not started for this session";
+    private readonly IForceDevice _device;
+    private bool _native, _suspended = true, _faulted;
+    private Guid _openedGuid;
+    internal bool Armed => Runtime.Settings.FfbEnabled && !_faulted && !Runtime.DiagnosticNoForce;
+    internal bool Connected => _native;
+    internal string Status { get; private set; } = "Ready — feedback starts while driving";
     internal ForceResult Last { get; private set; } = new(false, "No car sample", 0, 0, 0, 0);
     internal float Sent { get; private set; }
     internal long Attempts { get; private set; }
     internal long Failures { get; private set; }
+    internal long Opens { get; private set; }
+    internal double OpenMilliseconds { get; private set; }
     internal bool? LastAccepted { get; private set; }
-    internal void Arm()
+    internal ForceController(IForceDevice device) => _device = device;
+
+    internal void SetEnabled(bool enabled)
     {
-        if (!Runtime.Settings.FfbEnabled) { Status = "Enable force feedback first"; return; }
-        if (!Guid.TryParse(Runtime.Settings.FfbGuid, out var guid) || guid == Guid.Empty) { Status = "Choose an FFB wheel first"; return; }
-        var result = new DevicePreference { InstanceGuid = guid }.Resolve(WheelFfbNative.ListFfbDevices());
-        if (!result.Success) { Status = result.Message; return; }
-        Armed = true; _stoppedByPlayer = false; _retryAfter = 0; _signal.Reset(); Status = "Ready — close settings and drive to start feedback";
+        Runtime.Settings.FfbEnabled = enabled;
+        _faulted = false;
+        if (!enabled) Release("FFB off");
+        else { _signal.Reset(); Status = "Ready — feedback starts while driving"; }
+        Runtime.Settings.Save();
     }
-    internal void Disarm(string reason = "Disarmed") { Armed = false; Suspend(reason); }
-    internal void Panic() { Armed = false; _stoppedByPlayer = true; if (_native) WheelFfbNative.Panic(); Suspend("FFB stopped"); }
+    internal void Disarm(string reason = "FFB unavailable")
+    {
+        Release(reason); _faulted = true;
+    }
+    internal void Reconnect(string reason)
+    {
+        Release(reason); _faulted = false;
+    }
+    internal void Panic()
+    {
+        // F8 is the same persistent Off preference; only an explicit On resumes.
+        if (_native) _device.Panic();
+        SetEnabled(false);
+    }
+    private void Release(string reason)
+    {
+        Suspend(reason);
+        if (_native) { _device.Close(); _native = false; Runtime.Devices?.Refresh(); }
+        Status = reason;
+    }
     internal void Suspend(string reason)
     {
-        Status = _stoppedByPlayer ? "FFB stopped — start FFB for this session to resume" : reason; Sent = 0; LastAccepted = null;
-        if (!_native) return;
+        if (!Runtime.Settings.FfbEnabled) Status = "FFB off";
+        else if (!_faulted) Status = reason;
+        Sent = 0; LastAccepted = null;
         _signal.Reset();
-        // FreeDirectInput releases only the FFB device; reopen readers that shared it.
-        WheelFfbNative.Zero(); WheelFfbNative.Stop(); WheelFfbNative.Shutdown(); _native = false;
-        Runtime.Devices?.Refresh();
+        if (_native && !_suspended) _device.ZeroAndStop();
+        _suspended = true;
+        // A pause, camera transition or bad contact is NOT a device disconnect.
+        // Re-enumerating here stalled the main thread and invalidated the next
+        // sample before the first real force write could be sent.
+    }
+    internal void Prepare()
+    {
+        if (Runtime.DiagnosticNoForce) { if (_native) Release("Diagnostic launch: force disabled"); Status = "Diagnostic launch: force disabled"; return; }
+        if (!Runtime.Settings.FfbEnabled) { if (_native) Release("FFB off"); Status = "FFB off"; return; }
+        if (_faulted || !Runtime.Focused || !StockWheelOwner.Ready || Runtime.Devices == null) return;
+        if (!Guid.TryParse(Runtime.Settings.FfbGuid, out var guid) || guid == Guid.Empty) { Status = "Choose an FFB wheel"; return; }
+        if (_native && guid != _openedGuid) Release("Output device changed");
+        if (_native)
+        {
+            // A shared wheel reader cannot acquire the FFB handle itself. After
+            // focus returns, use a zero write to let the toolkit recover access;
+            // otherwise missing input would block every force write forever.
+            if (!Runtime.Devices.IsReading(guid))
+            {
+                _signal.Reset();
+                if (!_device.Write(0)) { Failures++; Disarm(_device.Error ?? "Wheel disconnected; Refresh to retry"); }
+            }
+            return;
+        }
+        // Window readiness is checked before closing readers or touching the
+        // device. Waiting for Unity's window must not latch a failure/reconnect.
+        if (!_device.CanOpen) { Status = "Waiting for the focused game window"; return; }
+        // Open at zero from Update (including menus), never within car sampling.
+        // The toolkit enforces exact GUID selection and virtual-device rejection.
+        double start = Runtime.Clock.Elapsed.TotalMilliseconds;
+        Runtime.Devices.CloseReaders();
+        bool ready = false;
+        try { Opens++; ready = _device.Open(guid); _native = ready; }
+        catch { _device.ZeroAndStop(); _device.Close(); _native = false; _faulted = true; throw; }
+        finally { Runtime.Devices.Refresh(); OpenMilliseconds = Runtime.Clock.Elapsed.TotalMilliseconds - start; }
+        _native = ready; _openedGuid = guid; _suspended = true; _signal.Reset();
+        if (!ready) { Failures++; _faulted = true; Status = _device.Error ?? "FFB open failed; choose On or Refresh to retry"; }
+        else Status = "Ready — feedback starts while driving";
     }
     internal void Tick(TelemetrySample sample)
     {
         Last = _signal.Evaluate(sample, Runtime.Settings.ForceOptions);
         sample.Add("ffb.frontLoad", Last.FrontLoad); sample.Add("ffb.alignmentEstimate", Last.Alignment); sample.Add("ffb.dampingEstimate", Last.Damping);
         sample.Add("ffb.preview", Last.Preview);
-        string? blocked = !Runtime.Settings.FfbEnabled ? "FFB off" : !Armed ? "FFB not started for this session" : Panel.Open ? "FFB inactive — settings open" :
+        string? blocked = Runtime.DiagnosticNoForce ? "Diagnostic launch: force disabled" : !Runtime.Settings.FfbEnabled ? "FFB off" : _faulted ? Status : Panel.Open ? "FFB inactive — settings open" :
             !Runtime.Focused ? "Unfocused" : !StockWheelOwner.Ready ? StockWheelOwner.Status :
             !MountedCamera.PlayerOwned ? MountedCamera.Status :
-            Runtime.Settings.WheelEnabled && !sample.Channels.ContainsKey("wheelInput.steer") ? "Wheel input unavailable" : !Last.Valid ? Last.Reason : null;
+            Runtime.Settings.WheelEnabled && !sample.Channels.ContainsKey("wheelInput.steer") ? "Wheel input unavailable" :
+            !Last.Valid ? Last.Reason : !_native ? "Waiting for wheel connection" : null;
         if (blocked != null) { Suspend(blocked); Record(sample); return; }
-        if (!_native)
-        {
-            if (Runtime.Clock.Elapsed.TotalSeconds < _retryAfter) { Record(sample); return; }
-            _retryAfter = Runtime.Clock.Elapsed.TotalSeconds + 2;
-            Runtime.Devices?.CloseReaders();
-            bool ready = Guid.TryParse(Runtime.Settings.FfbGuid, out var guid) && WheelFfbNative.Initialise("", -1, 0, guid);
-            if (ready)
-            {
-                WheelFfbNative.HoldTimeout(150);
-                ready = WheelFfbNative.ExitGuards();
-                if (!ready) WheelFfbNative.Shutdown();
-            }
-            _native = ready; Runtime.Devices?.Refresh(); _signal.Reset();
-            if (!ready) { Status = WheelFfbNative.LastError ?? "FFB open failed"; Failures++; Record(sample); return; }
-            Status = "Connected; ramping from zero"; WheelFfbNative.SetForce(0); Record(sample); return;
-        }
+        _suspended = false;
         Attempts++;
-        bool accepted = WheelFfbNative.SetForce((int)Math.Round(Last.Preview * 10000));
+        bool accepted = _device.Write(Last.Preview);
         LastAccepted = accepted; Sent = accepted ? Last.Preview : 0;
-        if (!accepted) { Failures++; Suspend(WheelFfbNative.LastError ?? "Force update failed"); LastAccepted = false; _retryAfter = Runtime.Clock.Elapsed.TotalSeconds + 2; }
+        if (!accepted)
+        {
+            string error = _device.Error ?? "Force update failed; choose On or Refresh to retry";
+            Failures++; Disarm(error); LastAccepted = false;
+        }
         else Status = "FFB active";
         Record(sample);
     }
     private void Record(TelemetrySample sample)
     {
+        sample.ForceStatus = Status;
         var tuning = Runtime.Settings.ForceOptions;
         sample.Add("ffb.tuning.strengthPercent", tuning.Strength); sample.Add("ffb.tuning.peakPercent", tuning.PeakPercent);
         sample.Add("ffb.tuning.loadReference", tuning.LoadReference); sample.Add("ffb.tuning.slipScale", tuning.SlipScale);
         sample.Add("ffb.tuning.smoothingMs", tuning.SmoothingMs); sample.Add("ffb.tuning.damping", tuning.Damping);
-        sample.Add("ffb.tuning.invert", tuning.Invert ? 1 : 0); sample.Add("ffb.tuning.modelVersion", 1);
+        sample.Add("ffb.tuning.invert", tuning.Invert ? 1 : 0); sample.Add("ffb.tuning.modelVersion", 3);
         sample.Add("ffb.armed", Armed ? 1 : 0); sample.Add("ffb.sent", Sent); sample.Add("ffb.deliveryAttempts", Attempts); sample.Add("ffb.deliveryFailures", Failures);
+        sample.Add("ffb.connected", Connected ? 1 : 0); sample.Add("ffb.connectionAttempts", Opens); sample.Add("ffb.lastConnectionMs", OpenMilliseconds);
         if (LastAccepted.HasValue) sample.Add("ffb.accepted", LastAccepted.Value ? 1 : 0);
     }
     internal void Shutdown()
     {
-        Armed = false; Sent = 0;
-        if (_native) { WheelFfbNative.Zero(); WheelFfbNative.Stop(); WheelFfbNative.Shutdown(); _native = false; }
-        _signal.Reset(); Status = "Stopped";
+        Sent = 0;
+        if (_native) { _device.ZeroAndStop(); _device.Close(); _native = false; }
+        _signal.Reset(); _suspended = true; Status = "Stopped";
     }
 }

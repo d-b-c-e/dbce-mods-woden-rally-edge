@@ -7,23 +7,52 @@ public sealed class Settings
 {
     private readonly ConfigFile _config;
     public int Player, ForzaPort = 8000, DetailPort = 8001, DetailHz = 20;
-    public bool Record, WheelEnabled, Bonnet = true, Bumper = true, FfbEnabled, FfbInvert;
-    public float CameraHeight = .85f, CameraForward = .75f, CameraPitch = 3;
-    public float BumperHeight = .35f, BumperForward = 2.2f, BumperPitch;
-    public float FfbStrength = 10, FfbPeak = 25, FfbLoadReference = 6000, FfbSlipScale = .35f, FfbSmoothing = 35, FfbDamping = .05f;
+    public bool Record, WheelEnabled, Bonnet = true, Bumper = true, FfbEnabled = true, FfbInvert;
+    public bool CountdownAssistEnabled;
+    public float CountdownSpeed = 75;
+    public float CameraHeight = CameraPose.Bonnet.Height, CameraForward = CameraPose.Bonnet.Forward, CameraPitch = 8, CameraSide, CameraFov = 70;
+    public float BumperHeight = .35f, BumperForward = 2.2f, BumperPitch, BumperSide, BumperFov = 70;
+    public bool CameraAutoFit = true;
+    private int _cameraDefaultsVersion;
+    public float FfbStrength = 50, FfbPeak = 25, FfbLoadReference = 6000, FfbSlipScale = .35f, FfbSmoothing = 35, FfbDamping = .05f;
     public string FfbGuid = "";
     public ForceOptions ForceOptions => new(FfbStrength, FfbPeak, FfbLoadReference, FfbSlipScale, FfbSmoothing, FfbDamping, FfbInvert);
-    public Settings(ConfigFile config) { _config = config; _config.SaveOnConfigSet = false; Sync(true); Validate(); }
+    public Settings(ConfigFile config)
+    {
+        _config = config; _config.SaveOnConfigSet = false; Sync(true);
+        if (_cameraDefaultsVersion < 1)
+        {
+            bool oldDefault = CameraHeight == .85f && CameraForward == .75f && CameraPitch == 3;
+            CameraAutoFit = oldDefault || CameraHeight == 1.1f && CameraForward == .1f && CameraPitch == 8 || GetCameraPose(false) == CameraPose.Bonnet;
+            if (oldDefault) SetCameraPose(false, CameraPose.Bonnet);
+            _cameraDefaultsVersion = 1;
+        }
+        if (_cameraDefaultsVersion < 2)
+        {
+            if (CameraAutoFit && CameraHeight == 1.1f && CameraForward == .1f && CameraPitch == 8) SetCameraPose(false, CameraPose.Bonnet);
+            _cameraDefaultsVersion = 2;
+        }
+        Validate();
+    }
+    public CameraPose GetCameraPose(bool bumper) => bumper ? new(BumperSide, BumperHeight, BumperForward, BumperPitch, BumperFov) : new(CameraSide, CameraHeight, CameraForward, CameraPitch, CameraFov);
+    public void SetCameraPose(bool bumper, CameraPose pose)
+    {
+        pose = pose.Bounded();
+        if (bumper) { BumperSide = pose.Side; BumperHeight = pose.Height; BumperForward = pose.Forward; BumperPitch = pose.Pitch; BumperFov = pose.Fov; }
+        else { CameraSide = pose.Side; CameraHeight = pose.Height; CameraForward = pose.Forward; CameraPitch = pose.Pitch; CameraFov = pose.Fov; }
+    }
+    public void ResetCamera(bool bumper)
+    { SetCameraPose(bumper, bumper ? WodenRallyEdge.Core.CameraPose.Bumper : WodenRallyEdge.Core.CameraPose.Bonnet); if (!bumper) CameraAutoFit = true; }
     public void Save() { Validate(); Sync(false); _config.Save(); }
     public void Validate()
     {
         static float Bound(float value, float min, float max, float fallback) => float.IsFinite(value) ? Math.Clamp(value, min, max) : fallback;
         Player = Math.Clamp(Player, 0, 3); ForzaPort = Math.Clamp(ForzaPort, 0, 65535); DetailPort = Math.Clamp(DetailPort, 0, 65535); DetailHz = Math.Clamp(DetailHz, 1, 60);
-        CameraHeight = Bound(CameraHeight, .1f, 3, .85f); CameraForward = Bound(CameraForward, -2, 4, .75f); CameraPitch = Bound(CameraPitch, -30, 30, 3);
-        BumperHeight = Bound(BumperHeight, .1f, 3, .35f); BumperForward = Bound(BumperForward, -2, 4, 2.2f); BumperPitch = Bound(BumperPitch, -30, 30, 0);
-        FfbStrength = Bound(FfbStrength, 0, 100, 10); FfbPeak = Bound(FfbPeak, 0, 50, 25);
+        SetCameraPose(false, GetCameraPose(false)); SetCameraPose(true, GetCameraPose(true));
+        FfbStrength = Bound(FfbStrength, 0, 100, 50); FfbPeak = Bound(FfbPeak, 0, 50, 25);
         FfbLoadReference = Bound(FfbLoadReference, 100, 50000, 6000); FfbSlipScale = Bound(FfbSlipScale, .02f, 3, .35f);
         FfbSmoothing = Bound(FfbSmoothing, 0, 200, 35); FfbDamping = Bound(FfbDamping, 0, .5f, .05f);
+        CountdownSpeed = Bound(CountdownSpeed, 25, 100, 75);
     }
     private void Sync(bool read)
     {
@@ -31,17 +60,23 @@ public sealed class Settings
         { var entry = _config.Bind(group, name, value, help); if (read) value = entry.Value; else entry.Value = value; }
         Item("General", "PlayerIndex", ref Player, "Exact local player index; change from the F6 panel.");
         Item("Wheel", "Enabled", ref WheelEnabled, "Use calibrated direct wheel input. F6 provides binding and calibration.");
+        Item("Difficulty", "CountdownAssistEnabled", ref CountdownAssistEnabled, "Optional single-player countdown/time-limit assist. Default Off; does not change lap/stage timing or game speed.");
+        Item("Difficulty", "CountdownSpeedPercent", ref CountdownSpeed, "Countdown speed when enabled, 25..100%. 75% gives about 80 seconds of driving per 60 countdown seconds.");
         Item("Telemetry", "ForzaPort", ref ForzaPort, "Loopback Forza Horizon 5 UDP; 0 disables. Apply outputs in F6 after edits.");
         Item("Telemetry", "DetailPort", ref DetailPort, "Loopback detailed JSON UDP; 0 disables. Must differ from Forza.");
         Item("Telemetry", "DetailHz", ref DetailHz, "Detailed UDP maximum frequency, 1..60 Hz.");
-        Item("Diagnostics", "RecordSession", ref Record, "Record numeric sessions; F6 can start/stop a bounded capture live.");
+        Item("Diagnostics", "RecordSession", ref Record, "Legacy diagnostic capture preference. Use tools/Start-RecordedGame.ps1 for a single requested launch.");
         Item("Camera", "BonnetEnabled", ref Bonnet, "Include bonnet in the normal camera-button cycle. Does not force this view.");
         Item("Camera", "BumperEnabled", ref Bumper, "Include bumper in the normal camera-button cycle.");
         Item("Camera", "Height", ref CameraHeight, "Car-local vertical offset."); Item("Camera", "Forward", ref CameraForward, "Car-local forward offset."); Item("Camera", "PitchDegrees", ref CameraPitch, "Downward pitch.");
         Item("Camera", "BumperHeight", ref BumperHeight, "Bumper car-local vertical offset."); Item("Camera", "BumperForward", ref BumperForward, "Bumper car-local forward offset."); Item("Camera", "BumperPitchDegrees", ref BumperPitch, "Bumper downward pitch.");
-        Item("ForceFeedback", "Enabled", ref FfbEnabled, "Allow experimental force output; also requires Arm in F6 each game launch.");
+        Item("Camera", "Side", ref CameraSide, "Bonnet car-local side offset."); Item("Camera", "Fov", ref CameraFov, "Bonnet vertical field of view, degrees.");
+        Item("Camera", "BumperSide", ref BumperSide, "Bumper car-local side offset."); Item("Camera", "BumperFov", ref BumperFov, "Bumper vertical field of view, degrees.");
+        Item("Camera", "AutoFitBonnet", ref CameraAutoFit, "Fit the bonnet view to the car body. Adjusting an offset switches to manual placement.");
+        Item("Camera", "DefaultsVersion", ref _cameraDefaultsVersion, "Camera defaults migration marker; custom offsets are preserved.");
+        Item("ForceFeedback", "Enabled", ref FfbEnabled, "Saved FFB On/Off preference. Feedback starts only during valid player driving. F8 saves Off.");
         Item("ForceFeedback", "DeviceGuid", ref FfbGuid, "Exact FFB wheel GUID selected in F6; no fallback.");
-        Item("ForceFeedback", "StrengthPercent", ref FfbStrength, "Overall output percentage; first-test default 10.");
+        Item("ForceFeedback", "StrengthPercent", ref FfbStrength, "Overall strength, default 50%. Original output gain restored; no additional reduction.");
         Item("ForceFeedback", "PeakPercent", ref FfbPeak, "Hard peak cap, 0..50% of the device nominal range.");
         Item("ForceFeedback", "LoadReference", ref FfbLoadReference, "Estimated tyre-signal normalization reference in Unity force units; uncalibrated.");
         Item("ForceFeedback", "SlipScale", ref FfbSlipScale, "Unity sideways-slip scale for the provisional aligning estimate.");

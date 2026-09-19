@@ -1,128 +1,40 @@
 # Session handoff — 2026-09-14
 
-Start with [STATE.md](STATE.md), then this page. This handoff describes the
-implementation at `f3b5c0afa8a31c4bcf748a6126da3eb0ff382be7` on `main` in the
-private `d-b-c-e/woden-rally-edge-wheel` repo. Documentation-only commits may
-follow it. Working folder: `E:\Source\woden-rally-edge-wheel`.
+Read [STATE](STATE.md) first. Installed build is 0.2.7; source remains on main in the private Woden repo; no commit/push requested. Build and tests: 32 suites / 906 assertions, 215 schema definitions. Deployment evidence lives in STATE.
 
-## What the next session inherits
+The owner called 0.2.5 a good starting point but reported input/camera blocked before green and possible lingering cornering force. 0.2.6 allows normal calibrated wheel and camera input during WARMING, preserving native start-line physics/lock. Driving/FFB remain restricted to RACE. The force model/tune remains unchanged pending better evidence. The latest owner log ended normally with 5,666 FFB writes and zero failures. The owner also selected countdown/time-limit assistance, not elapsed stage timing: Setup → Difficulty adds a saved Off-by-default assist at 75% speed (25–100% range). It advances the owned single-player CountDown anchor before native expiry, preserving checkpoint additions and lap/stage clocks. Offline hook/config tests pass; gameplay acceptance remains open.
 
-The owner wants wheel controls, meaningful detailed telemetry, FFB, and Bonnet
-and Bumper in the game's normal camera-button rotation. Game camera/player
-takeover must release the mounted view and stop FFB. F6 settings and bindings
-must converge on toolkit UX-1, including explicit `FFB: Off/On` wording. Keep
-existing owner bindings and tuning through updates.
+The latest 0.2.6 drive had zero force writes: native initialization replaced its owned HWND with a foreign foreground window and failed exit-guard installation. 0.2.7 supplies a captured/revalidated owned Unity HWND explicitly, waits for window readiness before any device work and keeps every force gate. The toolkit binary pin remains unchanged; the shared source bug is documented in its knowledge base. The owner's bonnet correction is +0.15 m up / +0.05 m forward relative to the second vehicle fit; this now informs fitted defaults, while the exact saved manual view is preserved. Current saved force strength is 75.208336%, cap 25%, Enabled=true. Deployment details and pending acceptance are in STATE.
 
-**Installed: 0.2.2 development build. Not yet accepted in a drive.** The owner
-confirmed that 0.2.1 loads a level after the native contact-read fix, then reported
-no steering/throttle/brake/camera response. The next test is of 0.2.2's corrected
-input boundary, not a repeat of the already diagnosed crash. F6/device reads and
-sustained car/contact sampling were observed on earlier builds; that does not
-validate the new controls, cameras, UI layout or physical FFB.
+Latest 0.2.7 run: owned HWND / R12 initialization / 150 ms watchdog / exit guards all succeeded at 23:32:20.715. PanicStop occurred at 23:32:49.644 before racing, saved FFB Off, and the whole drive stayed Off (zero writes/failures). No wheel Panic stop binding exists; F8 or sidebar Stop FFB are possible, but the log lacks trigger attribution. Current strength 49.583332%, cap 25%, Enabled=false; countdown assist On/50%. No settings were changed. Ask the owner to choose F6 → FFB → On and close settings for the next drive; do not silently clear saved panic Off. See STATE for retained evidence.
 
-## Resume at the installed build
+Newest run supersedes the Off diagnosis above: owner felt improved FFB after selecting On; 6,723 writes / zero failures. Saved strength 49.583332%, cap 25%, smoothing 35 ms, damping 0.05. Native commands show 38.89% of driving time at the cap, longest 4.049 s. Managed-only step experiment shows 200–217 ms capped-force release. These support saturation plus conditioning as plausible contributors to lingering force; no synchronized input/slip capture exists. Read FFB-FEEL-ANALYSIS.md. No tune was changed.
 
-Game root: `D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge`.
-Steam app 3218630, build 21802346, Unity 6000.3.6f1, IL2CPP metadata 39.
-The exact supported GameAssembly hash is in [development instructions](DEVELOPMENT-BUILD.md).
+## Owner decisions
 
-Paths below are relative to the game root unless marked as repository paths:
+FFB is one saved On/Off setting, default On and 50% strength for new settings, with the original output gain restored in 0.2.5. F8/Stop saves Off until On is selected. There is no session-start requirement. Preserve exact GUID, stock ownership, all driving/contact/camera gates, watchdog, ramp and peak cap. Unattended physical output remains prohibited.
 
-| Evidence / data | Location |
-|---|---|
-| Installed plugin and update receipt | `BepInEx/plugins/WodenRallyEdgeWheel/update-receipt.json` |
-| Pre-0.2.2 plugin/config/log backup | `BepInEx/WodenBackups/before-0.2.2-20260913-001820` |
-| Pre-crash-fix backup | `BepInEx/WodenBackups/before-0.2.1-20260912-233855` |
-| Settings | `BepInEx/config/dbce.wodenrallyedgewheel.cfg` |
-| Bindings and previous version | `BepInEx/config/wheel-bindings.json` and `.bak` |
-| Runtime / crash logs | `BepInEx/LogOutput.log`, `BepInEx/ErrorLog.log` |
-| Owner recordings | `BepInEx/WodenRecordings` |
-| Repository package | `dist/WodenRallyEdgeWheel-0.2.2-dev.zip` |
-| Repository staging manifest | `dist/stage-11599d50fddd4f3e839fc6b51cd3f378/manifest.json` |
+Recording belongs to the agent workflow: tools/Start-RecordedGame.ps1 requests one launch and starts Steam; normal exit finalizes the capture. It defaults to diagnostic force suppression and never changes the saved FFB preference. Use -AttendedFfb only for an explicitly requested attended run. -PrepareOnly stages the expiring request without launching. No menu recording controls.
 
-On 2026-09-14, read-only checks matched all nine installed payload files to that
-manifest and matched the ZIP to the hash in STATE. The receipt records the
-2026-09-13 05:18 UTC installation and preservation of the configuration. Logs
-still predate that installation; they are not 0.2.2 runtime evidence. No game was
-launched or input/force applied for this documentation audit.
+E-Brake accepts Button or Axis on the existing Controls pages; the last bound type is active. The new analog adaptation scales native rear braking/grip loss; native throttle cut remains binary. Full pull and stock buttons retain stock behavior. Device input bars/calculation tests are not a physical response test.
 
-`tools/Install-Dev.ps1` is an **initial installer**, not an updater. It deliberately
-refuses the existing installation. The reviewed 0.2.2 update was performed by
-ignored `artifacts/update-0.2.2.ps1`: closed-game/build/path checks, per-file
-manifest verification, backup outside plugin scanning, configuration hashes,
-replacement with rollback on caught failure, then a receipt. It contains fixed
-stage/version paths and is historical tooling, not a reusable player updater.
-For a future build, review a new update plan against the actual receipt and
-configuration; do not bypass the initial installer's refusal or replay the old
-script blindly. A complete transactional player updater remains unfinished.
+## Paths and implementation
 
-## First attended test
+Game root: D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge. Supported Steam build 21802346 / Unity 6000.3.6f1 / metadata 39. Read DEVELOPMENT-BUILD for full hash and usage.
 
-1. Use the installed build; no reinstall is needed. Open F6, confirm version and
-   saved device readings, and leave FFB unstarted. Saved FFB On does not arm it;
-   arming is session-only. All three axis bindings and Wheel controls On are
-   required for the current input override.
-2. Start a short recording in Telemetry, close F6, and enter the same level.
-   Verify steering, throttle and brake, then paddles, Change camera and held
-   Look behind. Device bars alone do not prove the game received input.
-3. Check `wheelTicks` and the first `Wheel action-table route active` log. Compare
-   `wheelRaw.*`, `wheelInput.*`, `wheelInput.appliedTicks`, `controls.*` and
-   `game.*` in the capture. If ticks stay zero, inspect player/driving gates,
-   selected pad, binding readiness and device reads before moving the hook again.
-4. Cycle stock → Bonnet → Bumper → stock, disable either added view, and test
-   pause, reset, finish, focus loss and game camera takeover. Record visual
-   placement and ownership behavior separately from input success.
-5. Stop and inspect the capture. Only after input/camera checks, perform the
-   attended low-strength FFB sign/stop/resume test in DEVELOPMENT-BUILD. F8 is the
-   latched stop. Never hard-kill the game with live output.
+- Installed plugin/receipt: BepInEx/plugins/WodenRallyEdgeWheel.
+- Config/bindings: BepInEx/config/dbce.wodenrallyedgewheel.cfg and wheel-bindings.json.
+- Evidence: BepInEx/LogOutput.log, ErrorLog.log, and %LOCALAPPDATA%/DbceWheel/ffb.log.
+- Recordings: BepInEx/WodenRecordings. Requests: BepInEx/config/woden-record-next-launch.json, consumed once.
+- Backups: BepInEx/WodenBackups, outside plugin scanning.
+- Build/package: classic solution, executable tests, tools/Package.ps1; initial installer refuses existing plugins.
+- FFB: ForceController + ToolkitForceDevice; actual controller is linked into the offline tests with fake collaborators. Do not replace toolkit native output.
+- Controls: scoped Controls.FixedUpdate action-table lease; boxed action values need indexer writeback. AnalogHandbrake scopes only selected-player native calls and restores game tuning.
+- Timing: TimingDiagnostics records frame/poll/control/car/sampler/force durations plus gear/shifting.
+- WheelContact uses GC-rooted IL2CPP value storage. NEVER call the generated GetGroundHit(out WheelHit) wrapper.
 
-Record exact package/hash, car/mode, device, actions, symptoms, log/capture paths
-and results in STATE. Do not turn an untested item into a pass based on compilation.
+The ignored artifacts contain native disassembly, offsets, offline audit output and historical deployment helpers. The native handbrake takes a RELEASED boolean, applies 2000 brake torque to rear wheels above 30 rpm, writes configured grip loss, and uses a binary 0.3 acceleration multiplier. The adaptation scales native results, restores the tuning field, and does not change the engine multiplier or game assists. Do not commit proprietary disassembly or generated references.
 
-## Implementation map and traps
+The toolkit's local UX-1/setup/checklist were updated for persistent FFB and agent-managed captures. That checkout has unrelated uncommitted work: preserve it, do not commit it wholesale, and do not rebuild its moving Recording source into this consumer. Toolkit v0.12.0/native v0.5.0 and the unpublished recording pin remain unchanged.
 
-| Area | Start here | Preserve |
-|---|---|---|
-| Controls | `src/WodenRallyEdge.Plugin/Plugin.cs`, `WheelInput.cs` | `Controls.FixedUpdate` scoped action-table lease; boxed values must be written back to the array and restored. The old MainCar input hook was too late. |
-| Native contact crash | `src/WodenRallyEdge.Plugin/WheelContact.cs` | GC-rooted, runtime-allocated 72-byte IL2CPP WheelHit storage. Never call the generated broken `out WheelHit` wrapper. |
-| Cameras | `src/WodenRallyEdge.Core/CameraCycle.cs`, plugin `MountedCamera.cs` | Legal stock indices, native camera action, held rear look, foreign-writer handback and FFB ownership gate. |
-| FFB | Plugin `ForceController.cs`, `StockWheelOwner.cs`; core `ForceSignal.cs` | Exact GUID, stock Logitech shutdown, session arm, all lifecycle gates/watchdog/exit cleanup; load/slip estimate is not rack torque. |
-| Telemetry | Plugin `GameSampler.cs`; core `TelemetrySchema.cs`, `TelemetryOutput.cs`, `ForzaProjection.cs` | Pre-next-solve phase, absent vs zero, unverified game scales/corners, raw vs applied input and delivery evidence. |
-| UI | Plugin `Panel.cs`, `UiNative.cs`, `Settings.cs` | Stripped Unity bindings and existing stored keys; current UX gaps are in UX-ADOPTION. |
-
-Native action indices are recorded in `InputLease`: throttle 7, brake 6,
-right/left steering 16/17, and button mappings alongside them. Rear view must
-remain a mod camera action; the game's L3 slot is unrelated.
-
-## Rebuild and retained evidence
-
-Use the exact commands in [README](../README.md) and [AGENTS](../AGENTS.md).
-`Initialize-Dependencies.ps1` downloads the pinned BE #788 loader and regenerates
-Woden interop if absent. Keep `UnityBaseLibrariesSource` empty. Never reuse
-another game's interop. Toolkit v0.12.0/native v0.5.0 and the separate unpublished
-Recording DLL are committed pins; a dirty toolkit checkout is not a build input.
-
-The last code checks remain **14 executable suites / 405 assertions**, zero
-build warnings/errors, installer fixtures and 199 schema definitions. This
-documentation audit verified dependency hashes but did not rerun the code suite.
-
-Ignored local `artifacts/` holds native disassembly (`Controls.FixedUpdate.asm`,
-`MainCar.*.asm`, `Car_Cam.*.asm`), API inspections, fixture output and the one-off
-update helper. `disasm_inputs.py` also references a temporary metadata project
-under `%TEMP%/dbce-woden-research-20260912`; it is not a portable bootstrap.
-These are supporting investigations, not required build inputs. The important
-conclusions and fixes are retained in source, STATE and [RESEARCH](RESEARCH.md).
-`artifacts/live-detail-20260912-234109.jsonl` is **empty**: the listener ran after
-the game exited. It is not a successful capture.
-
-Personal recordings, logs, generated interop, caches and ZIPs are intentionally
-not in Git. A fresh clone can rebuild against the supported installed game but
-does not contain that local runtime evidence. Preserve it on this machine.
-
-Use [UX adoption](UX-ADOPTION.md), [telemetry semantics](TELEMETRY.md),
-[force model](FFB-MODEL.md) and [roadmap](ROADMAP.md) for the remaining work.
-The shared [UX-1](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/blob/master/docs/CONSUMER-UX.md)
-is published in toolkit commit `04a97cf`; it is the family baseline, not proof
-that this panel or the sibling mods fully implement it. The local toolkit
-checkout has unrelated uncommitted work: do not reset, rebuild its moving
-Recording source, or absorb that work into this consumer's handoff.
+Next: test pre-green revs/steering/camera and 75% countdown speed, checkpoint bonuses, pause/restart/expiry and persistence; verify handbrake partial/full/release, FFB sign/delivery and pause/focus recovery during an attended drive; use a recording when ready to assess remaining hitches and contact validity. Do not launch a physical force test unattended.

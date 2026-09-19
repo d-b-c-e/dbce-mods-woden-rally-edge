@@ -1,32 +1,18 @@
-# Shared UX adoption — 2026-09-13
+# Shared UX adoption — 2026-09-14
 
-Target: toolkit [UX-1](../../dbce-wheel-mod-toolkit/docs/CONSUMER-UX.md).
-0.2.2 begins alignment; this is not full UX acceptance. The previous F6 renderer
-ran at 1920×1080, but this revised layout still needs visual/interaction checking.
+UX baseline: toolkit UX-1, with the owner's September 14 persistent-FFB and agent-recording clarification. Source: 0.2.7 working tree; package/installation evidence is in STATE. This is not visual or physical acceptance.
 
-Implemented: standard six page names/order; Setup with device-input bars and
-links to existing Controls/FFB values; Controls groups axes and buttons; common
-display action names without changing stored binding keys; labeled Off/On
-settings; permanent Stop FFB and Close; explicit Save calibration; Saved/error
-indicator; model constants under Advanced; help with next actions; normal
-stock/bonnet/bumper cycle and camera-control gate for FFB.
+Implemented: optional countdown/time-limit assist under Setup → Difficulty, default Off with saved speed and an eligibility status; countdown wheel/camera access independent of FFB permission; six standard pages; saved FFB On/Off (new default On and 50% strength with original output gain), no session arming; F8/Stop saves Off; normal output suppression retains the device; E-Brake within Axes and Buttons with independent calibration; external one-launch recording request with automatic finalization. Existing bindings and owner tuning are retained.
 
-Development exception: FFB requires **Start FFB for this session** at each launch.
-The initial tune is provisional and physical direction has not been accepted.
-F8 latches the stop, including its visible reason. Saved FFB On does not arm it.
-
-Remaining gaps:
-
-| Rule | Gap / next check |
+| Rule | Remaining gap / acceptance |
 |---|---|
-| UX-03 | Mouse-first renderer; no full keyboard/wheel navigation, user scale control or long-name/720p/4K acceptance. F6/Esc/F8 remain keyboard routes. |
-| UX-04 | Current axis reversal is an Invert action, not an explicit state switch. Menu bindings, H-pattern, analog handbrake and conflict handling remain unfinished. Setup bars are explicitly device input, not proof that the car received it. |
-| UX-05 | Output picker advances through wheels instead of listing them. Attended selection, sign, stop and resume validation still required. |
-| UX-06 | Compiled cycle/handoff requires actual native-camera and foreign-writer transition checks; FOV/per-car clipping not implemented. |
-| UX-07 | Telemetry uses port 0 to disable; no master Off/On, marker/Open folder/combined support-file action. Recording already bounded and opt-in. |
-| UX-08 | Endpoint editor applies together, but output-restart failures still need transactional recovery. Binding-file save status is separate from general settings status. |
-| UX-09/10 | Repository-based initial installer and reviewed backup updates; no complete player ZIP with bundled loader/transactional update/uninstall. |
-| UX-11 | First-use path built, not yet walked through on this version. |
+| UX-03 | Mouse-first UI; keyboard/wheel navigation, user scale, long names and 720p/4K acceptance remain. |
+| UX-04 | Handbrake axis calibration and proportional rear brake/grip-loss adaptation are compiled/tested offline, not driven. The stock power cut remains binary. H-pattern, menu bindings, conflict handling and final-game-input UI bars remain. |
+| UX-05 | Existing output picker still cycles wheels; the newer steering-derived dropdown standard is not yet adopted. Physical selection, sign, stop and recovery still require acceptance. |
+| UX-06 | Fitted bonnet, manual offsets/FOV, near-clip restore and camera key/button rebinding implemented. 0.2.7 fitted default includes the owner's +0.15 m up / +0.05 m forward correction. Cross-car hood framing, camera handoff and split-screen checks remain; manual per-car presets remain. |
+| UX-07 | Recording is agent-managed per owner preference, not a missing menu workflow. Master telemetry toggle, markers/support bundle/open-folder UI remain optional/future; no automatic upload. |
+| UX-08 | Endpoint restart failures still need transactional recovery; binding save status remains separate. |
+| UX-09/10 | Reviewed closed-game development updates; complete player ZIP/update/uninstall remains unfinished. |
+| UX-11 | Walk through this build at the rig and record acceptance. |
 
-Do not copy the old Woden page names into another project as the family standard.
-The toolkit guide owns that standard; existing game-specific rendering can remain.
+Normal game launches honor the saved FFB preference through all driving gates. An unattended diagnostic-launch request temporarily suppresses physical force without changing that saved preference. This is test policy, not a second player-facing enable switch.

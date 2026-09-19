@@ -2,6 +2,41 @@
 
 ## [Unreleased]
 
+### 0.2.7 development build
+
+- Fix the confirmed zero-FFB startup path by capturing the owned Unity window before device enumeration and passing that explicit handle to the pinned toolkit. Missing windows wait without reader churn; exit-guard failures still refuse output. Preserve the original failure through cleanup.
+- Raise the fitted bonnet default 0.15 m and move it forward 0.05 m based on the owner's saved correction on another vehicle. Use the observed height/forward position for the fallback; preserve all existing manual views, bumper settings and FFB tuning.
+- Add actual adapter/window readiness and camera migration regressions. Record the native 0.5 foreground-window overwrite defect in the toolkit knowledge base; dependency binaries remain pinned.
+
+### 0.2.6 development build
+
+- Allow calibrated wheel controls during the native WARMING/countdown state, including throttle, steering and bound buttons. Preserve the game's start-line braking/lock and existing pause/focus/replay/photo/respawn guards.
+- Allow camera cycling, mounted views, rear look and camera tuning before green. Keep FFB gated to active racing independently of camera/input availability.
+- Add countdown input tick evidence and regressions for action-table restoration and zero force before green. Keep the current FFB tune; investigate the owner's subjective report of lingering cornering force using a future attended capture.
+
+- Add Setup → Difficulty with saved countdown assist On/Off and 25–100% countdown speed (Off / 75% defaults). Adjust only the owned single-player finish time limit before native expiry; preserve checkpoint bonuses and elapsed lap/stage clocks. Add hook/config regressions and countdown telemetry.
+
+### 0.2.5 development build
+
+- Restore the original FFB output gain after the owner corrected their wheelbase strength setting. Remove the 0.75 post-shaping multiplier; retain the 50% default, configured peak cap and all lifecycle gates. Telemetry identifies the restored curve as model 3.
+- Keep the 0.2.4 camera/E-Brake improvements and preserve saved configuration/bindings.
+
+### 0.2.4 development build
+
+- Default FFB strength to 50%; multiply final conditioned output by 0.75, including capped peaks. Saved On/Off and all output gates remain.
+- Move E-Brake into Controls → Axes and Buttons; binding either selects that route. Preserve both saved bindings and remove the separate Handbrake tab.
+- Fit the default bonnet view to the car body, looking down over the hood; use a 0.03 m near clip while mounted. Add side position and FOV to manual bonnet/bumper tuning, restoring the game lens on release.
+- Add camera key/wheel-button rebinding and the shared numpad tuning defaults. Preserve custom camera offsets, migrate untouched old defaults, and save adjustments automatically.
+- Record the owner's 0.2.3 drive: felt force, 3,683 native writes with no failed calls; no claim that every stutter is resolved.
+
+### 0.2.3 development build
+
+- Fixed transient FFB suspension repeatedly closing/reopening devices and causing main-thread stalls before force delivery. Added connection/error state and timing diagnostics.
+- Replaced session arming with saved FFB On/Off, default On for new settings. F8/Stop saves Off; all device/ownership/driving/watchdog gates remain.
+- Added button/axis handbrake selection and calibration. Axis pull scales native rear braking and grip loss; stock throttle cut remains binary. Physical response unverified.
+- Removed menu recording controls. Added an expiring one-launch recording request and Steam launcher with automatic capture finalization and unattended force suppression.
+- Updated toolkit UX guidance locally for the owner's persistent FFB and external recording workflow.
+
 ### Documentation
 
 - Added a session handoff with the installed build, preserved evidence, source

@@ -23,13 +23,19 @@ public static class TelemetrySchema
         Add("ffb.dampingEstimate", "normalized estimate", "derived", "Calibrated steering velocity damping");
         Add("ffb.preview", "normalized -1..1", "derived", "Toolkit-shaped force preview before output permission/ownership gates");
         Add("ffb.sent", "normalized -1..1", "measured", "Force request accepted by native API; does not establish physical feel");
-        Add("ffb.armed", "boolean 0/1", "measured", "Session-local output arm state");
+        Add("ffb.armed", "boolean 0/1", "measured", "Saved On preference with no latched output error or diagnostic force suppression; legacy name, no session-start step");
+        Add("ffb.connected", "boolean 0/1", "measured", "Toolkit device open; not proof of force delivery");
+        Add("ffb.connectionAttempts", "count", "measured", "Device initialization attempts this launch");
+        Add("ffb.lastConnectionMs", "ms", "measured", "Last zero-force open plus input-reader refresh duration");
+        foreach (var timing in new[] { "frameMs", "devicePollMs", "carMs", "samplerMs", "forceMs", "controlsMs" })
+            Add("timing." + timing, "ms", "measured", "Stopwatch duration; frameMs is Update interval, other channels describe last completed named work; not GPU time");
+        Add("timing.hitches", "count", "measured", "Update intervals of at least 100 ms with a local car, including expected pauses/loading");
         Add("ffb.accepted", "boolean 0/1", "measured", "Last native force write outcome; absent when no write attempted");
         Add("ffb.deliveryAttempts", "count", "measured", "Cumulative non-initialization force API writes");
         Add("ffb.deliveryFailures", "count", "measured", "Cumulative output/init failures");
         foreach (var setting in new[] { "strengthPercent", "peakPercent", "loadReference", "slipScale", "smoothingMs", "damping", "invert", "modelVersion" })
-            Add("ffb.tuning." + setting, "model setting (see source)", "measured", "Exact active estimate/conditioning setting; modelVersion 1 is provisional contact-weighted slip");
-        foreach (var axis in new[] { "steer", "throttle", "brake" })
+            Add("ffb.tuning." + setting, "model setting (see source)", "measured", "Exact active estimate/conditioning setting; modelVersion 3 restores the original provisional contact-weighted slip output; no post-shaping reduction");
+        foreach (var axis in new[] { "steer", "throttle", "brake", "handbrake" })
             Add("wheelRaw." + axis, "DirectInput 0..65535", "measured", "Current bound device axis before calibration; absent on read failure");
         Add("camera.mode", "game enum", "raw", "Car_Cam mode: Chase=0, IsoMetric=1, Photo=2, Replay=3");
         Add("camera.mountedView", "enum", "measured", "Mod cycle: Stock=0, Bonnet=1, Bumper=2; never written to stock save data");
@@ -37,6 +43,10 @@ public static class TelemetrySchema
         Add("camera.changing", "boolean 0/1", "measured", "Game camera transition state");
         Add("camera.stockPreset", "game index", "raw", "Original game preset index");
         Add("wheelInput.appliedTicks", "count", "measured", "Successful scoped Controls.FixedUpdate action-table overrides");
+        Add("wheelInput.preRaceTicks", "count", "measured", "Successful wheel action-table overrides during native WARMING/countdown; not FFB permission");
+        Add("assist.countdown.speedPercent", "percent", "configured", "Requested countdown drain speed; 100 when optional assist is Off; does not alter elapsed lap/stage timing");
+        Add("assist.countdown.adjustedUpdates", "count", "measured", "CountDown.Update timestamp adjustments applied before native timeout checks");
+        Add("assist.countdown.timeLeft", "s", "raw", "Native CountDown.TimeLeft; omitted without a recent observed single-player race timer");
         Vector("motion.position.world", "m", "measured", "Rigidbody.position; Unity world coordinates");
         Vector("motion.velocity.world", "m/s", "measured", "Rigidbody.linearVelocity");
         Vector("motion.velocity.local", "m/s", "derived", "InverseTransformDirection(world velocity); right/up/forward");
@@ -56,8 +66,8 @@ public static class TelemetrySchema
             Add("game." + field, "boolean 0/1", "measured", "Game field; no assist changes");
         foreach (var field in new[] { "steer", "throttle", "brake" })
             Add("controls." + field, "game input units (unvalidated)", "raw", "Controls object as observed in MainCar.FixedUpdate postfix");
-        foreach (var field in new[] { "steer", "throttle", "brake" })
-            Add("wheelInput." + field, "normalized", "derived", "Calibrated DirectInput axis, only present when this mod applies it");
+        foreach (var field in new[] { "steer", "throttle", "brake", "handbrake" })
+            Add("wheelInput." + field, "normalized", "derived", "Calibrated applied input; handbrake includes full stock/button override");
         foreach (var corner in Corners)
         {
             string p = "wheel." + corner + ".";

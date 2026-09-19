@@ -8,11 +8,20 @@ The compiled foundation includes the Woden sampler, per-channel units/provenance
 
 ## Milestone 2 — reliable rig controls
 
+0.2.3 adds Button/Axis handbrake selection, calibration and proportional native
+rear braking/grip loss. The game's power cut remains binary. Validate partial,
+full and released input in a drive; H-pattern and menu navigation remain future work.
+
 Build an owner-facing setup panel with exact-device selection, raw-axis display, steering centre/endpoints, separate pedal calibration, inversion/deadzone, binding capture, persistence and reconnect status. Support separate USB devices, paddle/H-pattern shifter, handbrake and stalk buttons. Route menus and camera actions explicitly. Keep input changes confined to selected player controls; never switch the game's input backend or alter assists behind the UI.
 
 The 0.2.0 F6 panel implements direct axes, calibration, button capture, persistence and manual reconnect. Live R12 reads and stock Logitech ownership transfer have been observed in Woden. Effective driving input, paddle actions and reconnect under a loaded force effect still need a drive. H-pattern and stock menu navigation remain future work.
 
 ## Milestone 3 — meaningful force feedback
+
+0.2.3 removes per-session arming, retains the connection through transient gates,
+and latches connection errors instead of looping. Confirm delivery/sign/feel and
+normal recovery live. Agent-launched recordings now include FFB status markers
+and timing to investigate remaining hitches; shifting causation is unproven.
 
 The 0.2.0 provisional model estimates alignment from front load and sideways slip, adds steering damping, and uses the toolkit output lifecycle and conditioning. Synthetic tests cover sign symmetry, inversion, gain, hard cap, ramp, fade and invalid sources. Obtain a real contact corpus and validate sign/load normalization during an attended low-gain test. Shared profile-data adoption and richer force suppression markers remain future improvements.
 
@@ -20,7 +29,11 @@ Required output behavior: pause/focus/menu/respawn/replay/stale suppression, wat
 
 ## Milestone 4 — mounted views and product polish
 
-0.2.2 builds bonnet/bumper in the native camera cycle, held rear look and camera-takeover FFB suppression. Validate those across cars and game modes, then add per-car offsets, FOV and near-clip tuning. Test split-screen targeting explicitly. Align the UI to toolkit UX-1; transactional player updates and support bundles remain future work.
+0.2.2 builds bonnet/bumper in the native camera cycle, held rear look and camera-takeover FFB suppression. 0.2.4 adds body-fitted bonnet placement, global manual offsets/FOV, shorter near clip with restore and rebindable tuning controls. Validate those across cars and game modes; saved per-car manual presets remain. Test split-screen targeting explicitly. Align the UI to toolkit UX-1; transactional player updates and support bundles remain future work.
+
+## Optional time-limit assistance — 0.2.6
+
+The owner requested a more forgiving countdown/time limit. Setup → Difficulty now exposes an opt-in saved countdown rate without changing elapsed lap/stage times or vehicle physics. Native countdown hook and settings tests pass. Confirm the visible timer rate, checkpoint additions, pause/restart, expiry and persistence during an attended single-player run.
 
 ## Reference lessons carried forward
 

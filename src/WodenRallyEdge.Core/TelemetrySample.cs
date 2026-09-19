@@ -17,6 +17,7 @@ public sealed class TelemetrySample
     public Dictionary<string, double> Channels { get; } = new(StringComparer.Ordinal);
     public List<string> Unavailable { get; } = new();
     public string? Discontinuity { get; set; }
+    public string? ForceStatus { get; set; }
     [JsonIgnore] public bool Driving => State == "driving";
 
     public void Add(string key, double value)

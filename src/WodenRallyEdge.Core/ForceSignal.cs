@@ -2,7 +2,7 @@ using Dbce.Wheel.Ffb;
 
 namespace WodenRallyEdge.Core;
 
-public sealed record ForceOptions(float Strength = 10, float PeakPercent = 25, float LoadReference = 6000, float SlipScale = .35f,
+public sealed record ForceOptions(float Strength = 50, float PeakPercent = 25, float LoadReference = 6000, float SlipScale = .35f,
     float SmoothingMs = 35, float Damping = .05f, bool Invert = false);
 public sealed record ForceResult(bool Valid, string Reason, float FrontLoad, float Alignment, float Damping, float Preview);
 

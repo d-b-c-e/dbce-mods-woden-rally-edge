@@ -15,7 +15,7 @@ namespace WodenRallyEdge;
 public sealed class Plugin : BasePlugin
 {
     public const string Id = "dbce.wodenrallyedgewheel";
-    public const string Version = "0.2.2";
+    public const string Version = "0.2.7";
     public const string SupportedGameHash = "f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c";
     private Harmony? _harmony;
     public override void Load()
@@ -34,7 +34,7 @@ public sealed class Plugin : BasePlugin
             _harmony = new Harmony(Id);
             _harmony.PatchAll(typeof(Plugin).Assembly);
             AddComponent<Lifecycle>();
-            Log.LogInfo("F6 opens settings and bindings; F8 stops FFB. Force output starts disarmed each launch. Waiting for local MainCar.FixedUpdate.");
+            Log.LogInfo("F6 opens settings and bindings; F8 saves FFB Off. Saved FFB On resumes through driving gates. Waiting for local MainCar.FixedUpdate.");
         }
         catch { Runtime.Stop(); _harmony?.UnpatchSelf(); throw; }
     }
@@ -61,11 +61,13 @@ internal static class Runtime
     internal static readonly MotionProcessor Motion = new();
     internal static WheelInput? Wheel;
     internal static DeviceHub? Devices;
-    internal static readonly ForceController Force = new();
+    internal static readonly ForceController Force = new(new ToolkitForceDevice());
     internal static MainCar? Local;
     internal static TelemetryOutput? Output;
     internal static long Sequence, HookCalls, LocalTicks;
     internal static double LastLocal = -10;
+    internal static bool DiagnosticNoForce;
+    private static DiagnosticLaunch? _recordLaunch;
     private static double _nextReport, _lastIdle;
     private static bool _stopped = true;
     private static string _provenance = "";
@@ -78,6 +80,11 @@ internal static class Runtime
     {
         _stopped = false;
         _provenance = File.ReadAllText(Path.Combine(directory, "recording-provenance.json"));
+        string requestPath = Path.Combine(Paths.ConfigPath, "woden-record-next-launch.json");
+        DiagnosticNoForce = File.Exists(requestPath);
+        try { _recordLaunch = DiagnosticLaunch.Consume(requestPath, DateTimeOffset.UtcNow); DiagnosticNoForce = _recordLaunch?.DisableForces == true; }
+        catch (Exception ex) { Log.LogError("Diagnostic launch rejected; force suppressed for this run: " + ex.Message); }
+        if (_recordLaunch != null) Log.LogInfo($"Diagnostic launch {_recordLaunch.Id}; physical FFB suppressed={DiagnosticNoForce}");
         ApplyOutputs();
         Wheel = new(Path.Combine(Paths.ConfigPath, "wheel-bindings.json"));
         try { Devices = new(directory); }
@@ -88,7 +95,7 @@ internal static class Runtime
         Settings.Validate();
         if (Settings.ForzaPort != 0 && Settings.ForzaPort == Settings.DetailPort)
             throw new ArgumentException("Forza and detailed telemetry need different ports.");
-        string? recording = Settings.Record ? Path.Combine(Paths.BepInExRootPath, "WodenRecordings", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-" + Guid.NewGuid().ToString("N") + ".jsonl") : null;
+        string? recording = Settings.Record || _recordLaunch != null ? Path.Combine(Paths.BepInExRootPath, "WodenRecordings", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-" + Guid.NewGuid().ToString("N") + ".jsonl") : null;
         Output?.Dispose();
         if (Output?.Stopped == false) throw new InvalidOperationException("Previous output worker is still stopping; retry shortly.");
         Output = new(new(Settings.ForzaPort, Settings.DetailPort, Settings.DetailHz, recording), SessionId, _provenance);
@@ -103,22 +110,36 @@ internal static class Runtime
         Local = car;
         return true;
     }
-    internal static bool Driving(MainCar car) => Select(car) && Focused && !Panel.Open && !Pause.Paused && car.Status == MainCar.CarStatus.RACE && !car.Replay && !car.Respawning && !car.locked &&
-        (car.MyControls == null || car.MyControls.PauseScript == null || !car.MyControls.PauseScript.PhotomodeActive);
+    internal static PlayerControlState ControlState(MainCar car)
+    {
+        if (!Select(car)) return default;
+        var phase = car.Status switch { MainCar.CarStatus.WARMING => PlayerPhase.Countdown, MainCar.CarStatus.RACE => PlayerPhase.Racing,
+            MainCar.CarStatus.END => PlayerPhase.Finished, MainCar.CarStatus.DESTROYED => PlayerPhase.Destroyed, _ => PlayerPhase.Unavailable };
+        bool photo = car.MyControls?.PauseScript?.PhotomodeActive == true;
+        return new(phase, true, Focused, Panel.Open, Pause.Paused, car.Replay, car.Respawning, photo, car.locked);
+    }
+    internal static bool Driving(MainCar car) => ControlState(car).Driving;
+    internal static bool CameraAvailable(MainCar car) => ControlState(car).CameraAvailable;
     internal static void Update()
     {
         if (_stopped) return;
         double now = Clock.Elapsed.TotalSeconds;
+        TimingDiagnostics.Frame(now);
         try
         {
+            double pollStarted = Clock.Elapsed.TotalMilliseconds;
             Devices?.Poll();
+            TimingDiagnostics.PollMs = Clock.Elapsed.TotalMilliseconds - pollStarted;
             Panel.Update();
+            CameraShortcuts.Update();
             StockWheelOwner.Update();
+            Force.Prepare();
             if (!Focused || Panel.Open || Pause.Paused || now - LastLocal > .15 || Local == null || !Driving(Local) || !MountedCamera.PlayerOwned)
                 Force.Suspend(!Focused ? "Unfocused" : Panel.Open ? "Settings open" : Pause.Paused ? "Paused" : "Waiting for live driving samples");
             if (Panel.Open || Local == null || !Driving(Local)) Devices?.ClearPresses();
         }
         catch (Exception ex) { Force.Disarm("Runtime error"); if (now > _nextReport) Log.LogError("Input/UI update failed: " + ex); }
+        TimingDiagnostics.UpdateMs = Clock.Elapsed.TotalMilliseconds - now * 1000;
         if ((!Focused || Pause.Paused || now - LastLocal > .5) && now - _lastIdle > .1)
         {
             MountedCamera.Restore();
@@ -152,16 +173,22 @@ internal static class Runtime
 [HarmonyPatch(typeof(MainCar), nameof(MainCar.FixedUpdate))]
 internal static class CarHook
 {
-    private static void Prefix() => Runtime.HookCalls++;
-    private static void Postfix(MainCar __instance)
+    private static void Prefix(out double __state) { Runtime.HookCalls++; __state = Runtime.Clock.Elapsed.TotalMilliseconds; }
+    private static void Postfix(MainCar __instance, double __state)
     {
         try
         {
             if (!Runtime.Select(__instance)) return;
+            TimingDiagnostics.CarMs = Runtime.Clock.Elapsed.TotalMilliseconds - __state;
             Runtime.LocalTicks++;
             Runtime.LastLocal = Runtime.Clock.Elapsed.TotalSeconds;
+            double started = Runtime.Clock.Elapsed.TotalMilliseconds;
             var sample = GameSampler.Read(__instance, Runtime.Wheel?.LastFor(__instance));
+            TimingDiagnostics.SampleMs = Runtime.Clock.Elapsed.TotalMilliseconds - started;
+            started = Runtime.Clock.Elapsed.TotalMilliseconds;
             Runtime.Force.Tick(sample);
+            TimingDiagnostics.ForceMs = Runtime.Clock.Elapsed.TotalMilliseconds - started;
+            TimingDiagnostics.Record(sample);
             Runtime.Output?.Publish(sample);
         }
         catch (Exception ex) { Runtime.Force.Suspend("Sample failed"); if (Runtime.LocalTicks % 100 == 1) Runtime.Log.LogError("Sample failed: " + ex); }

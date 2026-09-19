@@ -69,3 +69,16 @@ Forza velocity, acceleration and angular velocity use the vehicle's local frame.
 Live capture can be started after hours in-game: recording timestamps begin at the first captured sample, while `sample.simulationSeconds` preserves the game clock. Stopping/restarting capture creates a distinct file. Do not interpret a recorder limit as a complete normal shutdown.
 
 Capture separate short runs for stationary idle; constant-speed straight; acceleration/braking; left/right corner; reverse/gear changes; jump/landing; rough surface; pause/resume; respawn and stage restart. Compare speed/RPM/gear/timers with the HUD and compare left/right loads with the turn direction. Record scale/corner/contact findings in STATE with exact build and session filenames. Evaluate shaker effects with standard SimHub fields once verified; no extra SimHub plugin is required or supplied.
+
+## 0.2.3 input and hitch diagnostics
+
+Raw/applied handbrake values join the schema. Axis pull scales native rear brake
+command and grip loss; the stock binary power cut remains. FFB status changes
+are recorded as ffb markers, with connection attempts/duration and delivery counters.
+Timing channels measure Update intervals, device polling, Controls.FixedUpdate,
+native car work, sampler work and force work. These are CPU/Stopwatch observations,
+not GPU frame time or proof that shifting caused a hitch. No new gameplay recording
+has yet validated channel coverage/scales for this build.
+
+
+0.2.6 adds `wheelInput.preRaceTicks`: successful scoped wheel input overrides during the native WARMING/countdown state. Camera authority and applied input can now be present before green; they do not imply `sample.driving` or FFB permission. The optional difficulty assist adds `assist.countdown.speedPercent` (configured speed, 100 when Off; not proof of activation), `assist.countdown.adjustedUpdates` (cumulative anchor adjustments attempted by the actual hook) and `assist.countdown.timeLeft` (recently observed owned timer seconds; omitted when unavailable). Countdown records do not replace elapsed lap/stage clocks. Schema: 215 definitions.

@@ -1,4 +1,136 @@
-# State — 2026-09-14
+# State — 2026-09-16
+
+## Latest 0.2.7 drive — force felt; lingering-force analysis
+
+The owner reports force is much better after selecting On. The run (PID 50964) logs **9,315 local ticks, 7,160 wheel ticks, 6,723 force writes and zero failures**, then normal shutdown. Saved FFB On, strength 49.583332%, cap 25%, smoothing 35 ms and damping 0.05. This confirms felt delivery after the window repair; formal sign/load/lifecycle acceptance remains separate.
+
+[Force-feel analysis](FFB-FEEL-ANALYSIS.md): reconstructed change-only native commands spend **38.89%** of the 113.365 s driving-output window at the ±25% cap (longest hold **4.049 s**). This supports clipping as a contributor to force failing to lighten. A managed-only experiment with the actual shipped model shows **200–217 ms** to release capped force after an instantaneous synthetic slip-to-zero step; instant reversal takes about **317 ms** to reach 90% opposite force. Those timings are synthetic, not measured driver latency. The source also remains based on front sideways slip, which may persist during an unwind.
+
+No synchronized gameplay recording exists, so saturation, signal persistence and damping cannot yet be aligned to the owner's unwind. No tune/settings/code/deployment/game launch or physical test was performed. Evidence remains private under ignored `artifacts/owner-0.2.7-force-feel` and `artifacts/force-release-analysis`. Next useful work: a short attended capture of turns/unwinding/reversals to separate source behavior from shaping, then a targeted A/B test of clipping and release speed.
+
+## Previous run — saved Off
+
+## Latest 0.2.7 drive — initialization repaired; saved FFB Off
+
+The owner again reported zero force. The 23:32–23:34 local run loaded 0.2.7. It captured owned Unity HWND **0x001820E4**, opened the exact R12, initialized successfully, set the 150 ms watchdog, and **installed exit guards successfully at 23:32:20.715**. It prepared at zero with no initialization failures. This is runtime confirmation of the window-selection repair, not physical force acceptance.
+
+At **23:32:49.644**, before the first local car sample, native `PanicStop()` ran, then output closed and readers reopened. The game log changes to `FFB off` while F6 is open and remains Off throughout driving: **2,762 last-reported local/applied ticks, zero force writes, zero failed calls**. Normal shutdown follows. Saved `[ForceFeedback] Enabled = false`, strength **49.583332%**, cap 25%, same R12 GUID. Countdown assist is now saved On / 50% and logs hook execution.
+
+No Panic stop wheel button is bound. The implemented direct panic triggers are keyboard F8 and the F6 sidebar Stop FFB button; the logs do not distinguish them. Do not attribute the press to the owner or claim a particular trigger without evidence. The source confirms these triggers intentionally save Off until explicit On; a normal pause/panel gate never saves Off. No automatic re-enable or configuration change was performed. The next step is F6 → FFB → On, then close settings and drive. That choice persists for normal launches.
+
+Private evidence retained in ignored `artifacts/owner-0.2.7-saved-off`. No new build/deployment/game launch or physical test. Installed version remains 0.2.7; camera settings and all saved preferences remain untouched.
+
+## Prior 0.2.7 diagnosis and deployment
+
+## 0.2.7 — confirmed FFB startup failure and corrected bonnet default
+
+The owner felt no FFB on the 0.2.6 drive. The log shows **7,538 local ticks, 7,411 applied wheel ticks, zero FFB writes and one initialization failure**, then normal shutdown. Saved FFB remains On, exact R12 GUID, strength **75.208336%**, peak cap 25%. No recording was requested. Countdown input and the optional 75% timer hook both logged execution; this does not prove physical input or clock-rate acceptance. Retained private evidence: ignored `artifacts/owner-0.2.6-no-ffb`.
+
+Native evidence at 23:14:11: InitDirectInput(hwnd=0) first found owned window 0x00992384, then replaced it with foreground window 0x002610E4. It initialized the R12 successfully but InstallExitGuards failed with Win32 error 5. Output was stopped and closed; the consumer latched the failure instead of reconnecting repeatedly. The toolkit v0.12.0 tag/native 0.5 source confirms the defect: InitDirectInput assigns ResolveGameWindow then overwrites it with ResolveHwnd, whose zero-handle path uses the foreground window. This was a window/lifecycle failure, not insufficient force gain or the pre-race driving gate.
+
+Fix: capture a visible owned UnityWndClass window before closing readers or enumerating hardware, revalidate its ownership, and pass the explicit handle through the existing toolkit API. If no eligible foreground game window exists, wait without closing readers, enumerating or latching a fault. Preserve guard failures through cleanup. Exit guards, exact GUID, constant-force watchdog, pause/focus/camera/contact gates, ramp and peak cap remain mandatory. The native/device implementation and dependency pins are unchanged. The shared defect and follow-up are recorded in the toolkit's `knowledge/games/woden-rally-edge.md`.
+
+Bonnet evidence: second vehicle fitted height 0.58678085 / forward 0.8880049; saved manual height **0.7367809** / forward **0.9380049**, side 0.000008761883, pitch 8°, FOV 70°. The requested new fitted default adds **0.15 m up and 0.05 m forward** to each car's body-relative fit. Its no-mesh fallback uses the observed height/forward (centered side). Existing manual views, including the owner's exact saved view, stay unchanged. Reset/Fit to car uses the corrected default. Bumper defaults are untouched; cross-car framing still needs visual acceptance.
+
+Validation: release build zero warnings/errors; **32 suites / 906 assertions**. Tests exercise the actual toolkit adapter with fake API calls, including a foreground change after capture, strict HWND/GUID forwarding, mandatory guard/150 ms watchdog/initial zero, invalid/lost window refusal and failure cleanup. The actual controller waits without reader churn or a latched fault. Camera tests reproduce the owner's correction from recorded bounds and preserve saved manual views through migration/reload. Schema remains **215 definitions**. No game launch or physical output test.
+
+Installed with the game closed at **2026-09-17T04:27:43.6817986Z** (September 16 local). All **9 payload hashes** matched and every existing configuration/binding hash was preserved, including the exact manual bonnet view, strength 75.208336%, cap 25%, saved FFB On and countdown assist On/75%. Backup: `D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge\BepInEx\WodenBackups\before-0.2.7-20260916-232742`. Package: `dist/WodenRallyEdgeWheel-0.2.7-dev.zip`, SHA-256 `36cbebd26823665cf0cb04e1d73e1f82e0999c6de9f076b17fef22b31b99481d`. Stage: `dist/stage-528d35b6cf3c4079bf9ed1a11a63de36`; reviewed updater: ignored `artifacts/update-0.2.7.ps1`. Initial installer fixture passed (`artifacts/installer-test-2cee3c628052426ea326cd92ade2fa66`). No game launched or physical forces tested.
+
+Next attended check: confirm normal force returns and startup log records the owned Unity HWND, successful exit guards and nonzero write count. Saved strength is 75.208336%, not the 50% new-config default. Check the current manual bonnet view, then Reset/Fit to car on both vehicles to assess the corrected default. Capture corner/unwind behavior later if the lingering-force concern remains.
+
+## Historical 0.2.6 update
+
+## 0.2.6 — countdown controls, camera availability and optional time-limit assist
+
+The owner tested 0.2.5, called it a good starting point, and reported camera changes and engine revs unavailable before green. They clarified that wheel controls should remain available at the start line, including steering and throttle. They also reported a subjective feeling that cornering force lasts too long. No force model/tune change is made on that observation alone; the next attended recording should compare slip/alignment, shaped output, steering and exit/unwind timing.
+
+The 0.2.5 log finishes normally after **7,078 local ticks, 5,700 applied wheel ticks and 5,666 FFB writes with zero failures**. It records a fitted bonnet pose from body bounds and active bonnet driving. This proves code execution, not final hood placement or force lifecycle acceptance. The owner then closed the game.
+
+Diagnosis: the mod's Runtime.Driving guard required RACE and unlocked status for all wheel/camera input. This suppressed throttle and steering as well as camera bindings in WARMING. The native Controls.FixedUpdate dispatches Camera without a RACE check; Car_Cam.ChangeCamera checks mode/latch. Native MainCar.FixedUpdate's WARMING branch includes throttle-dependent RPM calculation and separate start-line wheel braking. The native game therefore has a rev path; lack of wheel revs cannot be dismissed as game design.
+
+Change: separate wheel/camera availability from driving/FFB permission. WARMING accepts the normal calibrated action-table override, including throttle, brake, steering and bound buttons, and mounted camera cycling/tuning. This input change does not modify car status, lock flags, physics or driving assists. Racing retains its existing lock guard; pause, settings, focus, replay, respawn, photo, non-selected player, finish and destroyed exclusions remain. Camera transition/foreign writer checks remain. FFB still requires a driving sample in RACE; a pre-race player camera cannot enable force.
+
+The owner also requested an easier experience and explicitly chose the countdown/time limit rather than elapsed stage time. Setup → Difficulty now provides a saved optional countdown assist, default Off with 75% speed, bounded to 25–100%. At 75%, a 60-second countdown allows about 80 driving seconds. The native CountDown.Update subtracts Time.time minus TimerControl before checking expiry; the hook advances only that timer anchor before the subtraction, restoring an unconsumed anchor on early return/exception. Scope requires the selected racing player, one PlayerCarList entry and the same GameMaster as the timer. Paused, inactive, infinite, replay and unrelated timers are untouched. Native elapsed lap/stage clocks, vehicle physics and checkpoint additions are unchanged. No timeout is refunded.
+
+Added `wheelInput.preRaceTicks`, a one-time countdown input route log, and three `assist.countdown.*` channels. Schema now has **215 definitions**. Build: zero warnings/errors; **28 suites / 871 assertions**, including the actual boxed action-table lease, interrupted-write restoration, countdown/race gate checks, actual ForceController zero-output checks until green, actual countdown hook against a native-behavior fixture (expiry, ownership, bonuses, cleanup), and real settings persistence/bounds. No new runtime or physical acceptance is claimed.
+
+Installed with the game closed at **2026-09-17T04:10:34.7032035Z** (September 16 local). All **9 payload hashes** matched; all pre-existing configuration and binding hashes were preserved, including strength 50% / peak cap 25%. The new assist remains Off until enabled in F6 → Setup → Difficulty. Backup: `D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge\BepInEx\WodenBackups\before-0.2.6-20260916-231033`. Package: `dist/WodenRallyEdgeWheel-0.2.6-dev.zip`, SHA-256 `59b2a0b31ce31e79913ac0ad9d5f6c2c02abcd14315c06630f0846fe77dc4018`. Stage: `dist/stage-04fce5f458bd46e98c129772696db2f7`; reviewed updater: ignored `artifacts/update-0.2.6.ps1`. Initial installer fixture passed layout, repeat-install refusal and preservation (`artifacts/installer-test-83f7b275032047e49300c5acebfb6652`). No game launched or physical forces tested.
+
+Next attended check: at the start line, rev and steer, change to bonnet/bumper and try tuning keys; confirm the car remains held until green. Confirm steering/input continues at green and FFB ramps only during racing. Enable Setup → Difficulty → Countdown assist at 75% for a time-limited single-player run; compare elapsed driving time to the countdown, cross a checkpoint, pause/resume and verify eventual timeout/restart and saved On/Off. Record an attended corner/unwind session when the owner is ready to investigate lingering force.
+
+## Historical 0.2.5 update
+
+## 0.2.5 — original FFB gain restored
+
+The owner corrected the previous feedback: the wheelbase strength was set too high, so the mod's 25% reduction overcompensates. The requested correction removes model 2's final 0.75 multiplier and restores the original 0.2.3 output curve at the same strength setting. The default remains 50%; model version 3 identifies this restoration in telemetry. The configured peak cap once again directly limits delivered output (25% by default).
+
+Camera/E-Brake changes and all FFB lifecycle/gates remain. Deployment preserves all existing configuration and bindings. No physical force test or game launch is part of this update.
+
+Release build: zero warnings/errors. **22 suites / 765 assertions passed**, including an exact comparison to the original force waveform at 50% through capped peaks, reversal and low-speed fade. Dependency pins and the initial installer fixture passed; schema remains 211 definitions.
+
+Installed with the game closed at **2026-09-15T04:34:58.9618412Z**. All nine payload hashes matched; every existing configuration/binding file was preserved, including strength 50. Backup: `D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge\BepInEx\WodenBackups\before-0.2.5-20260914-233458`. Package: `dist/WodenRallyEdgeWheel-0.2.5-dev.zip`, SHA-256 `af7b2742279839bf4ac868d318e392fa4f4fa1205578b4ea332979eef96e11a1`. Stage: `dist/stage-768627f8b03d4c24b6f10841b1df0c23`; reviewed update helper: ignored `artifacts/update-0.2.5.ps1`. No game launched or physical output tested.
+
+## Historical 0.2.4 update
+
+## 0.2.4 — owner feedback and current update
+
+The owner drove 0.2.3 and reported it was better: force was felt, but 50% was too strong; the bonnet showed no hood. They requested a 25% output reduction with a 50% default, E-Brake under Axes/Buttons rather than its own tab, and customizable/rebindable camera adjustment.
+
+The retained 0.2.3 game log reaches **4,797 local ticks, 3,707 applied input ticks and 3,683 FFB writes, with zero failed output calls**, then normal shutdown. Bonnet/bumper cycling appears in the log. There is one 180.4 ms frame gap around initial level entry, reporting one FFB open. This supports restored force delivery and removes the prior zero-write symptom; it does not establish every stutter resolved or the cause of any shift-associated hitch. Saved owner strength was 50.208336%; the handbrake axis was calibrated and selected. No bounded gameplay recording was created.
+
+0.2.4 changes:
+
+- New-config strength 50%. Force model 2 multiplies the complete conditioned waveform by 0.75, including capped peaks. Existing output lifecycle/gates remain. With the 25% configured cap, the resulting maximum is 18.75% of device range.
+- E-Brake is the fourth Axes row and appears under Buttons. Binding either selects that mode without deleting the other saved binding. The stored axis remains usable; the standalone tab is removed.
+- Bonnet defaults fit to body-local mesh bounds near the windscreen with downward pitch and 70° FOV; fallback position is (0, 1.1, 0.1), pitch 8°. Mounted views use a 0.03 m near clip. Custom offsets survive migration; untouched old defaults switch to fitted positioning. New framing is a candidate pending a drive.
+- Cameras → Position provides side/height/forward/pitch/FOV, fitted/manual selection and reset. Cameras → Bindings accepts keys or wheel buttons for cycle, rear view and all tuning. Defaults match the sibling mods' numpad keys. Tuning saves automatically and only affects an active mounted view.
+- Stock lens and pose restore on release. A foreign writer's changed lens values are preserved. Woden strips the managed near-clip setter; CameraNative resolves its named UnityPlayer binding using the native-self/float ABI confirmed against the local far-clip wrapper. Body bounds are read once per car, not each physics tick.
+
+Validation: release build has zero warnings/errors; **22 suites / 765 assertions** cover exact 0.75 waveform scaling through caps/reversals/fades, real config migration/persistence, fitted/tuned camera math and key binding persistence alongside the prior FFB/input/recording regressions. This is offline evidence; 0.2.4 UI/hood framing/lens restoration/physical feel are not yet accepted.
+
+Installed with Woden closed at **2026-09-15 04:25:41 UTC** (September 14, 23:25 local). All nine payload hashes verified. Backup: `BepInEx/WodenBackups/before-0.2.4-20260914-232540`, including the 0.2.3 plugin, configuration, game logs and native FFB log. Saved strength changed from 50.208336 to exactly 50 as requested; every other config/binding file remained unchanged. Untouched bonnet defaults migrate on the next plugin start. No game launched.
+
+Package: `dist/WodenRallyEdgeWheel-0.2.4-dev.zip`, SHA-256 `b88655c9164295af5b00513d38d751be56369ebb0a82eb4b8965316ca2cd892e`. Stage: `dist/stage-f55242b3b1094c03a639e218e859858e`. Reviewed update helper: ignored `artifacts/update-0.2.4.ps1`; installed `update-receipt.json` records verification and the strength change. Initial installer and one-launch recording fixtures passed without launching a game (`artifacts/installer-test-67e978944daf4b5fb8f0956e3fcd27f5`). Schema remains 211 definitions, not a live coverage count.
+
+Next attended check: drive at 50%, confirm feel and stop/recovery; check the E-Brake axis already bound, then partial/full/released response. Cycle to Bonnet and confirm visible hood. Adjust via numpad or Cameras → Position, rebind controls under Cameras → Bindings, and verify stock/rear/bumper handback. The agent can prepare a recording once the owner is ready. No unattended physical force test.
+
+## Historical 0.2.3 implementation and installation
+
+**0.2.3 installed for the next attended test.** The owner's 0.2.2 drive reported no felt FFB, hard stutters (possibly near gear shifts), and inability to bind an axis handbrake. The owner requested one saved FFB On/Off choice (default On), no per-session start, and agent-managed recordings prepared before launch.
+
+## New runtime evidence and diagnosis
+
+The latest 0.2.2 log reached 1,616 car ticks and 1,295 applied input ticks. It logged the correct action names and a normal shutdown. Effective control direction/ranges and camera behavior still need explicit acceptance. FFB delivery counters remained **writes=0, failures=0** despite the saved Enabled=true and exact R12 GUID.
+
+The native log confirms repeated successful FFB opens followed immediately by shutdown/re-enumeration. At 21:35:18 local, reader closure began at .097, FFB initialized at .386, input reopening completed at .521, and StopEffect followed at .525; another enumeration completed at .695. The code tore down the device whenever a contact/time/camera gate failed. Initialization itself delayed samples/camera observations, triggering another teardown before ordinary force writes. This establishes a reconnect stall and explains the zero-write behavior; no recording establishes that every perceived hitch was this cause or that shifting caused it.
+
+## 0.2.3 changes
+
+- FFB defaults On for new configs and honors saved On/Off on normal launches. There is no per-session arm action. F8/Stop saves Off; explicit On resumes. Existing owner tune/GUID are preserved.
+- Transient gates zero/stop without releasing or enumerating devices. Zero-only preparation runs in Update, not the physics sampler. Focus recovery can reacquire through a toolkit zero write when the shared input reader is unavailable. Init/write failures latch instead of repeatedly reconnecting.
+- Controls → Handbrake offers Button/Axis with calibrated rest/full pull, inversion/deadzone and a live bar. Existing button bindings remain stored. Axis amount scales native rear brake torque and grip loss; full pull uses stock behavior. Native power cut remains binary and the game's rpm threshold is preserved. This game-side adaptation has not been driven.
+- Recording start/stop controls removed from F6. Start-RecordedGame.ps1 prepares an expiring one-launch request and launches through Steam. Normal exit finalizes a bounded capture. Unattended diagnostic launches suppress force without changing saved FFB On; -AttendedFfb is for explicitly requested attended testing.
+- Added frame/poll/control/car/sampler/force timing, FFB connection counters and status markers, raw/applied handbrake. The signal model and force safety gates remain intact.
+
+Release build: zero warnings/errors; **19 suites / 441 assertions**. Tests include the actual ForceController compiled with fake game/device collaborators, transient recovery without re-enumeration, persistent panic Off, failed-init/write latching, zero-only reader recovery, handbrake mapping/persistence and expiring one-shot diagnostic requests. No physical output or live 0.2.3 acceptance is claimed.
+
+Toolkit UX-1, setup guidance and checklist were updated locally for the owner's saved On/Off and agent-recording workflow. Other pre-existing toolkit work and pinned binaries were not changed.
+
+
+Installed with Woden closed at **2026-09-15 03:20 UTC** (September 14 local).
+All nine payload hashes matched; every pre-existing config hash was preserved.
+Backup: `BepInEx/WodenBackups/before-0.2.3-20260914-222021`, including previous
+plugin/config, game logs and native-ffb.log. ZIP SHA-256:
+`599fef80add0bb8313f225b68b3dc842020f9ffaf6711aa7fed806b0a09cd6d5`.
+Installer and recording-launch fixtures passed without starting a game. Schema:
+211 definitions, not live coverage. No game was launched after this update.
+## Next attended check
+
+After installation, bind/calibrate the handbrake axis and check released/partial/full response. Use normal saved FFB On at the preserved 10% strength / 25% cap; F8 saves Off if needed. Test pause/focus/camera recovery and compare stutters. Once ready for diagnostics, the agent can launch a bounded recording; the owner need not start/stop it in the menu. Capture normal driving, shifts, partial/full handbrake, pause and normal exit. Inspect FFB writes/connection counts, timing and actual contact values. Physical sign/feel, signal scales, SimHub interpretation and camera acceptance remain open.
+
+The older state below is retained as history. Its session-arming and menu-recording instructions are superseded by the owner request and 0.2.3 above.
+
+## Historical state before the 0.2.3 changes
 
 Handoff audit: [HANDOFF.md](HANDOFF.md) now records source/installation paths,
 retained evidence and the next test. Read-only checks on 2026-09-14 matched all

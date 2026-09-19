@@ -126,7 +126,7 @@ Test("shared force shaping: symmetric sign, literal gain, cap, ramp and low-spee
     for (int i = 1; i <= 100; i++) {
         var a = left.Evaluate(Contact(i * .02), new()); var b = right.Evaluate(Contact(i * .02, -.3), new());
         var inv = inverted.Evaluate(Contact(i * .02), new(Invert: true));
-        Check(a.Valid && Math.Abs(a.Preview) <= .10001, "default gain remains low"); Near(a.Preview, -b.Preview, "symmetric slip"); Near(a.Preview, -inv.Preview, "invert sign");
+        Check(a.Valid && Math.Abs(a.Preview) <= .25001, "50% default remains within peak cap"); Near(a.Preview, -b.Preview, "symmetric slip"); Near(a.Preview, -inv.Preview, "invert sign");
         if (i == 1) Check(Math.Abs(a.Preview) < .01, "starts near zero"); final = a.Preview;
     }
     Check(final < -.01, "preview builds when not output-armed");
@@ -135,6 +135,153 @@ Test("shared force shaping: symmetric sign, literal gain, cap, ramp and low-spee
     Check(peak <= .05001 && peak > .01, "hard cap still permits signal");
     Near(new ForceSignal().Evaluate(Contact(1, speed: 0), new()).Preview, 0, "stationary has no force");
     Near(new ForceSignal().Evaluate(Contact(1), new(PeakPercent: 0)).Preview, 0, "zero peak disables force");
+});
+Test("50% default matches the original output waveform, including capped peaks", () => {
+    Near(new ForceOptions().Strength, 50, "default strength");
+    var previous = new Dbce.Wheel.Ffb.ForceShaper { Strength = 50, SmoothingMs = 35, SoftSaturation = .5f, SlewPerSecond = 1.5f,
+        FadeStartKmh = 3, FadeFullKmh = 12, RampSeconds = .5f, PeakLimit = .25f };
+    var signal = new ForceSignal(); bool hitCap = false;
+    for (int i = 1; i <= 150; i++) {
+        double slip = i < 70 ? 100 : -.12; double speed = i < 110 ? 20 : 2;
+        float old = previous.Shape((float)-Math.Tanh(slip / .35f) * .5f, (float)(speed * 3.6), .02f);
+        var result = signal.Evaluate(Contact(i * .02, slip, speed), new());
+        Check(result.Valid, "comparison uses valid contacts"); Near(result.Preview, old, "original output restored");
+        hitCap |= Math.Abs(old) >= .2499f;
+    }
+    Check(hitCap, "comparison actually includes capped output");
+});
+Test("camera fit, manual tuning, bounds and key bindings survive legacy and new settings", () => {
+    var pose = CameraPose.FitBonnet(new(-.9f, 0, -2), new(.9f, 1.5f, 2));
+    Check(pose.Height > 1 && pose.Height < 1.5 && pose.Forward > 0 && pose.Forward < 1, "body-relative windscreen placement leaves bonnet ahead");
+    Check(pose.Pitch > 0 && pose.Fov == 70, "default looks down with explicit FOV");
+    Check(CameraPose.FitBonnet(Vector3.Zero, Vector3.Zero) == CameraPose.Bonnet, "missing bounds fallback");
+    Check(CameraPose.FitBonnet(Vector3.Zero, new(float.NaN)) == CameraPose.Bonnet, "nonfinite bounds fallback");
+    Near(CameraTuning.Adjust(pose, "Camera up").Height, pose.Height + .05, "move up");
+    Near(CameraTuning.Adjust(pose, "Camera back").Forward, pose.Forward - .05, "move back");
+    Near(CameraTuning.Adjust(pose, "Camera left").Side, -.05, "move left");
+    Near(CameraTuning.Adjust(pose, "Camera pitch up").Pitch, pose.Pitch - 1, "pitch up");
+    Near(CameraTuning.Adjust(pose with { Fov = 110 }, "Camera wider").Fov, 110, "FOV clamp");
+    Near(CameraTuning.Adjust(pose with { Forward = -2 }, "Camera back").Forward, -2, "position clamp");
+    string path = Path.Combine(Path.GetTempPath(), "woden-camera-bindings-" + Guid.NewGuid() + ".json");
+    File.WriteAllText(path, "{\"Version\":1,\"Buttons\":{}}");
+    var bindings = Bindings.Load(path); Check(bindings.CameraKeys["Camera up"] == "Numpad8", "legacy bindings acquire numpad defaults");
+    bindings.CameraKeys["Camera up"] = "U"; bindings.CameraKeys["Camera down"] = "None";
+    bindings.Buttons["Camera down"] = new(Guid.NewGuid(), 5);
+    bindings.Save(path); var restored = Bindings.Load(path);
+    Check(restored.CameraKeys["Camera up"] == "U" && restored.CameraKeys["Camera down"] == "None", "custom keys and clears persist");
+    Check(restored.Buttons["Camera down"].Button == 5, "wheel camera shortcut persists");
+    File.Delete(path); File.Delete(path + ".bak");
+});
+Test("real settings migrate untouched bonnet defaults and preserve custom camera/FFB choices", () => {
+    string path = Path.Combine(Path.GetTempPath(), "woden-camera-config-" + Guid.NewGuid() + ".cfg");
+    var fresh = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(path, false));
+    Near(fresh.FfbStrength, 50, "new config default 50"); Check(fresh.CameraAutoFit, "new config body fit");
+    File.WriteAllText(path, "[Camera]\nHeight = 0.85\nForward = 0.75\nPitchDegrees = 3\n[ForceFeedback]\nStrengthPercent = 42\nEnabled = false\n");
+    var migrated = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(path, false));
+    Near(migrated.CameraHeight, CameraPose.Bonnet.Height, "old default migrates"); Check(migrated.CameraAutoFit, "old default opts into body fit");
+    Near(migrated.FfbStrength, 42, "custom strength survives"); Check(!migrated.FfbEnabled, "saved Off survives");
+    migrated.CameraAutoFit = false; migrated.SetCameraPose(false, new(.1f, 1.3f, .2f, 5, 80)); migrated.Save();
+    var restored = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(path, false));
+    Check(!restored.CameraAutoFit && restored.GetCameraPose(false) == migrated.GetCameraPose(false), "manual pose and auto-fit Off survive restart");
+    File.WriteAllText(path, "[Camera]\nHeight = 1.25\nForward = 0.3\nPitchDegrees = 6\n");
+    var custom = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(path, false));
+    Check(!custom.CameraAutoFit, "preexisting customized camera stays manual"); Near(custom.CameraHeight, 1.25, "custom height retained");
+    File.Delete(path);
+});
+Test("bonnet defaults match the owner's raised/forward correction while preserving saved manual views", () => {
+    var fitted = CameraPose.FitBonnet(new(-1.0630412f, -.5870567f, -2.460395f), new(1.0630587f, .91786325f, 2.4637225f));
+    Near(fitted.Height, .7367809, "owner's corrected height"); Near(fitted.Forward, .9380049, "owner's corrected forward position");
+    Near(fitted.Pitch, 8, "pitch retained"); Near(fitted.Fov, 70, "FOV retained");
+    Near(CameraPose.Bonnet.Height, fitted.Height, "fallback uses observed height"); Near(CameraPose.Bonnet.Forward, fitted.Forward, "fallback uses observed forward");
+    var otherCar = CameraPose.FitBonnet(new(-1.0647197f, -.5397808f, -2.1166487f), new(1.0647128f, .84692115f, 2.1351051f));
+    Near(otherCar.Height, .5418467 + .15, "correction follows the first car's geometry");
+    Near(otherCar.Forward, .77454394 + .05, "forward correction follows the first car");
+    string path = Path.Combine(Path.GetTempPath(), "woden-bonnet-v2-" + Guid.NewGuid() + ".cfg");
+    try {
+        var fresh = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(path, false));
+        Check(fresh.CameraAutoFit && fresh.GetCameraPose(false) == CameraPose.Bonnet, "fresh config uses corrected fit and fallback");
+        File.WriteAllText(path, "[Camera]\nDefaultsVersion = 1\nAutoFitBonnet = false\nHeight = 0.7367809\nForward = 0.9380049\nSide = 0.000008761883\nPitchDegrees = 8\nFov = 70\n");
+        var saved = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(path, false)); var manual = saved.GetCameraPose(false);
+        Check(!saved.CameraAutoFit && Math.Abs(manual.Side - .000008761883f) < .0000001, "owner's exact manual view is retained");
+        Near(manual.Height, .7367809, "saved height unchanged"); Near(manual.Forward, .9380049, "saved forward unchanged");
+        saved.Save(); var reloaded = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(path, false));
+        Check(!reloaded.CameraAutoFit && reloaded.GetCameraPose(false) == manual, "migration persists without another correction");
+        reloaded.ResetCamera(false); Check(reloaded.CameraAutoFit && reloaded.GetCameraPose(false) == CameraPose.Bonnet, "reset selects corrected default fit");
+    } finally { File.Delete(path); }
+});
+Test("game window policy excludes foreign, console, hidden and unrepresentable handles", () => {
+    uint self = (uint)Environment.ProcessId;
+    Check(WodenRallyEdge.GameWindow.Eligible(0x1234, self, "UnityWndClass", true), "visible owned Unity window accepted");
+    Check(WodenRallyEdge.GameWindow.Eligible(unchecked((int)0x80001234), self, "UnityWndClass", true), "signed 32-bit native HWND ABI retained");
+    Check(!WodenRallyEdge.GameWindow.Eligible(0x1234, self + 1, "UnityWndClass", true), "foreign process excluded");
+    Check(!WodenRallyEdge.GameWindow.Eligible(0x1234, self, "ConsoleWindowClass", true), "console excluded");
+    Check(!WodenRallyEdge.GameWindow.Eligible(0x1234, self, "UnityWndClass", false), "hidden window excluded");
+    Check(!WodenRallyEdge.GameWindow.Eligible(0, self, "UnityWndClass", true), "null window excluded");
+    Check(!WodenRallyEdge.GameWindow.Eligible(0x100001234, self, "UnityWndClass", true), "unrepresentable HWND not truncated");
+});
+Test("actual toolkit adapter pins the game window and requires exit guards", () => WodenRallyEdge.ToolkitForceChecks.Run(Check));
+Test("waiting for the game window never closes readers or latches a startup failure", () => {
+    var (controller, device) = WodenRallyEdge.ForceControllerChecks.Create(); device.CanOpen = false;
+    for (int i = 0; i < 100; i++) controller.Prepare();
+    Check(device.Opens == 0 && WodenRallyEdge.Runtime.Devices!.Closes == 0 && WodenRallyEdge.Runtime.Devices.Refreshes == 0, "waiting does no native open/reader churn");
+    Check(controller.Failures == 0 && controller.Armed, "missing window is retryable without a saved On toggle");
+    device.CanOpen = true; controller.Prepare(); controller.Prepare();
+    Check(device.Opens == 1 && controller.Connected, "window readiness permits one normal zero-only open");
+    controller.Shutdown();
+});
+Test("countdown rate handles invalid clocks, expired budgets and speed limits", () => {
+    foreach (float bad in new[] { float.NaN, float.PositiveInfinity, float.NegativeInfinity }) {
+        Check(CountdownRate.Prepare(bad, 1, 60, 75) == null, "invalid anchor ignored");
+        Check(CountdownRate.Prepare(0, bad, 60, 75) == null, "invalid current time ignored");
+        Check(CountdownRate.Prepare(0, 1, bad, 75) == null, "invalid budget ignored");
+        Check(CountdownRate.Prepare(0, 1, 60, bad) == null, "invalid speed ignored");
+    }
+    foreach (float remaining in new[] { 0f, -1f }) Check(CountdownRate.Prepare(0, 1, remaining, 75) == null, "expired budget never refunded");
+    Check(CountdownRate.Prepare(2, 1, 60, 75) == null && CountdownRate.Prepare(1, 1, 60, 75) == null, "clock restart and pause ignored");
+    Check(CountdownRate.Prepare(-float.MaxValue, float.MaxValue, 60, 75) == null, "overflow ignored");
+    Check(CountdownRate.Prepare(0, 1, 60, 100) == null && CountdownRate.Prepare(0, 1, 60, 110) == null, "normal rate unchanged");
+    Near(CountdownRate.Prepare(0, 1, 60, 50)!.Value.AdjustedAnchor, .5, "half rate");
+    Near(CountdownRate.Prepare(0, 1, 60, 0)!.Value.AdjustedAnchor, .75, "minimum quarter rate");
+});
+Test("actual countdown hook preserves native expiry, ownership, bonuses and cleanup", () => WodenRallyEdge.CountdownChecks.Run(Check));
+Test("real difficulty settings default Off and persist bounded speed without changing FFB", () => {
+    string path = Path.Combine(Path.GetTempPath(), "woden-difficulty-" + Guid.NewGuid() + ".cfg");
+    try {
+        File.WriteAllText(path, "[ForceFeedback]\nStrengthPercent = 42\nEnabled = false\n");
+        var settings = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(path, false));
+        Check(!settings.CountdownAssistEnabled && settings.CountdownSpeed == 75, "existing config gains an opt-in assist at 75%");
+        settings.CountdownAssistEnabled = true; settings.CountdownSpeed = 50; settings.Save();
+        var restored = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(path, false));
+        Check(restored.CountdownAssistEnabled && restored.CountdownSpeed == 50, "saved enabled/speed survive restart");
+        Check(!restored.FfbEnabled && restored.FfbStrength == 42, "saved force preference unchanged");
+        restored.CountdownSpeed = 0; restored.Validate(); Near(restored.CountdownSpeed, 25, "minimum speed");
+        restored.CountdownSpeed = 150; restored.Validate(); Near(restored.CountdownSpeed, 100, "maximum speed");
+        restored.CountdownSpeed = float.NaN; restored.Validate(); Near(restored.CountdownSpeed, 75, "invalid speed fallback");
+        restored.CountdownAssistEnabled = false; restored.Save();
+        Check(!new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(path, false)).CountdownAssistEnabled, "Off persists");
+    } finally { File.Delete(path); }
+});
+Test("countdown wheel/camera eligibility preserves every existing driving and FFB exclusion", () => {
+    var ready = new PlayerControlState(PlayerPhase.Countdown, true, true, false, false, false, false, false, true);
+    Check(ready.WheelAvailable && ready.CameraAvailable && ready.PreRace, "locked start-line permits calibrated controls and camera");
+    Check(!ready.Driving, "countdown never becomes a force/driving sample");
+    var blocked = new[] { ready with { Selected = false }, ready with { Focused = false }, ready with { PanelOpen = true }, ready with { Paused = true },
+        ready with { Replay = true }, ready with { Respawning = true }, ready with { PhotoMode = true }, ready with { Phase = PlayerPhase.Finished },
+        ready with { Phase = PlayerPhase.Destroyed }, ready with { Phase = PlayerPhase.Unavailable }, ready with { Phase = PlayerPhase.Racing, Locked = true } };
+    foreach (var state in blocked) Check(!state.WheelAvailable && !state.CameraAvailable && !state.Driving, "unsafe/inactive context stays excluded: " + state);
+    var green = ready with { Phase = PlayerPhase.Racing, Locked = false };
+    Check(green.WheelAvailable && green.CameraAvailable && green.Driving && !green.PreRace, "green enables existing driving path");
+    var cycle = new CameraCycle(); cycle.StockChanged(4, 0, true, true);
+    Check(cycle.View == MountedView.Bonnet && !cycle.Reconcile(0, true, true), "preselected bonnet survives normal countdown-to-race without preset change");
+});
+Test("actual action-table lease supplies countdown-capable controls and restores boxed native values", () => WodenRallyEdge.InputLeaseChecks.Run(Check));
+Test("active countdown camera cannot enable physical force", () => {
+    var (controller, device) = WodenRallyEdge.ForceControllerChecks.Create(); controller.Prepare();
+    for (int i = 1; i <= 30; i++) controller.Tick(Contact(i * .02, state: "countdown"));
+    Check(device.Opens == 1 && device.Writes.Count == 0 && controller.Sent == 0, "saved On and player camera still cannot deliver countdown force");
+    for (int i = 31; i <= 80; i++) controller.Tick(Contact(i * .02));
+    Check(device.Writes.Any(x => Math.Abs(x) > .01), "green resumes ordinary ramped force without reconnecting");
+    controller.Shutdown();
 });
 Test("force rejects stale, paused, replay, reverse, airborne and incomplete or nonfinite contacts", () => {
     foreach (string state in new[] { "paused", "replay", "inactive", "respawning", "unfocused", "invalid-motion" })
@@ -164,5 +311,37 @@ Test("camera button extends the stock cycle without saving invalid native indice
     cycle.StockChanged(4, 0, true, true); cycle.Handoff(); Check(cycle.View == MountedView.Stock, "photo/replay handoff drops mounted view");
     cycle.StockChanged(0, 0, false, false); Check(cycle.View == MountedView.Stock, "all disabled leaves normal cycle");
 });
+Test("FFB saved preference, transient stop recovery and panic using actual consumer policy", () => WodenRallyEdge.ForceControllerChecks.Recovery(Check, t => Contact(t)));
+Test("FFB init/write failures and diagnostic launch cannot reconnect-loop or choose another wheel", () => WodenRallyEdge.ForceControllerChecks.Failures(Check, t => Contact(t)));
+Test("handbrake axis/button selection, proportional values and legacy binding persistence", () => {
+    Near(HandbrakeInput.Amount(true, true, .25f, false, false), .25, "quarter pull");
+    Near(HandbrakeInput.Amount(true, false, 1, false, false), 0, "disconnected axis releases");
+    Near(HandbrakeInput.Amount(true, true, float.NaN, false, false), 0, "invalid axis releases");
+    Near(HandbrakeInput.Amount(true, true, .25f, false, true), 1, "stock button remains full");
+    Near(HandbrakeInput.Amount(false, true, .25f, true, false), 1, "button mode is full");
+    Near(HandbrakeInput.Amount(false, true, 1, false, false), 0, "unselected axis ignored");
+    Near(HandbrakeInput.Scale(2000, .25f), 500, "quarter native brake command");
+    Near(HandbrakeInput.Scale(.7f, .5f), .35, "half native grip loss");
+    Guid guid = Guid.NewGuid(); var bindings = new Bindings { Handbrake = new(guid, 2, new(65535, 0)), HandbrakeUsesAxis = true, Buttons = new() { ["Handbrake"] = new(guid, 7) } };
+    string path = Path.Combine(Path.GetTempPath(), "woden-handbrake-" + Guid.NewGuid() + ".json");
+    bindings.Save(path); var loaded = Bindings.Load(path);
+    Check(loaded.HandbrakeUsesAxis && loaded.Buttons["Handbrake"].Button == 7, "axis selection preserves old button");
+    Near(loaded.Handbrake!.Calibration.Normalize(65535), 0, "reversed rest survives");
+    Near(loaded.Handbrake.Calibration.Normalize(0), 1, "reversed full survives");
+    File.WriteAllText(path, "{\"Version\":1,\"Buttons\":{}}");
+    Check(!Bindings.Load(path).HandbrakeUsesAxis, "legacy file loads in button mode"); File.Delete(path);
+});
+Test("diagnostic launch is bounded, consumed once and rejects expired requests", () => {
+    string path = Path.Combine(Path.GetTempPath(), "woden-launch-" + Guid.NewGuid() + ".json");
+    DateTimeOffset now = DateTimeOffset.UtcNow;
+    File.WriteAllText(path, JsonSerializer.Serialize(new DiagnosticLaunch(1, Guid.NewGuid(), now.AddMinutes(15))));
+    Check(DiagnosticLaunch.Consume(path, now)?.DisableForces == true, "unattended diagnostic defaults to no force");
+    Check(DiagnosticLaunch.Consume(path, now) == null, "second launch cannot repeat capture");
+    File.WriteAllText(path, JsonSerializer.Serialize(new DiagnosticLaunch(1, Guid.NewGuid(), now.AddMinutes(-1))));
+    bool rejected = false; try { DiagnosticLaunch.Consume(path, now); } catch (IOException) { rejected = true; }
+    Check(rejected && !File.Exists(path), "expired request rejected and consumed");
+    foreach (string file in Directory.GetFiles(Path.GetDirectoryName(path)!, Path.GetFileName(path) + ".consumed-*")) File.Delete(file);
+});
+Test("native handbrake adaptation restores boxed tuning and preserves game transient state", () => WodenRallyEdge.HandbrakeChecks.Run(Check));
 Console.WriteLine($"{passed} suites passed; {failed} failed; {checks} assertions.");
 return failed == 0 ? 0 : 1;

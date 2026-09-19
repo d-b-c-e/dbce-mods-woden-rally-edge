@@ -74,5 +74,6 @@ internal sealed class DeviceHub : IDisposable
     internal IEnumerable<ButtonBinding> PressedButtons() => Devices.Where(x => x.Ok).SelectMany(d => Enumerable.Range(0, Math.Min(128, d.Info.Buttons))
         .Where(i => d.Buttons[i] != 0 && d.Previous[i] == 0).Select(i => new ButtonBinding(d.Info.InstanceGuid!.Value, i)));
     internal string Describe(Guid guid) => Devices.FirstOrDefault(x => x.Info.InstanceGuid == guid)?.Info.Name ?? "Disconnected " + guid.ToString("D")[..8];
+    internal bool IsReading(Guid guid) => Devices.Any(x => x.Info.InstanceGuid == guid && x.Ok);
     public void Dispose() => CloseReaders();
 }

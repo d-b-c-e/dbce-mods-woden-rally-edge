@@ -16,14 +16,17 @@ public sealed class Bindings
     public AxisBinding? Steer { get; set; }
     public AxisBinding? Throttle { get; set; }
     public AxisBinding? Brake { get; set; }
+    public AxisBinding? Handbrake { get; set; }
+    public bool HandbrakeUsesAxis { get; set; }
     public Dictionary<string, ButtonBinding> Buttons { get; set; } = new();
+    public Dictionary<string, string> CameraKeys { get; set; } = CameraTuning.DefaultKeys();
     public bool DrivingAxesReady => Steer?.Valid == true && Steer.Calibration.Centre.HasValue &&
         Throttle?.Valid == true && !Throttle.Calibration.Centre.HasValue && Brake?.Valid == true && !Brake.Calibration.Centre.HasValue;
-    public AxisBinding? Axis(string name) => name switch { "Steer" => Steer, "Throttle" => Throttle, "Brake" => Brake, _ => null };
+    public AxisBinding? Axis(string name) => name switch { "Steer" => Steer, "Throttle" => Throttle, "Brake" => Brake, "Handbrake" => Handbrake, _ => null };
     public void SetAxis(string name, AxisBinding? binding)
     {
         if (binding != null && !binding.Valid) throw new ArgumentException("Invalid axis binding");
-        switch (name) { case "Steer": Steer = binding; break; case "Throttle": Throttle = binding; break; case "Brake": Brake = binding; break; default: throw new ArgumentException(name); }
+        switch (name) { case "Steer": Steer = binding; break; case "Throttle": Throttle = binding; break; case "Brake": Brake = binding; break; case "Handbrake": Handbrake = binding; break; default: throw new ArgumentException(name); }
     }
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true, WriteIndented = true };
     public static Bindings Load(string path)
@@ -31,9 +34,10 @@ public sealed class Bindings
         if (!File.Exists(path)) return new();
         var bindings = JsonSerializer.Deserialize<Bindings>(File.ReadAllText(path), Json) ?? throw new IOException("Empty bindings");
         if (bindings.Version != 1) throw new IOException("Unsupported binding version");
-        foreach (var name in new[] { "Steer", "Throttle", "Brake" })
+        foreach (var name in new[] { "Steer", "Throttle", "Brake", "Handbrake" })
             if (bindings.Axis(name) is { } b && !b.Valid) throw new IOException("Invalid saved " + name + " calibration");
         if (bindings.Buttons == null || bindings.Buttons.Any(x => x.Value?.Valid != true)) throw new IOException("Invalid saved button binding");
+        bindings.CameraKeys ??= CameraTuning.DefaultKeys();
         return bindings;
     }
     public void Save(string path)
@@ -58,7 +62,7 @@ public sealed class AxisCapture
     public int Minimum => _min;
     public int Maximum => _max;
     public string Status => Ambiguous ? "Several axes moved. Cancel, release controls, and try again." : !Detected ?
-        (_steering ? "Turn the wheel right first, then sweep fully left/right." : "Press the pedal fully, then release it.") :
+        (_steering ? "Turn the wheel right first, then sweep fully left/right." : "Move the control fully, then release it.") :
         (_steering ? $"Sweep both ends. Raw {_min} .. {_max}; centre {_rest}." : $"Raw rest {_rest}; observed {_min} .. {_max}.");
     private int _direction;
     public AxisCapture(Dictionary<(Guid, int), int> baseline, bool steering) { _baseline = new(baseline); _steering = steering; }

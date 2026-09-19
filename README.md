@@ -2,15 +2,17 @@
 
 A Windows mod for **Super Woden Rally Edge** that connects the game's vehicle simulation to a racing rig. Detailed, trustworthy telemetry is the first milestone; direct wheel controls, force feedback and bonnet/bumper views are the feature targets.
 
-**0.2.2 development build.** The 0.2.1 level-entry crash fix ran successfully; the owner then reported no driving response. 0.2.2 moves input to the game's action-reading boundary, adds the normal bonnet/bumper cycle and camera/FFB handoff, and starts adopting the shared UX standard. Effective wheel handling, new views and physical FFB still need an attended retest. Read [the evidence and next steps](docs/STATE.md).
+**0.2.7 development build.** FFB initialization now receives a verified game-window handle after the 0.2.6 log exposed a foreign-window exit-guard failure. Bonnet fitting incorporates the owner's +0.15 m height / +0.05 m forward correction while preserving saved views. Runtime confirmation of the FFB repair is pending.
+
+ Wheel controls and camera changes are now allowed during the start-line countdown, including throttle/revs and steering. The game retains its start lock and FFB still requires racing. Setup → Difficulty adds an optional single-player countdown/time-limit assist (Off by default, saved speed 75%); lap/stage timing remains normal. Original FFB gain and the 50% default remain; the owner described the current feel as a good starting point but noted possible lingering force in turns. Read [the evidence and next steps](docs/STATE.md).
 
 | Area | Current implementation |
 |---|---|
 | Telemetry | Game sampler, versioned channels, 324-byte Forza output, detailed JSON UDP and live bounded capture. Sustained real car/contact sampling observed; signal scales/coverage still need a recording. |
-| Wheel input | Exact-GUID devices, interactive steering/pedal calibration, inversion/deadzone, button capture and reconnect. R12 axes read live in F6; effective driving input still needs verification. |
-| Camera | Bonnet and bumper extend the normal camera-button cycle; held Look behind and game-camera handoff stop/restore behavior. Compiled; placement, clipping, transitions and split-screen behavior untested. |
-| Force feedback | Provisional front-contact/slip alignment estimate and steering damping through the toolkit. Session arming, exact FFB wheel, watchdog, exit guards, ramp, peak cap and driving gates. Physical direction/load normalization unverified. |
-| Setup UI | **F6**: Setup, Controls, FFB, Cameras, Telemetry, Help. **F8**: Stop FFB, latched until manually started again. Settings and bindings save live. See [UX adoption gaps](docs/UX-ADOPTION.md). |
+| Wheel input | Exact-GUID calibration, inversion/deadzone, buttons and reconnect. Handbrake accepts a button or calibrated axis; proportional rear braking/grip-loss adaptation is awaiting a drive. |
+| Camera | Bonnet and bumper extend the normal camera-button cycle; held Look behind and game-camera handoff stop/restore behavior. Body-fitted bonnet, manual offsets/FOV, shorter near clip and rebindable keys/buttons. New framing, transitions and split-screen behavior await acceptance. |
+| Force feedback | Provisional contact/slip estimate and damping through the toolkit. Saved On/Off, default On for new settings; exact wheel, watchdog, exit guards, ramp, peak cap and driving gates. Physical direction/load normalization unverified. |
+| Setup UI | **F6**: Setup, Controls, FFB, Cameras, Telemetry, Help. **F8** saves FFB Off until On is selected. Recording is prepared outside the menu. See [UX adoption gaps](docs/UX-ADOPTION.md). |
 
 The initial build supports Steam app **3218630**, build **21802346**, Unity **6000.3.6f1**, x64 IL2CPP metadata **39**. The plugin checks the exact `GameAssembly.dll` SHA-256 before patching.
 
