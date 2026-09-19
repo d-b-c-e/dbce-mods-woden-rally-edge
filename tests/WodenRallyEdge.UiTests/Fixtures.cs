@@ -11,9 +11,17 @@ namespace UnityEngine
     public record struct Rect(float x,float y,float width,float height);
     public record struct Vector2(float x,float y);
     public enum EventType { Repaint, MouseDown, MouseDrag, MouseUp, Used, KeyDown, KeyUp, ScrollWheel }
-    public enum KeyCode { None, Tab, Return, Space, LeftArrow, RightArrow, PageDown, PageUp, F6 }
+    public enum KeyCode { None, Tab, Return, Space, LeftArrow, RightArrow, PageDown, PageUp, F6, Escape }
     public static class Time {public static int frameCount;}
-    public static class Input {public static bool FailRead,Held;public static bool anyKey=>FailRead?throw new InvalidOperationException("fixture legacy keyboard failed"):Held;public static bool GetMouseButton(int button)=>false;}
+    public static class Input
+    {
+        public static bool FailRead,Held;
+        public static readonly HashSet<KeyCode> Keys=new(),Down=new();
+        public static bool anyKey=>FailRead?throw new InvalidOperationException("fixture legacy keyboard failed"):Held||Keys.Count>0;
+        public static bool GetKeyDown(KeyCode key)=>FailRead?throw new InvalidOperationException("fixture legacy keyboard failed"):Down.Contains(key);
+        public static bool GetKey(KeyCode key)=>Keys.Contains(key);
+        public static bool GetMouseButton(int button)=>false;
+    }
     public sealed class Event
     { public static Event current=new(); public EventType type=EventType.Repaint; public int button; public Vector2 mousePosition,delta; public KeyCode keyCode; public bool shift; public void Use()=>type=EventType.Used; }
     public sealed class GUIContent(string text) { public string text=text; }
@@ -57,7 +65,26 @@ namespace UnityEngine.InputSystem
 }
 namespace WodenRallyEdge
 {
-    internal static class Plugin {internal const string Version="0.2.9";}
+    internal static class Plugin {internal const string Version="0.2.10";}
+    internal static class TimingDiagnostics {internal static double PollMs;}
+    // Native-behavior fixtures from guarded GameAssembly: DailyMessage.Update
+    // RVA 0x456090 (ready + flags/legacy anyKey), title FixedUpdate 0xAFB560
+    // (autonomous frame timeout, Start/legacy Return with Escape exclusion).
+    internal sealed class DailyMessage
+    {
+        internal bool Ready=true,Confirm,Start;internal int Loads;
+        public void Update(){if(Ready&&(Confirm||Start||UnityEngine.Input.anyKey)){Ready=false;Loads++;}}
+    }
+    internal sealed class TitleScreenScript
+    {
+        internal int FrameCount,FramesToDemo=3,DemoLoads,StartLoads;internal bool DemoStarted,Starting,Start,Back;
+        public void FixedUpdate()
+        {
+            if(!DemoStarted)FrameCount++;
+            if(FrameCount>FramesToDemo){FrameCount=0;DemoStarted=true;DemoLoads++;}
+            if((Start||UnityEngine.Input.GetKey(UnityEngine.KeyCode.Return))&&!UnityEngine.Input.GetKey(UnityEngine.KeyCode.Escape)&&!Back&&!Starting){Starting=true;StartLoads++;}
+        }
+    }
     internal sealed class GamePadSystem
     {
         internal readonly List<Game_Pad> Game_Pads=new();
@@ -94,9 +121,9 @@ namespace WodenRallyEdge
     {
         internal sealed class Info {internal Guid? InstanceGuid;internal string Name="MOZA R12";internal bool ForceFeedback=true;}
         internal sealed class Device {internal Info Info=new();internal int[] Axes=new int[8];internal bool Ok=true;}
-        internal readonly List<Device> Devices=new();internal int Refreshes;internal readonly List<ButtonBinding> Pressed=new();
+        internal readonly List<Device> Devices=new();internal int Refreshes,Polls;internal Action? OnPoll;internal readonly List<ButtonBinding> Pressed=new();
         internal string Status=>"Fixture devices only";
-        internal void Poll(){}internal void Refresh()=>Refreshes++;internal void ClearPresses()=>Pressed.Clear();
+        internal void Poll(){Polls++;OnPoll?.Invoke();}internal void Refresh()=>Refreshes++;internal void ClearPresses()=>Pressed.Clear();
         internal string Describe(Guid guid)=>Devices.FirstOrDefault(d=>d.Info.InstanceGuid==guid)?.Info.Name??"Disconnected "+guid.ToString()[..8];
         internal Dictionary<(Guid,int),int> AxesSnapshot()=>Devices.SelectMany(d=>Enumerable.Range(0,8).Select(i=>new KeyValuePair<(Guid,int),int>((d.Info.InstanceGuid!.Value,i),d.Axes[i]))).ToDictionary();
         internal bool TryAxis(AxisBinding? b,out float value){value=0;var d=Devices.FirstOrDefault(d=>d.Info.InstanceGuid==b?.DeviceGuid);if(b==null||d?.Ok!=true)return false;value=(float)b.Normalize(d.Axes[b.Axis]);return true;}
@@ -112,5 +139,5 @@ namespace WodenRallyEdge
         internal static bool CameraAvailable(MainCar c)=>true;
     }
     internal sealed class TestClock {private readonly Stopwatch watch=Stopwatch.StartNew();private double offset;internal TimeSpan Elapsed=>watch.Elapsed+TimeSpan.FromSeconds(offset);internal void Advance(double seconds)=>offset+=seconds;}
-    internal sealed class Log {internal readonly List<string> Errors=new(),Warnings=new();internal void LogInfo(string s){}internal void LogWarning(string s)=>Warnings.Add(s);internal void LogError(string s)=>Errors.Add(s);}
+    internal sealed class Log {internal readonly List<string> Errors=new(),Warnings=new(),Infos=new();internal void LogInfo(string s)=>Infos.Add(s);internal void LogWarning(string s)=>Warnings.Add(s);internal void LogError(string s)=>Errors.Add(s);}
 }

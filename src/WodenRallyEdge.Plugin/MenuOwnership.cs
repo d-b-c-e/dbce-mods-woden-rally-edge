@@ -55,9 +55,9 @@ internal static class MenuOwnership
         try
         {
             var keyboard = Keyboard.current;
-            // Woden's configured keyboard actions also use the legacy input
-            // route. It can establish release when Keyboard.current is absent.
-            bool keyboardHeld = keyboard != null ? keyboard.anyKey.isPressed : Input.anyKey;
+            // Direct startup shortcuts read legacy Input even when InputSystem
+            // exists. Both routes must be released before returning ownership.
+            bool keyboardHeld = Input.anyKey || keyboard != null && keyboard.anyKey.isPressed;
             bool known = Runtime.Focused && _stockKnown && now >= _stockAt && now - _stockAt < .15;
             bool held = _stockHeld || keyboardHeld;
             var mouse = Mouse.current;

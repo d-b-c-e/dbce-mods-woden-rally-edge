@@ -1,4 +1,6 @@
-# 0.2.9 private development build
+# 0.2.10 private development build
+
+The startup message and title now retain input ownership while settings is open. F6 or the bound Settings button is observed before their direct keyboard shortcuts, including when the game callback runs before the mod update. Their local timers wait while the panel is open and resume normally after release. This successor has managed test coverage; its startup/title behavior still needs a force-disabled live check.
 
 F6 opens Wheel settings in Simple by default. View: Simple / Advanced is saved explicitly. Tab / Enter navigate; arrow keys adjust focused sliders; scroll or Page Up / Down reveals longer pages. View changes preserve all tuning and runtime state. Finish or cancel calibration/connection edits before changing view. FFB is a single saved On/Off choice, default On for new settings. F8 immediately stops output and saves Off; choose On to resume. Physical force direction/feel and this build's handbrake behavior still need an attended drive. The repository's docs/STATE.md records verification history.
 

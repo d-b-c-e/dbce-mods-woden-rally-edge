@@ -46,6 +46,7 @@ internal static class Panel
     }
     internal static void Update()
     {
+        ObserveSettingsOpening();
         MenuOwnership.Tick();
         MenuNavigation.Update();
         if (!Runtime.Focused) { MenuOwnership.BeginCapture(); return; }
@@ -55,8 +56,9 @@ internal static class Panel
         if (_keyboardAvailable != (kb != null))
         {
             _keyboardAvailable = kb != null;
-            HotkeyStatus = kb == null ? "Keyboard.current unavailable; IMGUI F6 / wheel Settings remain available" : "Keyboard available; waiting for F6";
-            Runtime.Log.LogInfo(HotkeyStatus);
+            string availability = kb == null ? "Keyboard.current unavailable; IMGUI F6 / wheel Settings remain available" : "Keyboard available; waiting for F6";
+            if (_settingsFrame != Time.frameCount) HotkeyStatus = availability;
+            Runtime.Log.LogInfo(availability);
         }
         // A panic read/output error must never prevent the settings escape route.
         try { if (kb != null && kb[Key.F8].wasPressedThisFrame || Runtime.Wheel?.Button("Panic stop") == true) Runtime.Force?.Panic(); }
@@ -86,6 +88,26 @@ internal static class Panel
         HotkeyStatus = route + ": " + error.Message; Message = "Hotkeys: " + HotkeyStatus;
         if (Runtime.Clock.Elapsed.TotalSeconds >= _nextHotkeyError)
         { Runtime.Log.LogWarning(Message); _nextHotkeyError = Runtime.Clock.Elapsed.TotalSeconds + 10; }
+    }
+    // Opening-only observation runs before direct startup shortcuts and before
+    // our own menu dispatch. Closing still uses the existing release barrier.
+    internal static bool ObserveSettingsOpening()
+    {
+        if (Open || !Runtime.Focused || Runtime.Wheel?.Capturing == true || MenuOwnership.Closing) return true;
+        bool known = true, key = false, bound = false;
+        try { key = Input.GetKeyDown(KeyCode.F6); }
+        catch (Exception ex) { known = false; HotkeyFailure("Legacy F6 opening", ex); }
+        try { var kb = Keyboard.current; key |= kb != null && kb[Key.F6].wasPressedThisFrame; }
+        catch (Exception ex) { known = false; HotkeyFailure("InputSystem F6 opening", ex); }
+        try { bound = Runtime.Wheel?.Button("Settings panel") == true; }
+        catch (Exception ex) { known = false; HotkeyFailure("Bound Settings opening", ex); }
+        if (key || bound)
+        {
+            // A delayed IMGUI key-down for this press must not close the panel.
+            if (key) _imguiSettingsHeld = true;
+            SettingsKey(key ? "Early F6 opening" : "Early bound Settings opening");
+        }
+        return known;
     }
     private static void SettingsKey(string source)
     {
@@ -127,7 +149,7 @@ internal static class Panel
     internal static void CompleteClose(bool resume)
     {
         if (!Open) return;
-        Open = false; Runtime.Wheel?.Cancel(); _drag = -1; Save();
+        Open = false; _imguiSettingsHeld = false; Runtime.Wheel?.Cancel(); _drag = -1; Save();
         try
         {
             MenuOwnership.End();
