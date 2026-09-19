@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.8 — private development build
+
+- Persistent Simple/Advanced views with complete basic binding/calibration in Simple and optional countdown assist in Advanced Driving.
+- Independent additive handbrake axis/button input, strict Steering-following/explicit FFB dropdown, saved Off preserved.
+- Camera shortcut conflict/cancel/defaults, legacy mapping preservation, bounded held-repeat and release gates; pose tuning in Advanced.
+- Atomic dashboard connection edits and master toggle preserve active recording; active capture Stop, scale and local support summary.
+- Transactional binding/Clear/default saves retain the old effective assignment and exact Retry/Cancel proposal after failure; calibration Save rejects disconnected devices. Camera batch defaults preflight every conflict.
+- Bindable Confirm, Back and menu directions for the panel and existing Unity UI handlers; unsupported stock screens retain a visible fallback.
+- Player Install/Uninstall entry points with pinned prerequisites, verified updates, backups, rollback, settings preservation and ownership-based removal.
+- Source-linked managed UI fixtures; 0.2.7 game-window repair, force model and camera fitting retained. Physical/Unity acceptance remains open.
+
+
 ## [Unreleased]
 
 ### 0.2.7 development build

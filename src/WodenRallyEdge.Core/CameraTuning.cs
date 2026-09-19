@@ -28,9 +28,23 @@ public readonly record struct CameraPose(float Side, float Height, float Forward
 public static class CameraTuning
 {
     public static readonly string[] Actions = { "Camera", "Rear view", "Camera up", "Camera down", "Camera forward", "Camera back", "Camera left", "Camera right", "Camera pitch up", "Camera pitch down", "Camera wider", "Camera narrower", "Camera reset" };
-    public static readonly string[] Labels = { "Change camera", "Look behind", "Move up", "Move down", "Move forward", "Move back", "Move left", "Move right", "Pitch up", "Pitch down", "Widen FOV", "Narrow FOV", "Reset view" };
-    private static readonly string[] Keys = { "None", "None", "Numpad8", "Numpad2", "Numpad9", "Numpad7", "Numpad4", "Numpad6", "Numpad1", "Numpad3", "NumpadPlus", "NumpadMinus", "Numpad0" };
+    public static readonly string[] Labels = { "Change camera", "Look behind", "Move up", "Move down", "Move forward", "Move back", "Move left", "Move right", "Tilt up", "Tilt down", "Widen FOV", "Narrow FOV", "Reset view" };
+    private static readonly string[] Keys = { "None", "None", "Numpad8", "Numpad2", "Numpad9", "Numpad7", "Numpad4", "Numpad6", "Numpad3", "Numpad1", "NumpadPlus", "NumpadMinus", "Numpad0" };
     public static Dictionary<string, string> DefaultKeys() => Actions.Select((a, i) => (a, i)).ToDictionary(x => x.a, x => Keys[x.i]);
+    public static Dictionary<string, string> LegacyKeys()
+    { var keys = DefaultKeys(); keys["Camera pitch up"] = "Numpad1"; keys["Camera pitch down"] = "Numpad3"; return keys; }
+    public static void RestoreAdjustmentKeys(Bindings bindings)
+    {
+        var conflict = AdjustmentDefaultsConflict(bindings);
+        if (conflict != null) throw new InvalidOperationException("A numpad default is assigned to " + conflict + ". Rebind it first.");
+        foreach (var action in Actions.Skip(2)) { bindings.CameraKeys[action] = DefaultKeys()[action]; bindings.Buttons.Remove(action); }
+    }
+    public static string? AdjustmentDefaultsConflict(Bindings bindings)
+    {
+        var adjustments = Actions.Skip(2).ToHashSet();
+        var keys = DefaultKeys().Where(k => adjustments.Contains(k.Key)).Select(k => k.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return bindings.CameraKeys.FirstOrDefault(k => !adjustments.Contains(k.Key) && keys.Contains(k.Value)).Key;
+    }
     public static CameraPose Adjust(CameraPose pose, string action) => (action switch
     {
         "Camera up" => pose with { Height = pose.Height + .05f }, "Camera down" => pose with { Height = pose.Height - .05f },

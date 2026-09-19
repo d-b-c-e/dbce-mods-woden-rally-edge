@@ -1,4 +1,14 @@
-# State — 2026-09-16
+# State — 2026-09-19
+
+## 0.2.8 — implementation complete; final build/deployment in progress
+
+The owner-authorized cross-product UX work adds persistent Simple/Advanced, provisional calibration, additive handbrake axis/button input, strict Steering-following or explicit FFB selection, camera rebinding/repeats, and telemetry edits that preserve active capture. Optional countdown assist moves to Advanced → Driving without changing saved values or the timer hook. Wheel Confirm/Back/directions now navigate the panel and compatible Unity stock menus. See the [complete inventory and evidence](UX-OVERNIGHT-2026-09-16.md).
+
+Binding saves, Clear and default resets persist before replacing effective assignments. Failures retain the old binding and exact proposal with Retry/Cancel; disconnected calibration candidates cannot be saved. Camera default batches preflight conflicts. The Windows player installer now supports install/update/uninstall with pinned prerequisites, backup, rollback, owned-file hashes and preserved settings/recordings/other mods.
+
+Offline checks: zero-warning build; **35 regression suites / 942 assertions**, **459 source-linked UI assertions**, and **59 standalone installer checks under Windows PowerShell 5.1**. Approximate 720p/4K draw-command fixtures are separate from actual Unity rendering. Native menu coverage and physical controls/FFB/camera acceptance remain pending.
+
+Branch `codex/ux-simple-advanced-0.2.8`; baseline checkpoint `9d28b83` preserves prior 0.2.3–0.2.7 work separately. Final source commit, package hashes and closed-game deployment receipt will be recorded here after installation. The owner explicitly authorized completion, documentation, build, commit and deployment; no game launch or unattended force test is included. Original force model, 50% default, HWND/exit guards, owner bonnet correction and timer eligibility remain unchanged.
 
 ## Latest 0.2.7 drive — force felt; lingering-force analysis
 

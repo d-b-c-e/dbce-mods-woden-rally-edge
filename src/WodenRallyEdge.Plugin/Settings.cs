@@ -16,6 +16,18 @@ public sealed class Settings
     private int _cameraDefaultsVersion;
     public float FfbStrength = 50, FfbPeak = 25, FfbLoadReference = 6000, FfbSlipScale = .35f, FfbSmoothing = 35, FfbDamping = .05f;
     public string FfbGuid = "";
+    public bool FfbFollowSteering = true, TelemetryEnabled = true;
+    private int _selectionVersion;
+    public string UiView = "Simple", UiPage = "Setup";
+    public float UiScale = 100;
+    public bool CustomFfb => FfbPeak != 25 || FfbLoadReference != 6000 || FfbSlipScale != .35f || FfbSmoothing != 35 || FfbDamping != .05f || FfbInvert;
+    public void SetPresentation(string view, string page)
+    {
+        UiView = SettingsPresentation.View(view); UiPage = SettingsPresentation.Page(page, UiView);
+        _config.Bind("Interface", "View", "Simple").Value = UiView;
+        _config.Bind("Interface", "Page", "Setup").Value = UiPage;
+        _config.Save();
+    }
     public ForceOptions ForceOptions => new(FfbStrength, FfbPeak, FfbLoadReference, FfbSlipScale, FfbSmoothing, FfbDamping, FfbInvert);
     public Settings(ConfigFile config)
     {
@@ -32,6 +44,7 @@ public sealed class Settings
             if (CameraAutoFit && CameraHeight == 1.1f && CameraForward == .1f && CameraPitch == 8) SetCameraPose(false, CameraPose.Bonnet);
             _cameraDefaultsVersion = 2;
         }
+        if (_selectionVersion < 1) { FfbFollowSteering = string.IsNullOrWhiteSpace(FfbGuid); _selectionVersion = 1; }
         Validate();
     }
     public CameraPose GetCameraPose(bool bumper) => bumper ? new(BumperSide, BumperHeight, BumperForward, BumperPitch, BumperFov) : new(CameraSide, CameraHeight, CameraForward, CameraPitch, CameraFov);
@@ -53,11 +66,19 @@ public sealed class Settings
         FfbLoadReference = Bound(FfbLoadReference, 100, 50000, 6000); FfbSlipScale = Bound(FfbSlipScale, .02f, 3, .35f);
         FfbSmoothing = Bound(FfbSmoothing, 0, 200, 35); FfbDamping = Bound(FfbDamping, 0, .5f, .05f);
         CountdownSpeed = Bound(CountdownSpeed, 25, 100, 75);
+        UiView = SettingsPresentation.View(UiView); UiPage = SettingsPresentation.Page(UiPage, UiView);
+        UiScale = Bound(UiScale, 85, 150, 100);
     }
     private void Sync(bool read)
     {
         void Item<T>(string group, string name, ref T value, string help)
         { var entry = _config.Bind(group, name, value, help); if (read) value = entry.Value; else entry.Value = value; }
+        Item("Interface", "View", ref UiView, "Simple or Advanced; presentation only.");
+        Item("Interface", "Page", ref UiPage, "Last settings page.");
+        Item("Interface", "ScalePercent", ref UiScale, "Settings text and target scale, 85..150%.");
+        Item("Telemetry", "Enabled", ref TelemetryEnabled, "Send dashboard UDP; does not start or stop diagnostic recording.");
+        Item("ForceFeedback", "FollowSteering", ref FfbFollowSteering, "Use the saved Steering device GUID. An explicit selection remains independent.");
+        Item("ForceFeedback", "SelectionVersion", ref _selectionVersion, "Preserve legacy explicit selections during migration.");
         Item("General", "PlayerIndex", ref Player, "Exact local player index; change from the F6 panel.");
         Item("Wheel", "Enabled", ref WheelEnabled, "Use calibrated direct wheel input. F6 provides binding and calibration.");
         Item("Difficulty", "CountdownAssistEnabled", ref CountdownAssistEnabled, "Optional single-player countdown/time-limit assist. Default Off; does not change lap/stage timing or game speed.");

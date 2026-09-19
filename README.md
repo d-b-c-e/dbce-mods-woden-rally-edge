@@ -2,14 +2,14 @@
 
 A Windows mod for **Super Woden Rally Edge** that connects the game's vehicle simulation to a racing rig. Detailed, trustworthy telemetry is the first milestone; direct wheel controls, force feedback and bonnet/bumper views are the feature targets.
 
-**0.2.7 development build.** FFB initialization now receives a verified game-window handle after the 0.2.6 log exposed a foreign-window exit-guard failure. Bonnet fitting incorporates the owner's +0.15 m height / +0.05 m forward correction while preserving saved views. Runtime confirmation of the FFB repair is pending.
+**0.2.8 private development build.** Simple/Advanced settings now separate basic setup from detailed tuning. This build adds direct axis calibration, additive handbrake axis/button input, a Steering-following FFB dropdown, camera shortcut conflict/repeat handling and recording-preserving telemetry edits. See the [option inventory and evidence](docs/UX-OVERNIGHT-2026-09-16.md). No 0.2.8 gameplay acceptance is claimed.
 
- Wheel controls and camera changes are now allowed during the start-line countdown, including throttle/revs and steering. The game retains its start lock and FFB still requires racing. Setup → Difficulty adds an optional single-player countdown/time-limit assist (Off by default, saved speed 75%); lap/stage timing remains normal. Original FFB gain and the 50% default remain; the owner described the current feel as a good starting point but noted possible lingering force in turns. Read [the evidence and next steps](docs/STATE.md).
+ Wheel controls and camera changes are now allowed during the start-line countdown, including throttle/revs and steering. The game retains its start lock and FFB still requires racing. Advanced → Driving provides an optional single-player countdown/time-limit assist (Off by default, saved speed 75%); lap/stage timing remains normal. Original FFB gain and the 50% default remain; the owner described the current feel as a good starting point but noted possible lingering force in turns. Read [the evidence and next steps](docs/STATE.md).
 
 | Area | Current implementation |
 |---|---|
 | Telemetry | Game sampler, versioned channels, 324-byte Forza output, detailed JSON UDP and live bounded capture. Sustained real car/contact sampling observed; signal scales/coverage still need a recording. |
-| Wheel input | Exact-GUID calibration, inversion/deadzone, buttons and reconnect. Handbrake accepts a button or calibrated axis; proportional rear braking/grip-loss adaptation is awaiting a drive. |
+| Wheel input | Exact-GUID calibration, inversion/deadzone, buttons and reconnect. Bindable panel/Unity menu navigation; screens without compatible handlers retain keyboard/controller fallback. Handbrake accepts independent additive button and calibrated axis bindings; proportional rear braking/grip-loss adaptation is awaiting a drive. |
 | Camera | Bonnet and bumper extend the normal camera-button cycle; held Look behind and game-camera handoff stop/restore behavior. Body-fitted bonnet, manual offsets/FOV, shorter near clip and rebindable keys/buttons. New framing, transitions and split-screen behavior await acceptance. |
 | Force feedback | Provisional contact/slip estimate and damping through the toolkit. Saved On/Off, default On for new settings; exact wheel, watchdog, exit guards, ramp, peak cap and driving gates. Physical direction/load normalization unverified. |
 | Setup UI | **F6**: Setup, Controls, FFB, Cameras, Telemetry, Help. **F8** saves FFB Off until On is selected. Recording is prepared outside the menu. See [UX adoption gaps](docs/UX-ADOPTION.md). |
@@ -41,7 +41,7 @@ dotnet run --project tools\TelemetryInspector -c Release -- devices lib\toolkit\
 
 The device command only enumerates; it does not create force effects. The session inspector validates the complete file and reports channel coverage, ranges and sample gaps. A successful replay validates a recording's structure, not physical handling or force feel.
 
-Installation is a separate deliberate step: [development build instructions](docs/DEVELOPMENT-BUILD.md). The initial installer refuses a running game, unsupported builds, conflicting loaders and existing Woden plugin installations.
+Player install/update and receipt-based uninstall are available through `Install.bat` / `Uninstall.bat` in the ZIP; they need no SDK. Updates back up the existing plugin/configuration and verify preserved settings. See [installation and recovery details](docs/DEVELOPMENT-BUILD.md). The repository-only `Install-Dev.ps1` remains an initial-install helper.
 
 ## Design references
 

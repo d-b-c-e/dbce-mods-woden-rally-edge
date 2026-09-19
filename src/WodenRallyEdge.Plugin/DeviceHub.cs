@@ -52,14 +52,16 @@ internal sealed class DeviceHub : IDisposable
     {
         value = 0;
         if (binding?.Valid != true) return false;
-        var d = Devices.SingleOrDefault(x => x.Info.InstanceGuid == binding.DeviceGuid);
+        var matches = Devices.Where(x => x.Info.InstanceGuid == binding.DeviceGuid).ToArray();
+        var d = matches.Length == 1 ? matches[0] : null;
         if (d?.Ok != true) return false;
-        value = (float)binding.Calibration.Normalize(d.Axes[binding.Axis]); return true;
+        value = (float)binding.Normalize(d.Axes[binding.Axis]); return true;
     }
     internal bool Button(ButtonBinding? binding, bool edge)
     {
         if (binding?.Valid != true) return false;
-        var d = Devices.SingleOrDefault(x => x.Info.InstanceGuid == binding.DeviceGuid);
+        var matches = Devices.Where(x => x.Info.InstanceGuid == binding.DeviceGuid).ToArray();
+        var d = matches.Length == 1 ? matches[0] : null;
         if (d?.Ok != true) return false;
         return edge ? _presses.Remove(Key(binding.DeviceGuid, binding.Button)) : d.Buttons[binding.Button] != 0;
     }
@@ -74,6 +76,8 @@ internal sealed class DeviceHub : IDisposable
     internal IEnumerable<ButtonBinding> PressedButtons() => Devices.Where(x => x.Ok).SelectMany(d => Enumerable.Range(0, Math.Min(128, d.Info.Buttons))
         .Where(i => d.Buttons[i] != 0 && d.Previous[i] == 0).Select(i => new ButtonBinding(d.Info.InstanceGuid!.Value, i)));
     internal string Describe(Guid guid) => Devices.FirstOrDefault(x => x.Info.InstanceGuid == guid)?.Info.Name ?? "Disconnected " + guid.ToString("D")[..8];
+    internal ForceTarget ResolveForceTarget(bool follow, string guid, Guid? steering) => ForceSelection.Resolve(follow, guid, steering,
+        Devices.Where(d => d.Info.InstanceGuid.HasValue).Select(d => new ForceCandidate(d.Info.InstanceGuid!.Value, d.Info.Name, d.Info.ForceFeedback, DevicePreference.IsVirtualDevice(d.Info.Name))));
     internal bool IsReading(Guid guid) => Devices.Any(x => x.Info.InstanceGuid == guid && x.Ok);
     public void Dispose() => CloseReaders();
 }

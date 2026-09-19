@@ -5,6 +5,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Deterministic>true</Deterministic>
     <CheckEolTargetFramework>false</CheckEolTargetFramework>
-    <Version>0.2.7</Version>
+    <Version>0.2.8</Version>
   </PropertyGroup>
 </Project>

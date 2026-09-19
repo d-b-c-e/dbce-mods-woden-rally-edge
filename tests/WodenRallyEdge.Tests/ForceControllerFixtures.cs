@@ -8,6 +8,7 @@ namespace WodenRallyEdge;
 internal static class Runtime
 {
     internal static TestSettings Settings = new();
+    internal static WheelInput? Wheel = new();
     internal static TestDevices? Devices = new();
     internal static bool Focused = true, DiagnosticNoForce;
     internal static readonly Stopwatch Clock = Stopwatch.StartNew();
@@ -18,7 +19,7 @@ internal static class Runtime
 internal sealed class TestLog { internal void LogWarning(string message) { } internal void LogInfo(string message) { } }
 internal sealed class TestSettings
 {
-    internal bool FfbEnabled = true, WheelEnabled = true;
+    internal bool FfbEnabled = true, WheelEnabled = true, FfbFollowSteering = false;
     internal bool CountdownAssistEnabled;
     internal float CountdownSpeed = 75;
     internal string FfbGuid = Guid.NewGuid().ToString();
@@ -30,6 +31,9 @@ internal sealed class TestDevices
 {
     internal int Refreshes, Closes;
     internal bool Readable = true;
+    internal ForceCandidate[]? Candidates;
+    internal ForceTarget ResolveForceTarget(bool follow, string id, Guid? steer) => ForceSelection.Resolve(follow, id, steer,
+        Candidates ?? (Guid.TryParse(id, out var guid) ? new[] { new ForceCandidate(guid, "Fixture wheel", true) } : Array.Empty<ForceCandidate>()));
     internal bool IsReading(Guid guid) => Readable;
     internal bool TryAxis(AxisBinding? binding, out float value) { value = 0; return false; }
     internal void Refresh() => Refreshes++;

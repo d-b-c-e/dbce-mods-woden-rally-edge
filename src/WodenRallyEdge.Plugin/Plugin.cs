@@ -15,7 +15,7 @@ namespace WodenRallyEdge;
 public sealed class Plugin : BasePlugin
 {
     public const string Id = "dbce.wodenrallyedgewheel";
-    public const string Version = "0.2.7";
+    public const string Version = "0.2.8";
     public const string SupportedGameHash = "f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c";
     private Harmony? _harmony;
     public override void Load()
@@ -96,9 +96,9 @@ internal static class Runtime
         if (Settings.ForzaPort != 0 && Settings.ForzaPort == Settings.DetailPort)
             throw new ArgumentException("Forza and detailed telemetry need different ports.");
         string? recording = Settings.Record || _recordLaunch != null ? Path.Combine(Paths.BepInExRootPath, "WodenRecordings", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-" + Guid.NewGuid().ToString("N") + ".jsonl") : null;
-        Output?.Dispose();
-        if (Output?.Stopped == false) throw new InvalidOperationException("Previous output worker is still stopping; retry shortly.");
-        Output = new(new(Settings.ForzaPort, Settings.DetailPort, Settings.DetailHz, recording), SessionId, _provenance);
+        var options = new OutputOptions(Settings.ForzaPort, Settings.DetailPort, Settings.DetailHz, recording, Settings.TelemetryEnabled);
+        if (Output == null) Output = new(options, SessionId, _provenance);
+        else Output.ConfigureNetwork(options);
         Settings.Save();
         Log.LogInfo("Telemetry outputs applied; capture=" + (recording ?? "disabled"));
     }

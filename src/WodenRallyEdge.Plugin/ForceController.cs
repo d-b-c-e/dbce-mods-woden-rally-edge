@@ -77,7 +77,9 @@ internal sealed class ForceController
         if (Runtime.DiagnosticNoForce) { if (_native) Release("Diagnostic launch: force disabled"); Status = "Diagnostic launch: force disabled"; return; }
         if (!Runtime.Settings.FfbEnabled) { if (_native) Release("FFB off"); Status = "FFB off"; return; }
         if (_faulted || !Runtime.Focused || !StockWheelOwner.Ready || Runtime.Devices == null) return;
-        if (!Guid.TryParse(Runtime.Settings.FfbGuid, out var guid) || guid == Guid.Empty) { Status = "Choose an FFB wheel"; return; }
+        var selection = Runtime.Devices.ResolveForceTarget(Runtime.Settings.FfbFollowSteering, Runtime.Settings.FfbGuid, Runtime.Wheel?.Bindings.Steer?.DeviceGuid);
+        if (!selection.Ready) { if (_native) Release(selection.Reason); Status = selection.Reason; return; }
+        var guid = selection.Guid!.Value;
         if (_native && guid != _openedGuid) Release("Output device changed");
         if (_native)
         {

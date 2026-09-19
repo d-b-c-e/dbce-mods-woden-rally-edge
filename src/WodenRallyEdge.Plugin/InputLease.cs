@@ -31,7 +31,7 @@ internal sealed class InputLease
             var stock = actions[0];
             Handbrake = HandbrakeInput.Amount(input.Bindings.HandbrakeUsesAxis, available, axis, input.Button("Handbrake", false), stock.Pressed || stock.value > .5f);
             Set(0, Handbrake > 0 ? 1 : 0, true);
-            if (input.Bindings.HandbrakeUsesAxis) { input.HandbrakeCar = car; input.HandbrakeAmount = Handbrake; }
+            if (input.Bindings.Handbrake?.Valid == true) { input.HandbrakeCar = car; input.HandbrakeAmount = Handbrake; }
             foreach (var (name, index) in Buttons)
                 if (input.Bindings.Buttons.ContainsKey(name) || input.Bindings.CameraKeys.ContainsKey(name)) Set(index, input.Button(name, false) ? 1 : 0, true);
         }

@@ -13,6 +13,21 @@ internal sealed class WheelInput
     internal string? CaptureAxis { get; private set; }
     internal string? CaptureButton { get; private set; }
     private double _captureDeadline, _captureAfter;
+    internal float CaptureDeadzone;
+    internal bool CaptureInvert;
+    private Action<Bindings>? _pendingEdit;
+    internal bool SavePending => _pendingEdit != null;
+    internal bool Capturing => Capture != null || CaptureButton != null || SavePending;
+    internal string? SaveError { get; private set; }
+    internal AxisBinding? PreviewBinding
+    {
+        get
+        {
+            var b = Capture?.Finish(); if (b == null) return null;
+            var c = b.Calibration with { Deadzone = CaptureDeadzone / 100 };
+            return b with { Calibration = c, Inverted = CaptureInvert };
+        }
+    }
     private AppliedInput? _last;
     internal MainCar? HandbrakeCar;
     internal float HandbrakeAmount;
@@ -22,22 +37,43 @@ internal sealed class WheelInput
     internal WheelInput(string path)
     {
         _path = path;
-        try { Bindings = Bindings.Load(path); } catch (Exception ex) { Status = "Bindings could not load: " + ex.Message; }
+        try { Bindings = Bindings.Load(path); } catch (Exception ex) { Status = "Bindings could not load: " + ex.Message; SaveError = Status; }
     }
-    internal void Save() { try { Bindings.Save(_path); Status = "Bindings saved"; } catch (Exception ex) { Status = "Save failed: " + ex.Message; } }
-    internal void BeginAxis(string name)
+    internal void Save() => TryCommit(_ => { });
+    internal bool TryCommit(Action<Bindings> edit)
+    {
+        var proposed = Bindings.Copy();
+        try
+        {
+            edit(proposed); proposed.Save(_path);
+            Bindings = proposed; _pendingEdit = null; Status = "Bindings saved"; SaveError = null; return true;
+        }
+        catch (Exception ex) { _pendingEdit = edit; Status = "Save failed: " + ex.Message + ". Retry save or Cancel to retain the previous binding."; SaveError = Status; return false; }
+    }
+    internal void RetrySave()
+    {
+        if (_pendingEdit == null) return;
+        if (CaptureAxis != null) { FinishAxis(); return; }
+        if (TryCommit(_pendingEdit)) Cancel();
+    }
+    internal void BeginAxis(string name, bool existing = false)
     {
         Cancel(); Runtime.Force?.Suspend("calibration"); Runtime.Devices?.Poll();
-        CaptureAxis = name; Capture = new(Runtime.Devices!.AxesSnapshot(), name == "Steer");
+        var snapshot = Runtime.Devices!.AxesSnapshot(); var old = Bindings.Axis(name);
+        if (existing && old != null) snapshot = snapshot.Where(x => x.Key == (old.DeviceGuid, old.Axis)).ToDictionary(x => x.Key, x => x.Value);
+        CaptureAxis = name; Capture = new(snapshot, name == "Steer");
+        CaptureDeadzone = existing && old != null ? (float)old.Calibration.Deadzone * 100 : 0; CaptureInvert = false;
+        Status = "Calibration is provisional. Cancel keeps your previous assignment.";
         _captureDeadline = Runtime.Clock.Elapsed.TotalSeconds + 30;
     }
     internal void BeginButton(string name)
     {
-        Cancel(); CaptureButton = name; _captureDeadline = Runtime.Clock.Elapsed.TotalSeconds + 20;
+        Cancel(); Status = "Press one button or camera key. Escape cancels."; CaptureButton = name; _captureDeadline = Runtime.Clock.Elapsed.TotalSeconds + 20;
         _captureAfter = Runtime.Clock.Elapsed.TotalSeconds + .3; Runtime.Devices?.ClearPresses();
     }
     internal void UpdateCapture()
     {
+        if (SavePending) return; // Keep the exact failed proposal until explicit Retry/Cancel.
         if (Capture == null && CaptureButton == null) return;
         if (Runtime.Clock.Elapsed.TotalSeconds > _captureDeadline) { Cancel(); Status = "Binding timed out; previous binding retained"; return; }
         Capture?.Observe(Runtime.Devices!.AxesSnapshot());
@@ -46,30 +82,38 @@ internal sealed class WheelInput
             var pressed = Runtime.Devices!.PressedButtons().ToArray();
             bool camera = CameraTuning.Actions.Contains(CaptureButton);
             var kb = Keyboard.current;
+            if (camera && kb != null && (kb[Key.F6].wasPressedThisFrame || kb[Key.F8].wasPressedThisFrame))
+                Status = "F6 and F8 are reserved for Settings and Stop FFB. Press another key.";
             var keys = camera && kb != null ? CameraShortcuts.BindableKeys.Where(k => kb[k].wasPressedThisFrame).ToArray() : Array.Empty<Key>();
             if (pressed.Length == 1 && keys.Length == 0)
             {
-                Bindings.Buttons[CaptureButton] = pressed[0];
-                if (camera) Bindings.CameraKeys[CaptureButton] = "None";
-                if (CaptureButton == "Handbrake") Bindings.HandbrakeUsesAxis = false;
-                Cancel(); Save();
+                var conflict = Bindings.Conflict(CaptureButton, pressed[0]);
+                if (conflict != null) { Status = "Already assigned to " + conflict + ". Clear that binding first."; return; }
+                string action = CaptureButton;
+                if (TryCommit(proposed => { proposed.Buttons[action] = pressed[0]; if (camera) proposed.CameraKeys[action] = "None"; })) Cancel();
             }
             else if (keys.Length == 1 && pressed.Length == 0)
             {
                 string action = CaptureButton, key = keys[0].ToString();
-                foreach (string other in Bindings.CameraKeys.Where(x => x.Value == key).Select(x => x.Key).ToArray()) Bindings.CameraKeys[other] = "None";
-                Bindings.CameraKeys[action] = key; Bindings.Buttons.Remove(action); Cancel(); Save();
+                if (CameraShortcuts.ModifierHeld) { Status = "Chords and modifier keys are unsupported. Release them and press one key."; return; }
+                var conflict = Bindings.Conflict(action, key: key);
+                if (conflict != null) { Status = "Already assigned to " + conflict + ". Clear that binding first."; return; }
+                if (TryCommit(proposed => { proposed.CameraKeys[action] = key; proposed.Buttons.Remove(action); })) Cancel();
             }
-            else if (pressed.Length > 1) Status = "Press one button at a time";
+            else if (pressed.Length + keys.Length > 1) Status = "Press one key or button at a time; chords are unsupported.";
         }
     }
     internal void FinishAxis()
     {
-        var b = Capture?.Finish();
+        var b = PreviewBinding;
         if (b == null || CaptureAxis == null) { Status = "Sweep the required range before saving"; return; }
-        Bindings.SetAxis(CaptureAxis, b); if (CaptureAxis == "Handbrake") Bindings.HandbrakeUsesAxis = true; Cancel(); Save();
+        Runtime.Devices?.Poll();
+        if (Runtime.Devices?.TryAxis(b, out _) != true)
+        { Status = "Calibration device disconnected. Reconnect and retry, or Cancel to keep the saved binding."; return; }
+        string action = CaptureAxis;
+        if (TryCommit(proposed => proposed.SetAxis(action, b))) Cancel();
     }
-    internal void Cancel() { Capture = null; CaptureAxis = null; CaptureButton = null; Runtime.Devices?.ClearPresses(); }
+    internal void Cancel() { if (SavePending) SaveError = null; _pendingEdit = null; Capture = null; CaptureAxis = null; CaptureButton = null; Runtime.Devices?.ClearPresses(); }
     internal bool Button(string action, bool edge = true) => (Bindings.Buttons.TryGetValue(action, out var b) && Runtime.Devices?.Button(b, edge) == true) || CameraShortcuts.KeyPressed(action, edge);
     internal InputLease? Apply(Controls controls)
     {

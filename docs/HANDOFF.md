@@ -1,6 +1,12 @@
-# Session handoff — 2026-09-14
+# Session handoff — 2026-09-19
 
-Read [STATE](STATE.md) first. Installed build is 0.2.7; source remains on main in the private Woden repo; no commit/push requested. Build and tests: 32 suites / 906 assertions, 215 schema definitions. Deployment evidence lives in STATE.
+Read [STATE](STATE.md) first, then [the complete option inventory and acceptance report](UX-OVERNIGHT-2026-09-16.md). Current work is **0.2.8**, on `codex/ux-simple-advanced-0.2.8`; prior dirty work is preserved separately in baseline commit `9d28b83` and ignored `artifacts/ux-baseline-20260917-001141`. The owner authorized completion, build, commit and closed-game deployment. Final identity/receipt is recorded in STATE when verified.
+
+Simple is the default; Advanced Driving contains the optional timer assist. Handbrake axis/button contributions are additive. Binding/Clear/default proposals persist before becoming effective; failed saves offer Retry/Cancel. Calibration cannot save a disconnected candidate. New numpad 1/3 tilt down/up defaults preserve existing saved/implicit mappings until explicitly reset. Menu buttons target the panel or existing selected Unity UI handlers; native screen coverage remains untested. Agent recording stays external; active captures have Stop and survive UDP/view edits.
+
+Offline checks: 35 regression suites / 942 assertions, 459 source-linked UI assertions and 59 Windows PowerShell 5.1 player-installer checks. Source-linked fixtures and approximate renders do not establish native/physical acceptance. Preserve original FFB tuning, HWND/watchdog/exit guards, owner camera view and countdown restrictions. No game was launched for this work.
+
+The following paragraphs preserve earlier 0.2.5–0.2.7 evidence in chronological order; current installation/configuration is summarized in STATE.
 
 The owner called 0.2.5 a good starting point but reported input/camera blocked before green and possible lingering cornering force. 0.2.6 allows normal calibrated wheel and camera input during WARMING, preserving native start-line physics/lock. Driving/FFB remain restricted to RACE. The force model/tune remains unchanged pending better evidence. The latest owner log ended normally with 5,666 FFB writes and zero failures. The owner also selected countdown/time-limit assistance, not elapsed stage timing: Setup → Difficulty adds a saved Off-by-default assist at 75% speed (25–100% range). It advances the owned single-player CountDown anchor before native expiry, preserving checkpoint additions and lap/stage clocks. Offline hook/config tests pass; gameplay acceptance remains open.
 
@@ -16,7 +22,7 @@ FFB is one saved On/Off setting, default On and 50% strength for new settings, w
 
 Recording belongs to the agent workflow: tools/Start-RecordedGame.ps1 requests one launch and starts Steam; normal exit finalizes the capture. It defaults to diagnostic force suppression and never changes the saved FFB preference. Use -AttendedFfb only for an explicitly requested attended run. -PrepareOnly stages the expiring request without launching. No menu recording controls.
 
-E-Brake accepts Button or Axis on the existing Controls pages; the last bound type is active. The new analog adaptation scales native rear braking/grip loss; native throttle cut remains binary. Full pull and stock buttons retain stock behavior. Device input bars/calculation tests are not a physical response test.
+E-Brake accepts independent Button and Axis contributions on the existing Controls pages; the greater contribution wins in 0.2.8. The new analog adaptation scales native rear braking/grip loss; native throttle cut remains binary. Full pull and stock buttons retain stock behavior. Device input bars/calculation tests are not a physical response test.
 
 ## Paths and implementation
 
@@ -26,8 +32,8 @@ Game root: D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge.
 - Config/bindings: BepInEx/config/dbce.wodenrallyedgewheel.cfg and wheel-bindings.json.
 - Evidence: BepInEx/LogOutput.log, ErrorLog.log, and %LOCALAPPDATA%/DbceWheel/ffb.log.
 - Recordings: BepInEx/WodenRecordings. Requests: BepInEx/config/woden-record-next-launch.json, consumed once.
-- Backups: BepInEx/WodenBackups, outside plugin scanning.
-- Build/package: classic solution, executable tests, tools/Package.ps1; initial installer refuses existing plugins.
+- Backups: WodenWheelBackups for the packaged 0.2.8 installer; historical backups remain under BepInEx/WodenBackups. Both are outside plugin scanning.
+- Build/package: classic solution, both executable test harnesses, tools/Package.ps1. Packaged Install.bat updates with backups; Uninstall.bat removes only receipt-owned unchanged payload. Repository Install-Dev.ps1 remains initial-only.
 - FFB: ForceController + ToolkitForceDevice; actual controller is linked into the offline tests with fake collaborators. Do not replace toolkit native output.
 - Controls: scoped Controls.FixedUpdate action-table lease; boxed action values need indexer writeback. AnalogHandbrake scopes only selected-player native calls and restores game tuning.
 - Timing: TimingDiagnostics records frame/poll/control/car/sampler/force durations plus gear/shifting.

@@ -1,4 +1,10 @@
-# Verification — 2026-09-14
+# Verification — 2026-09-19
+
+## 0.2.8 checks
+
+Release build passes with zero warnings/errors. **35 managed suites / 942 assertions**, **459 source-linked UI fixture assertions**, and **59 Windows PowerShell 5.1 standalone installer checks** pass. The UI harness includes actual menu routing, transactional binding/Clear/reset failures, exact-proposal retries, calibration disconnects and camera reset conflicts. The player package allowlist contains 15 files / 14 manifest entries. Detailed final hashes/deployment receipts, option inventory and open live acceptance are in [UX-OVERNIGHT-2026-09-16](UX-OVERNIGHT-2026-09-16.md) and [STATE](STATE.md).
+
+Draw-command geometry at 720p/4K remains approximate. Actual stripped-Unity text/input/menu handling, physical controls, FFB and camera behavior are not established by these offline fixtures. No force model retune or physics/timer hook change was made.
 
 ## 0.2.7 current checks
 

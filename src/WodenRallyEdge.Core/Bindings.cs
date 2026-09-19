@@ -4,6 +4,8 @@ namespace WodenRallyEdge.Core;
 
 public sealed record AxisBinding(Guid DeviceGuid, int Axis, AxisCalibration Calibration)
 {
+    public bool Inverted { get; init; }
+    public double Normalize(int raw) => (Inverted ? Calibration with { Rest = Calibration.End, End = Calibration.Rest } : Calibration).Normalize(raw);
     public bool Valid => DeviceGuid != Guid.Empty && Axis is >= 0 and < 8 && Calibration?.Valid == true;
 }
 public sealed record ButtonBinding(Guid DeviceGuid, int Button)
@@ -20,6 +22,19 @@ public sealed class Bindings
     public bool HandbrakeUsesAxis { get; set; }
     public Dictionary<string, ButtonBinding> Buttons { get; set; } = new();
     public Dictionary<string, string> CameraKeys { get; set; } = CameraTuning.DefaultKeys();
+    public string? Conflict(string action, ButtonBinding? button = null, string? key = null)
+    {
+        if (button != null) return Buttons.FirstOrDefault(x => x.Key != action && SharedContext(x.Key, action) && x.Value == button).Key;
+        return key == null || key == "None" ? null : CameraKeys.FirstOrDefault(x => x.Key != action && x.Value.Equals(key, StringComparison.OrdinalIgnoreCase)).Key;
+    }
+    private static bool SharedContext(string a, string b)
+    {
+        bool Global(string s) => s is "Settings panel" or "Panic stop" or "Pause";
+        bool Menu(string s) => s is "Confirm" or "Back" || s.StartsWith("Menu ", StringComparison.Ordinal);
+        return Global(a) || Global(b) || Menu(a) == Menu(b);
+    }
+    public Bindings Copy() => new() { Version = Version, Steer = Steer, Throttle = Throttle, Brake = Brake, Handbrake = Handbrake,
+        HandbrakeUsesAxis = HandbrakeUsesAxis, Buttons = new(Buttons), CameraKeys = new(CameraKeys) };
     public bool DrivingAxesReady => Steer?.Valid == true && Steer.Calibration.Centre.HasValue &&
         Throttle?.Valid == true && !Throttle.Calibration.Centre.HasValue && Brake?.Valid == true && !Brake.Calibration.Centre.HasValue;
     public AxisBinding? Axis(string name) => name switch { "Steer" => Steer, "Throttle" => Throttle, "Brake" => Brake, "Handbrake" => Handbrake, _ => null };
@@ -32,20 +47,27 @@ public sealed class Bindings
     public static Bindings Load(string path)
     {
         if (!File.Exists(path)) return new();
-        var bindings = JsonSerializer.Deserialize<Bindings>(File.ReadAllText(path), Json) ?? throw new IOException("Empty bindings");
+        string json = File.ReadAllText(path);
+        using var document = JsonDocument.Parse(json);
+        bool hadKeys = document.RootElement.EnumerateObject().Any(p => p.Name.Equals("CameraKeys", StringComparison.OrdinalIgnoreCase) && p.Value.ValueKind != JsonValueKind.Null);
+        var bindings = JsonSerializer.Deserialize<Bindings>(json, Json) ?? throw new IOException("Empty bindings");
         if (bindings.Version != 1) throw new IOException("Unsupported binding version");
         foreach (var name in new[] { "Steer", "Throttle", "Brake", "Handbrake" })
             if (bindings.Axis(name) is { } b && !b.Valid) throw new IOException("Invalid saved " + name + " calibration");
         if (bindings.Buttons == null || bindings.Buttons.Any(x => x.Value?.Valid != true)) throw new IOException("Invalid saved button binding");
-        bindings.CameraKeys ??= CameraTuning.DefaultKeys();
+        if (!hadKeys) bindings.CameraKeys = CameraTuning.LegacyKeys();
         return bindings;
     }
     public void Save(string path)
     {
         string full = Path.GetFullPath(path); Directory.CreateDirectory(Path.GetDirectoryName(full)!);
         string temp = full + ".tmp-" + Guid.NewGuid().ToString("N");
-        File.WriteAllText(temp, JsonSerializer.Serialize(this, Json));
-        if (File.Exists(full)) File.Replace(temp, full, full + ".bak", true); else File.Move(temp, full);
+        try
+        {
+            File.WriteAllText(temp, JsonSerializer.Serialize(this, Json));
+            if (File.Exists(full)) File.Replace(temp, full, full + ".bak", true); else File.Move(temp, full);
+        }
+        finally { if (File.Exists(temp)) File.Delete(temp); }
     }
 }
 

@@ -1,18 +1,22 @@
-# Shared UX adoption — 2026-09-14
+# Shared UX adoption — 2026-09-19
 
-UX baseline: toolkit UX-1, with the owner's September 14 persistent-FFB and agent-recording clarification. Source: 0.2.7 working tree; package/installation evidence is in STATE. This is not visual or physical acceptance.
+Source **0.2.8**; final deployment identity is recorded in [STATE](STATE.md). The complete option inventory, exact guidance revisions, source/fixture evidence, package identity and remaining acceptance walks are in [UX-OVERNIGHT-2026-09-16](UX-OVERNIGHT-2026-09-16.md).
 
-Implemented: optional countdown/time-limit assist under Setup → Difficulty, default Off with saved speed and an eligibility status; countdown wheel/camera access independent of FFB permission; six standard pages; saved FFB On/Off (new default On and 50% strength with original output gain), no session arming; F8/Stop saves Off; normal output suppression retains the device; E-Brake within Axes and Buttons with independent calibration; external one-launch recording request with automatic finalization. Existing bindings and owner tuning are retained.
+Implemented for UX-01-S: persistent Simple/Advanced over one settings store; a short Simple Setup; four direct axis rows with full provisional calibration; additive handbrake axis/button input; grouped button bindings; Steering-following/explicit FFB dropdown and saved panic Off; Simple camera adjustment rebinding with conflict/cancel/defaults and release-gated bounded repeats; Advanced force tuning, camera poses, timer assist and diagnostics. Atomic telemetry edits keep the recorder alive; Simple exposes master Off/On and active-capture Stop. Help includes UI scale and a local support summary.
+
+Failed binding saves retain the old effective assignment and exact proposal with Retry/Cancel. Batch camera defaults preflight all conflicts.
+
+Approximate rendered fixtures use actual Panel draw commands and simulated Unity collaborators. They are not game screenshots. Source-linked interaction checks and managed loopback/controller tests are separate from physical acceptance. The owner still starts recordings through the agent workflow; there is no menu Start recording.
 
 | Rule | Remaining gap / acceptance |
 |---|---|
-| UX-03 | Mouse-first UI; keyboard/wheel navigation, user scale, long names and 720p/4K acceptance remain. |
-| UX-04 | Handbrake axis calibration and proportional rear brake/grip-loss adaptation are compiled/tested offline, not driven. The stock power cut remains binary. H-pattern, menu bindings, conflict handling and final-game-input UI bars remain. |
-| UX-05 | Existing output picker still cycles wheels; the newer steering-derived dropdown standard is not yet adopted. Physical selection, sign, stop and recovery still require acceptance. |
-| UX-06 | Fitted bonnet, manual offsets/FOV, near-clip restore and camera key/button rebinding implemented. 0.2.7 fitted default includes the owner's +0.15 m up / +0.05 m forward correction. Cross-car hood framing, camera handoff and split-screen checks remain; manual per-car presets remain. |
-| UX-07 | Recording is agent-managed per owner preference, not a missing menu workflow. Master telemetry toggle, markers/support bundle/open-folder UI remain optional/future; no automatic upload. |
-| UX-08 | Endpoint restart failures still need transactional recovery; binding save status remains separate. |
-| UX-09/10 | Reviewed closed-game development updates; complete player ZIP/update/uninstall remains unfinished. |
-| UX-11 | Walk through this build at the rig and record acceptance. |
+| UX-01 / UX-01-S | In-game Simple first use, restart, fallback, custom summaries and editing locks Not tested on candidate. |
+| UX-03 | Actual stripped-Unity keyboard focus, text fields, scaling, glyphs, long device names and cursor/pause restoration Not tested; bound panel/Unity menu navigation is implemented and source-tested; live coverage remains Not tested. |
+| UX-04 / UX-04-H | Real partial/full/release handbrake, combined axis/button input, disconnect recovery and final game response Not tested. H-pattern and clutch remain Gap. |
+| UX-05 / UX-05-D | Strict identity and lifecycle have offline tests. Candidate target switching, sign/load and physical stop/recovery Not tested. Force-feel analysis is retained; no retune. |
+| UX-06 / UX-06-K | Saved shortcuts/default scope and held-release behavior have source-linked tests. Actual directions, camera handoff, lens restoration, cross-car hood framing and split-screen remain Not tested. |
+| UX-07 / UX-08 | Real loopback/capture preservation and save-error fixtures pass. Receiver integration and actual local support action need a live walk. Support is a summary, not a complete log/config archive; optional markers/open-folder tools remain Gap. |
+| UX-09 / UX-10 | Packaged install/update/uninstall passes Windows PowerShell 5.1 fixtures, including replacement rollback, ownership checks and preserved settings/recordings/other mods. Real Steam auto-discovery/folder-picker interaction remains Not tested. |
+| UX-11 | An attended first-drive walkthrough remains Not tested. |
 
-Normal game launches honor the saved FFB preference through all driving gates. An unattended diagnostic-launch request temporarily suppresses physical force without changing that saved preference. This is test policy, not a second player-facing enable switch.
+Settings view is presentation only. Native HWND ownership, watchdog, exit guards, gates, peak cap, ramp and diagnostic no-force policy are independent of it. No toolkit binary pin changed.

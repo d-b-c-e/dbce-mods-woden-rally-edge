@@ -319,7 +319,7 @@ Test("handbrake axis/button selection, proportional values and legacy binding pe
     Near(HandbrakeInput.Amount(true, true, float.NaN, false, false), 0, "invalid axis releases");
     Near(HandbrakeInput.Amount(true, true, .25f, false, true), 1, "stock button remains full");
     Near(HandbrakeInput.Amount(false, true, .25f, true, false), 1, "button mode is full");
-    Near(HandbrakeInput.Amount(false, true, 1, false, false), 0, "unselected axis ignored");
+    Near(HandbrakeInput.Amount(false, true, 1, false, false), 1, "legacy mode never disables additive axis");
     Near(HandbrakeInput.Scale(2000, .25f), 500, "quarter native brake command");
     Near(HandbrakeInput.Scale(.7f, .5f), .35, "half native grip loss");
     Guid guid = Guid.NewGuid(); var bindings = new Bindings { Handbrake = new(guid, 2, new(65535, 0)), HandbrakeUsesAxis = true, Buttons = new() { ["Handbrake"] = new(guid, 7) } };
@@ -343,5 +343,8 @@ Test("diagnostic launch is bounded, consumed once and rejects expired requests",
     foreach (string file in Directory.GetFiles(Path.GetDirectoryName(path)!, Path.GetFileName(path) + ".consumed-*")) File.Delete(file);
 });
 Test("native handbrake adaptation restores boxed tuning and preserves game transient state", () => WodenRallyEdge.HandbrakeChecks.Run(Check));
+Test("UX view migration, scoped camera defaults, additive bindings and inversion persistence", () => WodenRallyEdge.UxChecks.SettingsAndBindings(Check));
+Test("strict follow/override output selection and camera release/repeat gates", () => WodenRallyEdge.UxChecks.SelectionAndRepeat(Check));
+Test("atomic telemetry reconfiguration preserves capture and independent Stop", () => WodenRallyEdge.UxChecks.NetworkCapture(Check));
 Console.WriteLine($"{passed} suites passed; {failed} failed; {checks} assertions.");
 return failed == 0 ? 0 : 1;
