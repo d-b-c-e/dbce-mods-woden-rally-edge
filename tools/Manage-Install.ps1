@@ -2,13 +2,16 @@
 param(
     [ValidateSet('Install','Uninstall')][string]$Mode = 'Install',
     [string]$GameDir,
-    [string]$PackageRoot = $PSScriptRoot,
+    [string]$PackageRoot,
     [string]$LoaderArchive,
     [switch]$RemoveUserData,
     [Parameter(DontShow=$true)][int]$TestFailAfterWrite = 0,
     [Parameter(DontShow=$true)][ValidateSet('None','GameStarts','ExternalReplacement','ExternalBeforeWrite')][string]$TestScenario = 'None'
 )
 $ErrorActionPreference = 'Stop'
+# Windows PowerShell 5.1 advanced-script parameter binding can evaluate
+# $PSScriptRoot before it is populated. Resolve this default in the body.
+if (-not $PackageRoot) { $PackageRoot = $PSScriptRoot }
 $gameName = 'Super Woden Rally Edge'
 $gameHash = 'F422894D8D2B0DF4EDB7E5259E5E60CB8C4F8DEA2E85EBDFC09DD6766349250C'
 $loaderHash = 'F4CC496BD098A0DF4164B81E3737297707F13A47C2478DBA2F60EEFAB784817A'
@@ -218,7 +221,7 @@ try {
     $version = if ($Mode -eq 'Install') { (Get-Item -LiteralPath (Join-Path $destination 'WodenRallyEdgeWheel.dll')).VersionInfo.ProductVersion } else { $receipt.version }
     foreach ($entry in $owned) { $expected = if ($Mode -eq 'Install') { $entry.sha256 } else { $null }; Assert-Unchanged (Join-Path $game $entry.path) $expected }
     $stagedReceipt = Join-Path $backup 'new-receipt.json'
-    [ordered]@{ version=$version; installerRevision=2; mode=$Mode; gameDirectory=$game; utc=[DateTime]::UtcNow.ToString('o'); backup=$backup; files=$owned; configurationPreserved=($Mode -ne 'Uninstall' -or -not $RemoveUserData); sharedLoaderRetained=$true; gameLaunched=$false } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $stagedReceipt -Encoding utf8
+    [ordered]@{ version=$version; installerRevision=3; mode=$Mode; gameDirectory=$game; utc=[DateTime]::UtcNow.ToString('o'); backup=$backup; files=$owned; configurationPreserved=($Mode -ne 'Uninstall' -or -not $RemoveUserData); sharedLoaderRetained=$true; gameLaunched=$false } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $stagedReceipt -Encoding utf8
     Write-Owned $stagedReceipt $receiptPath (File-Hash $stagedReceipt)
 } catch {
     $failure = $_.Exception.Message

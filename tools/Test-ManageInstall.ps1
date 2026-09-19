@@ -2,7 +2,7 @@
 param([Parameter(Mandatory=$true)][string]$PackageRoot)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$fixture = Join-Path $root ('artifacts\managed-installer-test-' + [guid]::NewGuid().ToString('N'))
+$fixture = Join-Path $root ('artifacts\managed installer test-' + [guid]::NewGuid().ToString('N'))
 $null = New-Item -ItemType Directory -Path $fixture
 'Disposable installer regression fixture' | Set-Content -LiteralPath (Join-Path $fixture '.woden-installer-fixture')
 # Identity-only data in an ignored fixture; no executable, game launch or devices.
@@ -23,9 +23,32 @@ function Hash([string]$path) { (Get-FileHash -LiteralPath $path).Hash }
 function Install { & $installer -GameDir $fixture -PackageRoot $PackageRoot -LoaderArchive $archive }
 Refuses { & $installer -GameDir $fixture -PackageRoot $PackageRoot -LoaderArchive $archive -TestFailAfterWrite 2 } 'rolled back.*injected'
 foreach ($name in 'BepInEx','winhttp.dll','doorstop_config.ini','dotnet','.doorstop_version') { Check (-not (Test-Path -LiteralPath (Join-Path $fixture $name))) ('Fresh rollback left ' + $name) }
-Install
+# Exercise the shipped player entry point from a different working directory,
+# with spaces in paths and no PackageRoot argument. NUL only skips batch pause.
+$batch = Join-Path ([IO.Path]::GetFullPath($PackageRoot)) 'Install.bat'
+Push-Location $fixture
+try {
+    # Set the raw Windows command line explicitly: PS 5.1 native argument
+    # marshaling otherwise rewrites the nested cmd /s /c quotes.
+    $start = New-Object Diagnostics.ProcessStartInfo
+    $start.FileName = $env:ComSpec
+    $start.Arguments = '/d /s /c ""{0}" -GameDir "{1}" -LoaderArchive "{2}" <NUL"' -f $batch,$fixture,$archive
+    $start.WorkingDirectory = $fixture
+    $start.UseShellExecute = $false; $start.CreateNoWindow = $true
+    $start.RedirectStandardOutput = $true; $start.RedirectStandardError = $true
+    $process = [Diagnostics.Process]::Start($start)
+    try {
+        $stdout = $process.StandardOutput.ReadToEndAsync(); $stderr = $process.StandardError.ReadToEndAsync()
+        $process.WaitForExit()
+        Write-Host $stdout.GetAwaiter().GetResult()
+        Write-Host $stderr.GetAwaiter().GetResult()
+        Check ($process.ExitCode -eq 0) 'Default-root Install.bat failed'
+    } finally { $process.Dispose() }
+} finally { Pop-Location }
 $first = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
 Check ($first.files.Count -eq 9 -and $first.mode -eq 'Install' -and -not $first.gameLaunched) 'Install receipt'
+Check ($first.installerRevision -eq 3) 'Default-root player installer revision'
+Check ((Hash (Join-Path $plugin 'WodenRallyEdgeWheel.dll')) -eq (Hash (Join-Path $PackageRoot 'BepInEx\plugins\WodenRallyEdgeWheel\WodenRallyEdgeWheel.dll'))) 'Default-root selected wrong package'
 foreach ($entry in $first.files) { Check ((Hash (Join-Path $fixture $entry.path)) -eq $entry.sha256) ('Payload ' + $entry.path) }
 Check ((Get-Content -LiteralPath (Join-Path $config 'BepInEx.cfg') -Raw) -match '(?m)^UnityBaseLibrariesSource\s*=\s*\r?$') 'Loader config'
 $settings = Join-Path $config 'dbce.wodenrallyedgewheel.cfg'
