@@ -15,7 +15,7 @@ namespace WodenRallyEdge;
 public sealed class Plugin : BasePlugin
 {
     public const string Id = "dbce.wodenrallyedgewheel";
-    public const string Version = "0.2.8";
+    public const string Version = "0.2.9";
     public const string SupportedGameHash = "f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c";
     private Harmony? _harmony;
     public override void Load()
@@ -151,7 +151,7 @@ internal static class Runtime
         }
         if (now > _nextReport)
         {
-            Log.LogInfo($"hooks={HookCalls}, localTicks={LocalTicks}, age={now-LastLocal:F2}s, wheelTicks={Wheel?.AppliedTicks}, camera={MountedCamera.Status}, ffb={Force.Status}, writes={Force.Attempts}, failures={Force.Failures}, Forza={Output?.ForzaPackets}, overwritten={Output?.OverwrittenTicks}, errors={Output?.SendErrors}, recording={Output?.RecordingStatus}, recordDrops={Output?.RecordingDrops}; {Output?.LastError}");
+            Log.LogInfo($"hooks={HookCalls}, localTicks={LocalTicks}, age={now-LastLocal:F2}s, wheelTicks={Wheel?.AppliedTicks}, camera={MountedCamera.Status}, ffb={Force.Status}, writes={Force.Attempts}, failures={Force.Failures}, Forza={Output?.ForzaPackets}, overwritten={Output?.OverwrittenTicks}, errors={Output?.SendErrors}, recording={Output?.RecordingStatus}, recordDrops={Output?.RecordingDrops}; hotkeys={Panel.HotkeyStatus}; menu={MenuOwnership.Status}; {Output?.LastError}");
             _nextReport = now + 10;
         }
     }

@@ -69,7 +69,7 @@ internal sealed class WheelInput
     internal void BeginButton(string name)
     {
         Cancel(); Status = "Press one button or camera key. Escape cancels."; CaptureButton = name; _captureDeadline = Runtime.Clock.Elapsed.TotalSeconds + 20;
-        _captureAfter = Runtime.Clock.Elapsed.TotalSeconds + .3; Runtime.Devices?.ClearPresses();
+        _captureAfter = Runtime.Clock.Elapsed.TotalSeconds + .3; Runtime.Devices?.ClearPresses(); MenuOwnership.BeginCapture();
     }
     internal void UpdateCapture()
     {
@@ -77,6 +77,7 @@ internal sealed class WheelInput
         if (Capture == null && CaptureButton == null) return;
         if (Runtime.Clock.Elapsed.TotalSeconds > _captureDeadline) { Cancel(); Status = "Binding timed out; previous binding retained"; return; }
         Capture?.Observe(Runtime.Devices!.AxesSnapshot());
+        if (CaptureButton != null && !MenuOwnership.CaptureReady()) { Status = "Release keys and menu controls before binding. Escape cancels."; return; }
         if (CaptureButton != null && Runtime.Clock.Elapsed.TotalSeconds > _captureAfter)
         {
             var pressed = Runtime.Devices!.PressedButtons().ToArray();
@@ -117,6 +118,7 @@ internal sealed class WheelInput
     internal bool Button(string action, bool edge = true) => (Bindings.Buttons.TryGetValue(action, out var b) && Runtime.Devices?.Button(b, edge) == true) || CameraShortcuts.KeyPressed(action, edge);
     internal InputLease? Apply(Controls controls)
     {
+        _last = null; HandbrakeCar = null; HandbrakeAmount = 0;
         var car = controls.field_Private_MainCar_0;
         if (car == null || !Runtime.ControlState(car).WheelAvailable) return null;
         if (!Runtime.Settings.WheelEnabled || car.MyControls == null || !Bindings.DrivingAxesReady || Runtime.Devices == null) return null;

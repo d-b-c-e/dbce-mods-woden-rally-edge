@@ -155,7 +155,7 @@ if ($Mode -eq 'Install') {
     }
 }
 Assert-Closed
-$backup = Assert-Path (Join-Path $game ('WodenWheelBackups\before-' + $Mode.ToLowerInvariant() + '-0.2.8-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8))) $game
+$backup = Assert-Path (Join-Path $game ('WodenWheelBackups\before-' + $Mode.ToLowerInvariant() + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8))) $game
 $originals = @{}
 foreach ($entry in $owned) {
     $target = Assert-Path (Join-Path $game $entry.path) $game

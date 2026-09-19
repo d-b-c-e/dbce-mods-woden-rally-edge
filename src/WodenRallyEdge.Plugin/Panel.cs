@@ -19,8 +19,11 @@ internal static class Panel
     private static GUIStyle? _label, _title, _help;
     private static CursorLockMode _cursorLock;
     private static Pause? _ownedPause;
-    private static EventSystem? _events;
-    private static bool _eventsEnabled;
+    private static double _nextHotkeyError;
+    private static bool? _keyboardAvailable;
+    private static int _settingsFrame = -1;
+    private static bool _imguiSettingsHeld;
+    internal static string HotkeyStatus { get; private set; } = "Keyboard not sampled";
     private static double _changedAt, _nextError, _liveMessageUntil;
     private static string _forza = "", _detail = "", _saveStatus = "Saved";
     private static float _rate;
@@ -28,7 +31,7 @@ internal static class Panel
     private static readonly Color Accent = new(.95f, .73f, .3f, 1);
     private static bool Advanced => Runtime.Settings.UiView == "Advanced";
     private static bool ConnectionDirty => _forza != Runtime.Settings.ForzaPort.ToString() || _detail != Runtime.Settings.DetailPort.ToString() || (int)_rate != Runtime.Settings.DetailHz;
-    private static bool Editing => Runtime.Wheel?.Capturing == true || ConnectionDirty;
+    private static bool Editing => Runtime.Wheel?.Capturing == true || ConnectionDirty || MenuOwnership.Closing;
     private static string ActionLabel(string a) => a switch { "Steer" => "Steering", "Handbrake" => "Handbrake (axis)", "Gear up" => "Shift up", "Gear down" => "Shift down", "Camera" => "Change camera", "Rear view" => "Look behind", "Respawn" => "Reset car", "Settings panel" => "Settings", "Panic stop" => "Stop FFB", _ => a };
     private static Rect R(float x, float y, float w, float h) => new(_left + x * _scale, _top + (y - (_body ? _scroll : 0)) * _scale, w * _scale, h * _scale);
     private static bool Inside(Rect r, Vector2 p) => p.x >= r.x && p.y >= r.y && p.x < r.x + r.width && p.y < r.y + r.height;
@@ -43,14 +46,26 @@ internal static class Panel
     }
     internal static void Update()
     {
+        MenuOwnership.Tick();
         MenuNavigation.Update();
-        if (!Runtime.Focused) return;
+        if (!Runtime.Focused) { MenuOwnership.BeginCapture(); return; }
+        Keyboard? kb = null;
+        try { kb = Keyboard.current; }
+        catch (Exception ex) { HotkeyFailure("Keyboard.current", ex); }
+        if (_keyboardAvailable != (kb != null))
+        {
+            _keyboardAvailable = kb != null;
+            HotkeyStatus = kb == null ? "Keyboard.current unavailable; IMGUI F6 / wheel Settings remain available" : "Keyboard available; waiting for F6";
+            Runtime.Log.LogInfo(HotkeyStatus);
+        }
+        // A panic read/output error must never prevent the settings escape route.
+        try { if (kb != null && kb[Key.F8].wasPressedThisFrame || Runtime.Wheel?.Button("Panic stop") == true) Runtime.Force?.Panic(); }
+        catch (Exception ex) { HotkeyFailure("F8 / Stop FFB", ex); }
         try
         {
-            var kb = Keyboard.current;
-            if (kb != null && kb[Key.F8].wasPressedThisFrame || Runtime.Wheel?.Button("Panic stop") == true) Runtime.Force?.Panic();
             bool capturing = Runtime.Wheel?.Capturing == true;
-            if (!capturing && kb != null && kb[Key.F6].wasPressedThisFrame || !capturing && Runtime.Wheel?.Button("Settings panel") == true) Toggle();
+            if (!capturing && !MenuOwnership.Closing && (kb != null && kb[Key.F6].wasPressedThisFrame || Runtime.Wheel?.Button("Settings panel") == true))
+            { SettingsKey("InputSystem / bound Settings"); }
             if (Open && kb != null && kb[Key.Escape].wasPressedThisFrame) { if (capturing) Runtime.Wheel?.Cancel(); else if (ConnectionDirty) ReadConnection(); else Toggle(); }
             if (!Open && Runtime.Wheel?.Button("Pause") == true && Runtime.Local != null)
             {
@@ -58,13 +73,25 @@ internal static class Panel
                 if (pause != null) { Runtime.Force?.Suspend("paused"); if (Pause.Paused) pause.UnsetPause(); else pause.SetPause(); }
             }
         }
-        catch (Exception ex) { Message = "Hotkeys: " + ex.Message; }
+        catch (Exception ex) { HotkeyFailure("Settings / Escape / Pause", ex); }
         if (Open)
         {
             Cursor.visible = true; UiNative.CursorLock(CursorLockMode.None);
             Runtime.Wheel?.UpdateCapture();
         }
         if (_dirty && Runtime.Clock.Elapsed.TotalSeconds - _changedAt > .7) Save();
+    }
+    private static void HotkeyFailure(string route, Exception error)
+    {
+        HotkeyStatus = route + ": " + error.Message; Message = "Hotkeys: " + HotkeyStatus;
+        if (Runtime.Clock.Elapsed.TotalSeconds >= _nextHotkeyError)
+        { Runtime.Log.LogWarning(Message); _nextHotkeyError = Runtime.Clock.Elapsed.TotalSeconds + 10; }
+    }
+    private static void SettingsKey(string source)
+    {
+        if (!Runtime.Focused || Runtime.Wheel?.Capturing == true || MenuOwnership.Closing || _settingsFrame == Time.frameCount) return;
+        _settingsFrame = Time.frameCount; HotkeyStatus = "Settings input observed: " + source;
+        Runtime.Log.LogInfo(HotkeyStatus); Toggle();
     }
     internal static void MenuAction(string action)
     {
@@ -79,6 +106,7 @@ internal static class Panel
     {
         if (Open) { if (Editing) { Message = SettingsPresentation.EditLock; return; } Close(true); return; }
         Open = true; Runtime.Force?.Suspend("Settings open");
+        MenuOwnership.Begin();
         ReadConnection(); _scroll = 0;
         _cursorVisible = UiNative.CursorVisible; _cursorLock = Cursor.lockState;
         Cursor.visible = true; UiNative.CursorLock(CursorLockMode.None);
@@ -87,24 +115,27 @@ internal static class Panel
             var car = Runtime.Local;
             var pause = car?.MyControls?.PauseScript;
             if (car != null && car.Status == MainCar.CarStatus.RACE && !Pause.Paused && pause != null) { pause.SetPause(); _ownedPause = pause; }
-            _events = EventSystem.current;
-            if (_events != null) { _eventsEnabled = _events.enabled; _events.enabled = false; }
         }
         catch (Exception ex) { Message = "Panel open; pause manually if needed: " + ex.Message; }
         Runtime.Log.LogInfo("F6 panel opened");
     }
     internal static void Close(bool resume)
     {
+        if (resume && Open) { MenuOwnership.RequestClose(); return; }
+        CompleteClose(resume);
+    }
+    internal static void CompleteClose(bool resume)
+    {
         if (!Open) return;
         Open = false; Runtime.Wheel?.Cancel(); _drag = -1; Save();
         try
         {
-            if (_events != null) _events.enabled = _eventsEnabled;
+            MenuOwnership.End();
             if (resume && _ownedPause != null && Pause.Paused && !_ownedPause.PhotomodeActive) _ownedPause.UnsetPause();
             Cursor.visible = _cursorVisible; UiNative.CursorLock(_cursorLock);
         }
         catch (Exception ex) { Runtime.Log.LogWarning("Panel restore: " + ex.Message); }
-        _events = null; _ownedPause = null;
+        _ownedPause = null;
         Runtime.Log.LogInfo("F6 panel closed");
     }
     internal static void ShowCameraMessage(string message)
@@ -164,6 +195,18 @@ internal static class Panel
     private static void End(float y) => _extent=Math.Max(_extent,y);
     internal static void Draw()
     {
+        // IMGUI is already this game's supported keyboard route for text and
+        // focus. Accept its F6 event too, deduplicating the InputSystem edge.
+        var hotkey = Event.current;
+        if (hotkey.keyCode == KeyCode.F6)
+        {
+            if (hotkey.type == EventType.KeyUp) _imguiSettingsHeld = false;
+            if (hotkey.type == EventType.KeyDown)
+            {
+                if (!_imguiSettingsHeld) { _imguiSettingsHeld = true; try { SettingsKey("IMGUI F6"); } catch (Exception ex) { HotkeyFailure("IMGUI F6", ex); } }
+                hotkey.Use();
+            }
+        }
         if(!Open) { DrawCameraMessage(); return; } var previousColor=GUI.color; bool previousEnabled=GUI.enabled;
         try
         {
@@ -194,6 +237,7 @@ internal static class Panel
                 if(Button(16,112+row++*44,188,page,Runtime.Settings.UiPage==page,!Editing))Navigate(page);
             if(Button(16,_height-108,188,"Stop FFB")) { try { Runtime.Force?.Panic(); } catch(Exception ex) { Message="Save failed: "+ex.Message; } }
             if(Button(16,_height-64,188,"Close",false,!Editing))Close(true);
+            if(MenuOwnership.Closing) { Label(250,170,680,Message,true,90); if(Button(250,280,240,"Keep settings open"))MenuOwnership.CancelClose(); return; }
             Label(250,112,680,Runtime.Settings.UiPage);
             _body=true;
             switch(Runtime.Settings.UiPage)

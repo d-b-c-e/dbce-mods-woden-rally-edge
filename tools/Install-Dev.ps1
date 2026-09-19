@@ -8,7 +8,7 @@ if ((Get-FileHash -LiteralPath (Join-Path $game 'GameAssembly.dll')).Hash -ne 'F
 & (Join-Path $PSScriptRoot 'Verify-Dependencies.ps1')
 $loader = Join-Path $root 'lib\loader\bepinex-788'
 if (-not (Test-Path -LiteralPath (Join-Path $loader 'winhttp.dll'))) { throw 'Run Initialize-Dependencies.ps1 first' }
-if (-not (Test-Path -LiteralPath (Join-Path $root 'dist\WodenRallyEdgeWheel-0.2.8-dev.zip'))) { throw 'Run tools/Package.ps1 first' }
+if (-not (Test-Path -LiteralPath (Join-Path $root 'dist\WodenRallyEdgeWheel-0.2.9-dev.zip'))) { throw 'Run tools/Package.ps1 first' }
 function Assert-UnlinkedPath([string]$path) {
     $cursor = [IO.Path]::GetFullPath($path)
     if (-not $cursor.StartsWith($game + '\', [StringComparison]::OrdinalIgnoreCase)) { throw "Outside game directory: $cursor" }
@@ -33,7 +33,7 @@ if ($installLoader) {
     if (-not (Test-Path -LiteralPath $cfg) -or -not ((Get-Content $cfg -Raw) -match '(?m)^UnityBaseLibrariesSource\s*=\s*\r?$')) { throw 'Existing loader must disable UnityBaseLibrariesSource before Woden launch' }
 }
 $stage = Join-Path $root ('artifacts\install-' + [guid]::NewGuid().ToString('N'))
-Expand-Archive -LiteralPath (Join-Path $root 'dist\WodenRallyEdgeWheel-0.2.8-dev.zip') -DestinationPath $stage
+Expand-Archive -LiteralPath (Join-Path $root 'dist\WodenRallyEdgeWheel-0.2.9-dev.zip') -DestinationPath $stage
 $manifest = Get-Content (Join-Path $stage 'manifest.json') -Raw | ConvertFrom-Json
 foreach ($entry in $manifest) {
     $file = [IO.Path]::GetFullPath((Join-Path $stage $entry.path))
@@ -47,5 +47,5 @@ if ($installLoader) {
 }
 New-Item -ItemType Directory -Force (Split-Path $destination -Parent) | Out-Null
 Copy-Item -LiteralPath (Join-Path $stage 'BepInEx\plugins\WodenRallyEdgeWheel') -Destination $destination -Recurse
-@{ installedUtc = [DateTime]::UtcNow.ToString('o'); gameDirectory = $game; installedLoader = $installLoader; packageSha256 = (Get-FileHash (Join-Path $root 'dist\WodenRallyEdgeWheel-0.2.8-dev.zip')).Hash; gameLaunched = $false } | ConvertTo-Json | Set-Content (Join-Path $destination 'install-receipt.json') -Encoding utf8
+@{ installedUtc = [DateTime]::UtcNow.ToString('o'); gameDirectory = $game; installedLoader = $installLoader; packageSha256 = (Get-FileHash (Join-Path $root 'dist\WodenRallyEdgeWheel-0.2.9-dev.zip')).Hash; gameLaunched = $false } | ConvertTo-Json | Set-Content (Join-Path $destination 'install-receipt.json') -Encoding utf8
 Write-Host 'Development build installed. F6 opens Wheel settings. FFB uses saved On/Off (new default On); F8 saves Off. Recording is prepared by the external launch tool. No game was launched.'

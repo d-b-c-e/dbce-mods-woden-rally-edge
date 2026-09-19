@@ -1,6 +1,8 @@
 # Shared UX adoption — 2026-09-19
 
-Source **0.2.8**; final deployment identity is recorded in [STATE](STATE.md). The complete option inventory, exact guidance revisions, source/fixture evidence, package identity and remaining acceptance walks are in [UX-OVERNIGHT-2026-09-16](UX-OVERNIGHT-2026-09-16.md).
+Installed **0.2.8**; verified deployment identity is recorded in [STATE](STATE.md). The complete option inventory, exact guidance revisions, source/fixture evidence, package identity and remaining acceptance walks are in [UX-OVERNIGHT-2026-09-16](UX-OVERNIGHT-2026-09-16.md).
+
+**0.2.9 candidate:** guidance `12df6b325d770625baffd75b2d2eb74f1fcd0a8c` adds verified-source stock producer suppression and shared close/capture release gating. 506 source-linked UI assertions cover configured action aggregation, existing reference neutralization, held keys/pointer/wheel/Settings/stock controls, fresh/failed/stale reads, F6 fallback/deduplication and effective input cleanup after a primary-device failure. Full game dispatch coverage is still a live check. The 0.2.8 diagnostic launch failed to open F6 through injected keys; zero force writes, normal shutdown and exact config restoration were verified. Installer-r2 passes 81 PowerShell 5.1 assertions and has its own frozen package identity.
 
 Implemented for UX-01-S: persistent Simple/Advanced over one settings store; a short Simple Setup; four direct axis rows with full provisional calibration; additive handbrake axis/button input; grouped button bindings; Steering-following/explicit FFB dropdown and saved panic Off; Simple camera adjustment rebinding with conflict/cancel/defaults and release-gated bounded repeats; Advanced force tuning, camera poses, timer assist and diagnostics. Atomic telemetry edits keep the recorder alive; Simple exposes master Off/On and active-capture Stop. Help includes UI scale and a local support summary.
 

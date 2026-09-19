@@ -43,7 +43,7 @@ internal sealed class DeviceHub : IDisposable
         {
             Array.Copy(d.Buttons, d.Previous, 128);
             d.Ok = WheelFfbNative.Read(d.Slot, d.Axes, d.Buttons);
-            if (!d.Ok) { Array.Clear(d.Buttons, 0, 128); _presses.RemoveWhere(x => x.StartsWith(d.Info.InstanceGuid!.Value.ToString("D") + ":")); continue; }
+            if (!d.Ok) { Array.Clear(d.Buttons, 0, 128); Array.Clear(d.Previous, 0, 128); Array.Clear(d.Axes, 0, 8); _presses.RemoveWhere(x => x.StartsWith(d.Info.InstanceGuid!.Value.ToString("D") + ":")); continue; }
             for (int i = 0; i < 128; i++) if (d.Buttons[i] != 0 && d.Previous[i] == 0) _presses.Add(Key(d.Info.InstanceGuid!.Value, i));
         }
     }

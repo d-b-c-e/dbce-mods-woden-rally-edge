@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework></PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../src/WodenRallyEdge.Plugin/MenuOwnership.cs" Link="Consumer/MenuOwnership.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/MenuNavigation.cs" Link="Consumer/MenuNavigation.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Panel.cs" Link="Consumer/Panel.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/WheelInput.cs" Link="Consumer/WheelInput.cs" />

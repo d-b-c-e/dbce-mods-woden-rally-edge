@@ -23,7 +23,10 @@ void BindAction(string label)
     // Production row's Bind control is 44 logical units below its action label.
     float scale=Screen.width>=3000?1.5f:1;Draw(new(){type=EventType.MouseDown,mousePosition=new(row!.Rect.x+25,row.Rect.y+54*scale)});Draw();
 }
-void ArmCapture()=>typeof(WheelInput).GetField("_captureAfter",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(Runtime.Wheel,0d);
+var stock=new GamePadSystem();
+void StockFrame(){MenuOwnership.BeforeStock(stock);foreach(var pad in stock.Game_Pads)MenuOwnership.AfterRead(pad);MenuOwnership.AfterStock(stock);}
+void ReleasedClose(){Keyboard.current?.Clear();Runtime.Devices!.Pressed.Clear();StockFrame();MenuOwnership.Tick();Runtime.Clock.Advance(.11);StockFrame();MenuOwnership.Tick();}
+void ArmCapture(){StockFrame();MenuOwnership.CaptureReady();Runtime.Clock.Advance(.11);StockFrame();MenuOwnership.CaptureReady();typeof(WheelInput).GetField("_captureAfter",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(Runtime.Wheel,0d);}
 void KeyPress(Key key,bool modifier=false)
 {
     Keyboard.current!.Clear();Keyboard.current[key].isPressed=true;Keyboard.current[key].wasPressedThisFrame=true;
@@ -37,6 +40,12 @@ var id=Guid.NewGuid();var device=new DeviceHub.Device{Info=new(){InstanceGuid=id
 Runtime.Wheel.Bindings.Steer=new(id,0,new(0,65535,32768));Runtime.Wheel.Bindings.Throttle=new(id,2,new(0,65535));Runtime.Wheel.Bindings.Brake=new(id,5,new(0,65535));
 Runtime.Wheel.Bindings.Buttons["Handbrake"]=new(id,18);Runtime.Wheel.Save();Runtime.Settings.WheelEnabled=true;
 Runtime.Settings.FfbEnabled=false;Runtime.Settings.FfbSmoothing=61;Runtime.Settings.CameraAutoFit=false;Runtime.Settings.CameraHeight=1.23f;
+// Exercise the actual no-car hotkey path after the live injected F6 smoke failed.
+// This proves the menu gate, not Windows injection or the real InputSystem edge.
+Keyboard.current![Key.F6].wasPressedThisFrame=true;Runtime.Focused=false;Panel.Update();Check(!Panel.Open,"unfocused F6 does not open settings");
+Runtime.Focused=true;Panel.Update();Check(Panel.Open&&Runtime.Local==null,"focused F6 opens settings without a local car");
+Keyboard.current.Clear();Panel.Update();Check(Panel.Open,"released F6 leaves settings open");
+Time.frameCount++;Keyboard.current[Key.F6].wasPressedThisFrame=true;Panel.Update();Check(Panel.Open&&MenuOwnership.Closing,"fresh F6 requests close without handing input back immediately");ReleasedClose();Check(!Panel.Open,"F6 closes after verified release without a local car");
 Panel.Toggle();Snapshot("setup-720");Check(Find("Centre")!=null,"Steering uses Centre");Check(Find("Optional controls and buttons")!=null,"Simple setup next step fits 720p");
 Check(!GUI.Commands.Any(c=>c.Text.Contains("Countdown")),"Driving assist absent from Simple");
 var before=File.ReadAllText(Path.Combine(dir,"bindings.json"));var opts=Runtime.Settings.ForceOptions;
@@ -115,7 +124,43 @@ Runtime.Local=null;var ui=new UnityEngine.EventSystems.EventSystem{firstSelected
 Panel.Close(false);Runtime.Devices.Pressed.Clear();MenuNavigation.Update();Runtime.Devices.Pressed.Add(new(id,72));MenuNavigation.Update();
 Check(UnityEngine.EventSystems.ExecuteEvents.Delivered.Last()=="ISubmitHandler"&&ui.currentSelectedGameObject!=null,"bound Confirm dispatches to existing selected native menu");
 int delivered=UnityEngine.EventSystems.ExecuteEvents.Delivered.Count;Runtime.Devices.Pressed.Clear();MenuNavigation.Update();Runtime.Local=new();Runtime.Devices.Pressed.Add(new(id,72));MenuNavigation.Update();Check(UnityEngine.EventSystems.ExecuteEvents.Delivered.Count==delivered,"native menu events excluded during driving");
-Runtime.Devices.Pressed.Clear();Runtime.Local=null;Panel.Toggle();Click("Setup");Panel.MenuAction("Menu down");Panel.MenuAction("Confirm");Draw();Check(Runtime.Settings.UiView=="Advanced","wheel focus and Confirm activate panel header");Panel.MenuAction("Back");Check(!Panel.Open,"wheel Back closes panel");Panel.Toggle();
+Runtime.Devices.Pressed.Clear();Runtime.Local=null;Panel.Toggle();Click("Setup");Panel.MenuAction("Menu down");Panel.MenuAction("Confirm");Draw();Check(Runtime.Settings.UiView=="Advanced","wheel focus and Confirm activate panel header");Panel.MenuAction("Back");Check(MenuOwnership.Closing,"wheel Back requests release before close");ReleasedClose();Check(!Panel.Open,"wheel Back closes panel after release");Panel.Toggle();
 Panel.Close(false);Check(!Pause.Paused,"fixture pause restored");
+// Real ownership/aggregation source: retained stock references, remapped actions,
+// held keyboard/Settings/wheel/pad/pointer, and failed/stale reads all gate handoff.
+var pad=new GamePadSystem.Game_Pad{PadActions=new[]{new GamePadSystem.Actions("custom menu action",0,false,51,KeyCode.Space)},InputFloats=new float[60]};stock.Game_Pads.Add(pad);
+var retainedActions=pad.PadActions;var retainedFloats=pad.InputFloats;
+ui.enabled=true;Panel.Toggle();Check(!ui.enabled,"opening owns stock Unity pointer/navigation dispatch");
+pad.Dpad_Up=true;pad.InputFloats[51]=1;pad.PadActions[0]=pad.PadActions[0] with {value=1,Pressed=true};StockFrame();
+Check(retainedActions[0].value==0&&!retainedActions[0].Pressed&&retainedFloats[51]==0&&!pad.Dpad_Up,"existing stock action/raw references are neutralized in place");
+Check(retainedActions[0].AssignedFloat==51&&retainedActions[0].KeyBoard_Key==KeyCode.Space&&retainedActions[0].Available,"suppression preserves actual configured bindings");
+Check(MenuOwnership.Aggregate(Runtime.Clock.Elapsed.TotalSeconds).Held,"raw configured stock input is observed before mask");
+Panel.Close(true);Runtime.Clock.Advance(.2);pad.Back=true;StockFrame();MenuOwnership.Tick();Check(Panel.Open&&!ui.enabled,"held stock Back cannot pass through close");
+Keyboard.current![Key.A].isPressed=true;Runtime.Clock.Advance(.2);StockFrame();MenuOwnership.Tick();Check(Panel.Open,"arbitrary held keyboard key delays close");Keyboard.current.Clear();
+Runtime.Wheel.Bindings.Buttons["Settings panel"]=new(id,22);Runtime.Devices.Pressed.Add(new(id,22));Runtime.Clock.Advance(.2);StockFrame();MenuOwnership.Tick();Check(Panel.Open,"held configured Settings wheel control delays close");Runtime.Devices.Pressed.Clear();
+Runtime.Devices.Pressed.Add(new(id,72));Runtime.Clock.Advance(.2);StockFrame();MenuOwnership.Tick();Check(Panel.Open,"held configured wheel Confirm delays close");Runtime.Devices.Pressed.Clear();
+Mouse.current=new();Mouse.current.leftButton.isPressed=true;Runtime.Clock.Advance(.2);StockFrame();MenuOwnership.Tick();Check(Panel.Open,"pointer remains owned through held close click");Mouse.current=null;
+var keyboard=Keyboard.current;Keyboard.current=null;Input.FailRead=true;Runtime.Clock.Advance(.2);StockFrame();MenuOwnership.Tick();Check(Panel.Open,"missing keyboard and failed fallback are unknown rather than neutral");Input.FailRead=false;Keyboard.current=keyboard;
+Runtime.Clock.Advance(.2);MenuOwnership.Tick();Check(Panel.Open,"stale stock input cannot release ownership");
+MenuOwnership.BeforeStock(stock);MenuOwnership.AfterStock(stock);MenuOwnership.Tick();Check(Panel.Open&&!MenuOwnership.Aggregate(Runtime.Clock.Elapsed.TotalSeconds).Known,"skipped native read is not fresh neutral input");
+StockFrame();MenuOwnership.Tick();Runtime.Clock.Advance(.05);StockFrame();MenuOwnership.Tick();Check(Panel.Open,"neutral input must persist for release interval");Runtime.Clock.Advance(.06);StockFrame();MenuOwnership.Tick();Check(!Panel.Open&&ui.enabled,"fresh neutral interval returns stock dispatch once");
+// Capture uses the same aggregation and release interval, then accepts a new edge.
+Panel.Toggle();Runtime.Wheel.BeginButton("Menu left");Runtime.Devices.Pressed.Add(new(id,22));Runtime.Wheel.UpdateCapture();Runtime.Clock.Advance(.4);StockFrame();Runtime.Wheel.UpdateCapture();Check(Runtime.Wheel.CaptureButton=="Menu left"&&!MenuOwnership.CaptureReady(),"held Settings cannot become captured menu binding");
+Runtime.Devices.Pressed.Clear();StockFrame();MenuOwnership.CaptureReady();Runtime.Clock.Advance(.11);StockFrame();Check(MenuOwnership.CaptureReady(),"capture arms only after shared neutral interval");Runtime.Devices.Pressed.Add(new(id,74));Runtime.Wheel.UpdateCapture();Check(Runtime.Wheel.Bindings.Buttons["Menu left"].Button==74&&!Runtime.Wheel.Capturing,"new edge binds after release");Runtime.Devices.Pressed.Clear();Panel.Close(false);
+Panel.Toggle();Runtime.Wheel.BeginButton("Menu right");ArmCapture();Runtime.Focused=false;Panel.Update();Runtime.Focused=true;Runtime.Devices.Pressed.Add(new(id,22));StockFrame();Runtime.Wheel.UpdateCapture();Check(Runtime.Wheel.CaptureButton=="Menu right"&&!MenuOwnership.CaptureReady(),"focus loss requires a new capture release before accepting held Settings");Runtime.Devices.Pressed.Clear();Runtime.Wheel.Cancel();Panel.Close(false);
+foreach(bool skipped in new[]{false,true})
+{
+    Panel.Toggle();Runtime.Wheel.BeginButton("Menu right");ArmCapture();var previous=Runtime.Wheel.Bindings.Buttons.GetValueOrDefault("Menu right");
+    if(skipped){MenuOwnership.BeforeStock(stock);MenuOwnership.AfterStock(stock);}else Runtime.Clock.Advance(.2);
+    Runtime.Devices.Pressed.Add(new(id,75));Runtime.Wheel.UpdateCapture();Check(Runtime.Wheel.CaptureButton=="Menu right"&&Runtime.Wheel.Bindings.Buttons.GetValueOrDefault("Menu right")==previous,"armed capture rejects new edge after "+(skipped?"skipped":"stale")+" stock read");
+    Runtime.Devices.Pressed.Clear();StockFrame();Runtime.Wheel.UpdateCapture();Check(Runtime.Wheel.Capturing&&!MenuOwnership.CaptureReady(),"recovery restarts neutral interval instead of reusing readiness");Runtime.Clock.Advance(.11);StockFrame();Check(MenuOwnership.CaptureReady(),"fresh neutral interval rearms capture after failed observation");Runtime.Devices.Pressed.Add(new(id,75));Runtime.Wheel.UpdateCapture();Check(!Runtime.Wheel.Capturing&&Runtime.Wheel.Bindings.Buttons["Menu right"].Button==75,"new healthy edge binds after observation recovery");Runtime.Devices.Pressed.Clear();Panel.Close(false);
+}
+// A failed panic read used to silently skip settings handling in the same try.
+Time.frameCount++;Keyboard.current!.FailF8=true;Keyboard.current[Key.F6].wasPressedThisFrame=true;Panel.Update();Check(Panel.Open&&Runtime.Log.Warnings.Any(w=>w.Contains("fixture F8 read failed")),"F8 read failure is logged and cannot skip F6");Keyboard.current.FailF8=false;Keyboard.current.Clear();Panel.Close(false);
+Time.frameCount++;Keyboard.current=null;Runtime.Devices.Pressed.Add(new(id,22));Panel.Update();Check(Panel.Open&&Panel.HotkeyStatus.StartsWith("Settings input observed"),"bound Settings remains usable without Keyboard.current");Runtime.Devices.Pressed.Clear();Panel.Close(false);
+Time.frameCount++;Draw(new(){type=EventType.KeyDown,keyCode=KeyCode.F6});Check(Panel.Open&&Panel.HotkeyStatus.EndsWith("IMGUI F6"),"closed panel accepts existing IMGUI keyboard route without Keyboard.current");StockFrame();Input.Held=true;Check(MenuOwnership.Aggregate(Runtime.Clock.Elapsed.TotalSeconds) is (true,true),"legacy keyboard held state participates when InputSystem keyboard is absent");Input.Held=false;Check(MenuOwnership.Aggregate(Runtime.Clock.Elapsed.TotalSeconds) is (true,false),"legacy keyboard can establish known neutral release");
+Keyboard.current=keyboard;Keyboard.current![Key.F6].wasPressedThisFrame=true;Panel.Update();Check(Panel.Open&&!MenuOwnership.Closing,"InputSystem and IMGUI F6 in same frame only toggle once");Keyboard.current.Clear();Time.frameCount++;Draw(new(){type=EventType.KeyDown,keyCode=KeyCode.F6});Check(!MenuOwnership.Closing,"held IMGUI key repeat does not toggle twice");Draw(new(){type=EventType.KeyUp,keyCode=KeyCode.F6});Time.frameCount++;Draw(new(){type=EventType.KeyDown,keyCode=KeyCode.F6});Check(MenuOwnership.Closing,"released and repressed IMGUI F6 requests close");Draw(new(){type=EventType.KeyUp,keyCode=KeyCode.F6});ReleasedClose();Check(!Panel.Open,"IMGUI close obeys shared release barrier");
+var staleCar=new MainCar{MyControls=new()};typeof(WheelInput).GetField("_last",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(Runtime.Wheel,new AppliedInput(staleCar.GetInstanceID(),Runtime.Clock.Elapsed.TotalSeconds,.7f,.5f,0,.8f));Runtime.Wheel.HandbrakeCar=staleCar;Runtime.Wheel.HandbrakeAmount=.8f;device.Ok=false;
+Check(Runtime.Wheel.Apply(new Controls{field_Private_MainCar_0=staleCar})==null&&Runtime.Wheel.LastFor(staleCar)==null&&Runtime.Wheel.HandbrakeCar==null&&Runtime.Wheel.HandbrakeAmount==0,"shared primary device failure clears previous effective handbrake/input sample");device.Ok=true;
 var saved=new Settings(new ConfigFile(Path.Combine(dir,"settings.cfg"),false));Check(saved.UiView=="Advanced"&&!saved.FfbEnabled&&saved.FfbSmoothing==61,"reopen/restart retains explicit view and tune");
 Console.WriteLine($"UI fixture: {checks} assertions passed. Actual Panel/WheelInput/Settings source, simulated Unity events/devices; no game or force output. Artifacts: {outputDir}");

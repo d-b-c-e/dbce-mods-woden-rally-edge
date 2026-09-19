@@ -10,8 +10,10 @@ namespace UnityEngine
     public record struct Color(float r,float g,float b,float a=1) { public static Color white => new(1,1,1); }
     public record struct Rect(float x,float y,float width,float height);
     public record struct Vector2(float x,float y);
-    public enum EventType { Repaint, MouseDown, MouseDrag, MouseUp, Used, KeyDown, ScrollWheel }
-    public enum KeyCode { None, Tab, Return, Space, LeftArrow, RightArrow, PageDown, PageUp }
+    public enum EventType { Repaint, MouseDown, MouseDrag, MouseUp, Used, KeyDown, KeyUp, ScrollWheel }
+    public enum KeyCode { None, Tab, Return, Space, LeftArrow, RightArrow, PageDown, PageUp, F6 }
+    public static class Time {public static int frameCount;}
+    public static class Input {public static bool FailRead,Held;public static bool anyKey=>FailRead?throw new InvalidOperationException("fixture legacy keyboard failed"):Held;public static bool GetMouseButton(int button)=>false;}
     public sealed class Event
     { public static Event current=new(); public EventType type=EventType.Repaint; public int button; public Vector2 mousePosition,delta; public KeyCode keyCode; public bool shift; public void Use()=>type=EventType.Used; }
     public sealed class GUIContent(string text) { public string text=text; }
@@ -50,11 +52,24 @@ namespace UnityEngine.InputSystem
     public enum Key {None,F6,F8,Escape,A,B,C,U,J,LeftShift,RightShift,LeftCtrl,RightCtrl,LeftAlt,RightAlt,LeftMeta,RightMeta,Numpad8,Numpad2,Numpad9,Numpad7,Numpad4,Numpad6,Numpad1,Numpad3,NumpadPlus,NumpadMinus,Numpad0}
     public sealed class KeyControl { public bool wasPressedThisFrame,isPressed; }
     public sealed class Keyboard
-    { public static Keyboard? current=new();private readonly Dictionary<Key,KeyControl> keys=new();public KeyControl this[Key key] {get{if(!keys.ContainsKey(key))keys[key]=new();return keys[key];}}public void Clear(){foreach(var k in keys.Values){k.wasPressedThisFrame=false;k.isPressed=false;}} }
+    { public static Keyboard? current=new();public bool FailF8;private readonly Dictionary<Key,KeyControl> keys=new();public KeyControl anyKey=>new(){isPressed=keys.Values.Any(k=>k.isPressed)};public KeyControl this[Key key] {get{if(key==Key.F8&&FailF8)throw new InvalidOperationException("fixture F8 read failed");if(!keys.ContainsKey(key))keys[key]=new();return keys[key];}}public void Clear(){foreach(var k in keys.Values){k.wasPressedThisFrame=false;k.isPressed=false;}} }
+    public sealed class Mouse {public static Mouse? current; public KeyControl leftButton=new(),rightButton=new(),middleButton=new();}
 }
 namespace WodenRallyEdge
 {
-    internal static class Plugin {internal const string Version="0.2.8";}
+    internal static class Plugin {internal const string Version="0.2.9";}
+    internal sealed class GamePadSystem
+    {
+        internal readonly List<Game_Pad> Game_Pads=new();
+        internal sealed class Game_Pad
+        {
+            internal bool AnyKey,A,B,X,Y,Back,Start,LB,RB,L3,R3,Dpad_Up,Dpad_Down,Dpad_Left,Dpad_Right;
+            internal UnityEngine.Vector2 LS,RS;internal float LT,RT;
+            internal float[]? InputFloats;
+            internal Actions[]? PadActions;
+        }
+        internal record struct Actions(string name,float value,bool Pressed,int AssignedFloat=0,UnityEngine.KeyCode KeyBoard_Key=UnityEngine.KeyCode.None,bool Available=true);
+    }
     internal static class UiNative
     {internal static bool CursorVisible=>UnityEngine.Cursor.visible;internal static void CursorLock(UnityEngine.CursorLockMode mode)=>UnityEngine.Cursor.lockState=mode;internal static void Style(UnityEngine.GUIStyle s,int size,bool wrap){s.fontSize=size;s.wordWrap=wrap;}}
     internal sealed class Pause
@@ -92,9 +107,10 @@ namespace WodenRallyEdge
     internal static class Runtime
     {
         internal static Settings Settings=null!;internal static WheelInput? Wheel;internal static DeviceHub? Devices=new();internal static ForceController? Force=new();internal static TelemetryOutput? Output;
-        internal static bool Focused=true;internal static MainCar? Local;internal static readonly Stopwatch Clock=Stopwatch.StartNew();internal static Log Log=new();
+        internal static bool Focused=true;internal static MainCar? Local;internal static readonly TestClock Clock=new();internal static Log Log=new();
         internal static PlayerControlState ControlState(MainCar c)=>new(PlayerPhase.Racing,true,true,false,false,false,false,false,false);
         internal static bool CameraAvailable(MainCar c)=>true;
     }
-    internal sealed class Log {internal readonly List<string> Errors=new();internal void LogInfo(string s){}internal void LogWarning(string s){}internal void LogError(string s)=>Errors.Add(s);}
+    internal sealed class TestClock {private readonly Stopwatch watch=Stopwatch.StartNew();private double offset;internal TimeSpan Elapsed=>watch.Elapsed+TimeSpan.FromSeconds(offset);internal void Advance(double seconds)=>offset+=seconds;}
+    internal sealed class Log {internal readonly List<string> Errors=new(),Warnings=new();internal void LogInfo(string s){}internal void LogWarning(string s)=>Warnings.Add(s);internal void LogError(string s)=>Errors.Add(s);}
 }

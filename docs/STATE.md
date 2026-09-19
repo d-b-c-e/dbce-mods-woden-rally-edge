@@ -1,6 +1,12 @@
 # State — 2026-09-19
 
-## 0.2.8 — implementation complete; final build/deployment in progress
+## 0.2.9 — candidate under review; 0.2.8 remains installed
+
+0.2.9 adds stock input ownership and a shared release gate for closing/capture, plus bounded F6 diagnostics and an IMGUI F6 fallback. Its native hooks observe configured `GamePadSystem.ReadInputs` results before neutralizing the existing `Game_Pad`, raw float and boxed action arrays. Keyboard, pointer, stock and bound menu/Settings controls must remain neutral for 100 ms with fresh stock reads before handoff. Unknown/stale/failed reads retain ownership; Keep settings open cancels a stalled close. Native input is not scanned or changed during normal driving. Source-linked fixtures cover aggregation, retained references, configured actions, held controls, stale/skipped reads, fallback keyboard, duplicate F6 delivery and shared-primary disconnect cleanup. Build: zero warnings/errors; **506 UI assertions**, **35 suites / 942 regression assertions**. No 0.2.9 runtime acceptance yet.
+
+The separately frozen installer-r2 successor is `dist/WodenRallyEdgeWheel-0.2.8-installer-r2-9b4d75e.zip`, SHA-256 `1992551438aa7e5d46c66500f53d3189f5552bbcb815ec169b5c04ca976dcbb5`. Installer source `9b4d75e37568e674274aeee0fc8719db164dd22f`; runtime stays `df0e4dc`. **81 PowerShell 5.1 assertions** cover safe rollback, game-start recovery-required and external replacement before/after a write. All 15 files / 14 manifest entries verified. The original ZIP below remains unchanged. The 0.2.9 installer drops the hard-coded version from backup folder names; recovery policy is unchanged.
+
+## 0.2.8 — installed; live F6 smoke unresolved
 
 The owner-authorized cross-product UX work adds persistent Simple/Advanced, provisional calibration, additive handbrake axis/button input, strict Steering-following or explicit FFB selection, camera rebinding/repeats, and telemetry edits that preserve active capture. Optional countdown assist moves to Advanced → Driving without changing saved values or the timer hook. Wheel Confirm/Back/directions now navigate the panel and compatible Unity stock menus. See the [complete inventory and evidence](UX-OVERNIGHT-2026-09-16.md).
 
@@ -8,7 +14,22 @@ Binding saves, Clear and default resets persist before replacing effective assig
 
 Offline checks: zero-warning build; **35 regression suites / 942 assertions**, **459 source-linked UI assertions**, and **59 standalone installer checks under Windows PowerShell 5.1**. Approximate 720p/4K draw-command fixtures are separate from actual Unity rendering. Native menu coverage and physical controls/FFB/camera acceptance remain pending.
 
-Branch `codex/ux-simple-advanced-0.2.8`; baseline checkpoint `9d28b83` preserves prior 0.2.3–0.2.7 work separately. Final source commit, package hashes and closed-game deployment receipt will be recorded here after installation. The owner explicitly authorized completion, documentation, build, commit and deployment; no game launch or unattended force test is included. Original force model, 50% default, HWND/exit guards, owner bonnet correction and timer eligibility remain unchanged.
+Branch `codex/ux-simple-advanced-0.2.8`; baseline checkpoint `9d28b83` preserves prior 0.2.3–0.2.7 work separately. Verified source/package/deployment identities follow. The owner explicitly authorized completion, documentation, build, commit and deployment, followed by a serialized force-disabled menu smoke. Original force model, 50% default, HWND/exit guards, owner bonnet correction and timer eligibility remain unchanged.
+
+## Verified 0.2.8 deployment — 2026-09-19
+
+Installed with Woden closed at **2026-09-19T19:15:05.3124346Z**. Runtime source commit **`df0e4dc323cf39266ebc553d637638cc416d650c`**, branch `codex/ux-simple-advanced-0.2.8`; previous development work is separately preserved in `9d28b83`. No push performed.
+
+- ZIP: `dist/WodenRallyEdgeWheel-0.2.8-dev.zip`; SHA-256 `914657af4dfeb080782724853d2936fdee486388b58078f7a1620af3c8784ac1`.
+- Final stage: `dist/stage-a20cfa038b0346ed91296bc33aa0d779`.
+- Installed plugin SHA-256 `1f5e178258b60cea3383f3692c35e08c0f37b9b93d1857366528130b3b24f961`; Core `7091a100a9c81153fe75227f7fe0b564407739c54eaff5bc3fa316e466f90c63`.
+- All **9 installed payload hashes** match; all **4 existing configuration/binding files** are byte-identical before/after installation. FFB On at 49.583332%, cap 25%, smoothing 35 ms and damping 0.05; manual bonnet height 0.7367809 / forward 0.9380049; countdown assist On/50% preserved.
+- Backup: `D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge\WodenWheelBackups\before-install-0.2.8-20260919-141503-904bcc76`.
+- Receipt: `<game>/BepInEx/WodenWheel-install.json`; private copy and pre-install config hashes at `artifacts/deployment-0.2.8`.
+- Final package verified exactly 15 allowlisted files and all 14 manifest entries. Schema: 215 definitions.
+- Final PowerShell 5.1 player installer fixture: `artifacts/managed-installer-test-caff41af997847ddb8725f4e89a7baa3`, **59 checks passed**. Repository initial-only installer fixture: `artifacts/installer-test-b23f351d1fc04d55af8aecac1f2341ef`, passed layout/refusal/preservation.
+
+Deployment itself launched no game. A later authorized diagnostic launch ran from 19:25:33Z to normal exit at 19:31:23Z, with one-launch physical FFB suppression, zero force writes/failures and no driving input. F6 injections did not open the panel; final screen was stock attract-mode DEMO PLAY. The lifecycle update ran and focus was observed, but the log cannot distinguish a missing InputSystem edge from a silent hotkey exception. This remains unresolved, not UI acceptance. Recording completed with 3,206 samples and zero dropped/errors. All four owner configs were restored byte-exact, all nine installed payloads reverified, and the consumed launch request archived privately at `artifacts/deployment-0.2.8/live-smoke`. Desktop lease released; no further launch without a new grant. Actual UI/physical acceptance remains separate.
 
 ## Latest 0.2.7 drive — force felt; lingering-force analysis
 

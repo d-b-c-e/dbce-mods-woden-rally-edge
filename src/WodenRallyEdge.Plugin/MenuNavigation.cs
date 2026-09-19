@@ -15,7 +15,7 @@ internal static class MenuNavigation
     internal static void Update()
     {
         if (Runtime.Wheel == null) return;
-        bool allowed = Runtime.Focused && (Runtime.Wheel.CaptureButton == null || Runtime.Wheel.SavePending);
+        bool allowed = Runtime.Focused && !MenuOwnership.Closing && (Runtime.Wheel.CaptureButton == null || Runtime.Wheel.SavePending);
         bool menu = Panel.Open || Runtime.Local == null || Pause.Paused || Runtime.Local.Status is MainCar.CarStatus.END or MainCar.CarStatus.DESTROYED;
         foreach (string action in Actions)
         {

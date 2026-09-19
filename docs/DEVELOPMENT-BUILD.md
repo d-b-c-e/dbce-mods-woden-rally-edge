@@ -1,8 +1,10 @@
-# 0.2.8 private development build
+# 0.2.9 private development build
 
 F6 opens Wheel settings in Simple by default. View: Simple / Advanced is saved explicitly. Tab / Enter navigate; arrow keys adjust focused sliders; scroll or Page Up / Down reveals longer pages. View changes preserve all tuning and runtime state. Finish or cancel calibration/connection edits before changing view. FFB is a single saved On/Off choice, default On for new settings. F8 immediately stops output and saves Off; choose On to resume. Physical force direction/feel and this build's handbrake behavior still need an attended drive. The repository's docs/STATE.md records verification history.
 
 Supports Steam build 21802346, Unity 6000.3.6f1, GameAssembly SHA-256 `f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c`. Other builds leave hooks disabled.
+
+Closing settings waits for keys, pointer and menu controls to be released before handing input back to the game. A short neutral interval prevents a held button from acting on the menu underneath. Keep settings open cancels that wait without returning game input. Binding also waits for release before accepting a new key/button. F6 accepts Unity's IMGUI keyboard events as well as InputSystem input, with duplicate events combined into one action; diagnostic logs identify availability and read failures. These paths have managed fixture coverage; actual game acceptance remains pending.
 
 ## Install and update
 
