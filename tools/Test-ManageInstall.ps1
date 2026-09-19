@@ -4,6 +4,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $fixture = Join-Path $root ('artifacts\managed-installer-test-' + [guid]::NewGuid().ToString('N'))
 $null = New-Item -ItemType Directory -Path $fixture
+'Disposable installer regression fixture' | Set-Content -LiteralPath (Join-Path $fixture '.woden-installer-fixture')
 # Identity-only data in an ignored fixture; no executable, game launch or devices.
 Copy-Item -LiteralPath 'D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge\GameAssembly.dll' -Destination $fixture
 $installer = Join-Path $PackageRoot 'Manage-Install.ps1'
@@ -61,6 +62,50 @@ Refuses { & $installer -Mode Uninstall -GameDir $fixture } 'Owned file was modif
 Check ((Hash $dll) -eq $oldHash -and (Test-Path -LiteralPath (Join-Path $plugin 'WheelFfb.dll'))) 'Refused uninstall changed payload'
 Copy-Item -LiteralPath $savedDll -Destination $dll -Force
 
+# Never roll back while the game is open. The fail-closed simulation does not
+# launch a process or weaken the real process check.
+$coreDll = Join-Path $plugin 'WodenRallyEdge.Core.dll'
+function Restore-FixturePayload {
+    foreach ($entry in $first.files) { Copy-Item -LiteralPath (Join-Path $PackageRoot $entry.path) -Destination (Join-Path $fixture $entry.path) -Force }
+}
+function Latest-Recovery {
+    $report = Get-ChildItem -LiteralPath (Join-Path $fixture 'WodenWheelBackups') -Filter recovery.json -File -Recurse | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+    Get-Content -LiteralPath $report.FullName -Raw | ConvertFrom-Json
+}
+'old first file' | Set-Content -LiteralPath $dll
+'old second file' | Set-Content -LiteralPath $coreDll
+$beforeReceipt = Hash $receipt
+Refuses { & $installer -GameDir $fixture -PackageRoot $PackageRoot -TestScenario GameStarts } 'Recovery required.*Close'
+Check ((Hash $dll) -eq $first.files[0].sha256) 'Running-game recovery changed first written payload'
+Check ((Hash $coreDll) -eq $first.files[1].sha256) 'Running-game recovery changed second written payload'
+Check ((Hash $receipt) -eq $beforeReceipt) 'Running-game recovery changed receipt'
+$recovery = Latest-Recovery
+Check ($recovery.recoveryRequired -and $recovery.mutations.Count -eq 2) 'Running-game recovery report'
+foreach ($entry in @($first.files | Select-Object -Skip 2)) { Check ((Hash (Join-Path $fixture $entry.path)) -eq $entry.sha256) 'Running-game recovery changed unwritten payload' }
+Restore-FixturePayload
+
+# Unknown current bytes survive rollback; other files still recover from their
+# verified backups. Receipt never claims the interrupted update completed.
+'old first file' | Set-Content -LiteralPath $dll
+'old second file' | Set-Content -LiteralPath $coreDll
+$oldCore = Hash $coreDll
+Refuses { & $installer -GameDir $fixture -PackageRoot $PackageRoot -TestScenario ExternalReplacement -TestFailAfterWrite 2 } 'Recovery required.*Unknown current bytes'
+Check ((Get-Content -LiteralPath $dll -Raw).Trim() -eq 'external replacement after write') 'Rollback overwrote external replacement'
+Check ((Hash $coreDll) -eq $oldCore) 'Rollback failed to restore unchanged second payload'
+Check ((Hash $receipt) -eq $beforeReceipt) 'External replacement changed receipt'
+Check ((Latest-Recovery).recoveryRequired) 'External replacement recovery report'
+Restore-FixturePayload
+
+# Recheck the snapshot immediately before each forward mutation.
+'old first file' | Set-Content -LiteralPath $dll
+$oldFirst = Hash $dll
+Refuses { & $installer -GameDir $fixture -PackageRoot $PackageRoot -TestScenario ExternalBeforeWrite } 'Recovery required.*File changed during operation'
+Check ((Hash $dll) -eq $oldFirst) 'Forward conflict did not roll back first payload'
+Check ((Get-Content -LiteralPath $coreDll -Raw).Trim() -eq 'external change before write') 'Forward write overwrote external bytes'
+Check ((Hash $receipt) -eq $beforeReceipt) 'Forward conflict changed receipt'
+Check ((Latest-Recovery).recoveryRequired) 'Forward conflict recovery report'
+Restore-FixturePayload
+
 # Receipt allowlist cannot be widened to a nested path or arbitrary sibling file.
 $savedReceipt = Get-Content -LiteralPath $receipt -Raw
 $badReceipt = $savedReceipt | ConvertFrom-Json
@@ -86,4 +131,4 @@ Install
 Check (-not (Test-Path -LiteralPath $settings) -and -not (Test-Path -LiteralPath $bindings)) 'Explicit remove settings'
 foreach ($file in @($otherConfig,$unknown,$recording)) { Check ((Hash $file) -eq $retained[$file]) ('Remove settings changed unrelated file: ' + $file) }
 Check (-not (Test-Path -LiteralPath (Join-Path $fixture 'Super Woden Rally Edge.exe'))) 'Game executable in fixture'
-Write-Host "PASS: $script:checks installer checks (fresh install/rollback, update/rollback, integrity, receipt, ownership, uninstall, settings/recording/other-mod preservation). Fixture: $fixture"
+Write-Host "PASS: $script:checks installer checks (fresh install/rollback, update/rollback, running-game recovery, external changes, integrity, receipt, ownership, uninstall, settings/recording/other-mod preservation). Fixture: $fixture"

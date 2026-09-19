@@ -5,7 +5,8 @@ param(
     [string]$PackageRoot = $PSScriptRoot,
     [string]$LoaderArchive,
     [switch]$RemoveUserData,
-    [Parameter(DontShow=$true)][int]$TestFailAfterWrite = 0
+    [Parameter(DontShow=$true)][int]$TestFailAfterWrite = 0,
+    [Parameter(DontShow=$true)][ValidateSet('None','GameStarts','ExternalReplacement','ExternalBeforeWrite')][string]$TestScenario = 'None'
 )
 $ErrorActionPreference = 'Stop'
 $gameName = 'Super Woden Rally Edge'
@@ -14,7 +15,37 @@ $loaderHash = 'F4CC496BD098A0DF4164B81E3737297707F13A47C2478DBA2F60EEFAB784817A'
 $loaderName = 'BepInEx-Unity.IL2CPP-win-x64-6.0.0-be.788+5b766a3.zip'
 $payloadNames = @('WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Recording.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll','recording-provenance.json','toolkit.version','telemetry-schema.json')
 function Assert-Closed {
-    if (Get-Process -Name $gameName -ErrorAction SilentlyContinue) { throw "Close $gameName normally, then retry. No process will be stopped." }
+    if ((Get-Process -Name $gameName -ErrorAction SilentlyContinue) -or $script:fixtureGameRunning) { throw "Close $gameName normally, then retry. No process will be stopped." }
+}
+function File-Hash([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path)) { return $null }
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "Expected a file: $Path" }
+    return (Get-FileHash -LiteralPath $Path).Hash
+}
+function Snapshot-File([string]$Path,[string]$Saved) {
+    $target = Assert-Path $Path $game
+    $originals[$target] = [pscustomobject]@{ hash=(File-Hash $target); saved=$Saved }
+}
+function Assert-Unchanged([string]$Path,$Expected) {
+    $null = Assert-Path $Path $game
+    if ((File-Hash $Path) -ne $Expected) { throw "File changed during operation; retained for review: $Path" }
+}
+function Write-Owned([string]$Source,[string]$Target,[string]$Hash) {
+    Ensure-Directory (Split-Path $Target -Parent)
+    Assert-Closed
+    Assert-Unchanged $Target $originals[$Target].hash
+    $mutations.Add([pscustomobject]@{ path=$Target; originalHash=$originals[$Target].hash; writtenHash=$Hash; saved=$originals[$Target].saved })
+    Copy-Item -LiteralPath $Source -Destination $Target -Force
+    if ((File-Hash $Target) -ne $Hash) { throw "Copy verification failed: $Target" }
+}
+function Remove-Owned([string]$Target) {
+    Assert-Closed
+    Assert-Unchanged $Target $originals[$Target].hash
+    if ($null -ne $originals[$Target].hash) {
+        $mutations.Add([pscustomobject]@{ path=$Target; originalHash=$originals[$Target].hash; writtenHash=$null; saved=$originals[$Target].saved })
+        Remove-Item -LiteralPath $Target
+        if ($null -ne (File-Hash $Target)) { throw "Removal verification failed: $Target" }
+    }
 }
 function Assert-Path([string]$Path,[string]$Root) {
     $full = [IO.Path]::GetFullPath($Path)
@@ -36,7 +67,7 @@ function Ensure-Directory([string]$Path) {
     $target = Assert-Path $Path $game
     $missing = [Collections.Generic.List[string]]::new()
     while (-not (Test-Path -LiteralPath $target)) { $missing.Add($target); $target = Split-Path $target -Parent }
-    for ($i = $missing.Count - 1; $i -ge 0; $i--) { $createdDirectories.Add($missing[$i]); New-Item -ItemType Directory -Path $missing[$i] | Out-Null }
+    for ($i = $missing.Count - 1; $i -ge 0; $i--) { Assert-Closed; $null = Assert-Path $missing[$i] $game; $createdDirectories.Add($missing[$i]); New-Item -ItemType Directory -Path $missing[$i] | Out-Null }
 }
 function Find-Game {
     $libraries = [Collections.Generic.List[string]]::new()
@@ -62,6 +93,8 @@ function Find-Game {
 Assert-Closed
 if (-not $GameDir) { $GameDir = Find-Game }
 $game = [IO.Path]::GetFullPath($GameDir).TrimEnd('\')
+$script:fixtureGameRunning = $false
+if ($TestScenario -ne 'None' -and ((Test-Path -LiteralPath (Join-Path $game ($gameName + '.exe'))) -or -not (Test-Path -LiteralPath (Join-Path $game '.woden-installer-fixture') -PathType Leaf))) { throw 'Test scenarios require a marked fixture without a game executable.' }
 if (-not (Test-Path -LiteralPath (Join-Path $game 'GameAssembly.dll') -PathType Leaf)) { throw 'Choose the game folder containing GameAssembly.dll.' }
 $destination = Assert-Path (Join-Path $game 'BepInEx\plugins\WodenRallyEdgeWheel') $game
 $config = Assert-Path (Join-Path $game 'BepInEx\config') $game
@@ -123,13 +156,22 @@ if ($Mode -eq 'Install') {
 }
 Assert-Closed
 $backup = Assert-Path (Join-Path $game ('WodenWheelBackups\before-' + $Mode.ToLowerInvariant() + '-0.2.8-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8))) $game
+$originals = @{}
+foreach ($entry in $owned) {
+    $target = Assert-Path (Join-Path $game $entry.path) $game
+    Snapshot-File $target (Join-Path $backup ('WodenRallyEdgeWheel\' + [IO.Path]::GetFileName($target)))
+    if ($Mode -eq 'Uninstall' -and $null -ne $originals[$target].hash -and $originals[$target].hash -ne $entry.sha256) { throw "Owned file was modified; uninstall left files in place: $target" }
+}
+foreach ($name in 'dbce.wodenrallyedgewheel.cfg','wheel-bindings.json','wheel-bindings.json.bak','woden-record-next-launch.json') { Snapshot-File (Join-Path $config $name) (Join-Path $backup ('config\' + $name)) }
+Snapshot-File $receiptPath (Join-Path $backup 'WodenWheel-install.json')
 New-Item -ItemType Directory -Path $backup | Out-Null
 if (Test-Path -LiteralPath $destination) { Copy-Item -LiteralPath $destination -Destination $backup -Recurse }
 if (Test-Path -LiteralPath $config) { Copy-Item -LiteralPath $config -Destination $backup -Recurse }
 if (Test-Path -LiteralPath $receiptPath) { Copy-Item -LiteralPath $receiptPath -Destination $backup }
-$written = [Collections.Generic.List[string]]::new(); $originals = @{}; $newLoaderFiles = [Collections.Generic.List[string]]::new()
+foreach ($original in $originals.Values) { if ($null -ne $original.hash -and (File-Hash $original.saved) -ne $original.hash) { throw "Backup verification failed; no installed writes performed. Backup: $backup" } }
+$mutations = [Collections.Generic.List[object]]::new()
 $createdDirectories = [Collections.Generic.List[string]]::new()
-$receiptWritten = $false
+$payloadWrites = 0
 try {
     Assert-Closed
     if ($Mode -eq 'Install') {
@@ -138,60 +180,75 @@ try {
                 $relative = $file.FullName.Substring($loaderStage.Length).TrimStart('\')
                 $target = Assert-Path (Join-Path $game $relative) $game
                 if (Test-Path -LiteralPath $target) { throw "Loader target appeared during install: $target" }
-                Ensure-Directory (Split-Path $target -Parent)
-                $newLoaderFiles.Add($target); Copy-Item -LiteralPath $file.FullName -Destination $target
-                if ((Get-FileHash -LiteralPath $target).Hash -ne (Get-FileHash -LiteralPath $file.FullName).Hash) { throw 'Loader copy verification failed' }
+                Snapshot-File $target $null
+                if ($null -ne $originals[$target].hash) { throw "Loader target appeared during install: $target" }
+                Write-Owned $file.FullName $target (File-Hash $file.FullName)
             }
-            $loaderConfig = Join-Path $config 'BepInEx.cfg'; Ensure-Directory $config
-            $newLoaderFiles.Add($loaderConfig); "[IL2CPP]`nUnityBaseLibrariesSource = `n" | Set-Content -LiteralPath $loaderConfig -Encoding utf8
+            $loaderConfig = Join-Path $config 'BepInEx.cfg'
+            Snapshot-File $loaderConfig $null
+            if ($null -ne $originals[$loaderConfig].hash) { throw 'Loader configuration appeared during install' }
+            $stagedConfig = Join-Path $backup 'new-loader-config.txt'
+            "[IL2CPP]`nUnityBaseLibrariesSource = `n" | Set-Content -LiteralPath $stagedConfig -Encoding utf8
+            Write-Owned $stagedConfig $loaderConfig (File-Hash $stagedConfig)
         }
         Ensure-Directory $destination
         foreach ($entry in $owned) {
             Assert-Closed
             $target = Assert-Path (Join-Path $game $entry.path) $game
-            $saved = Join-Path $backup ('WodenRallyEdgeWheel\' + [IO.Path]::GetFileName($target))
-            $originals[$target] = if (Test-Path -LiteralPath $saved) { $saved } else { $null }
-            $written.Add($target); Copy-Item -LiteralPath (Join-Path $package $entry.path) -Destination $target -Force
-            if ((Get-FileHash -LiteralPath $target).Hash -ne $entry.sha256) { throw 'Installed payload hash mismatch' }
-            if ($TestFailAfterWrite -gt 0 -and $written.Count -ge $TestFailAfterWrite) { throw 'Fixture injected write failure' }
+            if ($TestScenario -eq 'ExternalBeforeWrite' -and $payloadWrites -eq 1) { 'external change before write' | Set-Content -LiteralPath $target }
+            Write-Owned (Join-Path $package $entry.path) $target $entry.sha256
+            $payloadWrites++
+            if ($TestScenario -eq 'ExternalReplacement' -and $payloadWrites -eq 1) { 'external replacement after write' | Set-Content -LiteralPath $target }
+            if ($TestScenario -eq 'GameStarts' -and $payloadWrites -eq 2) { $script:fixtureGameRunning = $true; Assert-Closed }
+            if ($TestFailAfterWrite -gt 0 -and $payloadWrites -ge $TestFailAfterWrite) { throw 'Fixture injected write failure' }
         }
     } else {
         foreach ($entry in $owned) {
-            Assert-Closed; $target = Assert-Path (Join-Path $game $entry.path) $game
-            if (Test-Path -LiteralPath $target) { $originals[$target] = Join-Path $backup ('WodenRallyEdgeWheel\' + [IO.Path]::GetFileName($target)); $written.Add($target); Remove-Item -LiteralPath $target }
+            $target = Assert-Path (Join-Path $game $entry.path) $game
+            Remove-Owned $target
         }
     }
     foreach ($path in $beforeConfig.Keys) { if ((Get-FileHash -LiteralPath $path).Hash -ne $beforeConfig[$path]) { throw 'Configuration changed unexpectedly' } }
     if ($Mode -eq 'Uninstall' -and $RemoveUserData) {
         foreach ($name in 'dbce.wodenrallyedgewheel.cfg','wheel-bindings.json','wheel-bindings.json.bak','woden-record-next-launch.json') {
             $target = Assert-Path (Join-Path $config $name) $game
-            if (Test-Path -LiteralPath $target -PathType Leaf) {
-                $originals[$target] = Join-Path $backup ('config\' + $name); $written.Add($target); Remove-Item -LiteralPath $target
-            }
+            Remove-Owned $target
         }
     }
     $version = if ($Mode -eq 'Install') { (Get-Item -LiteralPath (Join-Path $destination 'WodenRallyEdgeWheel.dll')).VersionInfo.ProductVersion } else { $receipt.version }
-    $receiptWritten = $true
-    [ordered]@{ version=$version; mode=$Mode; gameDirectory=$game; utc=[DateTime]::UtcNow.ToString('o'); backup=$backup; files=$owned; configurationPreserved=($Mode -ne 'Uninstall' -or -not $RemoveUserData); sharedLoaderRetained=$true; gameLaunched=$false } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $receiptPath -Encoding utf8
+    foreach ($entry in $owned) { $expected = if ($Mode -eq 'Install') { $entry.sha256 } else { $null }; Assert-Unchanged (Join-Path $game $entry.path) $expected }
+    $stagedReceipt = Join-Path $backup 'new-receipt.json'
+    [ordered]@{ version=$version; installerRevision=2; mode=$Mode; gameDirectory=$game; utc=[DateTime]::UtcNow.ToString('o'); backup=$backup; files=$owned; configurationPreserved=($Mode -ne 'Uninstall' -or -not $RemoveUserData); sharedLoaderRetained=$true; gameLaunched=$false } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $stagedReceipt -Encoding utf8
+    Write-Owned $stagedReceipt $receiptPath (File-Hash $stagedReceipt)
 } catch {
     $failure = $_.Exception.Message
-    foreach ($target in $written) {
-        if ($originals[$target]) {
-            Copy-Item -LiteralPath $originals[$target] -Destination $target -Force
-            if ((Get-FileHash -LiteralPath $target).Hash -ne (Get-FileHash -LiteralPath $originals[$target]).Hash) { throw "Rollback verification failed: $target. Recovery backup: $backup" }
+    $reasons = [Collections.Generic.List[string]]::new()
+    if ($failure.StartsWith('File changed during operation;')) { $reasons.Add($failure) }
+    try {
+        Assert-Closed
+        for ($i = $mutations.Count - 1; $i -ge 0; $i--) {
+            Assert-Closed
+            $change = $mutations[$i]; $target = Assert-Path $change.path $game
+            $current = File-Hash $target
+            if ($current -eq $change.originalHash) { continue }
+            if ($current -ne $change.writtenHash) { $reasons.Add("Unknown current bytes retained: $target"); continue }
+            if ($null -ne $change.originalHash -and (File-Hash $change.saved) -ne $change.originalHash) { $reasons.Add("Recovery backup changed: $($change.saved)"); continue }
+            Assert-Closed
+            Assert-Unchanged $target $change.writtenHash
+            if ($null -ne $change.originalHash) { Copy-Item -LiteralPath $change.saved -Destination $target -Force }
+            else { Remove-Item -LiteralPath $target }
+            Assert-Unchanged $target $change.originalHash
         }
-        elseif (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target }
-    }
-    if ($receiptWritten) {
-        $savedReceipt = Join-Path $backup 'WodenWheel-install.json'
-        if (Test-Path -LiteralPath $savedReceipt) { Copy-Item -LiteralPath $savedReceipt -Destination $receiptPath -Force }
-        elseif (Test-Path -LiteralPath $receiptPath) { Remove-Item -LiteralPath $receiptPath }
-    }
-    foreach ($target in $newLoaderFiles) { if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target } }
-    for ($i = $createdDirectories.Count - 1; $i -ge 0; $i--) {
-        $target = Assert-Path $createdDirectories[$i] $game
-        if ((Test-Path -LiteralPath $target) -and @(Get-ChildItem -LiteralPath $target -Force).Count -eq 0) { Remove-Item -LiteralPath $target }
-    }
+        if ($reasons.Count -eq 0) {
+            for ($i = $createdDirectories.Count - 1; $i -ge 0; $i--) {
+                Assert-Closed
+                $target = Assert-Path $createdDirectories[$i] $game
+                if ((Test-Path -LiteralPath $target) -and @(Get-ChildItem -LiteralPath $target -Force).Count -eq 0) { Remove-Item -LiteralPath $target }
+            }
+        }
+    } catch { $reasons.Add($_.Exception.Message) }
+    [ordered]@{ failure=$failure; recoveryRequired=($reasons.Count -gt 0); reasons=@($reasons.ToArray()); mutations=@($mutations.ToArray()) } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $backup 'recovery.json') -Encoding utf8
+    if ($reasons.Count -gt 0) { throw "Recovery required; stop using this installation and review backup: $backup. No unsafe rollback attempted. $failure $($reasons -join ' ')" }
     throw "Operation rolled back; recovery backup: $backup. $failure"
 }
 if ($Mode -eq 'Uninstall' -and $RemoveUserData) {

@@ -8,7 +8,7 @@ Supports Steam build 21802346, Unity 6000.3.6f1, GameAssembly SHA-256 `f422894d8
 
 Extract the complete ZIP into a separate folder and double-click **Install.bat**. It discovers Steam libraries or asks for the game folder. The game must be closed. First install downloads the hash-pinned BepInEx prerequisite; updates reuse only the supported loader. No .NET SDK is needed for this player installer. Unsupported game/loader versions and linked target paths are refused before replacement.
 
-Install backs up the existing plugin and all configuration under `WodenWheelBackups` in the game folder, verifies every packaged payload, retains saved settings/bindings, and rolls back a failed replacement. It writes `BepInEx/WodenWheel-install.json` with owned file hashes and the backup path. Unknown mod files and recordings remain in place. It does not launch the game.
+Install backs up the existing plugin and all configuration under `WodenWheelBackups` in the game folder, verifies every packaged payload, and retains saved settings/bindings. Installer revision 2 rechecks closed-game state and file hashes before every replacement, deletion and rollback. A failed replacement restores only verified bytes while the game remains closed. If the game starts or another process changes a target, it retains those files and reports **Recovery required**, with `recovery.json` and the original files in the backup. Close the game normally and review that report before using the installation; do not overwrite an external change blindly. The installer writes `BepInEx/WodenWheel-install.json` with owned file hashes and the backup path after success. Unknown mod files and recordings remain in place. It does not launch the game.
 
 Double-click **Uninstall.bat** to remove only unchanged files named in that ownership receipt. Shared BepInEx, settings, unknown files and recordings stay. For an explicit settings removal, run `Uninstall.bat -RemoveUserData`; this also backs up the named Woden settings first. Recordings are always retained for manual review/removal. A modified owned file requires review before uninstall. A legacy development install without a receipt must be adopted with Install first. The repository-only `Install-Dev.ps1` retains its initial-install refusal behavior.
 
@@ -75,8 +75,8 @@ In F6 → Advanced → Driving, enable Countdown assist to give yourself more ti
 
 This applies only to an active single-player countdown/time limit. Elapsed lap/stage clocks, car speed, physics and FFB tuning remain unchanged. Checkpoint time bonuses keep their normal numeric value. Changing the setting affects future countdown ticks and cannot undo a timeout. The UI reports whether an eligible countdown was found; runtime behavior still needs an attended check.
 
-## Cameras and removal
+## Camera behavior
 
 Change camera cycles stock views → enabled Bonnet → enabled Bumper → stock. Look behind is held. Camera takeover releases mounted views and suppresses force. Position/clipping/transitions and split-screen still need live validation; per-car FOV is unfinished.
 
-Close Woden normally before removing only `BepInEx/plugins/WodenRallyEdgeWheel`. Preserve personal configurations, recordings and shared loader files unless separately removing those is intended.
+For removal, close Woden normally and use Uninstall.bat as described above; it preserves unrelated files within the plugin directory.
