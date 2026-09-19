@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- 0.2.10: guard startup message/title shortcuts before they consume a Settings press, share the existing device poll once per frame, and include legacy held keys in the close release check. Startup/title live acceptance remains pending.
+- Installer revision 3: resolve the package folder after PowerShell parameter binding so the normal Install.bat route works on Windows PowerShell 5.1, including spaced paths and another working directory.
+- 0.2.9: retain stock input ownership while settings/capture is active, wait for controls to be released, and add logged F6 paths with an IMGUI fallback. A limited force-disabled menu check passed; broader gameplay acceptance remains open.
+
 ## 0.2.8 — private development build
 
 - Persistent Simple/Advanced views with complete basic binding/calibration in Simple and optional countdown assist in Advanced Driving.
@@ -12,7 +20,7 @@
 - Source-linked managed UI fixtures; 0.2.7 game-window repair, force model and camera fitting retained. Physical/Unity acceptance remains open.
 
 
-## [Unreleased]
+## Earlier private development builds
 
 ### 0.2.7 development build
 

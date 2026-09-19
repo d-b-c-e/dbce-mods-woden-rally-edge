@@ -2,7 +2,7 @@
 
 A Windows mod for **Super Woden Rally Edge** that connects the game's vehicle simulation to a racing rig. Detailed, trustworthy telemetry is the first milestone; direct wheel controls, force feedback and bonnet/bumper views are the feature targets.
 
-**0.2.9 private development build installed.** Simple/Advanced settings separate basic setup from detailed tuning, with direct axis calibration, additive handbrake axis/button input, a Steering-following FFB dropdown, camera shortcut handling and recording-preserving telemetry edits. The successor adds stock input suppression while settings owns input, release checks before closing/capture, and F6 diagnostics/fallback. A force-disabled live check verified F6 opening, Advanced rendering, calibration Cancel and release-to-close; broader menu isolation and physical gameplay acceptance remain pending. See the [option inventory and evidence](docs/UX-OVERNIGHT-2026-09-16.md).
+**0.2.10 private development build installed.** Simple/Advanced settings separate basic setup from detailed tuning, with direct axis calibration, additive handbrake axis/button input, a Steering-following FFB dropdown, camera shortcut handling and recording-preserving telemetry edits. Settings retains stock input until controls are released. The latest fix also guards the startup message and title's direct keyboard shortcuts before they can consume F6 or a bound Settings press. The earlier 0.2.9 live check verified F6 opening, Advanced rendering, calibration Cancel and release-to-close; 0.2.10 startup/title behavior still needs a live check. See the [option inventory and evidence](docs/UX-OVERNIGHT-2026-09-16.md).
 
  Wheel controls and camera changes are now allowed during the start-line countdown, including throttle/revs and steering. The game retains its start lock and FFB still requires racing. Advanced → Driving provides an optional single-player countdown/time-limit assist (Off by default, saved speed 75%); lap/stage timing remains normal. Original FFB gain and the 50% default remain; the owner described the current feel as a good starting point but noted possible lingering force in turns. Read [the evidence and next steps](docs/STATE.md).
 
@@ -28,6 +28,7 @@ Requires the .NET 10 SDK, the installed Windows game, and PowerShell 7. The plug
 .\tools\Initialize-Dependencies.ps1
 dotnet build WodenRallyEdgeWheel.sln -c Release -warnaserror
 dotnet run --project tests\WodenRallyEdge.Tests -c Release
+dotnet run --project tests\WodenRallyEdge.UiTests -c Release
 .\tools\Package.ps1
 ```
 
@@ -41,7 +42,7 @@ dotnet run --project tools\TelemetryInspector -c Release -- devices lib\toolkit\
 
 The device command only enumerates; it does not create force effects. The session inspector validates the complete file and reports channel coverage, ranges and sample gaps. A successful replay validates a recording's structure, not physical handling or force feel.
 
-Player install/update and receipt-based uninstall are available through `Install.bat` / `Uninstall.bat` in the ZIP; they need no SDK. Updates back up the existing plugin/configuration and verify preserved settings. See [installation and recovery details](docs/DEVELOPMENT-BUILD.md). The repository-only `Install-Dev.ps1` remains an initial-install helper.
+Player install/update and receipt-based uninstall are available through `Install.bat` / `Uninstall.bat` in the ZIP; they need no SDK. Use `WodenRallyEdgeWheel-0.2.10-installer-r3-e5da2d5.zip`, which corrects package-folder discovery on Windows PowerShell 5.1. Updates back up the existing plugin/configuration and verify preserved settings. See [installation and recovery details](docs/DEVELOPMENT-BUILD.md). The repository-only `Install-Dev.ps1` remains an initial-install helper.
 
 ## Design references
 

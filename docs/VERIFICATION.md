@@ -1,5 +1,11 @@
 # Verification — 2026-09-19
 
+## 0.2.10 current checks
+
+Reviewed runtime `25797b3`: zero-warning build, **35 suites / 942 regression assertions**, **532 source-linked UI assertions**. Reviewed installer revision 3 (`e5da2d5`): **84 Windows PowerShell 5.1 checks**, including actual Install.bat with omitted PackageRoot, spaced paths and a different working directory. The r3 package contains the same nine frozen runtime payloads; all 15 allowed files / 14 manifest entries match. Real closed-game installation also omitted PackageRoot, verified all nine installed payload hashes and preserved all four owner config/binding files byte-exact. Exact identities are in [STATE](STATE.md).
+
+**0.2.10 live startup/title check NOT RUN due the user's desktop pause.** Earlier 0.2.9 live observations establish only F6 opening, basic rendering, calibration Cancel and release-to-close; they do not establish the new guards' execution or physical behavior. No FFB retune was made.
+
 ## 0.2.8 checks
 
 Release build passes with zero warnings/errors. **35 managed suites / 942 assertions**, **459 source-linked UI fixture assertions**, and **59 Windows PowerShell 5.1 standalone installer checks** pass. The UI harness includes actual menu routing, transactional binding/Clear/reset failures, exact-proposal retries, calibration disconnects and camera reset conflicts. The player package allowlist contains 15 files / 14 manifest entries. Detailed final hashes/deployment receipts, option inventory and open live acceptance are in [UX-OVERNIGHT-2026-09-16](UX-OVERNIGHT-2026-09-16.md) and [STATE](STATE.md).
