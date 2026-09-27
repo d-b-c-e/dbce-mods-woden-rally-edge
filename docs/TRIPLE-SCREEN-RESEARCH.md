@@ -2,11 +2,18 @@
 
 ## Status and scope
 
-**Research only.** No triple-screen adapter, game launch, display activation, window change,
-package, or visual acceptance exists. This note lives on the isolated
+**Research plus offline private-target prototype.** No game launch, installation, display
+activation, window change, package, or visual acceptance exists. This note lives on the isolated
 `codex/triple-screen-research` branch. The installed wheel build and owner settings were not
 changed. The 0.2.10 desktop-testing pause remains in force; any later game launch needs the
 resumed desktop work and serialized lease described in `STATE.md`.
+
+The [separate probe project](../experiments/WodenTripleScreenProbe/README.md) now compiles a
+default-off, three-camera design against the pinned game interop. It reads v1 layout, uses a
+pinned toolkit source snapshot, aims only at small private render targets, and reserves frame
+evidence/status files for an opt-in run. Offline checks pass (22 layout/geometry assertions;
+zero-warning plugin build). It has not run inside Unity. Its named stripped-engine render
+bindings and actual visuals remain unverified; it claims no `three-projections` capability.
 
 The desired result is three independently rendered, angle-correct views from one eye, ideally on
 three separate displays. Three viewports in one Surround or borderless window are fallback output
@@ -133,8 +140,9 @@ Evidence milestones:
    replay, split-screen, resize/focus, frame pacing and teardown are tested. Separate displays
    receive an independent pass; Surround/span are reported separately if those alone work.
 
-None of these milestones is complete. Existing wheel UI fixtures and 0.2.9 limited live evidence
-do not advance triple-screen acceptance.
+The first milestone has a compiling source prototype and offline layout/geometry checks, but its
+Unity render bindings and frame readback have not run. Runtime and visual milestones are open.
+Existing wheel UI fixtures and 0.2.9 limited live evidence do not advance triple-screen acceptance.
 
 ## Repository decision
 
