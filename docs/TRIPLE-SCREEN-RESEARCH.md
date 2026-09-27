@@ -12,6 +12,20 @@ The desired result is three independently rendered, angle-correct views from one
 three separate displays. Three viewports in one Surround or borderless window are fallback output
 paths. A wider single camera is not true triple-screen support.
 
+## Owner rig input — 2026-09-27
+
+Use **70° from the center panel to each side panel** for owner-specific layouts and future
+projection validation; 60° is superseded. Other reported rig values remain three 32-inch
+2560×1440 1500R panels, 660 mm eye distance, and an 8 mm bezel gap. The 32-inch diagonal and
+1500R label do not establish the visible active-area width/height required by
+`TripleRigDefinition`; retain measured values from the optimizer profile rather than deriving
+new dimensions here. The toolkit's current planar builder also does not apply the 8 mm gap, so
+its matrices cannot yet be called bezel-corrected.
+
+The optimizer's saved monitor profile and Art of Rally deployed desired-layout copies have been
+updated to 70°. ETS/ATS generated configurations have not yet been regenerated. This is rig
+input, not Woden runtime or visual validation, and it does not change generic toolkit defaults.
+
 ## Evidence available now
 
 | Subject | Finding | Limit |
