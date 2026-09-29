@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- 0.2.12 candidate: preserve the verified baseline while running separately hashed force-tuning configs into new observations bound to the original case. Reject changed source/baseline artifacts, invalid identifiers/ticks and structurally shifted comparisons before reporting numeric deltas.
 - 0.2.11 candidate: correlate one-launch owner recordings to exact source/config/profile identities, fix the hard-coded recording version, and capture force-model validity, reasons, reset epochs and lifecycle gates in stream order.
 - Add a bounded owner command that never kills a timed-out game, validates normal finalization and reports exact saved paths/hashes. Add pure model-3 reprocessing into the shared force-observation v1 contract, with exact case-byte identity and refusal of incomplete, dropped, unsupported or idle-only captures.
 - 0.2.10: guard startup message/title shortcuts before they consume a Settings press, share the existing device poll once per frame, and include legacy held keys in the close release check. Startup/title live acceptance remains pending.

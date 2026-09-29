@@ -13,7 +13,7 @@ if (!(Test-Path -LiteralPath $exe)) { throw 'Woden executable not found.' }
 if (Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue) { throw 'Close Woden normally before preparing a recorded launch.' }
 if ((Get-FileHash -LiteralPath (Join-Path $gameRoot 'GameAssembly.dll')).Hash -ne 'F422894D8D2B0DF4EDB7E5259E5E60CB8C4F8DEA2E85EBDFC09DD6766349250C') { throw 'Unsupported game build.' }
 $plugin = Join-Path $gameRoot 'BepInEx/plugins/WodenRallyEdgeWheel/WodenRallyEdgeWheel.dll'
-if (!(Test-Path -LiteralPath $plugin) -or [version][Diagnostics.FileVersionInfo]::GetVersionInfo($plugin).FileVersion -lt [version]'0.2.11') { throw 'Install Woden Wheel 0.2.11 or later first.' }
+if (!(Test-Path -LiteralPath $plugin) -or [version][Diagnostics.FileVersionInfo]::GetVersionInfo($plugin).FileVersion -lt [version]'0.2.12') { throw 'Install Woden Wheel 0.2.12 or later first.' }
 $requestId = [guid]::NewGuid()
 if (!$CaseId) { $CaseId = 'woden-drive-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') }
 if ($CaseId -notmatch '^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}$') { throw 'CaseId must follow the shared identifier form: 1-128 ASCII letters, digits, dot, underscore, colon, at-sign or hyphen, beginning with a letter or digit.' }
@@ -24,6 +24,7 @@ $request | ConvertTo-Json | Set-Content -LiteralPath $requestPath -Encoding utf8
 Write-Host "Capture requested for one launch: $($request.Id). Expires in 15 minutes."
 Write-Host "Case: $CaseId (signal reprocessing; not deterministic game-driving replay)."
 Write-Host "Physical FFB allowed for this diagnostic launch: $([bool]$AttendedFfb). Saved preferences are preserved."
+if (!$AttendedFfb) { Write-Host 'No-force mode validates capture channels but resets force shaping at each blocked sample; use an explicitly attended FFB drive for tuning trials.' }
 $captureDirectory = Join-Path $gameRoot ('BepInEx/WodenRecordings/request-' + $requestId.ToString('N'))
 Write-Host "Expected capture directory: $captureDirectory"
 if ($PrepareOnly) { Write-Host 'PrepareOnly: no game launched, input injected, device opened or force actuated.'; return }

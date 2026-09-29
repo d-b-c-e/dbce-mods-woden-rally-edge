@@ -6,7 +6,7 @@ The owner asked for the wheel toolkit, art-of-sim-rally and iracing-arcade-wheel
 
 The compiled foundation includes the Woden sampler, per-channel units/provenance, conservative Forza mapping, detailed UDP and bounded numeric capture. Prove it live and establish an evidence corpus before tuning anything from it. Resolve player identity and sampling phase first; use actual recordings to interpret RPM/gear/timing scales. A minimum useful validated dashboard should include speed, normalized engine speed once proven, pedals, gear, race state and timing. The expanded stream should retain per-wheel contact, slip, commanded torque and body motion.
 
-The 0.2.11 candidate adds exact request/source/config/profile identity and pure model-3 force-signal reprocessing under recorded-playback v1. Offline fixtures prove contract compatibility; the next attended owner drive must supply the first recording with actual driving coverage. Treat structural validity, coverage, reproducible software requests and physical acceptance as four separate gates.
+The 0.2.12 candidate adds exact request/source/config/profile identity, verified model-3 baseline reprocessing and separate immutable tuning trials under recorded-playback v1. Offline fixtures prove contract compatibility and candidate comparisons; the next attended owner drive must supply the first recording with actual driving coverage. Treat structural validity, coverage, reproducible model-preview requests, delivered native output and physical acceptance as separate gates.
 
 ## Milestone 2 — reliable rig controls
 

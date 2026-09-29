@@ -1,4 +1,4 @@
-# 0.2.11 private development build
+# 0.2.12 private development build
 
 The startup message and title now retain input ownership while settings is open. F6 or the bound Settings button is observed before their direct keyboard shortcuts, including when the game callback runs before the mod update. Their local timers wait while the panel is open and resume normally after release. This successor has managed test coverage; its startup/title behavior still needs a force-disabled live check.
 
@@ -72,6 +72,7 @@ Captures include raw/applied handbrake, FFB status markers, connection/write cou
 ```powershell
 dotnet run --project tools\TelemetryInspector -c Release -- inspect 'path\to\capture.jsonl'
 dotnet run --project tools\TelemetryInspector -c Release -- reprocess 'path\to\request-case-directory'
+dotnet run --project tools\TelemetryInspector -c Release -- trial 'path\to\request-case-directory' 'path\to\candidate-config.json' 'path\to\new-observation.jsonl'
 dotnet run --project tools\TelemetryInspector -c Release -- compare 'baseline.jsonl' 'candidate.jsonl' 0.000001
 ```
 

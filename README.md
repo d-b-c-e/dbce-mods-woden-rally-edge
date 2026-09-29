@@ -4,13 +4,13 @@ A Windows mod for **Super Woden Rally Edge** that connects the game's vehicle si
 
 **0.2.10 private development build installed.** Simple/Advanced settings separate basic setup from detailed tuning, with direct axis calibration, additive handbrake axis/button input, a Steering-following FFB dropdown, camera shortcut handling and recording-preserving telemetry edits. Settings retains stock input until controls are released. The latest fix also guards the startup message and title's direct keyboard shortcuts before they can consume F6 or a bound Settings press. The earlier 0.2.9 live check verified F6 opening, Advanced rendering, calibration Cancel and release-to-close; 0.2.10 startup/title behavior still needs a live check. See the [option inventory and evidence](docs/UX-OVERNIGHT-2026-09-16.md).
 
-**0.2.11 is an offline-verified candidate, not installed.** It prepares a correlated one-command owner recording, captures exact model/gate/reset identity and reruns the actual force signal into the toolkit's device-free observation format. This is [signal reprocessing](docs/RECORDED-PLAYBACK.md), not deterministic game-driving replay or physical acceptance. Saved wheel, FFB, camera and difficulty settings are unchanged.
+**0.2.12 is an offline candidate, not installed.** It prepares a correlated one-command owner recording, captures exact model/gate/reset identity, verifies a baseline rerun and supports immutable offline tuning trials against the same case. This is [signal reprocessing](docs/RECORDED-PLAYBACK.md), not deterministic game-driving replay or physical acceptance. Saved wheel, FFB, camera and difficulty settings are unchanged.
 
  Wheel controls and camera changes are now allowed during the start-line countdown, including throttle/revs and steering. The game retains its start lock and FFB still requires racing. Advanced → Driving provides an optional single-player countdown/time-limit assist (Off by default, saved speed 75%); lap/stage timing remains normal. Original FFB gain and the 50% default remain; the owner described the current feel as a good starting point but noted possible lingering force in turns. Read [the evidence and next steps](docs/STATE.md).
 
 | Area | Current implementation |
 |---|---|
-| Telemetry | Game sampler, versioned channels, 324-byte Forza output, detailed JSON UDP and bounded source capture. The 0.2.11 candidate can validate a complete owner drive and reproduce model-3 software force observations offline; real driving coverage is still pending. |
+| Telemetry | Game sampler, versioned channels, 324-byte Forza output, detailed JSON UDP and bounded source capture. The 0.2.12 candidate can validate a complete owner drive, reproduce model-3 software force observations and compare separate tuning trials offline; real driving coverage is still pending. |
 | Wheel input | Exact-GUID calibration, inversion/deadzone, buttons and reconnect. Bindable panel/Unity menu navigation; screens without compatible handlers retain keyboard/controller fallback. Handbrake accepts independent additive button and calibrated axis bindings; proportional rear braking/grip-loss adaptation is awaiting a drive. |
 | Camera | Bonnet and bumper extend the normal camera-button cycle; held Look behind and game-camera handoff stop/restore behavior. Body-fitted bonnet, manual offsets/FOV, shorter near clip and rebindable keys/buttons. New framing, transitions and split-screen behavior await acceptance. |
 | Force feedback | Provisional contact/slip estimate and damping through the toolkit. Saved On/Off, default On for new settings; exact wheel, watchdog, exit guards, ramp, peak cap and driving gates. Physical direction/load normalization unverified. |
@@ -40,11 +40,12 @@ Initialization downloads the pinned BepInEx archive and generates **this game's*
 dotnet run --project tools\TelemetryInspector -c Release -- schema artifacts\telemetry-schema.json
 dotnet run --project tools\TelemetryInspector -c Release -- inspect path\to\session.jsonl
 dotnet run --project tools\TelemetryInspector -c Release -- reprocess path\to\request-case-directory
+dotnet run --project tools\TelemetryInspector -c Release -- trial path\to\request-case-directory candidate-config.json new-observation.jsonl
 dotnet run --project tools\TelemetryInspector -c Release -- compare baseline.jsonl candidate.jsonl 0.000001
 dotnet run --project tools\TelemetryInspector -c Release -- devices lib\toolkit\native
 ```
 
-The device command only enumerates; it does not create force effects. `inspect` validates the complete source file and reports coverage. `reprocess` requires complete, drop-free driving data and executes only the managed force model with observation output. A successful comparison establishes ordered software requests for the same exact case bytes; it does not establish deterministic Unity replay, measured torque or force feel.
+The device command only enumerates; it does not create force effects. `inspect` validates the complete source file and reports coverage. `reprocess` requires complete, drop-free driving data and verifies the recorded baseline. `trial` first revalidates the immutable source/case/baseline, then runs the actual managed model with a separate candidate config into a new observation. A successful comparison establishes ordered model-preview requests for the same exact case bytes; it does not establish native delivery, deterministic Unity replay, measured torque or force feel.
 
 Player install/update and receipt-based uninstall are available through `Install.bat` / `Uninstall.bat` in the ZIP; they need no SDK. Use `WodenRallyEdgeWheel-0.2.10-installer-r3-e5da2d5.zip`, which corrects package-folder discovery on Windows PowerShell 5.1. Updates back up the existing plugin/configuration and verify preserved settings. See [installation and recovery details](docs/DEVELOPMENT-BUILD.md). The repository-only `Install-Dev.ps1` remains an initial-install helper.
 

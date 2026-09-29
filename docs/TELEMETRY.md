@@ -14,6 +14,8 @@ The network worker has one pending slot. A slow consumer drops old network ticks
 
 Detailed receivers must treat silence beyond 500 ms as stale, use `sessionId` plus `sequence`, discard out-of-order data, and clear channels absent from the latest snapshot. Do not retain an old wheel contact force after takeoff. Forza output independently emits inactive packets after a half-second source timeout, while the game Update heartbeat explicitly parks it on focus/pause loss. Shutdown sends three inactive packets; UDP delivery is still not guaranteed.
 
+The 0.2.12 recorded-playback adapter uses model validity/reason, reset epoch and output-gate channels to verify the original `ForceSignal` baseline, then permits separate immutable candidate-config trials without a device. Observation magnitudes are managed model previews before native delivery. See [recorded owner-drive boundaries](RECORDED-PLAYBACK.md).
+
 ## Sampling and validity
 
 0.2.2 adds `wheelInput.appliedTicks` plus `camera.mode`, `camera.mountedView`,

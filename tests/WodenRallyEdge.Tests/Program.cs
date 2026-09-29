@@ -356,10 +356,10 @@ Test("recorded driving reruns actual ForceSignal into a bound observation case",
         string profile = RecordingArtifacts.WriteCaptureProfile(Path.Combine(directory, "capture-profile.json"), new string('1',64), new string('2',64), new string('3',64), new string('4',64), true, true, true, "fixture-guid");
         var properties = new Dictionary<string,string> { ["recordingContract"]="dbce.wheel.replay-case@1", ["capability"]="signal-reprocess",
             ["requestId"]=Guid.NewGuid().ToString(), ["caseId"]="fixture-drive", ["disableForces"]="false", ["gameAssemblySha256"]=new string('1',64),
-            ["pluginSha256"]=new string('2',64), ["pluginProductVersion"]="0.2.11+fixture-source", ["runtimeSource"]="fixture-source",
+            ["pluginSha256"]=new string('2',64), ["pluginProductVersion"]="0.2.12+fixture-source", ["runtimeSource"]="fixture-source",
             ["forceConfigSha256"]=config, ["captureProfileSha256"]=profile };
         var signal = new ForceSignal();
-        using (var output = new TelemetryOutput(new(0,0,20,Path.Combine(directory,"source.jsonl")), "fixture-session", "synthetic", "0.2.11", properties))
+        using (var output = new TelemetryOutput(new(0,0,20,Path.Combine(directory,"source.jsonl")), "fixture-session", "synthetic", "0.2.12", properties))
         {
             for (int i=1;i<=100;i++)
             {
@@ -378,11 +378,40 @@ Test("recorded driving reruns actual ForceSignal into a bound observation case",
         Check(RecordedForceReplay.Compare(prepared.ObservationPath,prepared.ObservationPath).Equal,"baseline self-comparison is exact");
         using var header=JsonDocument.Parse(File.ReadLines(prepared.ObservationPath).First());
         Check(header.RootElement.GetProperty("caseSha256").GetString()==RecordingArtifacts.Sha256(prepared.CasePath),"observation binds exact case bytes");
+        string candidatePath=Path.Combine(directory,"candidate-20-percent.json"),candidateObservation=Path.Combine(directory,"force-observation.trial-20.jsonl");
+        string candidateHash=RecordingArtifacts.WriteForceConfig(candidatePath,options with { Strength=20 });
+        var protectedHashes=new[]{"source.jsonl","force-config.json","capture-profile.json","case.json","force-observation.jsonl"}
+            .ToDictionary(name=>name,name=>RecordingArtifacts.Sha256(Path.Combine(directory,name)));
+        var trial=RecordedForceReplay.Trial(directory,candidatePath,candidateObservation);
+        Check(!trial.Comparison.Equal&&trial.Comparison.Differences>0&&trial.CandidateConfigSha256==candidateHash,"separate tuning trial changes magnitudes under candidate config identity");
+        Check(protectedHashes.All(pair=>RecordingArtifacts.Sha256(Path.Combine(directory,pair.Key))==pair.Value),"trial preserves source, case, baseline and original config/profile bytes");
+        using(var trialHeader=JsonDocument.Parse(File.ReadLines(candidateObservation).First()))
+            Check(trialHeader.RootElement.GetProperty("caseSha256").GetString()==RecordingArtifacts.Sha256(prepared.CasePath)&&
+                trialHeader.RootElement.GetProperty("configSha256").GetString()==candidateHash,"trial retains original case identity with candidate config identity");
+
+        string Mutated(string name,Func<string[],string[]> change)
+        { string path=Path.Combine(directory,name);File.WriteAllLines(path,change(File.ReadAllLines(prepared.ObservationPath)),new System.Text.UTF8Encoding(false));return path; }
+        bool Invalid(string path){try{RecordedForceReplay.Compare(prepared.ObservationPath,path);return false;}catch{return true;}}
+        Check(Invalid(Mutated("invalid-no-footer.jsonl",lines=>lines[..^1])),"missing observation footer rejects");
+        Check(Invalid(Mutated("invalid-case-id.jsonl",lines=>{lines[0]=lines[0].Replace("\"caseId\":\"fixture-drive\"","\"caseId\":\"../escape\"");return lines;})),"invalid case identifier rejects");
+        Check(Invalid(Mutated("invalid-model-id.jsonl",lines=>{lines[0]=lines[0].Replace("\"model\":\"woden-force-signal@3\"","\"model\":\"bad/model\"");return lines;})),"invalid model identifier rejects");
+        Check(Invalid(Mutated("invalid-negative-tick.jsonl",lines=>{lines[1]=System.Text.RegularExpressions.Regex.Replace(lines[1],"\"tick\":\\d+","\"tick\":-1");return lines;})),"negative first tick rejects");
+        Check(Invalid(Mutated("invalid-shifted-timeline.jsonl",lines=>{lines[1]=System.Text.RegularExpressions.Regex.Replace(lines[1],"\"tick\":\\d+","\"tick\":1");return lines;})),"shifted timeline is structurally unavailable before magnitude comparison");
+
+        void CopyCase(string target){Directory.CreateDirectory(target);foreach(string file in Directory.GetFiles(directory))File.Copy(file,Path.Combine(target,Path.GetFileName(file)));}
+        string alteredSource=Path.Combine(directory,"altered-source");CopyCase(alteredSource);File.AppendAllText(Path.Combine(alteredSource,"source.jsonl")," ");
+        bool sourceRefused=false;try{RecordedForceReplay.Trial(alteredSource,Path.Combine(alteredSource,"candidate-20-percent.json"),Path.Combine(alteredSource,"new-trial.jsonl"));}catch{sourceRefused=true;}
+        Check(sourceRefused,"altered source cannot start a tuning trial");
+        string alteredBaseline=Path.Combine(directory,"altered-baseline");CopyCase(alteredBaseline);
+        string alteredBaselinePath=Path.Combine(alteredBaseline,"force-observation.jsonl");var alteredLines=File.ReadAllLines(alteredBaselinePath);
+        alteredLines[1]=System.Text.RegularExpressions.Regex.Replace(alteredLines[1],"\"magnitude\":-?[0-9.Ee+]+","\"magnitude\":0.123");File.WriteAllLines(alteredBaselinePath,alteredLines,new System.Text.UTF8Encoding(false));
+        bool baselineRefused=false;try{RecordedForceReplay.Trial(alteredBaseline,Path.Combine(alteredBaseline,"candidate-20-percent.json"),Path.Combine(alteredBaseline,"new-trial.jsonl"));}catch{baselineRefused=true;}
+        Check(baselineRefused,"altered baseline cannot start a tuning trial");
         string idle=Path.Combine(directory,"idle");Directory.CreateDirectory(idle);
         string idleConfig=RecordingArtifacts.WriteForceConfig(Path.Combine(idle,"force-config.json"),options);
         string idleProfile=RecordingArtifacts.WriteCaptureProfile(Path.Combine(idle,"capture-profile.json"),new string('1',64),new string('2',64),new string('3',64),new string('4',64),false,false,true,"");
         var idleProperties=new Dictionary<string,string>(properties){["caseId"]="fixture-idle",["forceConfigSha256"]=idleConfig,["captureProfileSha256"]=idleProfile};
-        using(var output=new TelemetryOutput(new(0,0,20,Path.Combine(idle,"source.jsonl")),"idle","synthetic","0.2.11",idleProperties)) output.Publish(Sample(0,state:"inactive"));
+        using(var output=new TelemetryOutput(new(0,0,20,Path.Combine(idle,"source.jsonl")),"idle","synthetic","0.2.12",idleProperties)) output.Publish(Sample(0,state:"inactive"));
         bool idleRefused=false;try{RecordedForceReplay.Reprocess(idle);}catch(IOException ex){idleRefused=ex.Message.Contains("Insufficient driving coverage");}
         Check(idleRefused,"structurally valid idle-only recording cannot claim driving readiness");
     }
@@ -390,6 +419,38 @@ Test("recorded driving reruns actual ForceSignal into a bound observation case",
     {
         if (Environment.GetEnvironmentVariable("WODEN_KEEP_REPLAY_FIXTURE") == "1") Console.WriteLine("  replay fixture: " + directory);
         else Directory.Delete(directory,true);
+    }
+});
+Test("actual force controller capture replays active, pause, camera, discontinuity and no-force gates", () => {
+    string directory=Path.Combine(Path.GetTempPath(),"woden-controller-reprocess-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(directory);
+    var options=new ForceOptions();string config=RecordingArtifacts.WriteForceConfig(Path.Combine(directory,"force-config.json"),options);
+    string profile=RecordingArtifacts.WriteCaptureProfile(Path.Combine(directory,"capture-profile.json"),new string('1',64),new string('2',64),new string('3',64),new string('4',64),true,true,true,"fixture-guid");
+    var properties=new Dictionary<string,string>{{"recordingContract","dbce.wheel.replay-case@1"},{"capability","signal-reprocess"},{"requestId",Guid.NewGuid().ToString()},
+        {"caseId","controller-lifecycle"},{"disableForces","false"},{"gameAssemblySha256",new string('1',64)},{"pluginSha256",new string('2',64)},
+        {"pluginProductVersion","0.2.12+fixture-source"},{"runtimeSource","fixture-source"},{"forceConfigSha256",config},{"captureProfileSha256",profile}};
+    var (controller,_)=WodenRallyEdge.ForceControllerChecks.Create();double time=0;controller.Prepare();
+    try
+    {
+        using(var output=new TelemetryOutput(new(0,0,20,Path.Combine(directory,"source.jsonl")),"controller-fixture","synthetic","0.2.12",properties))
+        {
+            void Emit(TelemetrySample sample){controller.Tick(sample);output.Publish(sample);}
+            for(int i=0;i<60;i++)Emit(Contact(time+=.02));
+            Emit(Contact(time+=.02,state:"paused"));
+            WodenRallyEdge.MountedCamera.PlayerOwned=false;Emit(Contact(time+=.02));WodenRallyEdge.MountedCamera.PlayerOwned=true;
+            var discontinuity=Contact(time+=.02);discontinuity.Discontinuity="wall-time-gap";Emit(discontinuity);
+            for(int i=0;i<60;i++)Emit(Contact(time+=.02,slip:-.2));
+            WodenRallyEdge.Runtime.DiagnosticNoForce=true;for(int i=0;i<3;i++)Emit(Contact(time+=.02));
+        }
+        var rows=SessionReader.Read(Path.Combine(directory,"source.jsonl")).Where(x=>x.Kind==SessionRecordKind.Sample).Select(x=>x.Sample).ToArray();
+        Check(rows.Any(x=>x.Channels["ffb.gate"]==0)&&rows.Any(x=>x.Channels["ffb.gate"]==9)&&rows.Any(x=>x.Channels["ffb.gate"]==7)&&rows.Any(x=>x.Channels["ffb.gate"]==1),"recording retains active, invalid-model, camera and diagnostic gates");
+        Check(rows.Any(x=>x.Channels["ffb.modelReason"]==11&&x.Channels["ffb.modelResetAfter"]-x.Channels["ffb.modelResetBefore"]==2),"discontinuity retains model and gate reset ordering");
+        Check(rows.Where(x=>x.Channels["ffb.gate"]==1).All(x=>x.Channels["ffb.modelResetAfter"]-x.Channels["ffb.modelResetBefore"]==1),"default no-force gate resets shaping after every valid model sample");
+        var prepared=RecordedForceReplay.Reprocess(directory);Check(prepared.DrivingSamples>=120&&prepared.ModelSamples==rows.Length,"actual controller lifecycle recording reprocesses completely");
+    }
+    finally
+    {
+        WodenRallyEdge.Runtime.DiagnosticNoForce=false;WodenRallyEdge.MountedCamera.PlayerOwned=true;controller.Shutdown();
+        Directory.Delete(directory,true);
     }
 });
 Test("native handbrake adaptation restores boxed tuning and preserves game transient state", () => WodenRallyEdge.HandbrakeChecks.Run(Check));
