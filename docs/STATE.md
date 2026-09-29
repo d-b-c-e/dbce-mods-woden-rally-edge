@@ -6,9 +6,14 @@ The candidate adds a bounded one-command owner capture and `signal-reprocess` ad
 
 0.2.12 adds the missing iteration path identified in review: it verifies the immutable source, manifest and baseline, reruns the original model, then hashes a separate candidate force config into a new observation bound to the original `caseSha256`. It never requires candidate preview values to match the recording and never overwrites source/case/baseline/config/profile. Comparison now rejects invalid identifiers, negative ticks, missing footers, count differences and shifted timelines before numeric magnitude reporting. Actual-controller fixtures cover active, pause, camera, discontinuity, recovery and diagnostic no-force gates.
 
-Current offline source checks: zero-warning build, **37 suites / 965 assertions**, **532 UI assertions**, a 100-request baseline plus 20%-strength trial accepted by the shared Python validator/comparer, and exact preservation of all original artifact hashes. Package and installer reruns remain pending the clean source commit.
+Offline evidence is complete: zero-warning build, **37 suites / 965 assertions**, **532 UI assertions**, **84 Windows PowerShell 5.1 installer checks**, the v2 no-launch request fixture, a 100-request baseline plus 20%-strength trial accepted by the shared Python validator/comparer, and exact preservation of all original artifact hashes. The shared comparison reports 77 expected changed magnitudes, maximum delta 0.1484078541, with matching case/timeline.
 
-The retained 0.2.11 candidate is immutable at source `fea6c996d89ed09a125e71524d4335a994078afc`, ZIP SHA-256 `7600587155f9d45e16dc7c402127b3531017864213a991fff47c412f23d48e29`; coordinator review held its installation for the tuning-trial and structural-validation gaps above. 0.2.12 package/deployment identities remain pending final validation. No game, input device or force output was used. Installed build remains the verified 0.2.10 below; all four owner-setting hashes are unchanged.
+The retained 0.2.11 candidate is immutable at source `fea6c996d89ed09a125e71524d4335a994078afc`, ZIP SHA-256 `7600587155f9d45e16dc7c402127b3531017864213a991fff47c412f23d48e29`; coordinator review held its installation for the tuning-trial and structural-validation gaps above.
+
+- 0.2.12 source `bf58042fbf6ebea9175d8a85f332dd1ffd203ea6`; product version `0.2.12+bf58042fbf6ebea9175d8a85f332dd1ffd203ea6`.
+- Delivery ZIP `dist/WodenRallyEdgeWheel-0.2.12-dev.zip`, SHA-256 `09088883102cc212b8fd0119b09fe1440efb9e1bb2158b3a60666185df7d279c`; stage `dist/stage-d1fbafdd2cd14693999c394f82bb46ed`. All 15 allowlisted files / 14 manifest entries verify.
+- Plugin SHA-256 `ac669ea81fd9addce3c97228173390a6af4749d511aec23b68bfec41dbd3bd24`; Core `4eb440930a3da061e6c3e77a150c81626fb0bf9ff4f56146dd173720c0bf643c`.
+- Closed-game install is prepared under `artifacts/deployment-0.2.12-preinstall` and pending renewed coordinator review. No game, input device or force output was used. Installed build remains verified 0.2.10; all four owner-setting hashes are unchanged.
 
 ## 0.2.10 — installed; startup/title live check pending
 
