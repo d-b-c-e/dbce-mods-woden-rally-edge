@@ -18,6 +18,8 @@ public sealed class TelemetrySample
     public List<string> Unavailable { get; } = new();
     public string? Discontinuity { get; set; }
     public string? ForceStatus { get; set; }
+    public string? ForceGate { get; set; }
+    public string? ForceModelReason { get; set; }
     [JsonIgnore] public bool Driving => State == "driving";
 
     public void Add(string key, double value)

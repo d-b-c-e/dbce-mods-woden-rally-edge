@@ -16,7 +16,21 @@ if (args.Length == 2 && args[0] == "devices")
     Console.WriteLine(JsonSerializer.Serialize(devices, json));
     WheelFfbNative.ShutdownAll(); return 0;
 }
-if (args.Length != 2 || args[0] != "inspect") { Console.Error.WriteLine("Usage: schema <output.json> | inspect <session.jsonl> | devices <native DLL directory>"); return 1; }
+if (args.Length == 2 && args[0] == "reprocess")
+{
+    try { Console.WriteLine(JsonSerializer.Serialize(RecordedForceReplay.Reprocess(args[1]), json)); return 0; }
+    catch (Exception ex) { Console.Error.WriteLine("REPROCESS REFUSED: " + ex.Message); return 2; }
+}
+if (args.Length is 3 or 4 && args[0] == "compare")
+{
+    try
+    {
+        double tolerance = args.Length == 4 ? double.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture) : .000001;
+        var result = RecordedForceReplay.Compare(args[1], args[2], tolerance); Console.WriteLine(JsonSerializer.Serialize(result, json)); return result.Equal ? 0 : 1;
+    }
+    catch (Exception ex) { Console.Error.WriteLine("OBSERVATION INVALID: " + ex.Message); return 2; }
+}
+if (args.Length != 2 || args[0] != "inspect") { Console.Error.WriteLine("Usage: schema <output.json> | inspect <session.jsonl> | reprocess <case-directory> | compare <baseline.jsonl> <candidate.jsonl> [tolerance] | devices <native DLL directory>"); return 1; }
 try
 {
     var stats = new Dictionary<string, (long count, double min, double max, double sum)>();

@@ -1,4 +1,4 @@
-# 0.2.10 private development build
+# 0.2.11 private development build
 
 The startup message and title now retain input ownership while settings is open. F6 or the bound Settings button is observed before their direct keyboard shortcuts, including when the game callback runs before the mod update. Their local timers wait while the panel is open and resume normally after release. This successor has managed test coverage; its startup/title behavior still needs a force-disabled live check.
 
@@ -54,21 +54,25 @@ An agent can prepare and launch one bounded capture:
 
 ```powershell
 # Diagnostic launch with physical force suppressed; saved FFB preference unchanged.
-.\tools\Start-RecordedGame.ps1
+.\tools\Start-RecordedGame.ps1 -CaseId corner-unwind-baseline
 
 # Only for a requested attended FFB drive:
-.\tools\Start-RecordedGame.ps1 -AttendedFfb
+.\tools\Start-RecordedGame.ps1 -CaseId corner-unwind-baseline -AttendedFfb
 
 # Prepare a request without launching; valid for 15 minutes:
-.\tools\Start-RecordedGame.ps1 -PrepareOnly
+.\tools\Start-RecordedGame.ps1 -CaseId fixture-drive -PrepareOnly
 ```
 
-The plugin consumes the request once. Normal exit finalizes files under `BepInEx/WodenRecordings`; each capture is bounded to 20 minutes / 64 MiB. The legacy RecordSession configuration remains compatible but is unnecessary for this workflow. Opening a menu does not start recording.
+The plugin consumes the versioned request once and correlates it to `BepInEx/WodenRecordings/request-<guid>/source.jsonl`. Normal exit finalizes the 20-minute / 64 MiB source. The command waits a bounded time for start, normal exit and finalization; a timeout never stops Woden. After exit it validates driving coverage and reruns the actual managed force model into `force-observation.jsonl`, printing exact paths and hashes. The source, effective force config and capture-profile identities are bound by `case.json`; the observation header binds the exact manifest bytes. The legacy RecordSession configuration remains compatible but is unnecessary. Opening a menu does not start recording.
+
+Default capture suppresses physical FFB for that launch without changing the saved preference. Use `-AttendedFfb` only for an attended owner drive. `-PrepareOnly` creates the expiring request and expected path without launching the game or touching a device. See [recorded playback boundaries](RECORDED-PLAYBACK.md).
 
 Captures include raw/applied handbrake, FFB status markers, connection/write counters and main-thread timing. Timing channels distinguish frame intervals, input/device polling, native car update, sampling and force work; gear/shifting are available for correlation. A frame gap alone cannot attribute a hitch to shifting.
 
 ```powershell
 dotnet run --project tools\TelemetryInspector -c Release -- inspect 'path\to\capture.jsonl'
+dotnet run --project tools\TelemetryInspector -c Release -- reprocess 'path\to\request-case-directory'
+dotnet run --project tools\TelemetryInspector -c Release -- compare 'baseline.jsonl' 'candidate.jsonl' 0.000001
 ```
 
 Missing channels remain unavailable; raw game scales are unvalidated. Successful native output calls do not prove physical feel. Inspector rejection of missing/corrupt footers is intentional.

@@ -24,7 +24,7 @@ Copy-Item -LiteralPath (Join-Path $root 'docs\DEVELOPMENT-BUILD.md') -Destinatio
 foreach ($name in 'Install.bat','Uninstall.bat','Manage-Install.ps1') { Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination $stage }
 $manifest = @(Get-ChildItem -LiteralPath $stage -File -Recurse | Sort-Object FullName | ForEach-Object { @{ path = [IO.Path]::GetRelativePath($stage, $_.FullName); sha256 = (Get-FileHash -LiteralPath $_.FullName).Hash.ToLowerInvariant() } })
 $manifest | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $stage 'manifest.json') -Encoding utf8
-$zip = Join-Path $root 'dist\WodenRallyEdgeWheel-0.2.10-dev.zip'
+$zip = Join-Path $root 'dist\WodenRallyEdgeWheel-0.2.11-dev.zip'
 if (Test-Path -LiteralPath $zip) { throw 'Package already exists. Preserve its identity and choose a distinct version before packaging again.' }
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip
 Write-Host "Development package: $zip"

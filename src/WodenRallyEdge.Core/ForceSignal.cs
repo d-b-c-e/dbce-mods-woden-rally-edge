@@ -13,7 +13,8 @@ public sealed class ForceSignal
     private readonly ForceShaper _shaper = new();
     private double? _time;
     private double? _steer;
-    public void Reset() { _time = null; _steer = null; _shaper.Reset(); }
+    public long ResetCount { get; private set; }
+    public void Reset() { _time = null; _steer = null; _shaper.Reset(); ResetCount++; }
     public ForceResult Evaluate(TelemetrySample s, ForceOptions options)
     {
         ForceResult Stop(string why) { Reset(); return new(false, why, 0, 0, 0, 0); }

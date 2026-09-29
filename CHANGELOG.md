@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- 0.2.11 candidate: correlate one-launch owner recordings to exact source/config/profile identities, fix the hard-coded recording version, and capture force-model validity, reasons, reset epochs and lifecycle gates in stream order.
+- Add a bounded owner command that never kills a timed-out game, validates normal finalization and reports exact saved paths/hashes. Add pure model-3 reprocessing into the shared force-observation v1 contract, with exact case-byte identity and refusal of incomplete, dropped, unsupported or idle-only captures.
 - 0.2.10: guard startup message/title shortcuts before they consume a Settings press, share the existing device poll once per frame, and include legacy held keys in the close release check. Startup/title live acceptance remains pending.
 - Installer revision 3: resolve the package folder after PowerShell parameter binding so the normal Install.bat route works on Windows PowerShell 5.1, including spaced paths and another working directory.
 - 0.2.9: retain stock input ownership while settings/capture is active, wait for controls to be released, and add logged F6 paths with an IMGUI fallback. A limited force-disabled menu check passed; broader gameplay acceptance remains open.

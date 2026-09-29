@@ -110,15 +110,21 @@ internal sealed class ForceController
     }
     internal void Tick(TelemetrySample sample)
     {
+        long resetBefore = _signal.ResetCount;
         Last = _signal.Evaluate(sample, Runtime.Settings.ForceOptions);
         sample.Add("ffb.frontLoad", Last.FrontLoad); sample.Add("ffb.alignmentEstimate", Last.Alignment); sample.Add("ffb.dampingEstimate", Last.Damping);
         sample.Add("ffb.preview", Last.Preview);
+        string gate = Runtime.DiagnosticNoForce ? "diagnostic-force-disabled" : !Runtime.Settings.FfbEnabled ? "saved-off" : _faulted ? "faulted" : Panel.Open ? "settings-open" :
+            !Runtime.Focused ? "unfocused" : !StockWheelOwner.Ready ? "stock-owner-unready" :
+            !MountedCamera.PlayerOwned ? "camera-not-owned" :
+            Runtime.Settings.WheelEnabled && !sample.Channels.ContainsKey("wheelInput.steer") ? "wheel-input-unavailable" :
+            !Last.Valid ? "model-invalid" : !_native ? "wheel-not-connected" : "active";
         string? blocked = Runtime.DiagnosticNoForce ? "Diagnostic launch: force disabled" : !Runtime.Settings.FfbEnabled ? "FFB off" : _faulted ? Status : Panel.Open ? "FFB inactive — settings open" :
             !Runtime.Focused ? "Unfocused" : !StockWheelOwner.Ready ? StockWheelOwner.Status :
             !MountedCamera.PlayerOwned ? MountedCamera.Status :
             Runtime.Settings.WheelEnabled && !sample.Channels.ContainsKey("wheelInput.steer") ? "Wheel input unavailable" :
             !Last.Valid ? Last.Reason : !_native ? "Waiting for wheel connection" : null;
-        if (blocked != null) { Suspend(blocked); Record(sample); return; }
+        if (blocked != null) { Suspend(blocked); Record(sample, gate, resetBefore); return; }
         _suspended = false;
         Attempts++;
         bool accepted = _device.Write(Last.Preview);
@@ -127,14 +133,21 @@ internal sealed class ForceController
         {
             string error = _device.Error ?? "Force update failed; choose On or Refresh to retry";
             Failures++; Disarm(error); LastAccepted = false;
+            gate = "write-failed";
         }
         else Status = "FFB active";
-        Record(sample);
+        Record(sample, gate, resetBefore);
     }
-    private void Record(TelemetrySample sample)
+    private void Record(TelemetrySample sample, string gate, long resetBefore)
     {
         sample.ForceStatus = Status;
+        sample.ForceGate = gate;
+        sample.ForceModelReason = Last.Reason;
         var tuning = Runtime.Settings.ForceOptions;
+        sample.Add("ffb.modelValid", Last.Valid ? 1 : 0);
+        sample.Add("ffb.modelReason", sample.Discontinuity != null ? 11 : ForceObservationSemantics.ModelReason(Last.Reason));
+        sample.Add("ffb.modelResetBefore", resetBefore); sample.Add("ffb.modelResetAfter", _signal.ResetCount);
+        sample.Add("ffb.gate", ForceObservationSemantics.Gate(gate));
         sample.Add("ffb.tuning.strengthPercent", tuning.Strength); sample.Add("ffb.tuning.peakPercent", tuning.PeakPercent);
         sample.Add("ffb.tuning.loadReference", tuning.LoadReference); sample.Add("ffb.tuning.slipScale", tuning.SlipScale);
         sample.Add("ffb.tuning.smoothingMs", tuning.SmoothingMs); sample.Add("ffb.tuning.damping", tuning.Damping);

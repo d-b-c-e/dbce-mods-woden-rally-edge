@@ -15,7 +15,7 @@ namespace WodenRallyEdge;
 public sealed class Plugin : BasePlugin
 {
     public const string Id = "dbce.wodenrallyedgewheel";
-    public const string Version = "0.2.10";
+    public const string Version = "0.2.11";
     public const string SupportedGameHash = "f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c";
     private Harmony? _harmony;
     public override void Load()
@@ -26,6 +26,7 @@ public sealed class Plugin : BasePlugin
         using var stream = File.OpenRead(path);
         using var sha = SHA256.Create();
         string hash = Convert.ToHexString(sha.ComputeHash(stream)).ToLowerInvariant();
+        Runtime.GameAssemblyHash = hash;
         Log.LogInfo($"Woden Wheel {Version}; GameAssembly SHA256={hash}");
         if (hash != SupportedGameHash) { Log.LogError("Unsupported game build. Hooks remain disabled; regenerate interop and review changes first."); return; }
         try
@@ -68,9 +69,12 @@ internal static class Runtime
     internal static double LastLocal = -10;
     internal static bool DiagnosticNoForce;
     private static DiagnosticLaunch? _recordLaunch;
+    private static string? _recordingPath;
+    private static Dictionary<string, string>? _recordingProperties;
     private static double _nextReport, _lastIdle;
     private static bool _stopped = true;
     private static string _provenance = "";
+    internal static string GameAssemblyHash = "";
     private static readonly HashSet<int> SeenPlayers = new();
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
@@ -95,12 +99,50 @@ internal static class Runtime
         Settings.Validate();
         if (Settings.ForzaPort != 0 && Settings.ForzaPort == Settings.DetailPort)
             throw new ArgumentException("Forza and detailed telemetry need different ports.");
-        string? recording = Settings.Record || _recordLaunch != null ? Path.Combine(Paths.BepInExRootPath, "WodenRecordings", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-" + Guid.NewGuid().ToString("N") + ".jsonl") : null;
-        var options = new OutputOptions(Settings.ForzaPort, Settings.DetailPort, Settings.DetailHz, recording, Settings.TelemetryEnabled);
-        if (Output == null) Output = new(options, SessionId, _provenance);
-        else Output.ConfigureNetwork(options);
         Settings.Save();
-        Log.LogInfo("Telemetry outputs applied; capture=" + (recording ?? "disabled"));
+        if (Output == null)
+        {
+            if (_recordLaunch != null) PrepareRequestedRecording();
+            else if (Settings.Record) _recordingPath = Path.Combine(Paths.BepInExRootPath, "WodenRecordings", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-" + Guid.NewGuid().ToString("N") + ".jsonl");
+        }
+        var options = new OutputOptions(Settings.ForzaPort, Settings.DetailPort, Settings.DetailHz, _recordingPath, Settings.TelemetryEnabled);
+        if (Output == null) Output = new(options, SessionId, _provenance, Plugin.Version, _recordingProperties);
+        else Output.ConfigureNetwork(options);
+        Log.LogInfo("Telemetry outputs applied; capture=" + (_recordingPath ?? "disabled"));
+    }
+
+    private static void PrepareRequestedRecording()
+    {
+        var request = _recordLaunch!;
+        string root = Path.Combine(Paths.BepInExRootPath, "WodenRecordings");
+        string directory = Path.Combine(root, "request-" + request.Id.ToString("N"));
+        if (Directory.Exists(directory)) throw new IOException("Recording request directory already exists: " + directory);
+        Directory.CreateDirectory(directory);
+        _recordingPath = Path.Combine(directory, "source.jsonl");
+        string configPath = Path.Combine(Paths.ConfigPath, "dbce.wodenrallyedgewheel.cfg");
+        string bindingsPath = Path.Combine(Paths.ConfigPath, "wheel-bindings.json");
+        string pluginPath = typeof(Plugin).Assembly.Location;
+        string pluginHash = RecordingArtifacts.Sha256(pluginPath);
+        string configHash = RecordingArtifacts.WriteForceConfig(Path.Combine(directory, "force-config.json"), Settings.ForceOptions);
+        string profileHash = RecordingArtifacts.WriteCaptureProfile(Path.Combine(directory, "capture-profile.json"), GameAssemblyHash, pluginHash,
+            Identity(configPath), Identity(bindingsPath), Settings.WheelEnabled, Settings.FfbEnabled, Settings.FfbFollowSteering, Settings.FfbGuid);
+        string productVersion = FileVersionInfo.GetVersionInfo(pluginPath).ProductVersion ?? Plugin.Version;
+        string sourceRevision = productVersion.Contains('+') ? productVersion[(productVersion.IndexOf('+') + 1)..] : "unknown";
+        _recordingProperties = new()
+        {
+            ["recordingContract"] = "dbce.wheel.replay-case@1", ["capability"] = "signal-reprocess",
+            ["requestId"] = request.Id.ToString(), ["caseId"] = request.EffectiveCaseId,
+            ["disableForces"] = request.DisableForces.ToString().ToLowerInvariant(), ["gameAssemblySha256"] = GameAssemblyHash,
+            ["pluginSha256"] = pluginHash, ["pluginProductVersion"] = productVersion, ["runtimeSource"] = sourceRevision,
+            ["forceConfigSha256"] = configHash, ["captureProfileSha256"] = profileHash
+        };
+        Log.LogInfo($"Recording request {request.Id} maps to {_recordingPath}; case={request.EffectiveCaseId}, capability=signal-reprocess");
+    }
+
+    private static string Identity(string path)
+    {
+        if (File.Exists(path)) return RecordingArtifacts.Sha256(path);
+        return Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("missing:" + Path.GetFileName(path)))).ToLowerInvariant();
     }
     internal static bool Select(MainCar car)
     {

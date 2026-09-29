@@ -57,6 +57,8 @@ public sealed class TelemetryOutput : IDisposable
     private string? _lastDiscontinuity;
     private string? _lastUnavailable;
     private string? _lastForceStatus;
+    private string? _lastForceGate;
+    private string? _lastForceModelReason;
     private double? _recordOrigin;
     private volatile bool _stop;
     private long _overwrites, _sent, _errors, _detailSent, _lastSentAt;
@@ -72,19 +74,26 @@ public sealed class TelemetryOutput : IDisposable
     public string RecordingStatus => _recorder?.Status.ToString() ?? "Disabled";
     public long RecordingDrops => _recorder?.DroppedSamples ?? 0;
 
-    public TelemetryOutput(OutputOptions options, string sessionId, string recordingSource)
+    public TelemetryOutput(OutputOptions options, string sessionId, string recordingSource, string pluginVersion = "unknown",
+        IReadOnlyDictionary<string, string>? recordingProperties = null)
     {
         Validate(options);
         _options = options;
         if (options.RecordingPath != null)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(options.RecordingPath))!);
+            var properties = new Dictionary<string, string> { ["sessionId"] = sessionId, ["recordingSource"] = recordingSource,
+                ["phase"] = "MainCar.FixedUpdate.postfix.prePhysicsSolve", ["schema"] = TelemetrySchema.Name + "/1",
+                ["missing"] = "Absent channel = unavailable; never carry prior values forward" };
+            if (recordingProperties != null) foreach (var pair in recordingProperties)
+            {
+                if (properties.ContainsKey(pair.Key)) throw new ArgumentException("Reserved recording property: " + pair.Key);
+                properties.Add(pair.Key, pair.Value);
+            }
             _recorder = new SessionRecorder(options.RecordingPath, new SessionMetadata {
-                Game = "Super Woden Rally Edge", PluginVersion = "0.2.8", ToolkitVersion = "v0.12.0 + separately pinned unpublished recording",
+                Game = "Super Woden Rally Edge", PluginVersion = pluginVersion, ToolkitVersion = "v0.12.0 + separately pinned unpublished recording",
                 StartedUtc = DateTime.UtcNow,
-                Properties = new() { ["sessionId"] = sessionId, ["recordingSource"] = recordingSource,
-                    ["phase"] = "MainCar.FixedUpdate.postfix.prePhysicsSolve", ["schema"] = TelemetrySchema.Name + "/1",
-                    ["missing"] = "Absent channel = unavailable; never carry prior values forward" },
+                Properties = properties,
                 ChannelUnits = TelemetrySchema.Channels.ToDictionary(x => x.Key, x => x.Value.Unit)
             }, new RecordingOptions { QueueCapacity = 512, MaxDurationSeconds = 1200, MaxFileBytes = 64L * 1024 * 1024, MaxChannelsPerSample = 512 });
         }
@@ -101,13 +110,17 @@ public sealed class TelemetryOutput : IDisposable
         sample.Add("sample.simulationSeconds", sample.SimulationSeconds);
         sample.Add("sample.sequence", sample.Sequence);
         sample.Add("sample.driving", sample.Driving ? 1 : 0);
+        sample.Add("sample.discontinuity", sample.Discontinuity == null ? 0 : 1);
         _recordOrigin ??= sample.ElapsedSeconds;
         double recordTime = sample.ElapsedSeconds - _recordOrigin.Value;
         _recorder?.TryRecord(recordTime, sample.Channels);
         if (_lastState != sample.State) _recorder?.TryMark(recordTime, "state", sample.State);
         if (sample.Discontinuity != null && _lastDiscontinuity != sample.Discontinuity) _recorder?.TryMark(recordTime, "discontinuity", sample.Discontinuity);
         if (sample.ForceStatus != null && sample.ForceStatus != _lastForceStatus) _recorder?.TryMark(recordTime, "ffb", sample.ForceStatus);
+        if (sample.ForceGate != null && sample.ForceGate != _lastForceGate) _recorder?.TryMark(recordTime, "ffb-gate", sample.ForceGate);
+        if (sample.ForceModelReason != null && sample.ForceModelReason != _lastForceModelReason) _recorder?.TryMark(recordTime, "ffb-model", sample.ForceModelReason);
         _lastForceStatus = sample.ForceStatus;
+        _lastForceGate = sample.ForceGate; _lastForceModelReason = sample.ForceModelReason;
         string unavailable = string.Join(",", sample.Unavailable);
         if (unavailable != _lastUnavailable && (unavailable.Length > 0 || _lastUnavailable?.Length > 0))
             _recorder?.TryMark(recordTime, "unavailable", unavailable.Length <= 4096 ? unavailable : unavailable[..4096]);

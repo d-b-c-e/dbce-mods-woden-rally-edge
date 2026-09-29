@@ -80,7 +80,7 @@ Test("loopback packet delivery, stale idle, bounded stop, completed recording", 
     int port = ((IPEndPoint)receiver.Client.LocalEndPoint!).Port;
     string dir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../artifacts/tests")); Directory.CreateDirectory(dir);
     string path = Path.Combine(dir, "synthetic-" + Guid.NewGuid().ToString("N") + ".jsonl");
-    var output = new TelemetryOutput(new(port, 0, 20, path), "synthetic-fixture", "test-created fixture, not gameplay");
+    var output = new TelemetryOutput(new(port, 0, 20, path), "synthetic-fixture", "test-created fixture, not gameplay", "fixture-version", new Dictionary<string,string>{{"fixtureIdentity","yes"}});
     var s = Sample(.02); new MotionProcessor().Process(s, Quaternion.Identity); output.Publish(s);
     IPEndPoint endpoint = new(IPAddress.Any, 0); var bytes = receiver.Receive(ref endpoint);
     Check(bytes.Length == 324 && BitConverter.ToInt32(bytes, 0) == 1, "active packet received");
@@ -90,6 +90,7 @@ Test("loopback packet delivery, stale idle, bounded stop, completed recording", 
     output.Dispose(); output.Dispose(); Check(output.Stopped, "worker joined"); Check(output.RecordingDrops == 0, "no recording drops");
     var records = SessionReader.Read(path).ToArray(); Check(records.Last().Kind == SessionRecordKind.Footer, "validated footer");
     Check(records.Last().Footer.Completed, "normal completion");
+    Check(records[0].Metadata.PluginVersion == "fixture-version" && records[0].Metadata.Properties["fixtureIdentity"] == "yes", "runtime recording identity is not hard-coded");
     var recorded = records.Single(x => x.Kind == SessionRecordKind.Sample).Sample;
     Check(recorded.Channels["sample.driving"] == 1, "recorded validity"); Check(recorded.Channels["sample.simulationSeconds"] == .02, "recorded simulation clock");
     Console.WriteLine("  synthetic recording: " + path);
@@ -334,13 +335,62 @@ Test("handbrake axis/button selection, proportional values and legacy binding pe
 Test("diagnostic launch is bounded, consumed once and rejects expired requests", () => {
     string path = Path.Combine(Path.GetTempPath(), "woden-launch-" + Guid.NewGuid() + ".json");
     DateTimeOffset now = DateTimeOffset.UtcNow;
-    File.WriteAllText(path, JsonSerializer.Serialize(new DiagnosticLaunch(1, Guid.NewGuid(), now.AddMinutes(15))));
-    Check(DiagnosticLaunch.Consume(path, now)?.DisableForces == true, "unattended diagnostic defaults to no force");
+    File.WriteAllText(path, JsonSerializer.Serialize(new DiagnosticLaunch(2, Guid.NewGuid(), now.AddMinutes(15), true, "fixture-drive:baseline")));
+    var accepted = DiagnosticLaunch.Consume(path, now);
+    Check(accepted?.DisableForces == true && accepted.EffectiveCaseId == "fixture-drive:baseline", "v2 case identity and unattended no-force default retained");
     Check(DiagnosticLaunch.Consume(path, now) == null, "second launch cannot repeat capture");
     File.WriteAllText(path, JsonSerializer.Serialize(new DiagnosticLaunch(1, Guid.NewGuid(), now.AddMinutes(-1))));
     bool rejected = false; try { DiagnosticLaunch.Consume(path, now); } catch (IOException) { rejected = true; }
     Check(rejected && !File.Exists(path), "expired request rejected and consumed");
+    File.WriteAllText(path, JsonSerializer.Serialize(new DiagnosticLaunch(2, Guid.NewGuid(), now.AddMinutes(15), true, "../escape")));
+    rejected = false; try { DiagnosticLaunch.Consume(path, now); } catch (IOException) { rejected = true; }
+    Check(rejected && !File.Exists(path), "unsafe case identity rejected and consumed");
     foreach (string file in Directory.GetFiles(Path.GetDirectoryName(path)!, Path.GetFileName(path) + ".consumed-*")) File.Delete(file);
+});
+Test("recorded driving reruns actual ForceSignal into a bound observation case", () => {
+    string directory = Path.Combine(Path.GetTempPath(), "woden-reprocess-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
+    try
+    {
+        var options = new ForceOptions();
+        string config = RecordingArtifacts.WriteForceConfig(Path.Combine(directory, "force-config.json"), options);
+        string profile = RecordingArtifacts.WriteCaptureProfile(Path.Combine(directory, "capture-profile.json"), new string('1',64), new string('2',64), new string('3',64), new string('4',64), true, true, true, "fixture-guid");
+        var properties = new Dictionary<string,string> { ["recordingContract"]="dbce.wheel.replay-case@1", ["capability"]="signal-reprocess",
+            ["requestId"]=Guid.NewGuid().ToString(), ["caseId"]="fixture-drive", ["disableForces"]="false", ["gameAssemblySha256"]=new string('1',64),
+            ["pluginSha256"]=new string('2',64), ["pluginProductVersion"]="0.2.11+fixture-source", ["runtimeSource"]="fixture-source",
+            ["forceConfigSha256"]=config, ["captureProfileSha256"]=profile };
+        var signal = new ForceSignal();
+        using (var output = new TelemetryOutput(new(0,0,20,Path.Combine(directory,"source.jsonl")), "fixture-session", "synthetic", "0.2.11", properties))
+        {
+            for (int i=1;i<=100;i++)
+            {
+                var sample=Contact(i*.02, slip: i<60?.3:-.2); long before=signal.ResetCount; var result=signal.Evaluate(sample,options);
+                sample.Add("ffb.frontLoad",result.FrontLoad);sample.Add("ffb.alignmentEstimate",result.Alignment);sample.Add("ffb.dampingEstimate",result.Damping);sample.Add("ffb.preview",result.Preview);
+                sample.Add("ffb.modelValid",result.Valid?1:0);sample.Add("ffb.modelReason",ForceObservationSemantics.ModelReason(result.Reason));
+                sample.Add("ffb.modelResetBefore",before);sample.Add("ffb.modelResetAfter",signal.ResetCount);sample.Add("ffb.gate",0);
+                sample.Add("ffb.tuning.strengthPercent",options.Strength);sample.Add("ffb.tuning.peakPercent",options.PeakPercent);sample.Add("ffb.tuning.loadReference",options.LoadReference);
+                sample.Add("ffb.tuning.slipScale",options.SlipScale);sample.Add("ffb.tuning.smoothingMs",options.SmoothingMs);sample.Add("ffb.tuning.damping",options.Damping);
+                sample.Add("ffb.tuning.invert",options.Invert?1:0);sample.Add("ffb.tuning.modelVersion",3); output.Publish(sample);
+            }
+        }
+        var prepared=RecordedForceReplay.Reprocess(directory);
+        Check(prepared.DrivingSamples==100&&prepared.ModelSamples==100&&prepared.DrivingSeconds>1,"driving coverage retained");
+        Check(File.Exists(prepared.CasePath)&&File.Exists(prepared.ObservationPath),"case and observation written");
+        Check(RecordedForceReplay.Compare(prepared.ObservationPath,prepared.ObservationPath).Equal,"baseline self-comparison is exact");
+        using var header=JsonDocument.Parse(File.ReadLines(prepared.ObservationPath).First());
+        Check(header.RootElement.GetProperty("caseSha256").GetString()==RecordingArtifacts.Sha256(prepared.CasePath),"observation binds exact case bytes");
+        string idle=Path.Combine(directory,"idle");Directory.CreateDirectory(idle);
+        string idleConfig=RecordingArtifacts.WriteForceConfig(Path.Combine(idle,"force-config.json"),options);
+        string idleProfile=RecordingArtifacts.WriteCaptureProfile(Path.Combine(idle,"capture-profile.json"),new string('1',64),new string('2',64),new string('3',64),new string('4',64),false,false,true,"");
+        var idleProperties=new Dictionary<string,string>(properties){["caseId"]="fixture-idle",["forceConfigSha256"]=idleConfig,["captureProfileSha256"]=idleProfile};
+        using(var output=new TelemetryOutput(new(0,0,20,Path.Combine(idle,"source.jsonl")),"idle","synthetic","0.2.11",idleProperties)) output.Publish(Sample(0,state:"inactive"));
+        bool idleRefused=false;try{RecordedForceReplay.Reprocess(idle);}catch(IOException ex){idleRefused=ex.Message.Contains("Insufficient driving coverage");}
+        Check(idleRefused,"structurally valid idle-only recording cannot claim driving readiness");
+    }
+    finally
+    {
+        if (Environment.GetEnvironmentVariable("WODEN_KEEP_REPLAY_FIXTURE") == "1") Console.WriteLine("  replay fixture: " + directory);
+        else Directory.Delete(directory,true);
+    }
 });
 Test("native handbrake adaptation restores boxed tuning and preserves game transient state", () => WodenRallyEdge.HandbrakeChecks.Run(Check));
 Test("UX view migration, scoped camera defaults, additive bindings and inversion persistence", () => WodenRallyEdge.UxChecks.SettingsAndBindings(Check));

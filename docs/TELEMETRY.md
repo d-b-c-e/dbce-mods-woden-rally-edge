@@ -8,7 +8,7 @@ The priority is useful data with traceable meaning. The versioned dictionary in 
 |---|---|---|
 | Forza Horizon 5 Data Out | UDP 127.0.0.1:8000 | Toolkit's 324-byte packet, physical motion and wheel rotation. Raw game scales are not converted speculatively. |
 | Detailed telemetry v1 | UDP 127.0.0.1:8001, up to 20 Hz | JSON snapshot with session/sequence, wall/simulation clocks, sampling phase, driving state, available numeric channels and read failures. |
-| Diagnostic recording | Off | Toolkit JSONL metadata, numeric samples at sampled physics rate, state/reset markers and validating footer. 512-record queue, 20-minute / 64 MiB caps. |
+| Diagnostic recording | Off | Toolkit JSONL metadata, numeric samples at sampled physics rate, ordered state/reset/gate/model markers and validating footer. Correlated owner requests also write config/profile identity for device-free model reprocessing. 512-record queue, 20-minute / 64 MiB caps. |
 
 The network worker has one pending slot. A slow consumer drops old network ticks; overwrite/error counters are logged every ten seconds. Recording has its own queue and drop counters. Its producer copies finite numeric values; serialization and disk writes happen on the toolkit worker. Maximum detailed UDP payload is 60,000 bytes; a complete schema sample is tested below that budget. UDP does not guarantee delivery or order.
 
@@ -64,9 +64,11 @@ Forza velocity, acceleration and angular velocity use the vehicle's local frame.
 
 `ffb.frontLoad` sums the two front contact magnitudes. The provisional model computes `-sum(load * tanh(sidewaysSlip / slipScale)) / loadReference`, clamps it, and adds damping from calibrated steering velocity. `ffb.alignmentEstimate` and `ffb.dampingEstimate` retain those components; `ffb.preview` is toolkit-conditioned output before device permissions. It remains useful with FFB disarmed. These are estimates, not measured rack torque or signed lateral force.
 
-`ffb.sent` is the normalized request accepted by the native API. `ffb.accepted` is absent when no write was attempted. Delivery counters expose API/init failures; they do not establish physical torque. `ffb.armed` records session permission. `ffb.tuning.*` preserves strength, peak, reference load, slip scale, smoothing, damping, inversion and model version (1) per sample. Scene/pause/discontinuity markers remain in the recording. Richer per-gate suppression markers are still to be added.
+`ffb.sent` is the normalized request accepted by the native API. `ffb.accepted` is absent when no write was attempted. Delivery counters expose API/init failures; they do not establish physical torque. `ffb.armed` records session permission. `ffb.tuning.*` preserves strength, peak, reference load, slip scale, smoothing, damping, inversion and model version 3 per sample. `ffb.modelValid`, reason, reset epochs and output-gate code make the exact model stream reprocessable; matching string markers retain human-readable transitions. `sample.discontinuity` identifies the current sample's reset without guessing from the following marker. See [the code table and evidence levels](RECORDED-PLAYBACK.md).
 
 Live capture can be started after hours in-game: recording timestamps begin at the first captured sample, while `sample.simulationSeconds` preserves the game clock. Stopping/restarting capture creates a distinct file. Do not interpret a recorder limit as a complete normal shutdown.
+
+The offline adapter refuses incomplete, dropped, limited, contended, missing-channel and idle-only sources. It reruns the actual pure `ForceSignal` and emits normalized software observations without native device calls. This establishes signal reproducibility only; the JSONL cannot restore Unity state or deterministically drive the game.
 
 Capture separate short runs for stationary idle; constant-speed straight; acceleration/braking; left/right corner; reverse/gear changes; jump/landing; rough surface; pause/resume; respawn and stage restart. Compare speed/RPM/gear/timers with the HUD and compare left/right loads with the turn direction. Record scale/corner/contact findings in STATE with exact build and session filenames. Evaluate shaker effects with standard SimHub fields once verified; no extra SimHub plugin is required or supplied.
 

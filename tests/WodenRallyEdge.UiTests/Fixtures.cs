@@ -65,7 +65,7 @@ namespace UnityEngine.InputSystem
 }
 namespace WodenRallyEdge
 {
-    internal static class Plugin {internal const string Version="0.2.10";}
+    internal static class Plugin {internal const string Version="0.2.11";}
     internal static class TimingDiagnostics {internal static double PollMs;}
     // Native-behavior fixtures from guarded GameAssembly: DailyMessage.Update
     // RVA 0x456090 (ready + flags/legacy anyKey), title FixedUpdate 0xAFB560

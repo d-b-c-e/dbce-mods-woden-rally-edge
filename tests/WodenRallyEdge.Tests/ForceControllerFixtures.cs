@@ -72,8 +72,13 @@ internal static class ForceControllerChecks
         double time = 1;
         for (int i = 0; i < 80; i++) { controller.Prepare(); controller.Tick(contact(time += .02)); }
         check(device.Writes.Any(x => Math.Abs(x) > .01), "first drive reaches nonzero fake output");
+        var observed = contact(time += .02); controller.Tick(observed);
+        check(observed.Get("ffb.modelValid") == 1 && observed.Get("ffb.gate") == 0 &&
+            observed.Get("ffb.modelResetBefore") == observed.Get("ffb.modelResetAfter"), "active sample records valid model/gate/reset semantics");
         int refreshes = Runtime.Devices!.Refreshes, writes = device.Writes.Count;
         var gap = contact(time += .02); gap.Discontinuity = "wall-time-gap"; controller.Tick(gap);
+        check(gap.Get("ffb.modelValid") == 0 && gap.Get("ffb.modelReason") == 11 && gap.Get("ffb.gate") == 9 &&
+            gap.Get("ffb.modelResetAfter") - gap.Get("ffb.modelResetBefore") == 2, "discontinuity records model reset plus gate reset in stream order");
         for (int i = 0; i < 20; i++) { controller.Suspend("camera transition"); controller.Prepare(); }
         check(device.Opens == 1 && device.Closes == 0 && Runtime.Devices.Refreshes == refreshes, "transient gates never reconnect or re-enumerate");
         check(device.Writes.Count == writes && controller.Sent == 0 && device.Zeros == 1, "suspension zeroes once and never sends stale nonzero force");

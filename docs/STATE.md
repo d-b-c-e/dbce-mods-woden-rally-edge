@@ -1,4 +1,10 @@
-# State — 2026-09-19
+# State — 2026-09-29
+
+## 0.2.11 candidate — recorded owner-drive preparation; not installed
+
+The candidate adds a bounded one-command owner capture and `signal-reprocess` adapter for the shared recorded-playback v1 contract. Each invoked request receives a safe case ID and GUID-correlated directory. Runtime metadata now uses the actual plugin version and binds the request, supported game hash, plugin/runtime identity, attended/no-force mode, effective force config and capture profile. Samples record model validity/reason, reset epochs and output gates in order. After normal exit the command never touches hardware: it validates the source, requires at least 50 driving/model samples over one second, reruns the actual `ForceSignal`, writes an exact case manifest and device-free observation, and reports paths/hashes. It refuses dropped/incomplete/limited/contended/missing-channel/idle-only captures. This is not deterministic Unity replay or physical acceptance.
+
+Offline evidence so far: zero-warning build; **36 suites / 951 assertions**; **532 UI assertions**. A 100-sample synthetic driving source reran the actual model exactly. The generated manifest and 100-request observation passed the shared Python reference at toolkit commit `87b47d53121c0b3fc8479e622ae8a79c8ca3fa58`, including exact `caseSha256` and self-comparison. The no-launch request fixture and final package/deployment review remain before installation. No game, input device or force output was used. Installed build remains the verified 0.2.10 below; all owner settings are untouched.
 
 ## 0.2.10 — installed; startup/title live check pending
 

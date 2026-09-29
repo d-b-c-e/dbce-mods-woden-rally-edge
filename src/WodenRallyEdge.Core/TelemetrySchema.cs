@@ -18,10 +18,16 @@ public static class TelemetrySchema
         Add("sample.simulationSeconds", "s", "measured", "Time.timeAsDouble called inside FixedUpdate; idle heartbeat uses 0");
         Add("sample.sequence", "integer", "measured", "Sample attempt sequence; gaps possible in UDP");
         Add("sample.driving", "boolean 0/1", "derived", "Selected player, RACE state, focused, unpaused, not replay/photo/respawning/locked");
+        Add("sample.discontinuity", "boolean 0/1", "derived", "Current sample reset motion/model continuity; reason is retained as an ordered marker");
         Add("ffb.frontLoad", "Unity force units", "derived", "Sum of measured front WheelHit.force magnitudes");
         Add("ffb.alignmentEstimate", "normalized estimate", "derived", "Contact-weighted tanh(sidewaysSlip/slipScale), divided by reference load; NOT measured rack torque");
         Add("ffb.dampingEstimate", "normalized estimate", "derived", "Calibrated steering velocity damping");
         Add("ffb.preview", "normalized -1..1", "derived", "Toolkit-shaped force preview before output permission/ownership gates");
+        Add("ffb.modelValid", "boolean 0/1", "derived", "Actual ForceSignal accepted the current recorded model inputs");
+        Add("ffb.modelReason", "enum", "derived", "Stable ForceSignal reason code; see RECORDED-PLAYBACK.md");
+        Add("ffb.modelResetBefore", "count", "measured", "ForceSignal reset epoch immediately before evaluating this sample");
+        Add("ffb.modelResetAfter", "count", "measured", "ForceSignal reset epoch after evaluation and lifecycle gate handling");
+        Add("ffb.gate", "enum", "measured", "Stable output-gate code after model evaluation; zero means a native write was eligible");
         Add("ffb.sent", "normalized -1..1", "measured", "Force request accepted by native API; does not establish physical feel");
         Add("ffb.armed", "boolean 0/1", "measured", "Saved On preference with no latched output error or diagnostic force suppression; legacy name, no session-start step");
         Add("ffb.connected", "boolean 0/1", "measured", "Toolkit device open; not proof of force delivery");
