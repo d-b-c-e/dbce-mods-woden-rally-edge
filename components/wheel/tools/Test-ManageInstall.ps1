@@ -68,6 +68,21 @@ foreach ($file in @($settings,$bindings,$otherConfig,$unknown,$recording,(Join-P
 Install
 $updated = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
 $validReceiptBytes = [IO.File]::ReadAllBytes($receipt)
+foreach ($kind in 'incomplete','duplicate-alias','unknown-path','invalid-hash','wrong-game') {
+    $bad=[Text.Encoding]::UTF8.GetString($validReceiptBytes).TrimStart([char]0xFEFF) | ConvertFrom-Json
+    switch($kind) {
+        'incomplete' { $bad.files=@($bad.files | Select-Object -Skip 1) }
+        'duplicate-alias' { $bad.files[1].path=$bad.files[0].path.Replace('\','/') }
+        'unknown-path' { $bad.files[0].path='BepInEx\plugins\WodenRallyEdgeWheel\unknown.dll' }
+        'invalid-hash' { $bad.files[0].sha256='unknown' }
+        'wrong-game' { $bad.gameDirectory='C:\unrelated-game' }
+    }
+    $bad | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $receipt -Encoding utf8
+    $beforeHash=Hash $receipt
+    Refuses { Install } 'Invalid prior install ownership|Unrecognized prior install ownership'
+    Check ((Hash $receipt) -eq $beforeHash) ('Invalid receipt mutated: '+$kind)
+    [IO.File]::WriteAllBytes($receipt,$validReceiptBytes)
+}
 Check ($updated.backup -ne $first.backup -and $updated.configurationPreserved) 'Update backup receipt'
 foreach ($file in $retained.Keys) { Check ((Hash $file) -eq $retained[$file]) ('Update changed retained file: ' + $file) }
 Check ((Hash (Join-Path $updated.backup 'config\wheel-bindings.json')) -eq $retained[$bindings]) 'Binding backup'

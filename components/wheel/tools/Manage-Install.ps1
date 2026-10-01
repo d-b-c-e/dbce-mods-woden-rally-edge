@@ -131,7 +131,8 @@ if ($Mode -eq 'Install') {
         $prior = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
         if ($prior.mode -notin @('Install','Uninstall') -or $prior.installerRevision -notin @(1,2,3) -or
             [string]::IsNullOrWhiteSpace($prior.version) -or $prior.gameDirectory -ne $game -or
-            @($prior.files).Count -ne $payloadNames.Count -or @($prior.files.path | Select-Object -Unique).Count -ne $payloadNames.Count) { throw 'Invalid prior install ownership receipt; separate adoption review required.' }
+            @($prior.files).Count -ne $payloadNames.Count -or
+            @($prior.files | ForEach-Object { $_.path.Replace('/','\').ToLowerInvariant() } | Select-Object -Unique).Count -ne $payloadNames.Count) { throw 'Invalid prior install ownership receipt; separate adoption review required.' }
         foreach ($entry in @($prior.files)) {
             if ($entry.path.Replace('/','\') -notin $allowedPaths -or $entry.sha256 -notmatch '^[a-fA-F0-9]{64}$') { throw 'Unrecognized prior install ownership entry.' }
             $target = Assert-Path (Join-Path $game $entry.path) $game
