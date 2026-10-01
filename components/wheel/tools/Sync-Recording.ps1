@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Toolkit = (Join-Path (Split-Path $PSScriptRoot -Parent) '..\dbce-wheel-mod-toolkit'))
+param([string]$Toolkit = (Join-Path (Split-Path $PSScriptRoot -Parent) '..\..\..\dbce-wheel-mod-toolkit'))
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $project = Join-Path $Toolkit 'dotnet\Dbce.Wheel.Recording'

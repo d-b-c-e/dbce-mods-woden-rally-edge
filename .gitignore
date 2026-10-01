@@ -439,3 +439,12 @@ FodyWeavers.xsd
 *.user
 
 /lib/local-dependencies.json
+
+# Component-local dependencies and private build/test/package output.
+/components/wheel/lib/core/
+/components/wheel/lib/interop/
+/components/wheel/lib/generator-runtime/
+/components/wheel/lib/loader/
+/components/wheel/lib/local-dependencies.json
+/components/wheel/artifacts/
+/components/wheel/dist/

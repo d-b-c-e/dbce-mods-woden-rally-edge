@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>WodenTripleScreenProbe</AssemblyName>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <WodenDependencyRoot Condition="'$(WodenDependencyRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\wheel\lib</WodenDependencyRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../WodenTripleScreenProbe.Core/WodenTripleScreenProbe.Core.csproj" />
+    <Reference Include="$(WodenDependencyRoot)/core/BepInEx.Core.dll" Private="false" />
+    <Reference Include="$(WodenDependencyRoot)/core/BepInEx.Unity.IL2CPP.dll" Private="false" />
+    <Reference Include="$(WodenDependencyRoot)/core/Il2CppInterop.Runtime.dll" Private="false" />
+    <Reference Include="$(WodenDependencyRoot)/core/0Harmony.dll" Private="false" />
+    <Reference Include="$(WodenDependencyRoot)/interop/*.dll" Private="false" />
+  </ItemGroup>
+</Project>
