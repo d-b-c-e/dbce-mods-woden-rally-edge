@@ -32,7 +32,7 @@ public static class ForceObservationSemantics
         "stock-owner-unready" => 6,
         "camera-not-owned" => 7,
         "wheel-input-unavailable" => 8,
-        "model-invalid" => 9,
+        "model-invalid" or "conditioning-invalid" => 9,
         "wheel-not-connected" => 10,
         "write-failed" => 11,
         _ => 99

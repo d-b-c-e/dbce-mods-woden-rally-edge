@@ -457,5 +457,8 @@ Test("native handbrake adaptation restores boxed tuning and preserves game trans
 Test("UX view migration, scoped camera defaults, additive bindings and inversion persistence", () => WodenRallyEdge.UxChecks.SettingsAndBindings(Check));
 Test("strict follow/override output selection and camera release/repeat gates", () => WodenRallyEdge.UxChecks.SelectionAndRepeat(Check));
 Test("atomic telemetry reconfiguration preserves capture and independent Stop", () => WodenRallyEdge.UxChecks.NetworkCapture(Check));
+#if WODEN_CADENCE_CANDIDATE
+Test("shared cadence actual-controller clock, guarded zero and recorded-input comparisons", () => WodenRallyEdge.CadenceChecks.Run(Check, t => Contact(t)));
+#endif
 Console.WriteLine($"{passed} suites passed; {failed} failed; {checks} assertions.");
 return failed == 0 ? 0 : 1;

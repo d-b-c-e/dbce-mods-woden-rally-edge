@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><TargetFramework>net6.0</TargetFramework><AssemblyName>WodenRallyEdgeWheel</AssemblyName><AllowUnsafeBlocks>true</AllowUnsafeBlocks><CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies></PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="$(SharedCadenceProject)" Condition="'$(SharedCadenceProject)' != ''" />
     <ProjectReference Include="../WodenRallyEdge.Core/WodenRallyEdge.Core.csproj" />
     <Reference Include="../../lib/core/BepInEx.Core.dll" Private="false" />
     <Reference Include="../../lib/core/BepInEx.Unity.IL2CPP.dll" Private="false" />
@@ -10,4 +11,9 @@
     <Reference Include="Dbce.Wheel.Ffb" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Ffb.dll" />
     <None Include="../../lib/toolkit/native/WheelFfb.dll" CopyToOutputDirectory="PreserveNewest" Link="WheelFfb.dll" />
   </ItemGroup>
+  <PropertyGroup Condition="'$(SharedCadenceProject)' != ''"><DefineConstants>$(DefineConstants);WODEN_CADENCE_CANDIDATE</DefineConstants></PropertyGroup>
+  <PropertyGroup Condition="'$(WodenCadenceEnabled)' == 'true'"><DefineConstants>$(DefineConstants);WODEN_CADENCE_RUNTIME</DefineConstants></PropertyGroup>
+  <Target Name="RequireCadenceDependency" BeforeTargets="PrepareForBuild" Condition="'$(WodenCadenceEnabled)' == 'true' and '$(SharedCadenceProject)' == ''">
+    <Error Text="Cadence source candidate requires the reviewed shared sidecar project." />
+  </Target>
 </Project>

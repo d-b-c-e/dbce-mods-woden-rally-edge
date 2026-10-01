@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework></PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../src/WodenRallyEdge.Plugin/CadenceForceAdapter.cs" Link="Consumer/CadenceForceAdapter.cs" />
+    <ProjectReference Include="$(SharedCadenceProject)" Condition="'$(SharedCadenceProject)' != ''" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ForceController.cs" Link="Consumer/ForceController.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ToolkitForceDevice.cs" Link="Consumer/ToolkitForceDevice.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ToolkitForceApi.cs" Link="Consumer/ToolkitForceApi.cs" />
@@ -16,4 +18,5 @@
     <Reference Include="0Harmony" HintPath="../../lib/core/0Harmony.dll" />
     <Reference Include="Dbce.Wheel.Recording" HintPath="../../lib/recording/Dbce.Wheel.Recording.dll" />
   </ItemGroup>
+  <PropertyGroup Condition="'$(SharedCadenceProject)' != ''"><DefineConstants>$(DefineConstants);WODEN_CADENCE_CANDIDATE</DefineConstants></PropertyGroup>
 </Project>

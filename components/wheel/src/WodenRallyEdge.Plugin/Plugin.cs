@@ -62,7 +62,11 @@ internal static class Runtime
     internal static readonly MotionProcessor Motion = new();
     internal static WheelInput? Wheel;
     internal static DeviceHub? Devices;
+#if WODEN_CADENCE_RUNTIME
+    internal static readonly ForceController Force = new(new ToolkitForceDevice(), new CadenceForceAdapter(() => Clock.Elapsed.TotalSeconds));
+#else
     internal static readonly ForceController Force = new(new ToolkitForceDevice());
+#endif
     internal static MainCar? Local;
     internal static TelemetryOutput? Output;
     internal static long Sequence, HookCalls, LocalTicks;

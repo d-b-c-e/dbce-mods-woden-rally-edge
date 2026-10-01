@@ -18,6 +18,7 @@ internal sealed class ForceController
 {
     private readonly ForceSignal _signal = new();
     private readonly IForceDevice _device;
+    private readonly IForceCadence? _cadence;
     private bool _native, _suspended = true, _faulted;
     private Guid _openedGuid;
     internal bool Armed => Runtime.Settings.FfbEnabled && !_faulted && !Runtime.DiagnosticNoForce;
@@ -30,14 +31,14 @@ internal sealed class ForceController
     internal long Opens { get; private set; }
     internal double OpenMilliseconds { get; private set; }
     internal bool? LastAccepted { get; private set; }
-    internal ForceController(IForceDevice device) => _device = device;
+    internal ForceController(IForceDevice device, IForceCadence? cadence = null) { _device = device; _cadence = cadence; }
 
     internal void SetEnabled(bool enabled)
     {
         Runtime.Settings.FfbEnabled = enabled;
         _faulted = false;
         if (!enabled) Release("FFB off");
-        else { _signal.Reset(); Status = "Ready — feedback starts while driving"; }
+        else { _signal.Reset(); _cadence?.Reset(); Status = "Ready - feedback starts while driving"; }
         Runtime.Settings.Save();
     }
     internal void Disarm(string reason = "FFB unavailable")
@@ -66,6 +67,7 @@ internal sealed class ForceController
         else if (!_faulted) Status = reason;
         Sent = 0; LastAccepted = null;
         _signal.Reset();
+        _cadence?.Reset();
         if (_native && !_suspended) _device.ZeroAndStop();
         _suspended = true;
         // A pause, camera transition or bad contact is NOT a device disconnect.
@@ -126,9 +128,15 @@ internal sealed class ForceController
             !Last.Valid ? Last.Reason : !_native ? "Waiting for wheel connection" : null;
         if (blocked != null) { Suspend(blocked); Record(sample, gate, resetBefore); return; }
         _suspended = false;
+        float command = Last.Preview;
+        if (_cadence != null && !_cadence.TryProcess(command, Runtime.Settings.ForceOptions.PeakPercent, out command))
+        {
+            // A model reset alone cannot cancel an already accepted native command.
+            Suspend("Cadence input invalid or stale"); Record(sample, "conditioning-invalid", resetBefore); return;
+        }
         Attempts++;
-        bool accepted = _device.Write(Last.Preview);
-        LastAccepted = accepted; Sent = accepted ? Last.Preview : 0;
+        bool accepted = _device.Write(command);
+        LastAccepted = accepted; Sent = accepted ? command : 0;
         if (!accepted)
         {
             string error = _device.Error ?? "Force update failed; choose On or Refresh to retry";
@@ -161,5 +169,6 @@ internal sealed class ForceController
         Sent = 0;
         if (_native) { _device.ZeroAndStop(); _device.Close(); _native = false; }
         _signal.Reset(); _suspended = true; Status = "Stopped";
+        _cadence?.Reset();
     }
 }
