@@ -67,6 +67,7 @@ $retained = @{}
 foreach ($file in @($settings,$bindings,$otherConfig,$unknown,$recording,(Join-Path $fixture 'winhttp.dll'))) { $retained[$file] = Hash $file }
 Install
 $updated = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
+$validReceiptBytes = [IO.File]::ReadAllBytes($receipt)
 Check ($updated.backup -ne $first.backup -and $updated.configurationPreserved) 'Update backup receipt'
 foreach ($file in $retained.Keys) { Check ((Hash $file) -eq $retained[$file]) ('Update changed retained file: ' + $file) }
 Check ((Hash (Join-Path $updated.backup 'config\wheel-bindings.json')) -eq $retained[$bindings]) 'Binding backup'
@@ -76,11 +77,31 @@ $dll = Join-Path $plugin 'WodenRallyEdgeWheel.dll'
 $savedDll = Join-Path $fixture 'before-fixture-dll.bin'
 Copy-Item -LiteralPath $dll -Destination $savedDll
 'old version fixture' | Set-Content -LiteralPath $dll
+# Unknown bytes must be refused, not merely backed up.
+$unknownHash = Hash $dll; $knownReceiptHash = Hash $receipt
+Refuses { Install } 'Prior owned file missing or modified'
+Check ((Hash $dll) -eq $unknownHash -and (Hash $receipt) -eq $knownReceiptHash) 'Unknown update mutated payload or receipt'
+[IO.File]::WriteAllBytes($receipt,[byte[]]@())
+Refuses { Install } 'Invalid prior install ownership receipt'
+[IO.File]::WriteAllBytes($receipt,$validReceiptBytes)
+Remove-Item -LiteralPath $receipt
+Refuses { Install } 'No prior ownership receipt'
+Check ((Hash $dll) -eq $unknownHash) 'Receipt-free update changed unknown bytes'
+[IO.File]::WriteAllBytes($receipt,$validReceiptBytes)
+# Explicit synthetic catalog of old bytes for rollback tests only.
+function Catalog-FixturePayload {
+    $catalog = $validReceiptBytes | ForEach-Object { [char]$_ }
+    $catalog = (-join $catalog).TrimStart([char]0xFEFF) | ConvertFrom-Json
+    foreach ($entry in $catalog.files) { $entry.sha256 = Hash (Join-Path $fixture $entry.path) }
+    $catalog | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $receipt -Encoding utf8
+}
+Catalog-FixturePayload
 $oldHash = Hash $dll; $oldReceiptHash = Hash $receipt
 Refuses { & $installer -GameDir $fixture -PackageRoot $PackageRoot -TestFailAfterWrite 2 } 'rolled back.*injected'
 Check ((Hash $dll) -eq $oldHash) 'Update rollback lost original payload'
 Check ((Hash $receipt) -eq $oldReceiptHash) 'Update rollback changed receipt'
 foreach ($file in $retained.Keys) { Check ((Hash $file) -eq $retained[$file]) ('Rollback changed retained file: ' + $file) }
+[IO.File]::WriteAllBytes($receipt,$validReceiptBytes)
 Refuses { & $installer -Mode Uninstall -GameDir $fixture } 'Owned file was modified'
 Check ((Hash $dll) -eq $oldHash -and (Test-Path -LiteralPath (Join-Path $plugin 'WheelFfb.dll'))) 'Refused uninstall changed payload'
 Copy-Item -LiteralPath $savedDll -Destination $dll -Force
@@ -90,6 +111,7 @@ Copy-Item -LiteralPath $savedDll -Destination $dll -Force
 $coreDll = Join-Path $plugin 'WodenRallyEdge.Core.dll'
 function Restore-FixturePayload {
     foreach ($entry in $first.files) { Copy-Item -LiteralPath (Join-Path $PackageRoot $entry.path) -Destination (Join-Path $fixture $entry.path) -Force }
+    [IO.File]::WriteAllBytes($receipt,$validReceiptBytes)
 }
 function Latest-Recovery {
     $report = Get-ChildItem -LiteralPath (Join-Path $fixture 'WodenWheelBackups') -Filter recovery.json -File -Recurse | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
@@ -97,6 +119,7 @@ function Latest-Recovery {
 }
 'old first file' | Set-Content -LiteralPath $dll
 'old second file' | Set-Content -LiteralPath $coreDll
+Catalog-FixturePayload
 $beforeReceipt = Hash $receipt
 Refuses { & $installer -GameDir $fixture -PackageRoot $PackageRoot -TestScenario GameStarts } 'Recovery required.*Close'
 Check ((Hash $dll) -eq $first.files[0].sha256) 'Running-game recovery changed first written payload'
@@ -111,6 +134,8 @@ Restore-FixturePayload
 # verified backups. Receipt never claims the interrupted update completed.
 'old first file' | Set-Content -LiteralPath $dll
 'old second file' | Set-Content -LiteralPath $coreDll
+Catalog-FixturePayload
+$beforeReceipt = Hash $receipt
 $oldCore = Hash $coreDll
 Refuses { & $installer -GameDir $fixture -PackageRoot $PackageRoot -TestScenario ExternalReplacement -TestFailAfterWrite 2 } 'Recovery required.*Unknown current bytes'
 Check ((Get-Content -LiteralPath $dll -Raw).Trim() -eq 'external replacement after write') 'Rollback overwrote external replacement'
@@ -121,6 +146,8 @@ Restore-FixturePayload
 
 # Recheck the snapshot immediately before each forward mutation.
 'old first file' | Set-Content -LiteralPath $dll
+Catalog-FixturePayload
+$beforeReceipt = Hash $receipt
 $oldFirst = Hash $dll
 Refuses { & $installer -GameDir $fixture -PackageRoot $PackageRoot -TestScenario ExternalBeforeWrite } 'Recovery required.*File changed during operation'
 Check ((Hash $dll) -eq $oldFirst) 'Forward conflict did not roll back first payload'

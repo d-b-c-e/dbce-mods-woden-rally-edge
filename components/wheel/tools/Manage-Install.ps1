@@ -122,6 +122,30 @@ if ($Mode -eq 'Install') {
         if ($entry.Count -ne 1) { throw "Package is missing a unique owned payload: $name" }
         $owned += [ordered]@{ path=$relative; sha256=$entry[0].sha256 }
     }
+    # A filename and a backup do not establish ownership. Refuse unknown or
+    # modified payloads before any loader preparation, backup or replacement.
+    $priorPayloadHashes = @{}
+    $priorReceiptHash = File-Hash $receiptPath
+    $allowedPaths = @($payloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
+    if ($null -ne $priorReceiptHash) {
+        $prior = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
+        if ($prior.mode -notin @('Install','Uninstall') -or $prior.installerRevision -notin @(1,2,3) -or
+            [string]::IsNullOrWhiteSpace($prior.version) -or $prior.gameDirectory -ne $game -or
+            @($prior.files).Count -ne $payloadNames.Count -or @($prior.files.path | Select-Object -Unique).Count -ne $payloadNames.Count) { throw 'Invalid prior install ownership receipt; separate adoption review required.' }
+        foreach ($entry in @($prior.files)) {
+            if ($entry.path.Replace('/','\') -notin $allowedPaths -or $entry.sha256 -notmatch '^[a-fA-F0-9]{64}$') { throw 'Unrecognized prior install ownership entry.' }
+            $target = Assert-Path (Join-Path $game $entry.path) $game
+            $expected = if ($prior.mode -eq 'Install') { $entry.sha256 } else { $null }
+            if ((File-Hash $target) -ne $expected) { throw "Prior owned file missing or modified; update refused: $target" }
+            $priorPayloadHashes[$target] = $expected
+        }
+    } else {
+        foreach ($relative in $allowedPaths) {
+            $target = Assert-Path (Join-Path $game $relative) $game
+            if ($null -ne (File-Hash $target)) { throw "No prior ownership receipt; unknown payload refused. Separate adoption review required: $target" }
+            $priorPayloadHashes[$target] = $null
+        }
+    }
     $core = Join-Path $game 'BepInEx\core\BepInEx.Unity.IL2CPP.dll'
     if (Test-Path -LiteralPath $core) {
         # Pin copied from the verified BE #788 archive, not a name/version guess.
@@ -146,7 +170,7 @@ if ($Mode -eq 'Install') {
         $loaderStage = Join-Path $scratch 'loader'; Expand-Archive -LiteralPath $LoaderArchive -DestinationPath $loaderStage
     }
 } else {
-    if (-not (Test-Path -LiteralPath $receiptPath)) { throw 'No owned-file receipt. Use Install to adopt/update this development installation before Uninstall.' }
+    if (-not (Test-Path -LiteralPath $receiptPath)) { throw 'No owned-file receipt. Separate adoption review required before update or uninstall.' }
     $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
     $allowedPaths = @($payloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
     if (@($receipt.files).Count -ne $payloadNames.Count -or @($receipt.files.path | Select-Object -Unique).Count -ne $payloadNames.Count) { throw 'Incomplete or duplicate uninstall ownership entries.' }
@@ -163,10 +187,12 @@ $originals = @{}
 foreach ($entry in $owned) {
     $target = Assert-Path (Join-Path $game $entry.path) $game
     Snapshot-File $target (Join-Path $backup ('WodenRallyEdgeWheel\' + [IO.Path]::GetFileName($target)))
+    if ($Mode -eq 'Install' -and $originals[$target].hash -ne $priorPayloadHashes[$target]) { throw 'Prior owned file changed after receipt validation; update refused.' }
     if ($Mode -eq 'Uninstall' -and $null -ne $originals[$target].hash -and $originals[$target].hash -ne $entry.sha256) { throw "Owned file was modified; uninstall left files in place: $target" }
 }
 foreach ($name in 'dbce.wodenrallyedgewheel.cfg','wheel-bindings.json','wheel-bindings.json.bak','woden-record-next-launch.json') { Snapshot-File (Join-Path $config $name) (Join-Path $backup ('config\' + $name)) }
 Snapshot-File $receiptPath (Join-Path $backup 'WodenWheel-install.json')
+if ($Mode -eq 'Install' -and $originals[$receiptPath].hash -ne $priorReceiptHash) { throw 'Prior receipt changed after ownership validation; update refused.' }
 New-Item -ItemType Directory -Path $backup | Out-Null
 if (Test-Path -LiteralPath $destination) { Copy-Item -LiteralPath $destination -Destination $backup -Recurse }
 if (Test-Path -LiteralPath $config) { Copy-Item -LiteralPath $config -Destination $backup -Recurse }

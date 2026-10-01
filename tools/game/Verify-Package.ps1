@@ -7,7 +7,9 @@ if ($release.packageId -ne 'dbce-mods-super-woden-rally-edge' -or $release.gameI
 $features=@($release.features.featureId | Sort-Object)
 if (($features -join ',') -ne 'ffb,telemetry,triple,wheel-input') { throw 'Unexpected feature set' }
 $triple=@($release.features | Where-Object featureId -eq 'triple')
-if ($triple.Count -ne 1 -or $triple[0].available -ne $false -or @($triple[0].capabilities).Count -ne 0 -or $triple[0].PSObject.Properties.Name -contains 'requestPath') { throw 'Unverified triple communication advertised' }
+if ($triple.Count -ne 1 -or $triple[0].available -ne $false -or @($triple[0].capabilities).Count -ne 0) { throw 'Unverified triple communication advertised' }
+$tripleFields=@('available','reason','featureId','capabilities')
+if (@(Compare-Object ($tripleFields | Sort-Object) (@($triple[0].PSObject.Properties.Name) | Sort-Object)).Count -ne 0 -or $triple[0].reason -isnot [string] -or $triple[0].capabilities -isnot [array]) { throw 'Unverified triple communication or fields advertised' }
 $prefix='BepInEx/plugins/WodenRallyEdgeWheel/'
 $expected=@('LICENSE','README.md','Install.bat','Uninstall.bat','Manage-Install.ps1','game-release.json','input-override.json')
 $expected+=@('WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Recording.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll','recording-provenance.json','toolkit.version','telemetry-schema.json') | ForEach-Object { $prefix+$_ }
