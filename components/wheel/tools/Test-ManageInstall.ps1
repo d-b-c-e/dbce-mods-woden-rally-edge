@@ -90,8 +90,7 @@ Check ((Hash $dll) -eq $unknownHash) 'Receipt-free update changed unknown bytes'
 [IO.File]::WriteAllBytes($receipt,$validReceiptBytes)
 # Explicit synthetic catalog of old bytes for rollback tests only.
 function Catalog-FixturePayload {
-    $catalog = $validReceiptBytes | ForEach-Object { [char]$_ }
-    $catalog = (-join $catalog).TrimStart([char]0xFEFF) | ConvertFrom-Json
+    $catalog = [Text.Encoding]::UTF8.GetString($validReceiptBytes).TrimStart([char]0xFEFF) | ConvertFrom-Json
     foreach ($entry in $catalog.files) { $entry.sha256 = Hash (Join-Path $fixture $entry.path) }
     $catalog | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $receipt -Encoding utf8
 }
