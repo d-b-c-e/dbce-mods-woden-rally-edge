@@ -73,4 +73,3 @@ normal exit with physical force suppressed. Frame evidence must show three disti
 live scene content before any presentation experiment. Visually verify seams, culling, HUD,
 effects, scene changes, resize, pause/replay and performance before status can claim true triples.
 The separate-display and Surround/span paths remain entirely unimplemented.
-
