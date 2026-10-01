@@ -128,7 +128,7 @@ namespace WodenRallyEdge
         internal Dictionary<(Guid,int),int> AxesSnapshot()=>Devices.SelectMany(d=>Enumerable.Range(0,8).Select(i=>new KeyValuePair<(Guid,int),int>((d.Info.InstanceGuid!.Value,i),d.Axes[i]))).ToDictionary();
         internal bool TryAxis(AxisBinding? b,out float value){value=0;var d=Devices.FirstOrDefault(d=>d.Info.InstanceGuid==b?.DeviceGuid);if(b==null||d?.Ok!=true)return false;value=(float)b.Normalize(d.Axes[b.Axis]);return true;}
         internal IEnumerable<ButtonBinding> PressedButtons()=>Pressed;
-        internal bool Button(ButtonBinding b,bool edge)=>Pressed.Contains(b);
+          internal bool Button(ButtonBinding b,bool edge,string action="default")=>Pressed.Contains(b);
         internal ForceTarget ResolveForceTarget(bool f,string id,Guid? s)=>ForceSelection.Resolve(f,id,s,Devices.Select(d=>new ForceCandidate(d.Info.InstanceGuid!.Value,d.Info.Name,d.Info.ForceFeedback)));
     }
     internal static class Runtime

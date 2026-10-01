@@ -10,7 +10,7 @@ public sealed record AxisBinding(Guid DeviceGuid, int Axis, AxisCalibration Cali
 }
 public sealed record ButtonBinding(Guid DeviceGuid, int Button)
 {
-    public bool Valid => DeviceGuid != Guid.Empty && Button is >= 0 and < 128;
+    public bool Valid => DeviceGuid != Guid.Empty && Dbce.Wheel.Ffb.DigitalInput.Valid(Button);
 }
 public sealed class Bindings
 {
@@ -24,7 +24,9 @@ public sealed class Bindings
     public Dictionary<string, string> CameraKeys { get; set; } = CameraTuning.DefaultKeys();
     public string? Conflict(string action, ButtonBinding? button = null, string? key = null)
     {
-        if (button != null) return Buttons.FirstOrDefault(x => x.Key != action && SharedContext(x.Key, action) && x.Value == button).Key;
+        // One physical control may intentionally serve several actions. Assignment
+        // never removes another action; the consumer owns context dispatch.
+        if (button != null) return null;
         return key == null || key == "None" ? null : CameraKeys.FirstOrDefault(x => x.Key != action && x.Value.Equals(key, StringComparison.OrdinalIgnoreCase)).Key;
     }
     private static bool SharedContext(string a, string b)

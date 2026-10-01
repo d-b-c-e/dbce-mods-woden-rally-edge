@@ -24,7 +24,7 @@ internal static class UxChecks
         check(legacy.CameraKeys["Camera"]=="C"&&legacy.CameraKeys["Camera down"]=="Numpad2"&&!legacy.Buttons.ContainsKey("Camera down"),"restore scope preserves cycle key while replacing adjustment button");
         legacy.Handbrake=new(guid,4,new(60000,0,null,.02)){Inverted=true};legacy.Buttons["Handbrake"]=new(guid,5);legacy.Save(path);var loaded=Bindings.Load(path);
         check(loaded.Handbrake!.Inverted&&loaded.Handbrake.Normalize(0)==0&&loaded.Handbrake.Normalize(60000)==1,"explicit inversion saved independently of captured direction and deadzone");
-        check(loaded.Conflict("Camera",loaded.Buttons["Handbrake"])=="Handbrake","shared button conflict points to existing action");
+        check(loaded.Conflict("Camera",loaded.Buttons["Handbrake"])==null,"shared buttons are permitted without removing existing actions");
         check(loaded.Buttons["Handbrake"].Button==5,"axis calibration preserves handbrake button");
     }
     internal static void SelectionAndRepeat(Action<bool,string> check)

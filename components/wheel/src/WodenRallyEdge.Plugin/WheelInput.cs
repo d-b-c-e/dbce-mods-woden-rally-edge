@@ -88,8 +88,6 @@ internal sealed class WheelInput
             var keys = camera && kb != null ? CameraShortcuts.BindableKeys.Where(k => kb[k].wasPressedThisFrame).ToArray() : Array.Empty<Key>();
             if (pressed.Length == 1 && keys.Length == 0)
             {
-                var conflict = Bindings.Conflict(CaptureButton, pressed[0]);
-                if (conflict != null) { Status = "Already assigned to " + conflict + ". Clear that binding first."; return; }
                 string action = CaptureButton;
                 if (TryCommit(proposed => { proposed.Buttons[action] = pressed[0]; if (camera) proposed.CameraKeys[action] = "None"; })) Cancel();
             }
@@ -115,7 +113,7 @@ internal sealed class WheelInput
         if (TryCommit(proposed => proposed.SetAxis(action, b))) Cancel();
     }
     internal void Cancel() { if (SavePending) SaveError = null; _pendingEdit = null; Capture = null; CaptureAxis = null; CaptureButton = null; Runtime.Devices?.ClearPresses(); }
-    internal bool Button(string action, bool edge = true) => (Bindings.Buttons.TryGetValue(action, out var b) && Runtime.Devices?.Button(b, edge) == true) || CameraShortcuts.KeyPressed(action, edge);
+    internal bool Button(string action, bool edge = true) => (Bindings.Buttons.TryGetValue(action, out var b) && Runtime.Devices?.Button(b, edge, action) == true) || CameraShortcuts.KeyPressed(action, edge);
     internal InputLease? Apply(Controls controls)
     {
         _last = null; HandbrakeCar = null; HandbrakeAmount = 0;

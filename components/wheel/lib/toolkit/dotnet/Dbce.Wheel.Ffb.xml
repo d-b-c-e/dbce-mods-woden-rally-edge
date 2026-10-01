@@ -113,6 +113,12 @@
             <summary>Save only after a deliberate picker choice. Null means stable identity is unavailable.
             Resolving an old name or index alone is not permission to rewrite a saved preference.</summary>
         </member>
+        <member name="T:Dbce.Wheel.Ffb.DigitalInput">
+            <summary>Stable physical-button and exact eight-way POV binding indices.</summary>
+        </member>
+        <member name="T:Dbce.Wheel.Ffb.DigitalInputEdges">
+            <summary>Each assigned action can consume a physical press once, independently.</summary>
+        </member>
         <member name="T:Dbce.Wheel.Ffb.FfbDiagnostics">
             <summary>
             The two diagnostics every FFB bug this month was solved with: a windowed
@@ -680,6 +686,9 @@
         </member>
         <member name="M:Dbce.Wheel.Ffb.WheelFfbNative.ListAllDevices">
             <summary>Every attached game controller, force feedback or not.</summary>
+        </member>
+        <member name="P:Dbce.Wheel.Ffb.WheelFfbNative.SupportsPov">
+            <summary>Explicit capability; a newer unrelated native version is insufficient.</summary>
         </member>
     </members>
 </doc>

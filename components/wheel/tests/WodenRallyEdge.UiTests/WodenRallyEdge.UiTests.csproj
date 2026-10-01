@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework></PropertyGroup>
   <ItemGroup>
+    <Reference Include="Dbce.Wheel.Ffb" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Ffb.dll" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/InputPolling.cs" Link="Consumer/InputPolling.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/StartupMenuHooks.cs" Link="Consumer/StartupMenuHooks.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/MenuOwnership.cs" Link="Consumer/MenuOwnership.cs" />

@@ -164,4 +164,30 @@ var staleCar=new MainCar{MyControls=new()};typeof(WheelInput).GetField("_last",B
 Check(Runtime.Wheel.Apply(new Controls{field_Private_MainCar_0=staleCar})==null&&Runtime.Wheel.LastFor(staleCar)==null&&Runtime.Wheel.HandbrakeCar==null&&Runtime.Wheel.HandbrakeAmount==0,"shared primary device failure clears previous effective handbrake/input sample");device.Ok=true;
 StartupMenuChecks.Run(Check,StockFrame,id);
 var saved=new Settings(new ConfigFile(Path.Combine(dir,"settings.cfg"),false));Check(saved.UiView=="Advanced"&&!saved.FfbEnabled&&saved.FfbSmoothing==61,"reopen/restart retains explicit view and tune");
+Runtime.Devices.Pressed.Clear();Keyboard.current ??= new();Keyboard.current.Clear();
+Panel.Close(false);Panel.Toggle();
+var shared = new ButtonBinding(id, 91);
+Runtime.Wheel.TryCommit(b=>b.Buttons["Confirm"]=shared);
+foreach(var action in new[]{"Back","Camera"}) {
+    Runtime.Devices.Pressed.Clear();Runtime.Wheel.BeginButton(action);ArmCapture();
+    Runtime.Devices.Pressed.Add(shared);Runtime.Wheel.UpdateCapture();
+    Check(!Runtime.Wheel.Capturing&&Runtime.Wheel.Bindings.Buttons[action]==shared&&Runtime.Wheel.Bindings.Buttons["Confirm"]==shared,"duplicate "+action+" capture retains Confirm without clearing it");
+}
+Runtime.Devices.Pressed.Clear();Panel.Close(false);
+var persisted=Bindings.Load(bindingPath);
+Check(persisted.Buttons["Confirm"]==shared&&persisted.Buttons["Back"]==shared&&persisted.Buttons["Camera"]==shared,"same and different-context button assignments survive restart");
+Runtime.Local=new MainCar();Runtime.Devices.Pressed.Add(shared);
+long beforeMenu=MenuNavigation.Delivered;MenuNavigation.Update();
+Check(MenuNavigation.Delivered==beforeMenu,"Confirm/Back cannot dispatch to native menu during racing");
+Check(Runtime.Wheel.Button("Camera",false),"same physical assignment remains available to gameplay reader");
+Runtime.Devices.Pressed.Clear();Runtime.Local=null;
+Panel.Toggle(); // Capture is a settings-panel workflow; producer observation is scoped to it.
+foreach(var neutralPad in stock.Game_Pads)MenuOwnership.Mask(neutralPad);
+Input.Held=false;Input.Keys.Clear();Input.Down.Clear();Keyboard.current.Clear();
+foreach(int hat in new[]{128,130,132,134,129,131,133,135,159}) {
+    Runtime.Wheel.BeginButton("Menu up");ArmCapture();Check(MenuOwnership.CaptureReady(),"fresh neutral fixture arms HAT capture");Runtime.Devices.Pressed.Add(new(id,hat));Runtime.Wheel.UpdateCapture();
+    Check(!Runtime.Wheel.Capturing&&Runtime.Wheel.Bindings.Buttons["Menu up"].Button==hat,"POV cardinal/diagonal index captures as one binding: "+hat+" status="+Runtime.Wheel.Status+" active="+Runtime.Wheel.CaptureButton);
+    Runtime.Devices.Pressed.Clear();
+}
+Check(Bindings.Load(bindingPath).Buttons["Menu up"].Button==159,"HAT binding persists without physical-button alias");
 Console.WriteLine($"UI fixture: {checks} assertions passed. Actual Panel/WheelInput/Settings source, simulated Unity events/devices; no game or force output. Artifacts: {outputDir}");

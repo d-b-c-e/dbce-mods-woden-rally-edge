@@ -317,7 +317,7 @@ internal static class Panel
     }
     private static string BindingLabel(string action)
     {
-        var b=Runtime.Wheel!.Bindings; string text=b.Buttons.TryGetValue(action,out var button)?Runtime.Devices!.Describe(button.DeviceGuid)+" · Button "+(button.Button+1):"";
+        var b=Runtime.Wheel!.Bindings; string text=b.Buttons.TryGetValue(action,out var button)?Runtime.Devices!.Describe(button.DeviceGuid)+" - "+Dbce.Wheel.Ffb.DigitalInput.Label(button.Button):"";
         if(b.CameraKeys.TryGetValue(action,out var key)&&key!="None")text+=(text.Length>0?" + ":"")+key;
         return text.Length==0?"Not bound":text;
     }
