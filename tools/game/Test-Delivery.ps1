@@ -38,6 +38,8 @@ Negative 'unknown-private-path' {param($r,$d)$d.extensions.'dbce.woden'|Add-Memb
 Negative 'recording-released-claim' {param($r,$d)($d.provenance.dependencies|Where-Object dependencyId -eq 'recording-extension').status='released'}
 Negative 'cadence-adoption' {param($r,$d)$d.extensions.'dbce.woden'.engineOperations.cadenceImpactAdoption='adopted'}
 Negative 'legacy-triple-communication' {param($r,$d)$p=Join-Path $r 'game-release.json';$l=Get-Content $p -Raw|ConvertFrom-Json;($l.features|Where-Object featureId -eq 'triple')|Add-Member -NotePropertyName communication -NotePropertyValue ([ordered]@{requestPath='desired.json';statusPath='status.json'});WriteJson $p $l}
+Negative 'legacy-boolean-string' {param($r,$d)$p=Join-Path $r 'game-release.json';$l=Get-Content $p -Raw|ConvertFrom-Json;($l.features|Where-Object featureId -eq 'triple').available='false';WriteJson $p $l}
+Negative 'unknown-provenance-field' {param($r,$d)$p=Join-Path $r 'package-provenance.json';$a=Get-Content $p -Raw|ConvertFrom-Json;$a|Add-Member -NotePropertyName sourcePath -NotePropertyValue 'C:/Users/owner/private';WriteJson $p $a}
 Negative 'runtime-recatalogned' {param($r,$d)$p=Join-Path $r 'BepInEx/plugins/WodenRallyEdgeWheel/WodenRallyEdge.Core.dll';[IO.File]::AppendAllText($p,'unknown');($d.provenance.artifacts|Where-Object path -like '*WodenRallyEdge.Core.dll').sha256=(Get-FileHash $p).Hash.ToLowerInvariant()}
 Negative 'installer-modified' {param($r,$d)[IO.File]::AppendAllText((Join-Path $r 'Manage-Install.ps1'),"`n# unknown installer revision")}
 Negative 'generic-validator-modified' {param($r,$d)[IO.File]::AppendAllText((Join-Path $r 'delivery-validator.ps1'),"`n# unreviewed generic fork")}
