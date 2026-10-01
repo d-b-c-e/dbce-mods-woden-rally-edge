@@ -15,7 +15,7 @@ namespace WodenRallyEdge;
 public sealed class Plugin : BasePlugin
 {
     public const string Id = "dbce.wodenrallyedgewheel";
-    public const string Version = "0.2.12";
+    public const string Version = "0.2.13";
     public const string SupportedGameHash = "f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c";
     private Harmony? _harmony;
     public override void Load()

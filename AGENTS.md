@@ -1,7 +1,7 @@
 # Super Woden Rally Edge coordination
 
-Read [component instructions](components/wheel/AGENTS.md), [STATE](components/wheel/docs/STATE.md) and [HANDOFF](components/wheel/docs/HANDOFF.md) before component work. Their safety, ownership, fixture and release requirements remain in force.
+Read components/wheel/AGENTS.md and its STATE and HANDOFF before feature work. Their safety, ownership and fixture requirements remain in force.
 
-Keep one game repository with independent components under `components/wheel` and, only when implemented, `components/triple`. Never create an empty triple component as evidence of support. Shared setup and release policy live in root `docs`; component versions and package layouts remain independent. No game/runtime/device actions are authorized by source verification.
+One game repository, one installable package, one setup and release version. Source folders are internal features, not separately released products. Preserve legacy plugin/adapter IDs, settings, receipts, histories and frozen archives. The shared feature contract remains under review; package metadata is not installed optimizer discovery.
 
-Run `tools/game/Verify-Source.ps1` for the build and both executable regression harnesses; `dotnet test` does not execute them. Use component packaging and installer fixtures as documented. Preserve private visibility, all history and frozen archives. Do not include proprietary dependencies, owner recordings or settings in Git/packages.
+Run tools/game/Verify-Source.ps1 for device-free verification. Use tools/game/Stage-Package.ps1 for one candidate stage without archives or installation. Keep proprietary dependencies, recordings and owner settings out of Git/packages. Keep private visibility. Live incorporation and game/device/display work require coordinated owner handoff.

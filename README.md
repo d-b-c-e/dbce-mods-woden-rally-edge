@@ -1,9 +1,7 @@
 # DBCE mods for Super Woden Rally Edge
 
-The [wheel component](components/wheel/README.md) contains wheel/pedal input, provisional force feedback, camera controls and telemetry. Its version remains **0.2.12**. Read the shared [game setup](docs/GAME-SETUP.md) and [release policy](docs/RELEASE-STRUCTURE.md).
+One game package combines wheel/pedal input, provisional FFB, camera controls and telemetry. The next isolated source candidate is **0.2.13**, retaining existing plugin identity, settings and installer transaction. Read [setup](docs/GAME-SETUP.md) and [release policy](docs/RELEASE-STRUCTURE.md).
 
-The [triple component](components/triple/README.md) preserves the independent **0.0.1** default-off private-target probe from research source `d4ce04a`. It has not been installed, run or visually accepted. Separate-display and Surround presentation remain unimplemented.
+The internal [triple probe](components/triple/README.md) is default off, uninstalled and unverified. It is excluded from the installable candidate; Surround and separate-display presentation remain unimplemented.
 
-Build and package wheel from `components/wheel`; root `tools/game/Verify-Source.ps1` verifies both components without devices. Triple rendering remains blocked pending runtime binding validation and presentation implementation; widescreen or camera FOV alone is insufficient.
-
-This source reorganization preserves component IDs, version, installed packages and historical archives. It does not install anything or establish wheel/FFB, telemetry or rendered acceptance. The repository remains private.
+Run tools/game/Verify-Source.ps1 for device-free verification and tools/game/Stage-Package.ps1 for one staged payload without an archive or deployment. Runtime optimizer discovery and dual-renderer migration await shared contract review. Preserve legacy history, settings and frozen releases. This repository remains private.
