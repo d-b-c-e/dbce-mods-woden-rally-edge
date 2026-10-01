@@ -1,0 +1,20 @@
+{
+  "contract": "dbce.game-delivery",
+  "version": "1.0.0",
+  "acceptedPilotCommit": "41d0378ab6c3fdcfe19ddd601f1c4f51c4f81849",
+  "sourceRepository": "https://github.com/d-b-c-e/dbce-mods-art-of-rally",
+  "files": {
+    "delivery-validator.ps1": "892fe8f539d9bad52ee5a2bb5e981ca3d737bb90814be61291380714df4acae1",
+    "delivery-parser.cs": "cb66ef4470d409b12e03ce922aa08d8b6691bf589483d71acbe11d05fe8259a0",
+    "SPEC.md": "fdf570d896e4c1dc1988673a14c840abf771fd67ad5dca83fb51f41b5492a71c",
+    "ACCEPTANCE-FIXTURES.md": "dfc2a266e9a545a38610c1a406185506f5ff58e4b9201ba4426719dd53b4acc5"
+  },
+  "gitBlobs": {
+    "delivery-validator.ps1": "9df3642d92565473d1f867d377c52dac6ecdbf79",
+    "delivery-parser.cs": "4628317229a2ee38bcf03c34c989685e0c8cd35d",
+    "SPEC.md": "00398cc823262fded39b9fb1120dd38a37b127aa",
+    "ACCEPTANCE-FIXTURES.md": "6c4c036f5b5fa5480e18414b4d67da3918a7e0db"
+  },
+  "hashNote": "Raw accepted Git blobs match the publication record checkoutSha256 values. Its canonicalSha256 values differ; actual bytes and matching Git blob IDs are pinned here without changing generic code.",
+  "publishedSourceArchiveSha256": "67ba8cb36364ec145598210ada1d667591f05fe12598cc8de43fddee193f5b1f"
+}

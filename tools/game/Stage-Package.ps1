@@ -44,6 +44,6 @@ foreach ($pair in @(@('native/WheelFfb.dll','WheelFfb.dll'),@('dotnet/Dbce.Wheel
 } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $stage 'game-release.json') -Encoding utf8
 $manifest = @(Get-ChildItem -LiteralPath $stage -File -Recurse | Sort-Object FullName | ForEach-Object { @{path=[IO.Path]::GetRelativePath($stage,$_.FullName); sha256=(Get-FileHash -LiteralPath $_.FullName).Hash.ToLowerInvariant()} })
 $manifest | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath (Join-Path $stage 'manifest.json') -Encoding utf8
-& (Join-Path $PSScriptRoot 'Verify-Package.ps1') -PackageRoot $stage
+& (Join-Path $PSScriptRoot 'Verify-SourceStage.ps1') -PackageRoot $stage
 Write-Host "Unified candidate stage: $stage"
 Write-Host 'No archive, install, runtime discovery or rig acceptance performed.'
