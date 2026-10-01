@@ -14,7 +14,7 @@ $null=New-Item -ItemType Directory -Path $OutputDirectory -Force
 Copy-Item -LiteralPath $BaselineStage -Destination $stage -Recurse
 foreach($name in 'README.md','GUIDE.md'){Copy-Item (Join-Path $PSScriptRoot ('player/'+$name)) (Join-Path $stage $name) -Force}
 foreach($name in 'Verify-Package.ps1','Woden-Delivery.ps1'){Copy-Item (Join-Path $PSScriptRoot $name) (Join-Path $stage $name)}
-$common=Join-Path $root 'tools/delivery/v1';foreach($name in 'delivery-validator.ps1','delivery-parser.cs'){Copy-Item (Join-Path $common $name) (Join-Path $stage $name)}
+$common=Join-Path $root 'tools/delivery/v1';foreach($name in 'SPEC.md','ACCEPTANCE-FIXTURES.md','delivery-validator.ps1','delivery-parser.cs'){Copy-Item (Join-Path $common $name) (Join-Path $stage $name)}
 Copy-Item (Join-Path $common 'PIN.json') (Join-Path $stage 'delivery-pin.json')
 $sources=@();foreach($role in 'runtime','installer','packaging'){$sources += [ordered]@{role=$role;repositoryUrl='https://github.com/d-b-c-e/woden-rally-edge-wheel';commit=$(if($role -eq 'packaging'){$source}else{$runtime});tree=$(if($role -eq 'packaging'){$tree}else{$rtree});dirty=$false}}
 $p=[ordered]@{schema='dbce.woden.package-provenance.v1';runtimeVersion='0.2.13+'+$runtime;baselineManifestSha256=$baselineHash;sources=$sources}
@@ -30,6 +30,11 @@ $manifest|ConvertTo-Json -Depth 5|Set-Content (Join-Path $stage 'manifest.json')
 & (Join-Path $PSScriptRoot 'Verify-Package.ps1') -PackageRoot $stage
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 [IO.Compression.ZipFile]::CreateFromDirectory([IO.Path]::GetFullPath($stage),[IO.Path]::GetFullPath($zip))
+. (Join-Path $PSScriptRoot 'Woden-Delivery.ps1')
+. (Join-Path $PSScriptRoot 'Delivery-Zip.ps1')
+$extracted=Expand-WodenDeliveryZip -Archive $zip -Destination (Join-Path $OutputDirectory 'verified-extraction')
+$null=Assert-WodenDelivery -Root $extracted
+foreach($file in @(Get-WodenDeliveryFiles)+@('manifest.json')){if((Get-FileHash (Join-Path $stage $file)).Hash -ne (Get-FileHash (Join-Path $extracted $file)).Hash){throw 'ZIP differs from staged package bytes'}}
 $zipHash=(Get-FileHash $zip).Hash.ToLowerInvariant()
-[ordered]@{version=$version;commit=$source;tree=$tree;dirty=$false;runtimeCommit=$runtime;runtimeTree=$rtree;stage=$stage;archive=$zip;archiveSha256=$zipHash;manifestSha256=(Get-FileHash (Join-Path $stage 'manifest.json')).Hash.ToLowerInvariant();gameDevicesOrDeployment=$false}|ConvertTo-Json -Depth 5|Set-Content (Join-Path $OutputDirectory 'result.json') -Encoding utf8
+[ordered]@{version=$version;commit=$source;tree=$tree;dirty=$false;runtimeCommit=$runtime;runtimeTree=$rtree;stage=$stage;archive=$zip;archiveSha256=$zipHash;manifestSha256=(Get-FileHash (Join-Path $stage 'manifest.json')).Hash.ToLowerInvariant();zipStageBytesMatch=$true;gameDevicesOrDeployment=$false}|ConvertTo-Json -Depth 5|Set-Content (Join-Path $OutputDirectory 'result.json') -Encoding utf8
 Write-Host "Frozen delivery ZIP $zip; SHA256 $zipHash. No publication or installation."

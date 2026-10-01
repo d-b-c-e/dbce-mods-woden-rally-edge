@@ -40,6 +40,7 @@ Negative 'cadence-adoption' {param($r,$d)$d.extensions.'dbce.woden'.engineOperat
 Negative 'legacy-triple-communication' {param($r,$d)$p=Join-Path $r 'game-release.json';$l=Get-Content $p -Raw|ConvertFrom-Json;($l.features|Where-Object featureId -eq 'triple')|Add-Member -NotePropertyName communication -NotePropertyValue ([ordered]@{requestPath='desired.json';statusPath='status.json'});WriteJson $p $l}
 Negative 'runtime-recatalogned' {param($r,$d)$p=Join-Path $r 'BepInEx/plugins/WodenRallyEdgeWheel/WodenRallyEdge.Core.dll';[IO.File]::AppendAllText($p,'unknown');($d.provenance.artifacts|Where-Object path -like '*WodenRallyEdge.Core.dll').sha256=(Get-FileHash $p).Hash.ToLowerInvariant()}
 Negative 'installer-modified' {param($r,$d)[IO.File]::AppendAllText((Join-Path $r 'Manage-Install.ps1'),"`n# unknown installer revision")}
+Negative 'generic-validator-modified' {param($r,$d)[IO.File]::AppendAllText((Join-Path $r 'delivery-validator.ps1'),"`n# unreviewed generic fork")}
 Negative 'broken-local-doc-link' {param($r,$d)[IO.File]::AppendAllText((Join-Path $r 'README.md'),"`n[absent source](../components/wheel/README.md)")}
 Negative 'circular-descriptor-artifact' {param($r,$d)$d.provenance.artifacts[0].path='delivery-manifest.json'}
 # Duplicate-key grammar must be tested on raw JSON, not a parser that already discarded duplicates.

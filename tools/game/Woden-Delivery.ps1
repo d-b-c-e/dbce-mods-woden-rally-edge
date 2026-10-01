@@ -1,7 +1,7 @@
 # Game-specific adapter; pinned common validator/parser are never edited.
 function Get-WodenDeliveryFiles {
  $prefix='BepInEx/plugins/WodenRallyEdgeWheel/'
- $roots=@('LICENSE','README.md','GUIDE.md','Install.bat','Uninstall.bat','Manage-Install.ps1','game-release.json','input-override.json','delivery-manifest.json','package-provenance.json','Verify-Package.ps1','Woden-Delivery.ps1','delivery-validator.ps1','delivery-parser.cs','delivery-pin.json')
+ $roots=@('LICENSE','README.md','GUIDE.md','SPEC.md','ACCEPTANCE-FIXTURES.md','Install.bat','Uninstall.bat','Manage-Install.ps1','game-release.json','input-override.json','delivery-manifest.json','package-provenance.json','Verify-Package.ps1','Woden-Delivery.ps1','delivery-validator.ps1','delivery-parser.cs','delivery-pin.json')
  return $roots+@('WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Recording.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll','recording-provenance.json','toolkit.version','telemetry-schema.json' | ForEach-Object {$prefix+$_})
 }
 function Assert-WodenDelivery {
@@ -14,7 +14,7 @@ function Assert-WodenDelivery {
   $walk=$full;while($walk.Length -ge $Root.Length){if((Test-Path -LiteralPath $walk) -and ((Get-Item $walk -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Linked package path'};$walk=Split-Path $walk -Parent}
   if(-not (Test-Path $full -PathType Leaf)){throw "Missing package file $path"};return $full
  }
- $common=@{'delivery-validator.ps1'='892fe8f539d9bad52ee5a2bb5e981ca3d737bb90814be61291380714df4acae1';'delivery-parser.cs'='cb66ef4470d409b12e03ce922aa08d8b6691bf589483d71acbe11d05fe8259a0'}
+ $common=@{'delivery-validator.ps1'='892fe8f539d9bad52ee5a2bb5e981ca3d737bb90814be61291380714df4acae1';'delivery-parser.cs'='cb66ef4470d409b12e03ce922aa08d8b6691bf589483d71acbe11d05fe8259a0';'SPEC.md'='fdf570d896e4c1dc1988673a14c840abf771fd67ad5dca83fb51f41b5492a71c';'ACCEPTANCE-FIXTURES.md'='dfc2a266e9a545a38610c1a406185506f5ff58e4b9201ba4426719dd53b4acc5'}
  foreach($name in $common.Keys){if((Get-FileHash (File $name)).Hash.ToLowerInvariant() -cne $common[$name]){throw 'Generic delivery code pin mismatch'}}
  . (File 'delivery-validator.ps1')
  $d=Assert-DeliveryManifest -PackageRoot $Root -MetadataOnly
