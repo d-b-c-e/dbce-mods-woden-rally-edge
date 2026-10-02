@@ -38,6 +38,7 @@ internal sealed class ForceController
     {
         _capture = capture;
         _device = capture == null ? device : new ProvenanceForceDevice(device, capture);
+        _capture?.BindController();
     }
     private bool ObserveGuard(string code, bool value) { _capture?.Emit("guard", code, result: value); return value; }
     private void RefreshReaders(bool required = false)
@@ -137,7 +138,8 @@ internal sealed class ForceController
             // A shared wheel reader cannot acquire the FFB handle itself. After
             // focus returns, use a zero write to let the toolkit recover access;
             // otherwise missing input would block every force write forever.
-            bool reading = Runtime.Devices.IsReading(guid);
+            bool reading = _capture == null ? Runtime.Devices.IsReading(guid) :
+                _capture.Call("is-reading", _capture.SelectedToken, () => Runtime.Devices.IsReading(guid));
             _capture?.Emit("reader", "is-reading", _capture.SelectedToken, result: reading);
             if (!reading)
             {

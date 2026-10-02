@@ -32,10 +32,12 @@ internal sealed class TestDevices
 {
     internal int Refreshes, Closes;
     internal bool Readable = true;
+    internal Exception? ReadError;
+    internal int Reads;
     internal ForceCandidate[]? Candidates;
     internal ForceTarget ResolveForceTarget(bool follow, string id, Guid? steer) => ForceSelection.Resolve(follow, id, steer,
         Candidates ?? (Guid.TryParse(id, out var guid) ? new[] { new ForceCandidate(guid, "Fixture wheel", true) } : Array.Empty<ForceCandidate>()));
-    internal bool IsReading(Guid guid) => Readable;
+    internal bool IsReading(Guid guid) { Reads++; if (ReadError != null) throw ReadError; return Readable; }
     internal bool TryAxis(AxisBinding? binding, out float value) { value = 0; return false; }
     internal void Refresh() => Refreshes++;
     internal void CloseReaders() => Closes++;

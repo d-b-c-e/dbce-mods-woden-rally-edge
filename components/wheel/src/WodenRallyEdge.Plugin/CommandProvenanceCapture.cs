@@ -18,7 +18,7 @@ internal sealed record CommandCaptureDocument(string Schema, string ClockRole, s
 
 internal sealed class CommandProvenanceCapture
 {
-    internal const string Schema = "dbce.woden.canonical-command-capture@1";
+    internal const string Schema = "dbce.woden.canonical-command-capture@2";
     internal const int MaximumBytes = 1024 * 1024;
     private readonly object _sync = new();
     private readonly Func<double> _clock;
@@ -27,6 +27,7 @@ internal sealed class CommandProvenanceCapture
     private readonly Dictionary<Guid, string> _tokens = new(); // Never serialized.
     private Action<CommandCaptureEvent>? _sink;
     private long _observed, _dropped;
+    private int _callDepth, _controllers;
     private double _lastClock = -1;
     private bool _finished, _terminal;
     private string _reason = "none";
@@ -40,6 +41,11 @@ internal sealed class CommandProvenanceCapture
         _assemblyHash = Hash(File.ReadAllBytes(typeof(ForceController).Assembly.Location));
     }
     private void Incomplete(string reason) { if (_reason == "none") _reason = reason; }
+    internal void BindController()
+    {
+        lock (_sync) { if (++_controllers != 1) Incomplete("controller-reuse"); }
+        Emit("state", "controller-started", result: false);
+    }
     internal void Restart() { lock (_sync) { if (_terminal) Incomplete("restart-unsupported"); } Emit("invocation", "beginruntime"); }
     internal string? Token(Guid guid)
     {
@@ -70,6 +76,7 @@ internal sealed class CommandProvenanceCapture
     {
         // Observer faults never escape into control flow or request extra device calls.
         lock (_sync) {
+            if (kind == "invocation" && _callDepth != 0) Incomplete("nested-invocation");
             _observed++;
             if (_finished || _events.Count == _capacity) {
                 _dropped++; Incomplete(_finished ? "after-finish" : "event-overflow"); return;
@@ -96,15 +103,18 @@ internal sealed class CommandProvenanceCapture
     }
     internal T Call<T>(string code, string? token, Func<T> action, int? bits = null)
     {
-        Emit("call-begin", code, token, command: bits);
+        lock (_sync) { if (_callDepth++ != 0) Incomplete("nested-call"); }
         try {
-            T value = action();
-            Emit("call-end", code, token, command: bits, result: value is bool b ? b : null);
-            return value;
-        } catch {
-            Emit("call-end", code, token, command: bits, result: null, state: 1); // Bounded exception indicator only.
-            throw;
-        }
+            Emit("call-begin", code, token, command: bits);
+            try {
+                T value = action();
+                Emit("call-end", code, token, command: bits, result: value is bool b ? b : null);
+                return value;
+            } catch {
+                Emit("call-end", code, token, command: bits, result: null, state: 1);
+                throw;
+            }
+        } finally { lock (_sync) { _callDepth--; } }
     }
     internal void Call(string code, string? token, Action action)
         => Call(code, token, () => { action(); return 0; });
@@ -112,13 +122,19 @@ internal sealed class CommandProvenanceCapture
     {
         lock (_sync) {
             if (!_terminal) Incomplete("missing-terminal");
+            if (_callDepth != 0) Incomplete("pending-call");
             _finished = true;
-            return new(Schema, "injected-callback-observation-not-model-or-cadence-clock",
+            var document = new CommandCaptureDocument(Schema, "injected-callback-observation-not-model-or-cadence-clock",
                 "7e806bb986e11166deca4bb03ead326837ba835d", _assemblyHash,
                 "one-controller-software-decisions-and-call-sequence-only",
                 new[] { "full-model-source-channel-recompute", "cadence-clock-and-epochs", "native-quantization-and-entry-timing",
                     "native-watchdog-or-driver-interventions", "config-profile-source-attestation", "concurrent-runtime-actor-correlation" },
                 _events.ToArray(), new(_reason == "none", _observed, _events.Count, _dropped, _reason));
+            if (document.Footer.Complete) {
+                try { CommandCaptureAudit.Validate(document); }
+                catch (IOException) { Incomplete("invalid-trace"); document = document with { Footer = document.Footer with { Complete = false, Reason = _reason } }; }
+            }
+            return document;
         }
     }
     private static string? Bits(double? value) => value.HasValue ? unchecked((ulong)BitConverter.DoubleToInt64Bits(value.Value)).ToString("x16") : null;
@@ -151,7 +167,8 @@ internal sealed class ProvenanceForceDevice : IForceDevice
 
 internal static class CommandCaptureAudit
 {
-    private static readonly HashSet<string> Calls = new() { "can-open", "open", "write", "zero-stop", "panic", "close", "reader-close", "refresh" };
+    private static readonly HashSet<string> Calls = new() { "can-open", "open", "write", "zero-stop", "panic", "close", "reader-close", "refresh", "is-reading" };
+    private static readonly HashSet<string> BooleanCalls = new() { "can-open", "open", "write", "is-reading" };
     private static readonly HashSet<string> Invocations = new() { "prepare", "tick", "setenabled", "disarm", "reconnect", "panic", "suspend", "beginruntime", "shutdown" };
     private static readonly HashSet<string> Gates = new() { "active", "diagnostic-force-disabled", "saved-off", "faulted", "settings-open", "unfocused", "stock-owner-unready", "camera-not-owned", "wheel-input-unavailable", "model-invalid", "wheel-not-connected", "write-failed" };
     internal static bool ValidTag(string kind, string code) => kind switch {
@@ -165,10 +182,31 @@ internal static class CommandCaptureAudit
         "settings" => code == "options",
         "reset" => code == "explicit",
         "model" => code == "evaluated",
-        "state" => code is "prepare-ended" or "shutdown-ended" or "terminal-stop-published",
+        "state" => code is "controller-started" or "prepare-ended" or "shutdown-ended" or "terminal-stop-published",
         _ => false
     };
     private static void Require([System.Diagnostics.CodeAnalysis.DoesNotReturnIf(false)] bool value, string code) { if (!value) throw new IOException(code); }
+    private static void ValidatePayload(CommandCaptureEvent e)
+    {
+        bool call = e.Kind is "call-begin" or "call-end";
+        bool model = e.Kind == "model";
+        Require(e.PreviousDevice == null || e.Kind is "target" or "target-change", "capture-payload");
+        Require(e.Device == null || call || e.Kind is "target" or "target-change" or "reader", "capture-payload");
+        Require(e.CommandBits == null || model || (call && e.Code == "write"), "capture-payload");
+        Require(model || e.Kind == "reset" || (e.ResetBefore == 0 && e.ResetAfter == 0), "capture-payload");
+        Require(model || (e.SimulationBits == null && e.SourceElapsedBits == null), "capture-payload");
+        if (e.Kind == "call-begin") Require(e.Result == null && e.State == 0, "capture-call-payload");
+        else if (e.Kind == "call-end") Require(e.State == 1 ? e.Result == null : BooleanCalls.Contains(e.Code) == e.Result.HasValue, "capture-call-result");
+        else {
+            bool boolean = e.Kind is "guard" or "target" or "reader" or "model" ||
+                (e.Kind == "state" && e.Code is "controller-started" or "prepare-ended" or "shutdown-ended") ||
+                (e.Kind is "invocation" or "terminal-reject" && e.Code == "setenabled");
+            Require(e.State == 0 && boolean == e.Result.HasValue, "capture-event-result");
+        }
+        if (e.Kind == "reset") Require(e.ResetAfter == e.ResetBefore + 1, "capture-reset");
+        if (e.Kind == "target") Require(e.Result == (e.Code == "none") && (e.Result == true) == (e.Device != null), "capture-target");
+        if (call && e.Code == "write") Require(e.CommandBits.HasValue, "capture-command");
+    }
     internal static void Validate(CommandCaptureDocument d)
     {
         try { ValidateCore(d); }
@@ -186,19 +224,37 @@ internal static class CommandCaptureAudit
             "native-watchdog-or-driver-interventions", "config-profile-source-attestation", "concurrent-runtime-actor-correlation" }), "capture-scope");
         CommandCaptureEvent? pending = null;
         string? connected = null;
+        string? canOpenToken = null, readersClosedToken = null;
         bool terminal = false;
+        bool stopPublished = false, stopRequested = false, shutdownStarted = false, shutdownReset = false, preparing = false;
+        Require(d.Events.Length > 0 && d.Events[0].Kind == "state" && d.Events[0].Code == "controller-started" && d.Events[0].Result == false, "capture-start");
         double clock = -1;
         long reset = 0;
         for (int i = 0; i < d.Events.Length; i++) {
             var e = d.Events[i]; Require(e.Sequence == i + 1 && ValidTag(e.Kind, e.Code), "capture-event");
             Require(e.State is 0 or 1, "capture-state");
             Require(e.State != 1 || (e.Kind == "call-end" && e.Result == null), "capture-error");
+            ValidatePayload(e);
+            if (terminal) Require(e.Kind == "terminal-reject" ||
+                (e.Kind == "state" && e.Code == "terminal-stop-published") ||
+                (e.Kind == "invocation" && e.Code == "shutdown") ||
+                (shutdownStarted && ((e.Kind == "reset" && e.Code == "explicit") || (e.Kind == "state" && e.Code == "shutdown-ended"))), "capture-after-terminal");
+            if (e.Kind == "state" && e.Code == "controller-started") Require(i == 0, "capture-start");
+            if (e.Kind == "terminal-reject") Require(stopRequested, "capture-terminal-reject");
+            if (e.Kind == "invocation") {
+                Require(!terminal || e.Code == "shutdown", "capture-terminal-invocation");
+                if (e.Code == "prepare") { Require(!preparing, "capture-prepare-order"); preparing = true; }
+                if (e.Code == "shutdown") { Require(stopPublished && !shutdownStarted, "capture-shutdown-order"); shutdownStarted = true; shutdownReset = false; }
+            }
+            if (e.Kind == "state" && e.Code == "prepare-ended") { Require(preparing, "capture-prepare-order"); preparing = false; }
+            if (e.Kind == "state" && e.Code == "terminal-stop-published") { stopPublished = true; stopRequested = true; }
+            if (e.Kind == "reset" && shutdownStarted) shutdownReset = true;
             Require(e.Device == null || Regex.IsMatch(e.Device, "^d([1-9]|[1-5][0-9]|6[0-4])$"), "capture-device-token");
             Require(e.PreviousDevice == null || Regex.IsMatch(e.PreviousDevice, "^d([1-9]|[1-5][0-9]|6[0-4])$"), "capture-device-token");
             Require(Regex.IsMatch(e.ClockBits, "^[a-f0-9]{16}$"), "capture-clock");
             double now = BitConverter.Int64BitsToDouble(unchecked((long)Convert.ToUInt64(e.ClockBits, 16)));
             Require(double.IsFinite(now) && now >= 0 && now >= clock, "capture-clock"); clock = now;
-            if (e.Kind is "reset" or "model") { Require(e.ResetBefore >= reset && e.ResetAfter >= e.ResetBefore, "capture-reset"); reset = e.ResetAfter; }
+            if (e.Kind is "reset" or "model") { Require(e.ResetBefore == reset && e.ResetAfter >= e.ResetBefore, "capture-reset"); reset = e.ResetAfter; }
             Require(e.SimulationBits == null || Regex.IsMatch(e.SimulationBits, "^[a-f0-9]{16}$"), "capture-model-clock");
             Require(e.SourceElapsedBits == null || Regex.IsMatch(e.SourceElapsedBits, "^[a-f0-9]{16}$"), "capture-model-clock");
             Require(e.Kind == "settings" ? e.OptionsBits != null && e.OptionsSha256 != null : e.OptionsBits == null && e.OptionsSha256 == null, "capture-settings");
@@ -207,7 +263,9 @@ internal static class CommandCaptureAudit
                 e.OptionsSha256 == CommandProvenanceCapture.Hash(Encoding.ASCII.GetBytes(e.OptionsBits)), "capture-settings");
             if (e.Kind == "call-begin") {
                 Require(pending == null && !terminal, "capture-call-order");
-                if (e.Code == "open") Require(connected == null && e.Device != null, "capture-open-state");
+                if (e.Code == "open") Require(connected == null && e.Device != null && canOpenToken == e.Device && readersClosedToken == e.Device, "capture-open-state");
+                if (e.Code == "can-open") Require(connected == null && e.Device != null, "capture-open-state");
+                if (e.Code == "is-reading") Require(connected != null && connected == e.Device, "capture-reader-state");
                 if (e.Code == "write") {
                     Require(connected != null && connected == e.Device && e.CommandBits.HasValue, "capture-write-state");
                     float value = BitConverter.Int32BitsToSingle(e.CommandBits!.Value);
@@ -216,13 +274,20 @@ internal static class CommandCaptureAudit
                 pending = e;
             } else if (e.Kind == "call-end") {
                 Require(pending != null && pending.Code == e.Code && pending.Device == e.Device && pending.CommandBits == e.CommandBits, "capture-call-order");
+                if (e.Code == "can-open") { canOpenToken = e.Result == true ? e.Device : null; readersClosedToken = null; }
+                if (e.Code == "reader-close") readersClosedToken = e.State == 0 ? e.Device : null;
                 if (e.Code == "open" && e.Result == true) connected = e.Device;
+                if (e.Code == "open") { canOpenToken = null; readersClosedToken = null; }
                 if (e.Code == "close" && e.State == 0) connected = null;
                 pending = null;
             }
-            if (e.Kind == "state" && e.Code == "shutdown-ended" && e.Result == true) { Require(connected == null && pending == null, "capture-terminal-state"); terminal = true; }
+            if (e.Kind == "state" && e.Code == "shutdown-ended") {
+                Require(shutdownStarted && shutdownReset && !preparing && pending == null && e.Result == (connected == null), "capture-terminal-state");
+                if (e.Result == true) terminal = true;
+                stopPublished = false; shutdownStarted = false; shutdownReset = false;
+            }
         }
-        Require(terminal && pending == null && connected == null, "capture-missing-terminal");
+        Require(terminal && pending == null && connected == null && !preparing && !shutdownStarted && !stopPublished, "capture-missing-terminal");
     }
     // Projection into a pure fake sink, never dispatch to a device or reconstruct math.
     internal static void ReplayCalls(CommandCaptureDocument document, Action<CommandCaptureEvent> fakeSink)

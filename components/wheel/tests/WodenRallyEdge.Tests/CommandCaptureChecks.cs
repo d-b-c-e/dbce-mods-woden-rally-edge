@@ -9,10 +9,11 @@ internal static class CommandCaptureChecks
     {
         internal readonly List<string> Calls = new();
         internal bool Ready, Accept = true, ThrowOpen;
+        internal Action? OnWrite;
         public string? Error => @"C:\private\driver username secret " + Guid.Empty;
         public bool CanOpen { get { Calls.Add("can-open:" + Ready); return Ready; } }
         public bool Open(Guid guid) { Calls.Add("open:True"); if (ThrowOpen) throw new InvalidOperationException("private driver text"); return true; }
-        public bool Write(float force) { Calls.Add("write:" + BitConverter.SingleToInt32Bits(force) + ":" + Accept); return Accept; }
+        public bool Write(float force) { Calls.Add("write:" + BitConverter.SingleToInt32Bits(force) + ":" + Accept); OnWrite?.Invoke(); return Accept; }
         public void ZeroAndStop() => Calls.Add("zero-stop");
         public void Panic() => Calls.Add("panic");
         public void Close() => Calls.Add("close");
@@ -47,7 +48,7 @@ internal static class CommandCaptureChecks
         check(doc.Events.Any(e => e.Kind == "settings") && doc.Events.Any(e => e.Kind == "model" && e.SimulationBits != null && e.SourceElapsedBits != null), "options identity and distinct exact model/source clocks observed");
         var projection = new List<string>();
         CommandCaptureAudit.ReplayCalls(doc, e => {
-            if (e.Code is "reader-close" or "refresh") return;
+            if (e.Code is "reader-close" or "refresh" or "is-reading") return;
             projection.Add(e.Code == "write" ? "write:" + e.CommandBits + ":" + e.Result : e.Code is "open" or "can-open" ? e.Code + ":" + e.Result : e.Code);
         });
         check(projection.SequenceEqual(baseline.calls.Take(baseline.calls.Count - 1)), "record validate replay projects exact canonical call sequence into pure fake sink");
@@ -92,9 +93,68 @@ internal static class CommandCaptureChecks
         exceptionController.Shutdown(); var exceptionDoc = exceptionCapture.Finish(); CommandCaptureAudit.Validate(exceptionDoc);
         check(propagated && exceptionDevice.Calls.SequenceEqual(new[] { "can-open:True", "open:True", "zero-stop", "close" }), "native exception propagates with exact existing cleanup sequence");
         check(exceptionDoc.Events.Any(e => e.Code == "open" && e.State == 1) && !JsonSerializer.Serialize(exceptionDoc).Contains("private"), "native exception uses bounded indicator without raw error");
+        ReviewAdversarial(check, doc);
         string evidence = Path.Combine(AppContext.BaseDirectory, "../../../../../artifacts/tests/canonical-command-capture-" + Guid.NewGuid().ToString("N") + ".json");
         CommandProvenanceCapture.WriteNew(evidence, doc);
         Console.WriteLine("  synthetic canonical command capture: " + Path.GetFullPath(evidence));
         Directory.Delete(dir, true);
+    }
+    private static void ReviewAdversarial(Action<bool, string> check, CommandCaptureDocument doc)
+    {
+        int assertions = 0;
+        void Check(bool value, string name) { assertions++; check(value, name); }
+        void Refused(CommandCaptureDocument value, string name) {
+            bool refused = false; try { CommandCaptureAudit.Validate(value); } catch (IOException) { refused = true; }
+            Check(refused, name);
+        }
+        void Mutate(Func<CommandCaptureEvent, bool> choose, Func<CommandCaptureEvent, CommandCaptureEvent> mutate, string name) {
+            var rows = doc.Events.ToArray(); int i = Array.FindIndex(rows, e => choose(e));
+            Check(i >= 0, name + " production witness exists"); rows[i] = mutate(rows[i]); Refused(doc with { Events = rows }, name);
+        }
+        foreach (string code in new[] { "write", "can-open", "open", "is-reading" })
+            Mutate(e => e.Kind == "call-end" && e.Code == code && e.State == 0, e => e with { Result = null }, "missing boolean " + code + " outcome refused");
+        foreach (string code in new[] { "close", "zero-stop", "reader-close", "refresh" })
+            Mutate(e => e.Kind == "call-end" && e.Code == code, e => e with { Result = true }, "fabricated void " + code + " outcome refused");
+        Mutate(e => e.Kind == "call-begin", e => e with { Result = true }, "call-begin outcome refused");
+        Mutate(e => e.Kind == "call-end", e => e with { State = 1, Result = true }, "exceptional boolean outcome refused");
+        foreach (string removed in new[] { "controller-started", "terminal-stop-published", "shutdown", "explicit" }) {
+            var rows = doc.Events.Where(e => e.Code != removed).Select((e, i) => e with { Sequence = i + 1 }).ToArray();
+            Refused(doc with { Events = rows, Footer = doc.Footer with { Stored = rows.Length, Observed = rows.Length } }, "missing lifecycle " + removed + " refused");
+        }
+        var onlyEnd = doc.Events.Where(e => e.Code == "shutdown-ended").Take(1).Select(e => e with { Sequence = 1 }).ToArray();
+        Refused(doc with { Events = onlyEnd, Footer = doc.Footer with { Stored = 1, Observed = 1 } }, "reviewer one-event completion refused");
+        var afterTerminal = doc.Events.Append(doc.Events.First(e => e.Kind == "guard") with { Sequence = doc.Events.Length + 1, ClockBits = doc.Events[^1].ClockBits }).ToArray();
+        Refused(doc with { Events = afterTerminal, Footer = doc.Footer with { Stored = afterTerminal.Length, Observed = afterTerminal.Length } }, "guard fabricated after terminal completion refused");
+        Mutate(e => e.Kind == "reset", e => e with { ResetBefore = e.ResetBefore + 1, ResetAfter = e.ResetAfter + 1 }, "unobserved reset gap refused");
+
+        (List<string> calls, CommandCaptureDocument? trace, int reads, bool propagated) ReaderFault(bool enabled) {
+            ForceControllerChecks.Create(); var capture = enabled ? new CommandProvenanceCapture(() => 1) : null;
+            var device = new Device { Ready = true }; var controller = new ForceController(device, capture); controller.Prepare();
+            var error = new InvalidOperationException("private reader path and device identity"); Runtime.Devices!.ReadError = error;
+            bool propagated = false; try { controller.Prepare(); } catch (InvalidOperationException caught) { propagated = ReferenceEquals(caught, error); }
+            controller.Shutdown(); return (device.Calls, capture?.Finish(), Runtime.Devices.Reads, propagated);
+        }
+        var readerBase = ReaderFault(false); var reader = ReaderFault(true);
+        Check(reader.propagated && readerBase.propagated && reader.reads == readerBase.reads && reader.calls.SequenceEqual(readerBase.calls), "throwing IsReading preserves exact exception/read count/native cleanup");
+        Check(reader.trace!.Events.Any(e => e.Kind == "call-begin" && e.Code == "is-reading") && reader.trace.Events.Any(e => e.Kind == "call-end" && e.Code == "is-reading" && e.State == 1 && e.Result == null), "exceptional IsReading outcome explicitly recorded");
+        Check(!JsonSerializer.Serialize(reader.trace).Contains("private reader"), "reader exception text stays private");
+        CommandCaptureAudit.Validate(reader.trace); Check(reader.trace.Footer.Complete, "fully observed reader exception has valid complete software trace");
+
+        (List<string> calls, CommandCaptureDocument? trace, int reads, bool connected) Nested(bool enabled) {
+            ForceControllerChecks.Create(); var capture = enabled ? new CommandProvenanceCapture(() => 1) : null;
+            var device = new Device { Ready = true }; var controller = new ForceController(device, capture); controller.Prepare();
+            Runtime.Devices!.Readable = false; device.OnWrite = controller.Shutdown; controller.Prepare();
+            return (device.Calls, capture?.Finish(), Runtime.Devices.Reads, controller.Connected);
+        }
+        var nestedBase = Nested(false); var nested = Nested(true);
+        Check(nested.calls.SequenceEqual(nestedBase.calls) && nested.reads == nestedBase.reads && nested.connected == nestedBase.connected, "reentrant shutdown preserves existing calls and final connection state");
+        Check(!nested.trace!.Footer.Complete && nested.trace.Footer.Reason is "nested-invocation" or "nested-call", "unsupported nested shutdown marked incomplete");
+        Refused(nested.trace, "nested incomplete trace cannot replay");
+        var orphan = new CommandProvenanceCapture(() => 1); orphan.Emit("state", "shutdown-ended", result: true);
+        Check(!orphan.Finish().Footer.Complete, "producer cannot emit one-event false completion");
+        ForceControllerChecks.Create(); var idleCapture = new CommandProvenanceCapture(() => 1); var idle = new ForceController(new Device(), idleCapture);
+        idle.Shutdown(); idle.Shutdown(); var idleDoc = idleCapture.Finish(); CommandCaptureAudit.Validate(idleDoc);
+        Check(idleDoc.Footer.Complete, "genuine idle and idempotent shutdown lifecycle accepted");
+        Console.WriteLine("  successor production-linked adversarial assertions: " + assertions);
     }
 }
