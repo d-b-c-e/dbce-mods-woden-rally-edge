@@ -117,11 +117,15 @@ internal static class FfbRegressionChecks
             if (sample.ForceGate != "active") check(value == 0, "gated controller retained output");
             check(sample.Get("ffb.sent") == value && sample.Get("ffb.tuning.strengthPercent") == strength,
                 "recording channels differ from observed production output/options");
+            // Output-cap occupancy tolerance is 1e-6, inclusive at the boundary.
             if (Math.Abs(value) >= .25 - .000001) capFrames++;
             // This is demand exceedance, NOT proof of internal hard clipping: shaping is nonlinear.
             if (Math.Abs((controller.Last.Alignment + controller.Last.Damping) * strength / 100) > .25) demandAbove++;
+            // Strict activity threshold; lastSign persists across zero/below-threshold
+            // intervals, so this counts successive active signs, not adjacent crossings.
             if (Math.Abs(value) > .0015) { nonzero++; int nextSign = Math.Sign(value); if (lastSign != 0 && lastSign != nextSign) changes++; lastSign = nextSign; }
             square += value * (double)value; impulse += Math.Abs(value) * Dt;
+            // In-envelope zeros included; the later shutdown zero is outside this metric.
             slew = Math.Max(slew, Math.Abs(value - previous) / Dt); previous = value; commands.Add(value);
         }
         int writes = device.Writes, zerosBefore = device.Zeros, calls = device.Calls.Count;
@@ -152,13 +156,49 @@ internal static class FfbRegressionChecks
     }
     internal static void Run(Action<bool, string> check)
         => Compare(Generate(check), Path.Combine(AppContext.BaseDirectory, "Fixtures/ffb-reference-v1.json"), check);
-    internal static int Write(string path, string? baseline)
+    internal static int Write(string path, string? baseline, Action? generationStarted = null)
     {
         if (File.Exists(path)) throw new IOException("Preserve existing regression artifact; choose a new path");
-        int checks = 0; void Check(bool b, string why) { checks++; if (!b) throw new Exception(why); }
+        int checks = 0;
+        void Check(bool b, string why) {
+            // Test-only rendezvous inside generation, after the advisory existence check.
+            if (checks == 0) generationStarted?.Invoke();
+            checks++; if (!b) throw new Exception(why);
+        }
         var result = Generate(Check); if (baseline != null) Compare(result, baseline, Check);
-        File.WriteAllText(path, JsonSerializer.Serialize(result, Json) + "\n");
+        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(result, Json) + "\n");
+        // The initial check is only an early diagnostic. CreateNew atomically refuses
+        // an artifact another writer created while this summary was being generated.
+        using (var output = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            output.Write(bytes);
         Console.WriteLine($"PASS FFB reference: {checks} checks, {result.Rows.Length} summaries; production code, fake device only.");
         return 0;
+    }
+    internal static void ConcurrentCreation(Action<bool, string> check)
+    {
+        string directory = Path.Combine(AppContext.BaseDirectory, "race-fixtures", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        string path = Path.Combine(directory, "concurrent-summary.json");
+        byte[] original = { 0, 255, 13, 10, 128, 42, 0, 65 };
+        using var generating = new ManualResetEventSlim();
+        using var continueGeneration = new ManualResetEventSlim();
+        var writer = Task.Run(() => {
+            try {
+                Write(path, null, () => {
+                    generating.Set();
+                    if (!continueGeneration.Wait(5000)) throw new TimeoutException("Concurrent creation rendezvous timed out");
+                });
+                return false;
+            } catch (IOException) { return true; }
+        });
+        try {
+            check(generating.Wait(5000), "writer did not enter generation");
+            using (var creator = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                creator.Write(original);
+        } finally { continueGeneration.Set(); }
+        check(writer.Wait(5000) && writer.Result, "summary writer did not refuse concurrent artifact creation");
+        check(File.ReadAllBytes(path).SequenceEqual(original), "concurrent creator's exact binary bytes were overwritten");
+        check(Hash(File.ReadAllBytes(path)) == Hash(original), "concurrent creator's artifact hash changed");
+        Console.WriteLine("PASS concurrent summary creation: atomic refusal; exact existing bytes/hash preserved.");
     }
 }

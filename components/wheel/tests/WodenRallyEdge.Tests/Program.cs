@@ -461,5 +461,6 @@ Test("strict follow/override output selection and camera release/repeat gates", 
 Test("atomic telemetry reconfiguration preserves capture and independent Stop", () => WodenRallyEdge.UxChecks.NetworkCapture(Check));
 Test("actual controller drains producers, serializes shutdown and requires explicit restart", () => WodenRallyEdge.LifecycleChecks.Run(Check, t => Contact(t)));
 Test("versioned production FFB reference envelopes, cadence and terminal zero", () => WodenRallyEdge.FfbRegressionChecks.Run(Check));
+Test("concurrent summary creation preserves the other creator's exact bytes", () => WodenRallyEdge.FfbRegressionChecks.ConcurrentCreation(Check));
 Console.WriteLine($"{passed} suites passed; {failed} failed; {checks} assertions.");
 return failed == 0 ? 0 : 1;
