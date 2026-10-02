@@ -4,6 +4,13 @@
   "canonicalSource": "95d1ff7ce57eb816a5f6b662b80923a3bec9e2ca",
   "excludedCadenceAdapterSource": "11f780a55c15c91aa7403c80de3352f68446fbfb",
   "excludedSharedSidecarSource": "84a106a93c1367cd220b26bde59184b613cc7520",
+  "branchCoverage": {
+    "cadenceAdapterIsAncestorOfCanonical": false,
+    "canonicalPreparationBranches": "95d1ff7ce57eb816a5f6b662b80923a3bec9e2ca",
+    "separateCadencePreparationAndResetCoverage": "11f780a55c15c91aa7403c80de3352f68446fbfb",
+    "sharedArithmeticOnly": "84a106a93c1367cd220b26bde59184b613cc7520",
+    "coverageMustNotBeMergedOrRelabeled": true
+  },
   "currentCapabilities": {
     "structuralPreviewReprocessing": "available-with-existing-case-identity-and-completeness-gates",
     "cadenceCommandReplay": "unavailable-missing-exact-clock-reset-and-call-events",
@@ -13,6 +20,19 @@
     "collision": "unavailable"
   },
   "proposedObservationSchema": "dbce.woden.cadence-command-observation@1",
+  "deviceAndErrorPrivacy": {
+    "deviceToken": "session-local d1..d4096 or null; assigned within one observation; never derived from persistent device identity",
+    "tokenUse": "same session token for selected/opened/read-checked/output-call target; different token records target change; no cross-session correlation",
+    "tokenMappingPersisted": false,
+    "persistentGuidOrDeviceNameAllowed": false,
+    "privatePathsOrRawErrorTextAllowed": false,
+    "errorCodeSet": [
+      "none", "steering-unbound", "explicit-target-missing", "target-not-present", "target-ambiguous",
+      "target-virtual", "target-no-ffb", "window-not-ready", "open-returned-false", "open-exception",
+      "reader-not-ready", "reacquire-write-failed", "reader-close-exception", "refresh-exception", "operation-exception", "unknown"
+    ],
+    "unmappedFailure": "unknown, without raw exception/device name/path; token capacity overflow makes observation incomplete"
+  },
   "minimumHeader": {
     "identity": [
       "observationId",
@@ -43,7 +63,8 @@
     "everyEvent": [
       "strictly increasing observationSequence; source row sequence nullable for out-of-band events",
       "kind and operation/parent correlation identity",
-      "settings revision; model epoch and separate cadence epoch"
+      "settings revision; model epoch and separate cadence epoch",
+      "session-local selected/opened/operation device token where applicable; bounded error code only"
     ],
     "process": [
       "exact structural input binary32 bits",
@@ -58,16 +79,27 @@
       "nonfinite/duplicate/rewound/stale clock rejection followed by caller zero/reset actions",
       "gated row must not invent a clock read or adapter invocation that did not occur"
     ],
+    "preparationDecision": [
+      "ordered prepare invocation and terminal-stop/diagnostic-suppression/saved-off/fault/focus/stock-owner/device-hub-present guard outcomes; evaluated/not-evaluated mask preserves short-circuit order; skipped branch is not an observed false call",
+      "target selection mode follow-steering | explicit; steering-bound flag; resolver result ready/unready and bounded reason; selected session-local token or null",
+      "opened token before decision and selected-token-change decision; actual release/zero/close order for old target",
+      "IsReading invocation target token and actual true/false/exception outcome on already-open branch; no invocation on unopened branch",
+      "CanOpen actual true/false/exception outcome on unopened branch; false waits without Open/reconnect fault; not invoked on connected recovery branch",
+      "CloseReaders and Refresh ordered invocation/result/exception, including pre-Open and finally paths; no invented enumeration details",
+      "Open invocation token and actual returned-true/returned-false/exception outcome; fault/native/suspended/remembered-open-target-token state before/after; remembered token alone does not prove successful connection",
+      "Open false latches fault until explicit retry; Open exception retains actual zero/close/finally-refresh events and exception propagation",
+      "IsReading false causes model reset and zero Write; failed zero Write records disarm/close and fault outcome; IsReading true returns with no recovery Write"
+    ],
     "outputCall": [
       "attempted command binary32 bits distinct from accepted Sent; unavailable is not zero",
-      "ordered Write | ZeroAndStop | Panic | Close including initialization/reacquire/out-of-band calls",
-      "result: returned-true | returned-false | not-applicable | exception; associated error if observed",
+      "ordered Open | Write | ZeroAndStop | Panic | Close with session-local target token, including initialization/reacquire/out-of-band calls",
+      "result: returned-true | returned-false | not-applicable | exception; bounded error code, never raw error/device/path text",
       "managed submission boundary clock if observed; never substitute sample timestamp",
       "exact nominal integer if actually observed at native boundary, otherwise unavailable"
     ]
   },
   "replayAndAuditRules": [
-    "Missing required identity/clock/settings/reset/gate/call fields or partial events makes command replay unavailable",
+    "Missing required identity/clock/settings/reset/gate/preparation-decision/call fields or partial events makes command replay unavailable",
     "Reuse exact production adapter/shared arithmetic in a separate pure fake-device replay fixture; do not copy formulas",
     "Supply recorded clock bits in original order, including invalid clock values; invoke original resets/settings transitions",
     "Compare computed command, attempted command, acceptance result and accepted Sent as distinct values",
@@ -83,6 +115,10 @@
     "duplicate/rewound/stale/nonfinite adapter clocks with explicit guarded zero",
     "valid model plus conditioning-invalid gate distinct from model-invalid",
     "failed write retains attempted nonzero command and zero accepted Sent",
+    "CanOpen false waits without Open; true permits ordered CloseReaders/Open/finally-Refresh",
+    "target resolution unready, same target and target change use session-local tokens and correct release order",
+    "Open returned-false latches fault; Open exception records cleanup/finally outcomes; explicit retry and restart distinct",
+    "connected IsReading true has no recovery Write; false zero Write succeeds or disarms on failure",
     "prepare/reacquire zero, panic, terminal stop and zero-before-close outside car sampling",
     "missing clock/reset/call event, dropped event and identity mismatch unavailable",
     "atomic output ownership and immutable original source/reference identity"
