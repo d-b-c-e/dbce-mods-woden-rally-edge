@@ -6,8 +6,8 @@ using Dbce.Wheel.Telemetry;
 using Dbce.Wheel.Recording;
 using WodenRallyEdge.Core;
 
-if (args.Length >= 2 && args[0] == "--ffb-summary")
-    return WodenRallyEdge.FfbRegressionChecks.Write(args[1], args.Length > 2 ? args[2] : null);
+if (args.Length > 0 && args[0] == "--ffb-summary")
+    return WodenRallyEdge.FfbSummaryCommand.Run(args, Console.Error);
 int passed = 0, failed = 0, checks = 0;
 void Check(bool value, string message) { checks++; if (!value) throw new Exception(message); }
 void Near(double actual, double expected, string name, double tolerance = .0001) => Check(Math.Abs(actual - expected) < tolerance, $"{name}: {actual} != {expected}");
@@ -463,5 +463,6 @@ Test("actual controller drains producers, serializes shutdown and requires expli
 Test("versioned production FFB reference envelopes, cadence and terminal zero", () => WodenRallyEdge.FfbRegressionChecks.Run(Check));
 Test("concurrent summary creation preserves the other creator's exact bytes", () => WodenRallyEdge.FfbRegressionChecks.ConcurrentCreation(Check));
 Test("bounded canonical command capture uses actual controller and pure fake replay", () => WodenRallyEdge.CommandCaptureChecks.Run(Check, t => Contact(t)));
+Test("summary CLI bounds ordinary failures and malformed requests without running fixtures", () => WodenRallyEdge.FfbSummaryCommandChecks.Run(Check));
 Console.WriteLine($"{passed} suites passed; {failed} failed; {checks} assertions.");
 return failed == 0 ? 0 : 1;
