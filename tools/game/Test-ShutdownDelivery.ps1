@@ -19,6 +19,11 @@ function Negative($name,[scriptblock]$mutate){
  $refused=$false;$reason='';try{$extracted=Expand-WodenDeliveryZip $zip (Join-Path $OutputDirectory ('extracted-'+$name));$null=Assert-WodenDelivery $extracted}catch{$refused=$true;$reason=$_.Exception.Message}
  Check $refused ('Accepted negative ZIP '+$name);$script:cases += [ordered]@{name=$name;refused=$refused;reason=$reason;zipSha256=(Get-FileHash $zip).Hash.ToLowerInvariant()}
 }
+Negative 'private-game-asset' {param($r,$d)'private fixture bytes'|Set-Content (Join-Path $r 'GameAssembly.dll')}
+Negative 'held-native-recatalogued' {param($r,$d)$p=Join-Path $r 'native-build-provenance.json';$n=Get-Content $p -Raw|ConvertFrom-Json;$n.sourceCommit='dd45f4f1f8cc67ae225cc7fdac296c28f93fa295';WriteJson $p $n}
+Negative 'native-header-pin' {param($r,$d)$p=Join-Path $r 'native-build-provenance.json';$n=Get-Content $p -Raw|ConvertFrom-Json;($n.sources|Where-Object path -like '*wheelffb.h').checkoutSha256=('0'*64);WriteJson $p $n}
+Negative 'native-hat-export-missing' {param($r,$d)$p=Join-Path $r 'native-build-provenance.json';$n=Get-Content $p -Raw|ConvertFrom-Json;($n.artifacts|Where-Object machine -eq '8664').exports=@(($n.artifacts|Where-Object machine -eq '8664').exports|Where-Object {$_ -ne 'GetInputCapabilities'});WriteJson $p $n}
+Negative 'native-catalog-private-path' {param($r,$d)$p=Join-Path $r 'native-build-provenance.json';$n=Get-Content $p -Raw|ConvertFrom-Json;$n.compilerToolchain='C:/Users/owner/private';WriteJson $p $n}
 Negative 'unknown-field' {param($r,$d)$d|Add-Member -NotePropertyName unexpected -NotePropertyValue $true}
 Negative 'wrong-boolean' {param($r,$d)$d.features[0].implemented='true'}
 Negative 'unsupported-schema' {param($r,$d)$d.schemaVersion=2}
@@ -32,7 +37,7 @@ Negative 'tree-mismatch' {param($r,$d)$d.provenance.sources[0].tree=('0'*40)}
 Negative 'packaging-commit-mismatch' {param($r,$d)$d.provenance.sources[2].commit=('0'*40)}
 Negative 'fresh-runtime-claim' {param($r,$d)($d.provenance.artifacts|Where-Object sourceRoles -contains 'runtime')[0].origin='retained-binary'}
 Negative 'invented-dry-run' {param($r,$d)$d.setup.operations.check.support='automated';$d.setup.operations.check.entrypoint='Install.bat';$d.setup.operations.check.arguments=@('-DryRun')}
-Negative 'rename-claim' {param($r,$d)$d.repository.mappingStatus='verified'}
+Negative 'rename-claim' {param($r,$d)$d.repository.mappingStatus='proposed'}
 Negative 'copied-art-id' {param($r,$d)$d.packageId='dbce-mods-art-of-rally'}
 Negative 'unknown-private-path' {param($r,$d)$d.extensions.'dbce.woden'|Add-Member -NotePropertyName ownerPath -NotePropertyValue 'C:/Users/owner/private-capture'}
 Negative 'recording-released-claim' {param($r,$d)($d.provenance.dependencies|Where-Object dependencyId -eq 'recording-extension').status='released'}
@@ -62,4 +67,5 @@ Check (-not (Test-Path (Join-Path $OutputDirectory 'outside.txt'))) 'ZIP travers
 $null=Assert-WodenDelivery $base;Check $true 'Original ZIP extracted package still valid'
 [ordered]@{checks=$script:checks;mutationCases=$script:cases;originalArchiveSha256=(Get-FileHash $Archive).Hash.ToLowerInvariant();extractedOriginal=$base;gameDevicesOrInstall=$false}|ConvertTo-Json -Depth 10|Set-Content (Join-Path $OutputDirectory 'result.json') -Encoding utf8
 Write-Host "PASS $script:checks real-ZIP delivery checks; no game, devices or target install. Original extraction: $base"
+
 

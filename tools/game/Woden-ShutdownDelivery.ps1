@@ -34,9 +34,9 @@ function Assert-WodenDelivery {
  foreach($a in $d.provenance.artifacts){if($a.sha256 -cne $hashes[$a.path]){throw 'Artifact integrity conflict'}}
  foreach($dep in $d.provenance.dependencies){foreach($f in $dep.files){if($f.path -notin $expected -or $f.sha256 -cne $hashes[$f.path]){throw 'Dependency integrity conflict'}}}
  if($d.packageId -cne 'dbce-mods-super-woden-rally-edge' -or $d.gameId -cne 'super-woden-rally-edge' -or $d.version -cne '0.2.14-shutdown.1' -or $d.channel -ne 'candidate' -or $d.platform.architecture -ne 'x64' -or $d.integrity.format -cne 'dbce.woden-package.sha256-array.v1' -or $d.integrity.manifestPath -cne 'manifest.json'){throw 'Delivery identity conflict'}
- if($d.repository.canonicalUrl -cne 'https://github.com/d-b-c-e/dbce-mods-woden-rally-edge' -or $d.repository.visibility -ne 'private' -or $d.repository.mappingStatus -ne 'proposed' -or ($d.repository.previousUrls -join '|') -cne 'https://github.com/d-b-c-e/woden-rally-edge-wheel'){throw 'Repository mapping conflict'}
+ if($d.repository.canonicalUrl -cne 'https://github.com/d-b-c-e/dbce-mods-woden-rally-edge' -or $d.repository.visibility -ne 'private' -or $d.repository.mappingStatus -ne 'verified' -or ($d.repository.previousUrls -join '|') -cne 'https://github.com/d-b-c-e/woden-rally-edge-wheel'){throw 'Repository mapping conflict'}
  $x=$d.extensions.'dbce.woden';$mapping=$x.packageRepositoryMapping
- if($mapping.packageId -ne $d.packageId -or $mapping.repositoryName -ne 'dbce-mods-woden-rally-edge' -or $mapping.status -ne 'approved-name-not-renamed' -or $x.contractVersion -ne '1.0.0'){throw 'Explicit package/repository mapping lost'}
+ if($mapping.packageId -ne $d.packageId -or $mapping.repositoryName -ne 'dbce-mods-woden-rally-edge' -or $mapping.status -ne 'verified-existing-repository-rename' -or $x.contractVersion -ne '1.0.0'){throw 'Explicit package/repository mapping lost'}
  $engine=@{gameInputReplay='unsupported';devicePlayback='unsupported';offlineAnalysis='source-only';triplePresentation='unavailable';cadenceImpactAdoption='not-adopted'}
  Same @($x.engineOperations.PSObject.Properties.Name) @($engine.Keys) 'Engine operation shape conflict'
  foreach($key in $engine.Keys){if($x.engineOperations.$key -cne $engine[$key]){throw 'Unsupported engine operation claim'}}
@@ -88,4 +88,5 @@ function Assert-WodenDelivery {
  if($hashes['native-build-provenance.json'] -cne 'd009990183df3062613468f9f4d64760049c0acc7a9b858aad4bc689e28965cd'){throw 'Native source/header/build catalog changed'}
  return $d
 }
+
 
