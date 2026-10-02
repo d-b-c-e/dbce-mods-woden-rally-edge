@@ -15,7 +15,7 @@ namespace WodenRallyEdge;
 public sealed class Plugin : BasePlugin
 {
     public const string Id = "dbce.wodenrallyedgewheel";
-    public const string Version = "0.2.13";
+    public const string Version = "0.2.14";
     public const string SupportedGameHash = "f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c";
     private Harmony? _harmony;
     public override void Load()
@@ -48,13 +48,14 @@ public sealed class Lifecycle : MonoBehaviour
     public Lifecycle(IntPtr pointer) : base(pointer) { }
     private void Awake() => DontDestroyOnLoad(gameObject);
     private void Update() => Runtime.Update();
-    private void OnGUI() => Panel.Draw();
+    private void OnGUI() { using var lease = Runtime.Activity.TryEnter(); if (lease != null) Panel.Draw(); }
     private void OnApplicationQuit() => Runtime.Stop();
     private void OnDestroy() => Runtime.Stop();
 }
 
 internal static class Runtime
 {
+    internal static readonly RuntimeActivityGate Activity = new();
     internal static ManualLogSource Log = null!;
     internal static Settings Settings = null!;
     internal static readonly Stopwatch Clock = Stopwatch.StartNew();
@@ -82,6 +83,7 @@ internal static class Runtime
 
     internal static void Start(string directory)
     {
+        Force.BeginRuntime();
         _stopped = false;
         _provenance = File.ReadAllText(Path.Combine(directory, "recording-provenance.json"));
         string requestPath = Path.Combine(Paths.ConfigPath, "woden-record-next-launch.json");
@@ -93,6 +95,7 @@ internal static class Runtime
         Wheel = new(Path.Combine(Paths.ConfigPath, "wheel-bindings.json"));
         try { Devices = new(directory); }
         catch (Exception ex) { Log.LogError("Wheel route unavailable; telemetry remains enabled: " + ex.Message); }
+        Activity.BeginRuntime(); // Publish callback availability only after initialization.
     }
     internal static void ApplyOutputs()
     {
@@ -164,6 +167,7 @@ internal static class Runtime
     internal static bool CameraAvailable(MainCar car) => ControlState(car).CameraAvailable;
     internal static void Update()
     {
+        using var lease = Activity.TryEnter(); if (lease == null) return;
         if (_stopped) return;
         double now = Clock.Elapsed.TotalSeconds;
         TimingDiagnostics.Frame(now);
@@ -199,6 +203,10 @@ internal static class Runtime
     {
         if (_stopped) return;
         _stopped = true;
+        Activity.StopAndDrain(FinishStop);
+    }
+    private static void FinishStop()
+    {
         Force.Shutdown();
         Panel.Close(false);
         Wheel?.Cancel();
@@ -216,6 +224,7 @@ internal static class CarHook
     private static void Prefix(out double __state) { Runtime.HookCalls++; __state = Runtime.Clock.Elapsed.TotalMilliseconds; }
     private static void Postfix(MainCar __instance, double __state)
     {
+        using var lease = Runtime.Activity.TryEnter(); if (lease == null) return;
         try
         {
             if (!Runtime.Select(__instance)) return;
@@ -241,6 +250,7 @@ internal static class ControlsHook
     private static void Prefix(Controls __instance, out InputLease? __state)
     {
         __state = null;
+        using var lease = Runtime.Activity.TryEnter(); if (lease == null) return;
         try { __state = Runtime.Wheel?.Apply(__instance); }
         catch (Exception ex) { Runtime.Force.Suspend("Input failed"); Runtime.Log.LogError("Wheel action override: " + ex.Message); }
     }

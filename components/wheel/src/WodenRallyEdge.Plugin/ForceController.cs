@@ -18,6 +18,9 @@ internal sealed class ForceController
 {
     private readonly ForceSignal _signal = new();
     private readonly IForceDevice _device;
+    private readonly object _lifecycleLock = new();
+    private int _stopRequested;
+    internal bool StopRequested => System.Threading.Volatile.Read(ref _stopRequested) != 0;
     private bool _native, _suspended = true, _faulted;
     private Guid _openedGuid;
     internal bool Armed => Runtime.Settings.FfbEnabled && !_faulted && !Runtime.DiagnosticNoForce;
@@ -34,6 +37,10 @@ internal sealed class ForceController
 
     internal void SetEnabled(bool enabled)
     {
+        lock (_lifecycleLock) { if (!StopRequested) SetEnabledCore(enabled); }
+    }
+    private void SetEnabledCore(bool enabled)
+    {
         Runtime.Settings.FfbEnabled = enabled;
         _faulted = false;
         if (!enabled) Release("FFB off");
@@ -42,13 +49,25 @@ internal sealed class ForceController
     }
     internal void Disarm(string reason = "FFB unavailable")
     {
+        lock (_lifecycleLock) { if (!StopRequested) DisarmCore(reason); }
+    }
+    private void DisarmCore(string reason)
+    {
         Release(reason); _faulted = true;
     }
     internal void Reconnect(string reason)
     {
+        lock (_lifecycleLock) { if (!StopRequested) ReconnectCore(reason); }
+    }
+    private void ReconnectCore(string reason)
+    {
         Release(reason); _faulted = false;
     }
     internal void Panic()
+    {
+        lock (_lifecycleLock) { if (!StopRequested) PanicCore(); }
+    }
+    private void PanicCore()
     {
         // F8 is the same persistent Off preference; only an explicit On resumes.
         if (_native) _device.Panic();
@@ -62,6 +81,10 @@ internal sealed class ForceController
     }
     internal void Suspend(string reason)
     {
+        lock (_lifecycleLock) { if (!StopRequested) SuspendCore(reason); }
+    }
+    private void SuspendCore(string reason)
+    {
         if (!Runtime.Settings.FfbEnabled) Status = "FFB off";
         else if (!_faulted) Status = reason;
         Sent = 0; LastAccepted = null;
@@ -73,6 +96,10 @@ internal sealed class ForceController
         // sample before the first real force write could be sent.
     }
     internal void Prepare()
+    {
+        lock (_lifecycleLock) { if (!StopRequested) PrepareCore(); }
+    }
+    private void PrepareCore()
     {
         if (Runtime.DiagnosticNoForce) { if (_native) Release("Diagnostic launch: force disabled"); Status = "Diagnostic launch: force disabled"; return; }
         if (!Runtime.Settings.FfbEnabled) { if (_native) Release("FFB off"); Status = "FFB off"; return; }
@@ -109,6 +136,10 @@ internal sealed class ForceController
         else Status = "Ready — feedback starts while driving";
     }
     internal void Tick(TelemetrySample sample)
+    {
+        lock (_lifecycleLock) { if (!StopRequested) TickCore(sample); }
+    }
+    private void TickCore(TelemetrySample sample)
     {
         long resetBefore = _signal.ResetCount;
         Last = _signal.Evaluate(sample, Runtime.Settings.ForceOptions);
@@ -156,10 +187,32 @@ internal sealed class ForceController
         sample.Add("ffb.connected", Connected ? 1 : 0); sample.Add("ffb.connectionAttempts", Opens); sample.Add("ffb.lastConnectionMs", OpenMilliseconds);
         if (LastAccepted.HasValue) sample.Add("ffb.accepted", LastAccepted.Value ? 1 : 0);
     }
+    internal void BeginRuntime()
+    {
+        lock (_lifecycleLock)
+        {
+            if (_native) throw new InvalidOperationException("Close the prior runtime before restarting");
+            System.Threading.Volatile.Write(ref _stopRequested, 0);
+            _faulted = false; _suspended = true; _signal.Reset(); Sent = 0;
+        }
+    }
     internal void Shutdown()
     {
+        // Publish stop before waiting for the producer lock, then drain entered calls.
+        System.Threading.Interlocked.Exchange(ref _stopRequested, 1);
+        lock (_lifecycleLock) { ShutdownCore(); }
+    }
+    private void ShutdownCore()
+    {
         Sent = 0;
-        if (_native) { _device.ZeroAndStop(); _device.Close(); _native = false; }
-        _signal.Reset(); _suspended = true; Status = "Stopped";
+        string? error = null;
+        if (_native)
+        {
+            try { _device.ZeroAndStop(); } catch (Exception ex) { error = ex.Message; }
+            try { _device.Close(); _native = false; } catch (Exception ex) { error = ex.Message; }
+        }
+        _signal.Reset(); _suspended = true;
+        if (error != null) { _faulted = true; Status = "Shutdown failed: " + error; }
+        else Status = "Stopped";
     }
 }

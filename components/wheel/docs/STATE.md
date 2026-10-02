@@ -280,3 +280,7 @@ Previous plugin, configuration and crash logs were backed up under `BepInEx/Wode
 5. Bonnet/bumper position, clipping, restoration, native switching and camera-takeover FFB stop, including split-screen. H-pattern, analog handbrake, stock menu navigation, FOV/per-car views remain future work.
 
 Toolkit v0.12.0 is still pinned, native component v0.5.0. Recording is a separately pinned unpublished extension, not part of that release. No public release or change to sibling repositories has been made.
+
+## Isolated shutdown successor candidate (2026-10-02)
+
+Source candidate 0.2.14, based on canonical main 4e9d2c4, adds callback draining and serialized terminal force shutdown with explicit restart. Offline validation: 38 suites / 994 assertions, UI 556, triple geometry 22, normalized force envelope 10836; zero failures. No game, devices, displays or installed files changed. Corrected shared native a51bed9 preserves HAT39 and separately fixes low-demand restart and atomic watchdog readiness; held dd45f4f is excluded. Metadata-only package preparation remains gated on independent native and consumer reviews, delivery integrity/provenance updates and final installer/rollback tests. This entry does not supersede historical runtime evidence or claim rig verification.
