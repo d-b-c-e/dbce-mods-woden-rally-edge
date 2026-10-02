@@ -23,7 +23,8 @@ internal sealed class TestSettings
     internal bool CountdownAssistEnabled;
     internal float CountdownSpeed = 75;
     internal string FfbGuid = Guid.NewGuid().ToString();
-    internal ForceOptions ForceOptions => new();
+    internal ForceOptions Options = new();
+    internal ForceOptions ForceOptions => Options;
     internal int Saves;
     internal void Save() => Saves++;
 }

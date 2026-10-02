@@ -6,6 +6,8 @@ using Dbce.Wheel.Telemetry;
 using Dbce.Wheel.Recording;
 using WodenRallyEdge.Core;
 
+if (args.Length >= 2 && args[0] == "--ffb-summary")
+    return WodenRallyEdge.FfbRegressionChecks.Write(args[1], args.Length > 2 ? args[2] : null);
 int passed = 0, failed = 0, checks = 0;
 void Check(bool value, string message) { checks++; if (!value) throw new Exception(message); }
 void Near(double actual, double expected, string name, double tolerance = .0001) => Check(Math.Abs(actual - expected) < tolerance, $"{name}: {actual} != {expected}");
@@ -458,5 +460,6 @@ Test("UX view migration, scoped camera defaults, additive bindings and inversion
 Test("strict follow/override output selection and camera release/repeat gates", () => WodenRallyEdge.UxChecks.SelectionAndRepeat(Check));
 Test("atomic telemetry reconfiguration preserves capture and independent Stop", () => WodenRallyEdge.UxChecks.NetworkCapture(Check));
 Test("actual controller drains producers, serializes shutdown and requires explicit restart", () => WodenRallyEdge.LifecycleChecks.Run(Check, t => Contact(t)));
+Test("versioned production FFB reference envelopes, cadence and terminal zero", () => WodenRallyEdge.FfbRegressionChecks.Run(Check));
 Console.WriteLine($"{passed} suites passed; {failed} failed; {checks} assertions.");
 return failed == 0 ? 0 : 1;
