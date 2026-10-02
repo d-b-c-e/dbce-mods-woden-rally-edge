@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><LangVersion>latest</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs;FixtureTypes.cs" />
+    <Compile Include="../../../components/wheel/src/WodenRallyEdge.Core/*.cs" Link="Core/%(Filename)%(Extension)" />
+    <Compile Include="../../../components/wheel/src/WodenRallyEdge.Plugin/ForceController.cs;../../../components/wheel/src/WodenRallyEdge.Plugin/CommandProvenanceCapture.cs;../../../components/wheel/src/WodenRallyEdge.Plugin/RuntimeActivityGate.cs" />
+    <Compile Include="../../../components/wheel/tests/WodenRallyEdge.Tests/ForceControllerFixtures.cs;../../../components/wheel/tests/WodenRallyEdge.Tests/LifecycleChecks.cs;../../../components/wheel/tests/WodenRallyEdge.Tests/CommandCaptureChecks.cs;../../../components/wheel/tests/WodenRallyEdge.Tests/FfbRegressionChecks.cs;../../../components/wheel/tests/WodenRallyEdge.Tests/FfbSummaryCommand.cs;../../../components/wheel/tests/WodenRallyEdge.Tests/FfbSummaryCommandChecks.cs" />
+    <None Include="../../../components/wheel/tests/WodenRallyEdge.Tests/Fixtures/ffb-reference-v1.json" Link="Fixtures/ffb-reference-v1.json" CopyToOutputDirectory="PreserveNewest" />
+    <Reference Include="Dbce.Wheel.Ffb" HintPath="../../../components/wheel/lib/toolkit/dotnet/Dbce.Wheel.Ffb.dll" />
+    <Reference Include="Dbce.Wheel.Telemetry" HintPath="../../../components/wheel/lib/toolkit/dotnet/Dbce.Wheel.Telemetry.dll" />
+    <Reference Include="Dbce.Wheel.Recording" HintPath="../../../components/wheel/lib/recording/Dbce.Wheel.Recording.dll" />
+  </ItemGroup>
+</Project>
