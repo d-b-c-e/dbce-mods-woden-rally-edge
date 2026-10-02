@@ -462,5 +462,6 @@ Test("atomic telemetry reconfiguration preserves capture and independent Stop", 
 Test("actual controller drains producers, serializes shutdown and requires explicit restart", () => WodenRallyEdge.LifecycleChecks.Run(Check, t => Contact(t)));
 Test("versioned production FFB reference envelopes, cadence and terminal zero", () => WodenRallyEdge.FfbRegressionChecks.Run(Check));
 Test("concurrent summary creation preserves the other creator's exact bytes", () => WodenRallyEdge.FfbRegressionChecks.ConcurrentCreation(Check));
+Test("bounded canonical command capture uses actual controller and pure fake replay", () => WodenRallyEdge.CommandCaptureChecks.Run(Check, t => Contact(t)));
 Console.WriteLine($"{passed} suites passed; {failed} failed; {checks} assertions.");
 return failed == 0 ? 0 : 1;

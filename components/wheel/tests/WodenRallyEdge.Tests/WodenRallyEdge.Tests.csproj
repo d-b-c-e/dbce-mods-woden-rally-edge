@@ -3,6 +3,7 @@
   <ItemGroup>
     <None Update="Fixtures/ffb-reference-v1.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/RuntimeActivityGate.cs" Link="Consumer/RuntimeActivityGate.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/CommandProvenanceCapture.cs" Link="Consumer/CommandProvenanceCapture.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ForceController.cs" Link="Consumer/ForceController.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ToolkitForceDevice.cs" Link="Consumer/ToolkitForceDevice.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ToolkitForceApi.cs" Link="Consumer/ToolkitForceApi.cs" />

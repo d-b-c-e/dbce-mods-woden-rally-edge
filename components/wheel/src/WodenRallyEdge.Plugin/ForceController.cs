@@ -18,6 +18,7 @@ internal sealed class ForceController
 {
     private readonly ForceSignal _signal = new();
     private readonly IForceDevice _device;
+    private readonly CommandProvenanceCapture? _capture;
     private readonly object _lifecycleLock = new();
     private int _stopRequested;
     internal bool StopRequested => System.Threading.Volatile.Read(ref _stopRequested) != 0;
@@ -33,23 +34,39 @@ internal sealed class ForceController
     internal long Opens { get; private set; }
     internal double OpenMilliseconds { get; private set; }
     internal bool? LastAccepted { get; private set; }
-    internal ForceController(IForceDevice device) => _device = device;
+    internal ForceController(IForceDevice device, CommandProvenanceCapture? capture = null)
+    {
+        _capture = capture;
+        _device = capture == null ? device : new ProvenanceForceDevice(device, capture);
+    }
+    private bool ObserveGuard(string code, bool value) { _capture?.Emit("guard", code, result: value); return value; }
+    private void RefreshReaders(bool required = false)
+    {
+        if (_capture == null) { if (required) Runtime.Devices!.Refresh(); else Runtime.Devices?.Refresh(); }
+        else if (required || Runtime.Devices != null) _capture.Call("refresh", _capture.SelectedToken, () => Runtime.Devices!.Refresh());
+    }
+    private void ResetSignal()
+    {
+        long before = _signal.ResetCount;
+        _signal.Reset();
+        _capture?.Emit("reset", "explicit", before: before, after: _signal.ResetCount);
+    }
 
     internal void SetEnabled(bool enabled)
     {
-        lock (_lifecycleLock) { if (!StopRequested) SetEnabledCore(enabled); }
+        lock (_lifecycleLock) { _capture?.Emit(StopRequested ? "terminal-reject" : "invocation", "setenabled", result: enabled); if (!StopRequested) SetEnabledCore(enabled); }
     }
     private void SetEnabledCore(bool enabled)
     {
         Runtime.Settings.FfbEnabled = enabled;
         _faulted = false;
         if (!enabled) Release("FFB off");
-        else { _signal.Reset(); Status = "Ready — feedback starts while driving"; }
+        else { ResetSignal(); Status = "Ready — feedback starts while driving"; }
         Runtime.Settings.Save();
     }
     internal void Disarm(string reason = "FFB unavailable")
     {
-        lock (_lifecycleLock) { if (!StopRequested) DisarmCore(reason); }
+        lock (_lifecycleLock) { _capture?.Emit(StopRequested ? "terminal-reject" : "invocation", "disarm"); if (!StopRequested) DisarmCore(reason); }
     }
     private void DisarmCore(string reason)
     {
@@ -57,7 +74,7 @@ internal sealed class ForceController
     }
     internal void Reconnect(string reason)
     {
-        lock (_lifecycleLock) { if (!StopRequested) ReconnectCore(reason); }
+        lock (_lifecycleLock) { _capture?.Emit(StopRequested ? "terminal-reject" : "invocation", "reconnect"); if (!StopRequested) ReconnectCore(reason); }
     }
     private void ReconnectCore(string reason)
     {
@@ -65,7 +82,7 @@ internal sealed class ForceController
     }
     internal void Panic()
     {
-        lock (_lifecycleLock) { if (!StopRequested) PanicCore(); }
+        lock (_lifecycleLock) { _capture?.Emit(StopRequested ? "terminal-reject" : "invocation", "panic"); if (!StopRequested) PanicCore(); }
     }
     private void PanicCore()
     {
@@ -76,19 +93,19 @@ internal sealed class ForceController
     private void Release(string reason)
     {
         Suspend(reason);
-        if (_native) { _device.Close(); _native = false; Runtime.Devices?.Refresh(); }
+        if (_native) { _device.Close(); _native = false; RefreshReaders(); }
         Status = reason;
     }
     internal void Suspend(string reason)
     {
-        lock (_lifecycleLock) { if (!StopRequested) SuspendCore(reason); }
+        lock (_lifecycleLock) { _capture?.Emit(StopRequested ? "terminal-reject" : "invocation", "suspend"); if (!StopRequested) SuspendCore(reason); }
     }
     private void SuspendCore(string reason)
     {
         if (!Runtime.Settings.FfbEnabled) Status = "FFB off";
         else if (!_faulted) Status = reason;
         Sent = 0; LastAccepted = null;
-        _signal.Reset();
+        ResetSignal();
         if (_native && !_suspended) _device.ZeroAndStop();
         _suspended = true;
         // A pause, camera transition or bad contact is NOT a device disconnect.
@@ -97,25 +114,34 @@ internal sealed class ForceController
     }
     internal void Prepare()
     {
-        lock (_lifecycleLock) { if (!StopRequested) PrepareCore(); }
+        lock (_lifecycleLock) {
+            _capture?.Emit(StopRequested ? "terminal-reject" : "invocation", "prepare");
+            if (!StopRequested) {
+                try { PrepareCore(); }
+                finally { _capture?.Emit("state", "prepare-ended", result: _native); }
+            }
+        }
     }
     private void PrepareCore()
     {
-        if (Runtime.DiagnosticNoForce) { if (_native) Release("Diagnostic launch: force disabled"); Status = "Diagnostic launch: force disabled"; return; }
-        if (!Runtime.Settings.FfbEnabled) { if (_native) Release("FFB off"); Status = "FFB off"; return; }
-        if (_faulted || !Runtime.Focused || !StockWheelOwner.Ready || Runtime.Devices == null) return;
-        var selection = Runtime.Devices.ResolveForceTarget(Runtime.Settings.FfbFollowSteering, Runtime.Settings.FfbGuid, Runtime.Wheel?.Bindings.Steer?.DeviceGuid);
+        if (ObserveGuard("diagnostic", Runtime.DiagnosticNoForce)) { if (_native) Release("Diagnostic launch: force disabled"); Status = "Diagnostic launch: force disabled"; return; }
+        if (!ObserveGuard("enabled", Runtime.Settings.FfbEnabled)) { if (_native) Release("FFB off"); Status = "FFB off"; return; }
+        if (ObserveGuard("faulted", _faulted) || !ObserveGuard("focused", Runtime.Focused) || !ObserveGuard("stock-ready", StockWheelOwner.Ready) || !ObserveGuard("hub-present", Runtime.Devices != null)) return;
+        var selection = Runtime.Devices!.ResolveForceTarget(Runtime.Settings.FfbFollowSteering, Runtime.Settings.FfbGuid, Runtime.Wheel?.Bindings.Steer?.DeviceGuid);
+        _capture?.Selection(selection.Guid, _openedGuid, CommandProvenanceCapture.TargetCode(selection), selection.Ready);
         if (!selection.Ready) { if (_native) Release(selection.Reason); Status = selection.Reason; return; }
         var guid = selection.Guid!.Value;
-        if (_native && guid != _openedGuid) Release("Output device changed");
+        if (_native && guid != _openedGuid) { _capture?.Emit("target-change", "changed", _capture.SelectedToken, _capture.Token(_openedGuid)); Release("Output device changed"); }
         if (_native)
         {
             // A shared wheel reader cannot acquire the FFB handle itself. After
             // focus returns, use a zero write to let the toolkit recover access;
             // otherwise missing input would block every force write forever.
-            if (!Runtime.Devices.IsReading(guid))
+            bool reading = Runtime.Devices.IsReading(guid);
+            _capture?.Emit("reader", "is-reading", _capture.SelectedToken, result: reading);
+            if (!reading)
             {
-                _signal.Reset();
+                ResetSignal();
                 if (!_device.Write(0)) { Failures++; Disarm(_device.Error ?? "Wheel disconnected; Refresh to retry"); }
             }
             return;
@@ -126,23 +152,28 @@ internal sealed class ForceController
         // Open at zero from Update (including menus), never within car sampling.
         // The toolkit enforces exact GUID selection and virtual-device rejection.
         double start = Runtime.Clock.Elapsed.TotalMilliseconds;
-        Runtime.Devices.CloseReaders();
+        if (_capture == null) Runtime.Devices.CloseReaders();
+        else _capture.Call("reader-close", _capture.SelectedToken, Runtime.Devices.CloseReaders);
         bool ready = false;
         try { Opens++; ready = _device.Open(guid); _native = ready; }
         catch { _device.ZeroAndStop(); _device.Close(); _native = false; _faulted = true; throw; }
-        finally { Runtime.Devices.Refresh(); OpenMilliseconds = Runtime.Clock.Elapsed.TotalMilliseconds - start; }
-        _native = ready; _openedGuid = guid; _suspended = true; _signal.Reset();
+        finally { RefreshReaders(required: true); OpenMilliseconds = Runtime.Clock.Elapsed.TotalMilliseconds - start; }
+        _native = ready; _openedGuid = guid; _suspended = true; ResetSignal();
         if (!ready) { Failures++; _faulted = true; Status = _device.Error ?? "FFB open failed; choose On or Refresh to retry"; }
         else Status = "Ready — feedback starts while driving";
     }
     internal void Tick(TelemetrySample sample)
     {
-        lock (_lifecycleLock) { if (!StopRequested) TickCore(sample); }
+        lock (_lifecycleLock) { _capture?.Emit(StopRequested ? "terminal-reject" : "invocation", "tick"); if (!StopRequested) TickCore(sample); }
     }
     private void TickCore(TelemetrySample sample)
     {
         long resetBefore = _signal.ResetCount;
-        Last = _signal.Evaluate(sample, Runtime.Settings.ForceOptions);
+        var options = Runtime.Settings.ForceOptions;
+        _capture?.Options(options);
+        Last = _signal.Evaluate(sample, options);
+        _capture?.Emit("model", "evaluated", command: BitConverter.SingleToInt32Bits(Last.Preview), result: Last.Valid, before: resetBefore, after: _signal.ResetCount,
+            simulation: sample.SimulationSeconds, elapsed: sample.ElapsedSeconds);
         sample.Add("ffb.frontLoad", Last.FrontLoad); sample.Add("ffb.alignmentEstimate", Last.Alignment); sample.Add("ffb.dampingEstimate", Last.Damping);
         sample.Add("ffb.preview", Last.Preview);
         string gate = Runtime.DiagnosticNoForce ? "diagnostic-force-disabled" : !Runtime.Settings.FfbEnabled ? "saved-off" : _faulted ? "faulted" : Panel.Open ? "settings-open" :
@@ -155,6 +186,7 @@ internal sealed class ForceController
             !MountedCamera.PlayerOwned ? MountedCamera.Status :
             Runtime.Settings.WheelEnabled && !sample.Channels.ContainsKey("wheelInput.steer") ? "Wheel input unavailable" :
             !Last.Valid ? Last.Reason : !_native ? "Waiting for wheel connection" : null;
+        _capture?.Emit("gate", gate);
         if (blocked != null) { Suspend(blocked); Record(sample, gate, resetBefore); return; }
         _suspended = false;
         Attempts++;
@@ -171,6 +203,7 @@ internal sealed class ForceController
     }
     private void Record(TelemetrySample sample, string gate, long resetBefore)
     {
+        _capture?.Emit("gate", gate);
         sample.ForceStatus = Status;
         sample.ForceGate = gate;
         sample.ForceModelReason = Last.Reason;
@@ -191,16 +224,18 @@ internal sealed class ForceController
     {
         lock (_lifecycleLock)
         {
+            _capture?.Restart();
             if (_native) throw new InvalidOperationException("Close the prior runtime before restarting");
             System.Threading.Volatile.Write(ref _stopRequested, 0);
-            _faulted = false; _suspended = true; _signal.Reset(); Sent = 0;
+            _faulted = false; _suspended = true; ResetSignal(); Sent = 0;
         }
     }
     internal void Shutdown()
     {
         // Publish stop before waiting for the producer lock, then drain entered calls.
         System.Threading.Interlocked.Exchange(ref _stopRequested, 1);
-        lock (_lifecycleLock) { ShutdownCore(); }
+        _capture?.Emit("state", "terminal-stop-published");
+        lock (_lifecycleLock) { _capture?.Emit("invocation", "shutdown"); ShutdownCore(); _capture?.Emit("state", "shutdown-ended", result: !_native); }
     }
     private void ShutdownCore()
     {
@@ -211,7 +246,7 @@ internal sealed class ForceController
             try { _device.ZeroAndStop(); } catch (Exception ex) { error = ex.Message; }
             try { _device.Close(); _native = false; } catch (Exception ex) { error = ex.Message; }
         }
-        _signal.Reset(); _suspended = true;
+        ResetSignal(); _suspended = true;
         if (error != null) { _faulted = true; Status = "Shutdown failed: " + error; }
         else Status = "Stopped";
     }
