@@ -1,6 +1,10 @@
-# State — 2026-09-30
+# State — 2026-10-03
 
-## 0.2.12 — installed; first attended owner recording completed
+## Current installed build — 0.2.14; force calibration pending
+
+Read-only verification on October 3 found the game closed and the installer receipt at `0.2.14+e3d118e6d72e1e9847b73620e02e9f101fb22de3` (installer revision 3, receipt UTC `2026-10-03T03:47:36Z`). All nine files named in that receipt matched their installed SHA-256 values. The saved FFB setting is Off, with 49.583332% strength, 25% peak, 35 ms smoothing and 0.05 damping; no pending one-launch recording request exists. The [racing management Page](https://chatgpt.com/space/page_1c25da4f67dc8191b2c2739bcf9c11c0) records restoration of the stable 0.2.14-shutdown.1 installation after temporary 0.2.16–0.2.19 display trials. This checkout's source and the historical 0.2.12 capture below are separate from that later installed build. No stronger physical tune or cross-project rig calibration has been accepted. A further force test requires the owner attended, explicit saved FFB On and a serialized desktop lease; no force was enabled in this status check.
+
+## Historical 0.2.12 — first attended owner recording completed
 
 The installed build adds a bounded one-command owner capture and `signal-reprocess` adapter for the shared recorded-playback v1 contract. Each invoked request receives a safe case ID and GUID-correlated directory. Runtime metadata binds the request, supported game hash, plugin/runtime identity, attended/no-force mode, effective force config and capture profile. Samples record model validity/reason, reset epochs and output gates in order. After normal exit the command validates the source, requires at least 50 driving/model samples over one second, reruns actual `ForceSignal`, writes an exact case manifest and device-free baseline, and reports paths/hashes. It refuses dropped/incomplete/limited/contended/missing-channel/idle-only captures. This is not deterministic Unity replay or physical acceptance.
 
