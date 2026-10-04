@@ -1,4 +1,6 @@
+using System.Runtime.InteropServices;
 using BepInEx.Configuration;
+using Il2CppInterop.Runtime;
 using Unity.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -20,6 +22,8 @@ namespace WodenRallyEdge;
 /// </remarks>
 internal static class DevInput
 {
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void SetBool([MarshalAs(UnmanagedType.I1)] bool value);
+
     // KeyboardState: InputEvent header (20 bytes) + FourCC format (4) precede the key bitfield.
     private const int StateOffset = 24;
 
@@ -59,6 +63,14 @@ internal static class DevInput
                 }
             }
             catch (Exception ex) { Runtime.Log.LogWarning("Dev input: background behaviour: " + ex.Message); }
+            // Woden pauses when unfocused; unattended tests need it to keep running.
+            try
+            {
+                var address = IL2CPP.il2cpp_resolve_icall("UnityEngine.Application::set_runInBackground");
+                if (address != IntPtr.Zero) { Marshal.GetDelegateForFunctionPointer<SetBool>(address)(true); Runtime.Log.LogInfo("Dev input: runInBackground = true"); }
+                else Runtime.Log.LogWarning("Dev input: runInBackground binding unavailable");
+            }
+            catch (Exception ex) { Runtime.Log.LogWarning("Dev input: runInBackground: " + ex.Message); }
         }
 
         if (now >= _nextPoll)
