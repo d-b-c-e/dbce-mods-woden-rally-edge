@@ -11,5 +11,5 @@ internal static class StockMenuInputHook
 [HarmonyPatch(typeof(GamePadSystem), nameof(GamePadSystem.ReadInputs))]
 internal static class StockPadInputHook
 {
-    private static void Postfix(GamePadSystem.Game_Pad __0) => MenuOwnership.AfterRead(__0);
+    private static void Postfix(GamePadSystem.Game_Pad __0) { MenuOwnership.AfterRead(__0); DevInput.AfterPadRead(__0); }
 }

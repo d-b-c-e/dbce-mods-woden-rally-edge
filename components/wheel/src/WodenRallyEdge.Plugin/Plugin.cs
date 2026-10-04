@@ -31,6 +31,8 @@ public sealed class Plugin : BasePlugin
         if (hash != SupportedGameHash) { Log.LogError("Unsupported game build. Hooks remain disabled; regenerate interop and review changes first."); return; }
         try
         {
+            TripleView.Bind(Config);
+            DevInput.Bind(Config, Path.GetDirectoryName(typeof(Plugin).Assembly.Location)!);
             Runtime.Start(Path.GetDirectoryName(typeof(Plugin).Assembly.Location)!);
             _harmony = new Harmony(Id);
             _harmony.PatchAll(typeof(Plugin).Assembly);
@@ -174,6 +176,8 @@ internal static class Runtime
         try
         {
             InputPolling.OncePerFrame();
+            DevInput.FrameTick(now);
+            TripleView.FrameTick(now);
             Panel.Update();
             CameraShortcuts.Update();
             StockWheelOwner.Update();
@@ -207,6 +211,7 @@ internal static class Runtime
     }
     private static void FinishStop()
     {
+        TripleView.Stop("plugin stopping");
         Force.Shutdown();
         Panel.Close(false);
         Wheel?.Cancel();
