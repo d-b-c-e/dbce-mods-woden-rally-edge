@@ -1,13 +1,14 @@
 # Developer recording and unattended playback — 2026-10-05
 
-The first cold-launch Kenya SS1 / car 8 reference passed all 3,601 poses and the owner accepted its route and camera changes. The game exited normally; owner files and raw preferences were restored exactly. Installed runtime: `a628e04`. See [integration evidence](2026-10-05-playback-integration.md) and [remaining public-release checks](PUBLIC-RELEASE.md).
+The first cold-launch Kenya SS1 / car 8 reference passed all 3,601 poses and the owner accepted its route and camera changes. The game exited normally; owner files and raw preferences were restored exactly. Current installed runtime: `05837ee/session-focus.1`, which passed that full reference again at 21:09 UTC. Prior accepted runtime `a628e04` is backed up. See [integration evidence](2026-10-05-playback-integration.md) and [remaining public-release checks](PUBLIC-RELEASE.md).
 
 Claude subsequently observed the combined runtime's triples in the Kenya stage
 at 7680 pixels, but a separate foreground prompt blocked playback acquisition.
-The [scoped background replay fix](2026-10-05-background-replay.md) is being
-prepared for a new cold-start check. It retains normal wheel/recording focus
-gates and does not change the display profile. Combined route completion under
-triples remains pending until that check.
+The [scoped background replay fix](2026-10-05-background-replay.md) is installed
+and passed the full cold-start reference with the renderer reporting 7680
+triples, normal quit and exact restoration. It retains normal wheel/recording
+focus gates and does not change the display profile. That run stayed focused;
+actual background coverage and new rendered acceptance remain separate checks.
 
 From the canonical repository, after building TelemetryInspector:
 
