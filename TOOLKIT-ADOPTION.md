@@ -9,7 +9,7 @@ Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 | Standard | Title | Status | Notes |
 |---|---|---|---|
 | STD-001 | One mod per game | adopted | one combined mod |
-| STD-002 | Recording and playback from launch | partial | Integrated 83b72d9; supervised real recording and original signal capture; trajectory playback is distinct from deterministic input resimulation. Native cold startup and 3,601 poses passed; owner accepted route/cameras. Triple launch remains open. |
+| STD-002 | Recording and playback from launch | n/a | Superseded by STD-012. |
 | STD-003 | Normalized FFB strength | unchecked | Original signal/model data preserved; physical cross-game normalization remains unverified and saved tuning is unchanged. |
 | STD-004 | Consistent settings UX | adopted | F6 Simple/Advanced |
 | STD-005 | Camera numpad layout 8/2 9/3 4/6 7/1 +/- 5 | adopted | 580a907, retained in merged source 83b72d9 |
@@ -19,3 +19,4 @@ Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 | STD-009 | Dashboard telemetry matches the HUD | adopted | 0b0f844 retained in 83b72d9; owner dashboard RPM/gear confirmation remains separate |
 | STD-010 | Install the latest build for testing | adopted | owner Stream Deck target |
 | STD-011 | Work lands on main | adopted | Integrated both main histories at 83b72d9; land tested recording/playback work on main in this session, preserve unrelated active checkouts and private evidence. |
+| STD-012 | Reproduce the route and preserve original signals | adopted | Integrated 83b72d9; native cold startup and 3,601 poses passed; owner accepted route/cameras. Original signal data and sealed reference preserved under LocalAppData/Dbce/StagePlayback/references/woden-kenya-20261005. Combined triple presentation and broader matrix remain open. |
