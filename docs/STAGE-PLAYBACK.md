@@ -86,3 +86,17 @@ remain necessary. Builds and metadata fixtures do not establish these outcomes.
 Captures now include capture.trajectoryIndex and require exactly one source sample
 for each trajectory row. Pause/focus loss is checked from the render heartbeat
 even when physics callbacks stop. All new adapter runtime checks remain pending.
+
+## Local package checkpoint
+
+Clean source `4ee01b0be5ad84534f9d6e602602094d4c30f591` produced
+`WodenRallyEdgeWheel-0.2.14-session-2-dev.zip`, SHA-256
+`21C0CF1FA2C55D28DE03E141FAA254C83F3DAB6092723D5891E15B24D69B2A0F`.
+Build: zero warnings; core tests: 994 assertions; UI fixture: 556 assertions;
+exact-package disposable installer fixture: 111 checks passed. Receipt log:
+`components/wheel/dist/session-2-installer.log`. This package was not installed.
+
+The owner's later garbled display/input failure has NVIDIA timeout evidence but
+no identified game/mod cause. Live work is stopped during incident investigation.
+Claude's committed triple/DevInput work at `2850e85` remains separate; integrate
+and review it before deployment rather than overwriting the current installation.
