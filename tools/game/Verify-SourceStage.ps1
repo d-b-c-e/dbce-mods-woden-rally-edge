@@ -12,7 +12,7 @@ $tripleFields=@('available','reason','featureId','capabilities')
 if (@(Compare-Object ($tripleFields | Sort-Object) (@($triple[0].PSObject.Properties.Name) | Sort-Object)).Count -ne 0 -or $triple[0].reason -isnot [string] -or $triple[0].capabilities -isnot [array]) { throw 'Unverified triple communication or fields advertised' }
 $prefix='BepInEx/plugins/WodenRallyEdgeWheel/'
 $expected=@('LICENSE','README.md','Install.bat','Uninstall.bat','Manage-Install.ps1','game-release.json','input-override.json')
-$expected+=@('WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Recording.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll','recording-provenance.json','toolkit.version','telemetry-schema.json') | ForEach-Object { $prefix+$_ }
+$expected+=@('WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Recording.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll','recording-provenance.json','toolkit.version','telemetry-schema.json','Dbce.Wheel.Playback.dll','playback-provenance.json','playback-LICENSE.txt','Stage-Session.ps1') | ForEach-Object { $prefix+$_ }
 $manifest=@(Get-Content -LiteralPath (Join-Path $root 'manifest.json') -Raw | ConvertFrom-Json)
 $paths=@($manifest | ForEach-Object { $_.path.Replace('\','/') })
 if ($paths.Count -ne $expected.Count -or @($paths | Select-Object -Unique).Count -ne $expected.Count -or @(Compare-Object ($expected | Sort-Object) ($paths | Sort-Object)).Count -ne 0) { throw 'Payload allowlist differs' }

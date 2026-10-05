@@ -17,12 +17,16 @@ public static class TelemetrySchema
         { foreach (var axis in new[] { "x", "y", "z" }) Add(key + "." + axis, unit, origin, source); }
         Add("sample.simulationSeconds", "s", "measured", "Time.timeAsDouble called inside FixedUpdate; idle heartbeat uses 0");
         Add("sample.sequence", "integer", "measured", "Sample attempt sequence; gaps possible in UDP");
+        Add("capture.trajectoryIndex", "integer", "measured", "Developer stage capture: zero-based row in trajectory.tsv, same physics callback, prefix pose and postfix signals");
         Add("sample.driving", "boolean 0/1", "derived", "Selected player, RACE state, focused, unpaused, not replay/photo/respawning/locked");
         Add("sample.discontinuity", "boolean 0/1", "derived", "Current sample reset motion/model continuity; reason is retained as an ordered marker");
         Add("ffb.frontLoad", "Unity force units", "derived", "Sum of measured front WheelHit.force magnitudes");
         Add("ffb.alignmentEstimate", "normalized estimate", "derived", "Contact-weighted tanh(sidewaysSlip/slipScale), divided by reference load; NOT measured rack torque");
         Add("ffb.dampingEstimate", "normalized estimate", "derived", "Calibrated steering velocity damping");
         Add("ffb.preview", "normalized -1..1", "derived", "Toolkit-shaped force preview before output permission/ownership gates");
+        Add("analysis.force.preview", "normalized -1..1", "derived", "Developer stage capture only: independent ForceSignal@3 history without device delivery gates; not physical output");
+        Add("analysis.force.valid", "boolean 0/1", "derived", "Independent analysis force model accepted the recorded inputs");
+        Add("analysis.force.reset", "count", "derived", "Independent analysis force model reset epoch");
         Add("ffb.modelValid", "boolean 0/1", "derived", "Actual ForceSignal accepted the current recorded model inputs");
         Add("ffb.modelReason", "enum", "derived", "Stable ForceSignal reason code; see RECORDED-PLAYBACK.md");
         Add("ffb.modelResetBefore", "count", "measured", "ForceSignal reset epoch immediately before evaluating this sample");

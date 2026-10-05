@@ -18,7 +18,7 @@ internal static class StockWheelOwner
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void ShutdownSdk();
     internal static void Update()
     {
-        bool needed = Runtime.Settings.WheelEnabled || Runtime.Settings.FfbEnabled;
+        bool needed = Runtime.Settings.WheelEnabled || Runtime.Settings.FfbEnabled || Runtime.DiagnosticNoForce;
         if (needed && !Held) Acquire();
         else if (!needed && Held) Release(true);
     }

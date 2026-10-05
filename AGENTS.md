@@ -1,3 +1,5 @@
+Recording/playback continuation (2026-10-05): owner is working on Woden triples in a separate session and owns the screen. Keep this work offline; do not launch/deploy or change display/input/settings. Read docs/2026-10-05-playback-offline-review.md and docs/STAGE-PLAYBACK.md. Original owner drive recovered: 6,981 contiguous driving poses, original source hash verified, scene/setup not captured. Source adds sealed read-only stage context, shared driving exclusions and a mode/output banner. Zero-warning build, 38/994 regressions, 556 existing UI assertions and eight inspection tests pass; stage hooks/banner remain unqualified and unpackaged. Native ReplayMovie stores presentation frames but does not supply a proven durable replay/startup workflow. Preserve concurrent triple work before integration. Do not repeat accepted iRacing launches.
+
 # Super Woden Rally Edge coordination
 
 Read components/wheel/AGENTS.md and its STATE and HANDOFF before feature work. Their safety, ownership and fixture requirements remain in force.

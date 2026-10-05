@@ -8,6 +8,8 @@
     <Reference Include="../../lib/core/0Harmony.dll" Private="false" />
     <Reference Include="../../lib/interop/*.dll" Private="false" />
     <Reference Include="Dbce.Wheel.Ffb" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Ffb.dll" />
+    <Reference Include="Dbce.Wheel.Playback" HintPath="../../../../vendor/playback/Dbce.Wheel.Playback.dll" />
+    <Reference Include="Dbce.Wheel.Recording" HintPath="../../lib/recording/Dbce.Wheel.Recording.dll" />
     <None Include="../../lib/toolkit/native/WheelFfb.dll" CopyToOutputDirectory="PreserveNewest" Link="WheelFfb.dll" />
   </ItemGroup>
 </Project>
