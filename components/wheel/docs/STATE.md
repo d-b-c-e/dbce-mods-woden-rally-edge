@@ -1,3 +1,7 @@
+# Current recording/playback checkpoint � 2026-10-05
+
+Installed `0.2.14+a628e04c2101866a2a22335004f4f536aa565d93`; package `native-startup-2-dev`, SHA-256 `F74D6B443D91F5AF683915788CC6012ADC73D4C47D2DBA58158E632AC51422F0`. Installation retained owner settings. First native cold playback verified 3,601 poses, recorded cameras, normal exit and exact restoration at 05:20:00 UTC. Owner confirmed playback, but reported single-screen presentation. Ordinary triple launch is still open. No normalization retune or physical force test occurred. See root docs/PUBLIC-RELEASE.md and docs/STAGE-PLAYBACK.md. Historical states below retain their dates.
+
 # State — 2026-10-03
 
 ## Current installed build — 0.2.14; force calibration pending

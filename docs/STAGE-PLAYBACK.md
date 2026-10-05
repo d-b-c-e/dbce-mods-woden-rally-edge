@@ -1,30 +1,18 @@
-# Developer recording and trajectory playback candidate - 2026-10-04
+# Developer recording and unattended playback — 2026-10-05
 
-**Owner handoff / integration:** Claude's triple source and the current remote
-main are combined at `83b72d9`. The owner authorized installation and a fresh
-recording. See [the current integration record](2026-10-05-playback-integration.md).
-The new recording wrapper backs up/restores owner state, observes native launch
-context and saves/closes after a distinct recording phase. Cold-launch playback
-is still under implementation and is explicitly refused by that wrapper for now.
-The offline-only restriction in the historical checkpoint below is superseded.
+The first cold-launch Kenya SS1 / car 8 reference passed all 3,601 poses and the owner accepted its route and camera changes. The game exited normally; owner files and raw preferences were restored exactly. Installed runtime: `a628e04`. See [integration evidence](2026-10-05-playback-integration.md) and [remaining public-release checks](PUBLIC-RELEASE.md).
 
-**October 5 offline continuation:** the owner is using a separate Woden
-triple-screen session and owns the screen. No launch/deployment/display/input
-work here. The original 116-second owner drive was recovered and hash-verified;
-all pose channels exist, but scene/setup provenance is missing. New source adds
-a sealed, read-only `stage-context.json` for future captures, shared driving
-eligibility checks and an explicit recording/playback status banner. Build,
-38 regression suites / 994 assertions, 556 existing UI assertions and eight
-legacy-source inspection tests pass; the banner and stage hooks have no new
-runtime qualification. Read
-[the offline review](2026-10-05-playback-offline-review.md) before proceeding.
+**Presentation remains open:** the run used one screen, not the expected triples. Claude's accepted triple test used Surround; the later desktop profile was independent monitors. Keeping mod settings did not restore that display state. Do not repeat the accepted route merely for assurance; the next relevant test is the corrected triple launch.
 
-This is an implementation candidate, not runtime-qualified support. The plugin
-builds and offline tests pass. It has not been installed or exercised in this
-game. Art of Rally's successful trajectory tests do not qualify these hooks.
-The Windows control helper is unavailable. The owner has a separate active
-triple-screen session; preserve that work when
-integrating this branch before a live deployment.
+From the canonical repository, after building TelemetryInspector:
+
+```powershell
+./tools/game/Run-StageSession.ps1 -Recording "$env:LOCALAPPDATA/Dbce/StagePlayback/references/woden-kenya-20261005" -Result ('results/replay-' + (Get-Date -Format yyyyMMdd-HHmmss))
+# Separate owner-driven capture, never switching to playback mid-race:
+./tools/game/Run-StageSession.ps1 -Record -Seconds 60 -Result ('results/record-' + (Get-Date -Format yyyyMMdd-HHmmss))
+```
+
+Choose a new result directory. Recording needs the owner to choose single-player Arcade practice and drive. Playback uses native menu controllers to select the recorded stage/car without manual setup. F12 or Stage-Session Stop terminates the request. Both modes retain original source signals while latching physical wheel/network output off, then save and close normally. Recover an interrupted run only after the game closes, using the same Result with `-RestoreOnly`.
 
 ## Commands and lifecycle
 
@@ -38,7 +26,7 @@ From this checkout, with the matching candidate plugin installed:
 ```
 
 The same script is packaged beside the plugin. An optional `-Launch` opens Steam.
-Select the matching single-player stage/car manually. This adapter records one
+These low-level commands alone require matching single-player stage/car setup; use Run-StageSession.ps1 above for unattended native startup. This adapter records one
 continuous stage; menu automation and progression through a sequence of stages
 are not implemented. Request files have a unique ID and expiry, and status must
 acknowledge that ID. F12 stops the active stage operation. Restart the game to

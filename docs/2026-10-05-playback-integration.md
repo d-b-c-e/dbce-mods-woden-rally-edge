@@ -133,3 +133,7 @@ pins; do not repin hardware infrastructure for this integration.
 The historical original recording remains unchanged at the path documented in
 `2026-10-05-playback-offline-review.md`. A new capture is necessary to bind exact
 scene/setup provenance; it does not replace that retained force baseline.
+
+## First cold playback and owner report
+
+Installed a628e04 at 05:18:06 UTC. `results/first-cold-playback-20261005-0018` completed all 3,601 poses: position error 0.00006103515625 m, rotation error 0.0000172453823 degrees. Camera changes, native menu startup, normal shutdown and owner restoration passed; output writes/attempts and Forza sends were zero. Owner confirmed playback worked, but expected triples and saw one screen. That presentation defect remains open. The original reference is now verified outside this worktree under LocalAppData/Dbce/StagePlayback/references/woden-kenya-20261005.
