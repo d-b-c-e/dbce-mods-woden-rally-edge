@@ -56,8 +56,8 @@ permission/acceptance and from the explicitly labelled hypothetical analysis
 model. No automatic gain or normalization tune is applied to owner settings.
 
 The separate `vendor/playback` pin is shared core 0.2.0 at
-`b97989b8c64de1a2e5a5487c91134c3fbe0b8ea4`, with DLL/command hashes and MIT license.
-It does not change the existing native/toolkit pin. The core has 50 offline
+`50b6b679e3c6e01025b6a50f8dd0f3eb85d9d4bb`, with DLL/command hashes and MIT license.
+It does not change the existing native/toolkit pin. The core has 54 offline
 assertions; the command script passed isolated request/no-overwrite checks.
 
 ## Required live qualification
@@ -82,3 +82,7 @@ physical outputs stay suppressed after every termination, original signals stay
 nonempty, and results/progression are not written. Compare capture-on/off timing
 before using recordings to diagnose stutter. Full-stage and multiple-car tests
 remain necessary. Builds and metadata fixtures do not establish these outcomes.
+
+Captures now include capture.trajectoryIndex and require exactly one source sample
+for each trajectory row. Pause/focus loss is checked from the render heartbeat
+even when physics callbacks stop. All new adapter runtime checks remain pending.
