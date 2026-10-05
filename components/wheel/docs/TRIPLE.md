@@ -8,6 +8,11 @@ toolkit standards STD-007 and STD-008.
 bonnet and bumper views; triple views, centred HUD and menus verified at the rig.
 Separate monitors without Surround: renders when the window spans all three (seen with
 the dev span), but the mod does not create the span itself yet.
+**Combined build 0.2.14 (2026-10-05, unattended):** with the saved resolution at entry 13
+(7680x1440) the Kenya replay start showed triples on (side terrain continuous, HUD on the
+centre, game vfov 45 -> centre 37-42). The replay itself did not drive: stage playback needs
+the game window focused (`PlayerControlState.Driving`), and a firewall prompt held the
+foreground. Retry with nothing else in front.
 
 ## How it works
 
