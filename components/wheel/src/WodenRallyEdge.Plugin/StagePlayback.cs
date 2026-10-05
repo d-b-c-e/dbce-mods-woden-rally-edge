@@ -30,6 +30,7 @@ internal static class StagePlayback
         try
         {
             if (File.Exists(Path.Combine(ControlRoot, "request.txt"))) Target.MuteOutputs();
+            StageRunLifecycle.Initialize(ControlRoot);
             _control = new FileSessionControl(ControlRoot, Session);
         }
         catch (Exception ex) { Runtime.Log.LogWarning("Stage control unavailable: " + ex.Message); }
@@ -42,6 +43,7 @@ internal static class StagePlayback
             if (File.Exists(Path.Combine(ControlRoot, "request.txt"))) Target.MuteOutputs();
             _control.Poll(now);
             if (Session.Active && UnityEngine.Input.GetKeyDown(KeyCode.F12)) Session.Stop();
+            StageRunLifecycle.Tick(Session.Active, Session.Status, _control.LastError, now);
         }
         catch (Exception ex) { Session.Abort("stage control: " + ex.Message); }
     }
@@ -85,6 +87,7 @@ internal static class StagePlayback
         if (Session.Recording || Session.Playing)
             status += " | " + (Session.Samples * Time.fixedDeltaTime).ToString("F1", CultureInfo.InvariantCulture) + " s";
         if (_control?.LastError is { } error) status = "Session command failed: " + error;
+        if (StageRunLifecycle.Closing) status += " | Closing after save";
         StageStatusOverlay.Draw(status);
     }
 

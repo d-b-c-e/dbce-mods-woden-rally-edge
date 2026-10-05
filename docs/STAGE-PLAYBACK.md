@@ -1,5 +1,13 @@
 # Developer recording and trajectory playback candidate - 2026-10-04
 
+**Owner handoff / integration:** Claude's triple source and the current remote
+main are combined at `83b72d9`. The owner authorized installation and a fresh
+recording. See [the current integration record](2026-10-05-playback-integration.md).
+The new recording wrapper backs up/restores owner state, observes native launch
+context and saves/closes after a distinct recording phase. Cold-launch playback
+is still under implementation and is explicitly refused by that wrapper for now.
+The offline-only restriction in the historical checkpoint below is superseded.
+
 **October 5 offline continuation:** the owner is using a separate Woden
 triple-screen session and owns the screen. No launch/deployment/display/input
 work here. The original 116-second owner drive was recovered and hash-verified;
