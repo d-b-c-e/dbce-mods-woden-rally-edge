@@ -51,3 +51,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\Test-ManageInstall
 The tests are an executable harness: `dotnet test` does not run these assertions. Keep the classic `.sln`. Package via an explicit file allowlist. No CI/release automation has been set up. No commit/push to sibling projects is needed for ordinary Woden work.
 
 Machine: MOZA R12, SIMAGIC DS-8X, MOZA stalk. Game directory defaults to `D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge`. F6 now provides calibration, per-device bindings, telemetry/capture, camera adjustment and FFB tuning. UI implementation and physical testing remain separate milestones. Woden strips GUI.Button/GUILayout and style/cursor setters; Panel uses IMGUI rectangles/events and UiNative resolves named Unity engine bindings. Do not replace this game's interop with sibling references.
+
+## Toolkit standards
+
+At the start of every session, compare the wheel toolkit's ledger
+(`E:\Source\toolkits\dbce-wheel-mod-toolkit\STANDARDS.md`) with this repo's
+`TOOLKIT-ADOPTION.md`. Report any entry that is `pending`, `unchecked` or missing
+from the adoption file, and bring it in when your work touches that area. When you
+adopt one (or find it does not apply), update `TOOLKIT-ADOPTION.md` in the same
+commit. When you set a new family-wide standard, append it to the toolkit ledger
+and commit it in the same turn; do not leave it only in an uncommitted file.
