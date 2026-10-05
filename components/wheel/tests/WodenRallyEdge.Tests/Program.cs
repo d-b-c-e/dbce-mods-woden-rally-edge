@@ -57,12 +57,13 @@ Test("nonfinite channels omitted, unknown channels rejected, invalid orientation
     Check(!ForzaProjection.Map(s).IsRaceOn, "no valid motion parks Forza");
     Check(!s.Driving, "invalid motion state not advertised as driving");
 });
-Test("raw game units never masquerade as RPM, fuel percent or tyre slip radians", () => {
+Test("rev fraction maps to a nominal rpm scale; fuel and tyre slip stay unguessed", () => {
     var s = Sample(1); new MotionProcessor().Process(s, Quaternion.Identity);
-    s.Add("game.rpm", .8); s.Add("game.fuel", 92); s.Add("wheel.fl.sidewaysSlip", .75); s.Add("game.gear", 0);
+    s.Add("game.rpm", .8); s.Add("game.idleSpeed", .08); s.Add("game.fuel", 92); s.Add("wheel.fl.sidewaysSlip", .75); s.Add("game.gear", 0);
     s.Add("wheel.fl.angularSpeed", 42); s.Add("wheel.fr.angularSpeed", 43); s.Add("wheel.rl.angularSpeed", 44); s.Add("wheel.rr.angularSpeed", 45);
     var f = ForzaProjection.Map(s);
-    Near(f.CurrentEngineRpm, 0, "no guessed rpm"); Near(f.EngineMaxRpm, 0, "no redline guess"); Near(f.Fuel, 0, "no fuel scale guess"); Near(f.TireSlipAngle.FrontLeft, 0, "no Unity slip as angle");
+    Near(f.CurrentEngineRpm, 6400, "rev fraction on nominal scale"); Near(f.EngineMaxRpm, 8000, "nominal redline"); Near(f.EngineIdleRpm, 640, "idle on nominal scale");
+    Check(f.Gear == 0, "gear 0 stays 0"); Near(f.Fuel, 0, "no fuel scale guess"); Near(f.TireSlipAngle.FrontLeft, 0, "no Unity slip as angle");
     Near(f.WheelRotationSpeed.FrontLeft, 42, "FL"); Near(f.WheelRotationSpeed.FrontRight, 43, "FR"); Near(f.WheelRotationSpeed.RearLeft, 44, "RL"); Near(f.WheelRotationSpeed.RearRight, 45, "RR");
     var bytes = ForzaPacket.CreateBuffer(); ForzaPacket.Write(f, bytes);
     Check(bytes.Length == 324, "exact FH5 packet length"); Check(BitConverter.ToInt32(bytes, 0) == 1, "race active"); Near(BitConverter.ToSingle(bytes, 256), 10, "speed byte offset");

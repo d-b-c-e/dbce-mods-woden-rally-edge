@@ -29,8 +29,8 @@ internal static class DevInput
 
     private static ConfigEntry<bool> _enabled = null!;
     private static string? _dir, _cmdPath;
-    private static double _nextPoll;
-    private static bool _announced, _dirty;
+    private static double _nextPoll, _nextBeat;
+    private static bool _announced, _dirty, _resolutionChanged;
     private static readonly Dictionary<Key, double> Held = new();
     // Game pad overrides applied after GamePadSystem.ReadInputs: button name -> until.
     private static readonly Dictionary<string, double> PadHeld = new();
@@ -73,6 +73,13 @@ internal static class DevInput
             catch (Exception ex) { Runtime.Log.LogWarning("Dev input: runInBackground: " + ex.Message); }
         }
 
+        if (now >= _nextBeat)
+        {
+            // The display watchdog reads this; frames that stop moving after a change mean a stall.
+            _nextBeat = now + 1;
+            try { File.WriteAllText(Path.Combine(_dir!, "heartbeat.txt"), $"{Time.frameCount} {Screen.width}x{Screen.height} {Screen.fullScreenMode} {DateTime.UtcNow:o}"); } catch { }
+        }
+
         if (now >= _nextPoll)
         {
             _nextPoll = now + 0.2;
@@ -107,6 +114,9 @@ internal static class DevInput
         {
             // For testing a span without Surround: a plain window the size of three screens.
             var mode = p.Length > 3 && Enum.TryParse<FullScreenMode>(p[3], true, out var m2) ? m2 : FullScreenMode.Windowed;
+            // Stacked swapchain rebuilds at 7680 reset the GPU driver on 2026-10-04: one per launch.
+            if (_resolutionChanged) { Runtime.Log.LogWarning("Dev input: window refused, one resolution change per launch"); return; }
+            _resolutionChanged = true;
             Screen.SetResolution(w, h, mode);
             Runtime.Log.LogInfo($"Dev input: {w}x{h} {mode} requested");
             return;
@@ -114,6 +124,19 @@ internal static class DevInput
         if (verb == "status")
         {
             Runtime.Log.LogInfo($"Dev input: triple {TripleView.Status}; camera {MountedCamera.Status}; screen {Screen.width}x{Screen.height} fullscreen {Screen.fullScreenMode}");
+            // The game saves its resolution ("Resolution" pref) as an index into ResList.
+            try
+            {
+                var manager = UnityEngine.Object.FindObjectOfType<ResolutionManager>();
+                if (manager == null) Runtime.Log.LogInfo("Dev input: no ResolutionManager in scene");
+                else
+                {
+                    Runtime.Log.LogInfo($"Dev input: ResIndex {manager.ResIndex}");
+                    var list = manager.ResList;
+                    for (int i = 0; list != null && i < list.Length; i++) Runtime.Log.LogInfo($"Dev input: ResList[{i}] = {list[i].x}x{list[i].y}");
+                }
+            }
+            catch (Exception ex) { Runtime.Log.LogWarning("Dev input: resolutions: " + ex.Message); }
             return;
         }
         if (verb == "pad" && p.Length >= 2)

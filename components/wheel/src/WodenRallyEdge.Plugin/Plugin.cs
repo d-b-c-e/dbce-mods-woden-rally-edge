@@ -32,6 +32,7 @@ public sealed class Plugin : BasePlugin
         try
         {
             TripleView.Bind(Config);
+            DesktopResolution.Bind(Config);
             DevInput.Bind(Config, Path.GetDirectoryName(typeof(Plugin).Assembly.Location)!);
             Runtime.Start(Path.GetDirectoryName(typeof(Plugin).Assembly.Location)!);
             _harmony = new Harmony(Id);
