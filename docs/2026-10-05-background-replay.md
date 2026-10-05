@@ -57,8 +57,8 @@ Private install and replay receipts:
 LocalAppData/Dbce/StagePlayback/SessionEvidence/woden-background-20261005-160809.
 This run acquired with focus and logged unfocusedReplaySteps=0. Therefore the
 new runtime has passed its full foreground regression, while the specific
-background condition still needs a live check. Claude has the working Windows
-UI helper and the targeted focus-loss handoff. No physical torque qualification
+background condition still needs a live check. The next useful observation is a
+naturally unfocused run, without changing focus or injecting OS input. No physical torque qualification
 or complete pause/Stop/stage/device matrix is implied.
 
 ## Delayed 15:47 report and the remaining check
@@ -76,12 +76,17 @@ payloads against the 05837ee receipt. Keep that candidate and the current displa
 settings. Claude has the targeted runtime handoff, subject to the existing idle
 gate and runner-owned rig lease; no competing launch was queued by Codex.
 
-For one controlled cold-background run, keep a neutral desktop application in
-the foreground before car acquisition, using the supported UI helper. The log
-must show `focused=False; backgroundAuthorized=True`, then
+Claude's delayed 16:10 clarification supersedes the earlier request to move
+focus with a UI helper: agents must not move focus or inject OS input. The
+16:08 install and first replay were already completed. Do not repeat installation
+or assume a subsequent natural launch will be unfocused just because older ones
+were. Retain the next naturally occurring background result when a coordinated
+run is otherwise needed. To qualify background acquisition, its log must show
+`focused=False; backgroundAuthorized=True`, then
 `unfocusedReplaySteps` greater than zero, all 3,601 poses including final readback,
 normal exit and exact restoration with no force/network delivery. A run that
 acquires focused and only later loses focus can qualify continuation, but cannot
-qualify background acquisition. Record that distinction instead of automatically
-repeating tests. The ordinary `ffb=Unfocused` state is expected while backgrounded;
+qualify background acquisition. A fully focused pass leaves background coverage
+open; do not force a transition or automatically repeat tests to obtain it.
+The ordinary `ffb=Unfocused` state is expected while backgrounded;
 use replay acquisition/pose results to judge playback, not the physical-force gate.
