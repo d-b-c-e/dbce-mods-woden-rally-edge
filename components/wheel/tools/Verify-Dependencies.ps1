@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $playbackRoot = Join-Path $root '../../vendor/playback'
 $playback = Get-Content (Join-Path $playbackRoot 'provenance.json') -Raw | ConvertFrom-Json
+if ([Reflection.AssemblyName]::GetAssemblyName((Join-Path $playbackRoot 'Dbce.Wheel.Playback.dll')).Name -ne 'Dbce.Wheel.Playback') { throw 'Playback payload is not the expected managed assembly' }
 if ($playback.sourceState -ne 'clean' -or (Get-FileHash (Join-Path $playbackRoot 'Dbce.Wheel.Playback.dll')).Hash -ne $playback.sha256 -or
     (Get-FileHash (Join-Path $playbackRoot 'Stage-Session.ps1')).Hash -ne $playback.commandSha256) { throw 'Playback artifacts differ from their source pin' }
 $toolkit = Join-Path $root 'lib\toolkit'
