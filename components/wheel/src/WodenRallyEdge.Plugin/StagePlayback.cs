@@ -77,6 +77,16 @@ internal static class StagePlayback
     }
     internal static bool Owns(MainCar car) => Playing && _car != null && car.Pointer == _car.Pointer;
     internal static void Stop() => Session.Stop();
+    internal static void OnGui()
+    {
+        if (!OutputMuted) return;
+        string status = Session.Recording ? "RECORDING - drive normally" :
+            Session.Playing ? "PLAYBACK - leave driving controls released" : Session.Status;
+        if (Session.Recording || Session.Playing)
+            status += " | " + (Session.Samples * Time.fixedDeltaTime).ToString("F1", CultureInfo.InvariantCulture) + " s";
+        if (_control?.LastError is { } error) status = "Session command failed: " + error;
+        StageStatusOverlay.Draw(status);
+    }
 
     private sealed class Adapter : IStageAdapter
     {
@@ -89,9 +99,11 @@ internal static class StagePlayback
         public string GameHash => Runtime.GameAssemblyHash;
         public string Scenario => _car == null ? "unavailable" : SceneManager.GetActiveScene().name + "|car=" + _car.CarId.ToString(CultureInfo.InvariantCulture);
         public double FixedDeltaTime => Time.fixedDeltaTime;
-        public bool Ready => PlaybackAllowed && !_car!.Replay;
-        public bool PlaybackAllowed => _car != null && Application.isFocused && !Panel.Open && _car.IsPlayer && _car.PlayerIndex == Runtime.Settings.Player &&
-            _car.Status == MainCar.CarStatus.RACE && !_car.Respawning && !Pause.Paused &&
+        public bool Ready => PlaybackAllowed;
+        // Reuse all normal driving exclusions, including photo mode, native
+        // replay and the start/end lock. Only our own trajectory ownership is
+        // ignored here; it remains a force/input exclusion everywhere else.
+        public bool PlaybackAllowed => _car != null && Runtime.ControlState(_car, includeStageOwnership: false).Driving &&
             (_ownedCar == null || _car.Pointer == _ownedCar.Pointer) &&
             _car.Rb != null && _car.field_Private_RaceConditions_0?.PlayerCarList?.Count == 1;
         public void MuteOutputs()

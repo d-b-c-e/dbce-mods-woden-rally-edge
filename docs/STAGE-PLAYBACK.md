@@ -4,15 +4,18 @@
 triple-screen session and owns the screen. No launch/deployment/display/input
 work here. The original 116-second owner drive was recovered and hash-verified;
 all pose channels exist, but scene/setup provenance is missing. New source adds
-a sealed, read-only `stage-context.json` for future captures. Build and eight
-legacy-source inspection tests pass; no new runtime qualification. Read
+a sealed, read-only `stage-context.json` for future captures, shared driving
+eligibility checks and an explicit recording/playback status banner. Build,
+38 regression suites / 994 assertions, 556 existing UI assertions and eight
+legacy-source inspection tests pass; the banner and stage hooks have no new
+runtime qualification. Read
 [the offline review](2026-10-05-playback-offline-review.md) before proceeding.
 
 This is an implementation candidate, not runtime-qualified support. The plugin
 builds and offline tests pass. It has not been installed or exercised in this
 game. Art of Rally's successful trajectory tests do not qualify these hooks.
-Steam is waiting on a launch prompt and the Windows control helper is unavailable.
-Other sessions own uncommitted triple-screen work; preserve that work when
+The Windows control helper is unavailable. The owner has a separate active
+triple-screen session; preserve that work when
 integrating this branch before a live deployment.
 
 ## Commands and lifecycle
@@ -32,6 +35,8 @@ continuous stage; menu automation and progression through a sequence of stages
 are not implemented. Request files have a unique ID and expiry, and status must
 acknowledge that ID. F12 stops the active stage operation. Restart the game to
 restore physical output. Arming/capture/playback does not rewrite saved settings.
+The source banner labels each mode and keeps output suppression visible after
+Stop; this addition is not in the older frozen session-2 package.
 
 The trajectory reader verifies the completion seal, game build, scene/car key and
 physics timestep before taking ownership. Playback sets a kinematic body and

@@ -74,6 +74,37 @@ machinery, not a durable external recording/playback workflow. Its file format,
 save/loading behavior and compatibility with original telemetry are unqualified.
 Investigate reuse before duplicating useful native presentation behavior.
 
+Further read-only inspection of `ReplayMovie` found actor/car/skin arrays and a
+list of frames. Each actor frame has body velocity/angular velocity, position,
+rotation, wheel positions/rotations, RPM, brake/accelerator/steering, gear and
+headlights. No scene/setup identity, original tire/contact forces or external
+persistence entry point is exposed on that type. This is useful presentation
+machinery, not a substitute for the sealed original signal capture. The exact
+rotation semantics and native lifetime/ownership still need review before reuse;
+do not fabricate wheel animation channels absent from the old source.
+
+The stage adapter now reuses the existing `PlayerControlState.Driving` policy.
+The prior duplicate predicate omitted native replay, photo mode and the native
+car lock during continuous playback. Only our trajectory ownership is excluded
+from the eligibility calculation; native replay remains a rejection and normal
+force/input paths still treat our playback as non-driving. Owned-window focus,
+pause/settings, respawn, phase, player identity, body and single-player checks
+remain required. No native force policy was relaxed.
+
+A process-lifetime banner now identifies recording, playback, terminal status,
+physical wheel/motion suppression and F12 Stop. It uses the same stripped-build
+GUI primitives as the existing settings panel, restores GUI state, and does not
+resize, focus or consume input. It remains visible after Stop to explain the
+latched output suppression. The banner has not been visually tested.
+
+The complete wheel solution builds with zero warnings; the existing regression
+harness passes 38 suites / 994 assertions and the UI harness passes 556
+assertions. Those checks cover existing driving exclusions and UI behavior,
+not live execution of the new stage adapter or rendering of its banner. No
+successor package was built or installed; the frozen session-2 archive remains
+unchanged. Current replay identity checks still cover game hash, scene/car and
+timestep; full launch-context comparison and restoration remain future work.
+
 ## Next work, without retesting iRacing
 
 1. Resolve the old drive's scene/setup identity or capture new context once a

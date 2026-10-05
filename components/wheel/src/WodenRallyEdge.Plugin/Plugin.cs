@@ -48,7 +48,13 @@ public sealed class Lifecycle : MonoBehaviour
     public Lifecycle(IntPtr pointer) : base(pointer) { }
     private void Awake() => DontDestroyOnLoad(gameObject);
     private void Update() => Runtime.Update();
-    private void OnGUI() { using var lease = Runtime.Activity.TryEnter(); if (lease != null) Panel.Draw(); }
+    private void OnGUI()
+    {
+        using var lease = Runtime.Activity.TryEnter();
+        if (lease == null) return;
+        Panel.Draw();
+        StagePlayback.OnGui();
+    }
     private void OnApplicationQuit() => Runtime.Stop();
     private void OnDestroy() => Runtime.Stop();
 }
@@ -156,13 +162,14 @@ internal static class Runtime
         Local = car;
         return true;
     }
-    internal static PlayerControlState ControlState(MainCar car)
+    internal static PlayerControlState ControlState(MainCar car, bool includeStageOwnership = true)
     {
         if (!Select(car)) return default;
         var phase = car.Status switch { MainCar.CarStatus.WARMING => PlayerPhase.Countdown, MainCar.CarStatus.RACE => PlayerPhase.Racing,
             MainCar.CarStatus.END => PlayerPhase.Finished, MainCar.CarStatus.DESTROYED => PlayerPhase.Destroyed, _ => PlayerPhase.Unavailable };
         bool photo = car.MyControls?.PauseScript?.PhotomodeActive == true;
-        return new(phase, true, Focused, Panel.Open, Pause.Paused, car.Replay || StagePlayback.Owns(car), car.Respawning, photo, car.locked);
+        return new(phase, true, Focused, Panel.Open, Pause.Paused,
+            car.Replay || (includeStageOwnership && StagePlayback.Owns(car)), car.Respawning, photo, car.locked);
     }
     internal static bool Driving(MainCar car) => ControlState(car).Driving;
     internal static bool CameraAvailable(MainCar car) => StagePlayback.Owns(car)
