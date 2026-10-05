@@ -18,3 +18,4 @@ Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 | STD-008 | Display changes: game applies once | adopted | 0b0f844 DesktopResolution and feb875b index repair, retained in 83b72d9 |
 | STD-009 | Dashboard telemetry matches the HUD | adopted | 0b0f844 retained in 83b72d9; owner dashboard RPM/gear confirmation remains separate |
 | STD-010 | Install the latest build for testing | adopted | owner Stream Deck target |
+| STD-011 | Work lands on main | adopted | Integrated both main histories at 83b72d9; land tested recording/playback work on main in this session, preserve unrelated active checkouts and private evidence. |

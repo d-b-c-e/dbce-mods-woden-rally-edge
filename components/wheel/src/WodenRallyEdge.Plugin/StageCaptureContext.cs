@@ -48,6 +48,18 @@ internal static class StageCaptureContext
             ["gameMasterSkins"] = GameMaster.PlayerSkin?.ToArray(), ["demo"] = GameMaster.Demo,
         };
     }
+    internal static void ObserveMenuLoad(string scene, bool loading, bool flag)
+    {
+        if (!StagePlayback.OutputMuted || StagePlayback.Playing || SceneRequests.Count >= 64) return;
+        try
+        {
+            SceneRequests.Add(new { sceneFrom = SceneManager.GetActiveScene().name, sceneTo = scene,
+                nativeMethod = "MenuCameraScript.LoadScene", loading, flag, selection = ReadSelection(),
+                wallSeconds = Runtime.Clock.Elapsed.TotalSeconds });
+            Runtime.Log.LogInfo("Stage native menu load: " + SceneManager.GetActiveScene().name + " -> " + scene);
+        }
+        catch (Exception ex) { Runtime.Log.LogWarning("Stage menu context unavailable: " + ex.Message); }
+    }
     internal static void Write(string directory, MainCar car)
     {
         var race = car.field_Private_RaceConditions_0
@@ -97,4 +109,10 @@ internal static class StageCaptureContext
 internal static class StageNativeLoadObserver
 {
     private static void Prefix(LoadScene __instance, string __0) => StageCaptureContext.ObserveLoad(__instance, __0);
+}
+
+[HarmonyPatch(typeof(MenuCameraScript), nameof(MenuCameraScript.LoadScene))]
+internal static class StageNativeMenuLoadObserver
+{
+    private static void Prefix(string __0, bool __1, bool __2) => StageCaptureContext.ObserveMenuLoad(__0, __1, __2);
 }

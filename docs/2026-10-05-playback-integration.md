@@ -1,5 +1,81 @@
 # Recording/playback integration after Claude's handoff
 
+## First integrated live recording
+
+The owner drive `results/owner-drive-20261004-2355/recording` completed with
+3,601 poses and matching original samples over 59.999745 seconds: Kenya SS1,
+Arcade route 0 / round 0, car 8, one player. There were no dropped samples,
+recorder errors or physical delivery/connection attempts. The actual ForceSignal
+reprocess matches every captured preview and validity/reset epoch with zero error;
+3,553 samples are valid and 3,477 have nonzero preview, ranging from -0.25 to +0.25.
+These are software estimates, not measured torque. The original archive is sealed
+and unchanged. The game closed normally and all owner files/raw preferences were
+restored with readback at 2026-10-05T04:56:19Z.
+
+Installed capture source is `eb02b9c`, package
+`WodenRallyEdgeWheel-0.2.14-integrated-session-3-dev.zip`, SHA-256
+`030eff97b1246d98f713db02f2429ed3f621ae0e5288c1c2ba0189072239cc5e`.
+The old unreceipted development folder and receipt were preserved privately under
+`results/integrated-session-3-install`; the normal installer then installed and
+verified all 13 payloads. Five config files and 25 raw preference values were
+unchanged. The recorded installed plugin hash is
+`ad9fe1d80d01c9c6daf1de8c50c2b84d7f84817933491c96b3f3e8e6adb260f7`.
+
+**Single-screen observation:** the owner correctly observed one screen. Claude's
+handoff explicitly left the desktop on "Sim Racing" (independent monitors), while
+his accepted triple test used "Sim Racing Surround". The installed config retains
+Triple Auto / MatchGameFov true and the integrated triple renderer/desktop-resolution
+sources match `feb875b`. Startup logged desktop 2560x1440 at index 13, so Auto's
+wide-window gate stays off. Merging code does not carry an active desktop profile.
+Preserve the existing display environment during playback development; do not
+claim that this recording visually retested triples or change resolutions repeatedly.
+
+## Unattended startup candidate
+
+`Run-StageSession.ps1 -Recording <recording> -Result <new-directory>` now validates
+the sealed original source and actual force reprocess before launch. It explicitly
+requests `coldStart=native-arcade-v1` on a supervised, expiring launch. Ordinary
+low-level stage requests do not navigate menus. This first adapter supports the
+observed single-player Arcade first-stage path, without rivals, ghosts or rolling
+start; other contexts refuse rather than guess.
+
+Native disassembly on the supported game hash establishes:
+
+- `DailyMessage.Update` and `TitleScreenScript.FixedUpdate` call
+  `MenuCameraScript.LoadScene` (RVA 0x4770e0), not `LoadScene.LoadScene_`.
+  The first capture's empty nativeSceneRequests array is therefore an observer gap,
+  not proof that no native transitions happened. The actual observed scene sequence
+  is complete; a new passive observer targets the real entry point.
+- `StagePresentation.Start` resolves `Progress.ArcadeRoutes` from the saved Arcade
+  route/round and calls `NormalRound`. Startup restores only bounded transient
+  Arcade choices after MapScreen initialization, checks native assets, and waits
+  for the presentation's input-ready flag.
+- `StagePresentation.ProceedToStage` (0xa91580) sets circuit direction and invokes
+  the game's normal fade/load. Loaded player identity and full recorded race rules
+  must match before acquiring the rigidbody.
+- `Car_Cam.InstantCameraChange` (0x855740) reads the existing preset index without
+  incrementing it. Recorded stock/mounted view selections come from the aligned
+  original stream. Existing mounted-camera restoration and triple hooks remain.
+
+Private method maps/disassembly are under `components/wheel/artifacts/startup-api`;
+no proprietary assemblies or owner captures are committed. Native startup and
+trajectory playback still require the upcoming live check.
+
+Device-free command:
+
+```powershell
+dotnet run --project components/wheel/tools/TelemetryInspector -c Release -- stage-review results/owner-drive-20261004-2355/recording
+python tools/game/Test-StageReview.py results/owner-drive-20261004-2355/recording results/new-review-fixture
+```
+
+The real source passes; six isolated altered copies correctly refuse seal corruption,
+shifted row alignment, physical delivery, changed preview/reset and missing channels.
+The original files retain their hashes. Lifecycle fixtures additionally prove that
+recording, ordinary, malformed, unknown and duplicate requests cannot opt into menu
+startup (573 UI assertions total). These checks do not certify native rendering.
+
+## Earlier integration preparation
+
 The owner ended the separate triple session and authorized integration and a
 fresh recording/playback test. Local `main` at `95974ec` already merged Claude's
 `feb875b` and playback `86cbc6d`. GitHub main had diverged with additional FFB

@@ -55,6 +55,15 @@ namespace WodenRallyEdge
             StageRunLifecycle.Tick(false, "cancelled before stage start", null, 2);
             StageRunLifecycle.Tick(false, "cancelled before stage start", null, 10);
             check(UnityEngine.Application.QuitCalls == 1, "Stop while armed still releases the supervised launch");
+            string startup = valid.Replace("action=record", "action=replay") + "coldStart=native-arcade-v1\npath=C:/recording\n";
+            Setup(startup);
+            check(StageRunLifecycle.ReplayPath == "C:/recording", "supervised replay explicitly opts into native startup");
+            foreach (var request in new[] { startup.Replace("autoExit=true\n", ""), startup.Replace("action=replay", "action=record"),
+                startup.Replace("native-arcade-v1", "unknown"), startup + "path=C:/other\n" })
+            {
+                Setup(request);
+                check(StageRunLifecycle.ReplayPath == null, "ordinary, recording, unknown and duplicate requests cannot navigate menus");
+            }
         }
     }
 }

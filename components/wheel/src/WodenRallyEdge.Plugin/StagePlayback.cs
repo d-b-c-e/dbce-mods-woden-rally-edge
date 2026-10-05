@@ -32,6 +32,7 @@ internal static class StagePlayback
             if (File.Exists(Path.Combine(ControlRoot, "request.txt"))) Target.MuteOutputs();
             StageRunLifecycle.Initialize(ControlRoot);
             _control = new FileSessionControl(ControlRoot, Session);
+            StageStartup.Initialize(StageRunLifecycle.ReplayPath);
         }
         catch (Exception ex) { Runtime.Log.LogWarning("Stage control unavailable: " + ex.Message); }
     }
@@ -44,6 +45,7 @@ internal static class StagePlayback
             _control.Poll(now);
             if (Session.Active && UnityEngine.Input.GetKeyDown(KeyCode.F12)) Session.Stop();
             StageRunLifecycle.Tick(Session.Active, Session.Status, _control.LastError, now);
+            StageStartup.Tick(Session.Active, Session.Playing, now);
         }
         catch (Exception ex) { Session.Abort("stage control: " + ex.Message); }
     }
@@ -79,11 +81,17 @@ internal static class StagePlayback
     }
     internal static bool Owns(MainCar car) => Playing && _car != null && car.Pointer == _car.Pointer;
     internal static void Stop() => Session.Stop();
+    internal static void Camera(Car_Cam camera)
+    {
+        if (!Playing || camera.Maincar_ == null || !Owns(camera.Maincar_)) return;
+        try { StageStartup.ApplyCamera(camera, Session.Samples - 1); }
+        catch (Exception ex) { Session.Abort("Recorded camera: " + ex.Message); }
+    }
     internal static void OnGui()
     {
         if (!OutputMuted) return;
         string status = Session.Recording ? "RECORDING - drive normally" :
-            Session.Playing ? "PLAYBACK - leave driving controls released" : Session.Status;
+            Session.Playing ? "PLAYBACK - leave driving controls released" : StageRunLifecycle.Closing ? Session.Status : StageStartup.Status ?? Session.Status;
         if (Session.Recording || Session.Playing)
             status += " | " + (Session.Samples * Time.fixedDeltaTime).ToString("F1", CultureInfo.InvariantCulture) + " s";
         if (_control?.LastError is { } error) status = "Session command failed: " + error;
@@ -102,7 +110,7 @@ internal static class StagePlayback
         public string GameHash => Runtime.GameAssemblyHash;
         public string Scenario => _car == null ? "unavailable" : SceneManager.GetActiveScene().name + "|car=" + _car.CarId.ToString(CultureInfo.InvariantCulture);
         public double FixedDeltaTime => Time.fixedDeltaTime;
-        public bool Ready => PlaybackAllowed;
+        public bool Ready => PlaybackAllowed && StageStartup.ValidateRace(_car!);
         // Reuse all normal driving exclusions, including photo mode, native
         // replay and the start/end lock. Only our own trajectory ownership is
         // ignored here; it remains a force/input exclusion everywhere else.

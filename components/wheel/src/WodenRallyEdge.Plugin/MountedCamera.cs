@@ -56,6 +56,25 @@ internal static class MountedCamera
             else Restore();
         }
         Observe(__instance);
+        StagePlayback.Camera(__instance);
+    }
+    internal static void RecordedView(Car_Cam camera, int mode, int preset, MountedView view)
+    {
+        if (camera.Chase_Presets == null || preset < 0 || preset >= camera.Chase_Presets.Length || mode is < 0 or > 1)
+            throw new InvalidOperationException("Recorded camera preset is unavailable");
+        if (view == MountedView.Bonnet && !Runtime.Settings.Bonnet || view == MountedView.Bumper && !Runtime.Settings.Bumper)
+            throw new InvalidOperationException("Recorded mounted camera is disabled");
+        if ((int)camera.Mode == mode && camera.PresetIndex == preset && Cycle.View == view) return;
+        Restore(); _foreignWriter = false;
+        camera.Mode = (Car_Cam.Cam_Mode)mode; camera.PresetIndex = preset;
+        camera.InstantCameraChange(); // native 0x855740 reads this preset; it does not increment it
+        Cycle.Handoff();
+        if (view != MountedView.Stock)
+        {
+            Cycle.StockChanged(preset, preset, true, true);
+            if (view == MountedView.Bumper) Cycle.Advance(true, true);
+        }
+        Runtime.Log.LogInfo($"Recorded camera: {view}, stock preset {preset}");
     }
     private static void Postfix(Car_Cam __instance)
     {

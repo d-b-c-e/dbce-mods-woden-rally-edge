@@ -54,6 +54,13 @@ function Read-Status([string]$Path) {
     } catch [IO.IOException] { return @() }
     finally { if ($reader) { $reader.Dispose() } elseif ($stream) { $stream.Dispose() } }
 }
+function Review-Recording([string]$Path) {
+    $inspector = Join-Path $PSScriptRoot '../../components/wheel/tools/TelemetryInspector/bin/Release/net10.0/TelemetryInspector.dll'
+    if (!(Test-Path -LiteralPath $inspector)) { throw 'Build TelemetryInspector before running a stage session.' }
+    $report = & dotnet $inspector stage-review $Path
+    if ($LASTEXITCODE -ne 0) { throw 'Original recording validation failed.' }
+    return ($report -join [Environment]::NewLine)
+}
 function Save-Owner {
     [IO.Directory]::CreateDirectory($backup) | Out-Null
     $files = @(foreach ($file in Owner-Files) {
@@ -114,20 +121,22 @@ try {
     if (Test-Path -LiteralPath $Result) { throw 'Choose a new result directory.' }
     if ($CheckEnvironment) { Save-Owner; Restore-Owner; Write-Output 'PASS: owner environment backup and exact readback.'; return }
     if ($Record -and $Recording) { throw 'Choose either Record or a completed Recording.' }
-    if (!$Record) { throw 'Cold-launch Woden playback is still being implemented. This wrapper currently prepares real-drive recordings only.' }
     if (!$Record -and (!$Recording -or !(Test-Path -LiteralPath (Join-Path $Recording 'complete.tsv')))) { throw 'A completed recording is required.' }
+    if (!$Record) { $sourceReview = Review-Recording $Recording }
     if ($Record) { $Recording = Join-Path $Result 'recording' }
     if (Test-Path -LiteralPath (Join-Path $control 'request.txt')) { throw 'An unconsumed stage request exists.' }
     $other = Get-Process -Name 'artofrally','iracing-arcade','DRIVERally' -ErrorAction SilentlyContinue
     if ($other) { throw 'Another game owns the test slot.' }
     $command = Join-Path $GameDir 'BepInEx/plugins/WodenRallyEdgeWheel/Stage-Session.ps1'
     Save-Owner
+    if (!$Record) { $sourceReview | Set-Content -LiteralPath (Join-Path $Result 'source-review.json') -Encoding utf8 }
     foreach ($file in @((Join-Path $GameDir 'BepInEx/LogOutput.log'),(Join-Path $data 'Player.log'))) {
         if (Test-Path -LiteralPath $file) { Copy-Exact $file (Join-Path $Result ('previous-'+[IO.Path]::GetFileName($file))) }
     }
     if ($Record) { & $command -Game woden -Action Record -Path $Recording -Seconds $Seconds | Out-Null }
     else { & $command -Game woden -Action Replay -Path $Recording -Output (Join-Path $Result 'playback') | Out-Null }
     Add-Content -LiteralPath (Join-Path $control 'request.txt') -Value 'autoExit=true'
+    if (!$Record) { Add-Content -LiteralPath (Join-Path $control 'request.txt') -Value 'coldStart=native-arcade-v1' }
     $request = Get-Content -LiteralPath (Join-Path $control 'request.txt')
     $request | Set-Content -LiteralPath (Join-Path $Result 'request.txt')
     $id = ($request | Where-Object { $_ -like 'id=*' }).Substring(3)
@@ -164,6 +173,7 @@ try {
     Restore-Owner
     if ($Record -and !(Test-Path -LiteralPath (Join-Path $Recording 'complete.tsv'))) { $passed = $false }
     if (!$seen -or !$passed) { throw 'Session did not complete; evidence saved and owner state restored.' }
+    Review-Recording $Recording | Set-Content -LiteralPath (Join-Path $Result 'source-review.json') -Encoding utf8
     Write-Output ('PASS: requested session completed, game closed and owner state restored. '+$Result)
 } finally {
     if ((Test-Path -LiteralPath (Join-Path $backup 'manifest.json')) -and !(Test-Path -LiteralPath (Join-Path $Result 'restored.txt')) -and !(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue)) {

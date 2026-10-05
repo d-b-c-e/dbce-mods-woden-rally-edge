@@ -4,6 +4,11 @@ using Dbce.Wheel.Ffb;
 using WodenRallyEdge.Core;
 
 var json = new JsonSerializerOptions(TelemetryOutput.Json) { WriteIndented = true };
+if (args.Length == 2 && args[0] == "stage-review")
+{
+    try { Console.WriteLine(JsonSerializer.Serialize(StageCaptureReview.Run(args[1]), json)); return 0; }
+    catch (Exception ex) { Console.Error.WriteLine("STAGE REVIEW REFUSED: " + ex.Message); return 2; }
+}
 if (args.Length == 2 && args[0] == "schema")
 {
     File.WriteAllText(args[1], JsonSerializer.Serialize(new { schema = TelemetrySchema.Name, version = TelemetrySchema.Version, channels = TelemetrySchema.Channels }, json));
@@ -39,7 +44,7 @@ if (args.Length is 3 or 4 && args[0] == "compare")
     }
     catch (Exception ex) { Console.Error.WriteLine("OBSERVATION INVALID: " + ex.Message); return 2; }
 }
-if (args.Length != 2 || args[0] != "inspect") { Console.Error.WriteLine("Usage: schema <output.json> | inspect <session.jsonl> | reprocess <case-directory> | trial <case-directory> <candidate-config.json> <new-observation.jsonl> [tolerance] | compare <baseline.jsonl> <candidate.jsonl> [tolerance] | devices <native DLL directory>"); return 1; }
+if (args.Length != 2 || args[0] != "inspect") { Console.Error.WriteLine("Usage: schema <output.json> | inspect <session.jsonl> | stage-review <recording-directory> | reprocess <case-directory> | trial <case-directory> <candidate-config.json> <new-observation.jsonl> [tolerance] | compare <baseline.jsonl> <candidate.jsonl> [tolerance] | devices <native DLL directory>"); return 1; }
 try
 {
     var stats = new Dictionary<string, (long count, double min, double max, double sum)>();
