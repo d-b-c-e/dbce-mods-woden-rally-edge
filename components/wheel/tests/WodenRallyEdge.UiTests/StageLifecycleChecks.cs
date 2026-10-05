@@ -22,6 +22,7 @@ namespace WodenRallyEdge
             {
                 File.WriteAllText(Path.Combine(directory, "request.txt"), request);
                 UnityEngine.Application.QuitCalls = 0;
+                UnityEngine.Time.timeScale = 1;
                 StageRunLifecycle.Initialize(directory);
             }
             Setup(valid);
@@ -30,6 +31,7 @@ namespace WodenRallyEdge
             StageRunLifecycle.Tick(true, "recording", null, 10);
             StageRunLifecycle.Tick(false, "recorded", null, 20);
             check(StageRunLifecycle.Closing && UnityEngine.Application.QuitCalls == 0, "recording gets a visible post-save exit delay");
+            check(UnityEngine.Time.timeScale == 0, "terminal supervised delay holds simulation after ownership release");
             StageRunLifecycle.Tick(false, "recorded", null, 27.99);
             check(UnityEngine.Application.QuitCalls == 0, "keeps eight-second exit delay");
             StageRunLifecycle.Tick(false, "recorded", null, 28);
@@ -45,6 +47,7 @@ namespace WodenRallyEdge
                 StageRunLifecycle.Tick(false, "recorded", null, 2);
                 StageRunLifecycle.Tick(false, "recorded", null, 50);
                 check(UnityEngine.Application.QuitCalls == 0 && !StageRunLifecycle.Closing, "ordinary/malformed/expired requests cannot quit the owner game");
+                check(UnityEngine.Time.timeScale == 1, "ordinary/malformed/expired requests cannot pause simulation");
             }
             Setup(valid.Replace("action=record", "action=replay"));
             StageRunLifecycle.Tick(false, "idle", "bad recording seal", 1);

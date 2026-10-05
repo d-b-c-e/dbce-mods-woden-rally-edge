@@ -38,6 +38,11 @@ internal static class StageRunLifecycle
         _seenActive |= active;
         if (!active && (_seenActive || error != null))
         {
+            // The player releases its body after the last verified pose. Hold
+            // simulation during the visible exit delay so native controls cannot
+            // immediately drive/coast beyond the recording. Process-local only;
+            // ordinary requests never enter this supervised terminal path.
+            Time.timeScale = 0;
             if (double.IsNaN(_exitAt))
             {
                 _exitAt = now + 8;

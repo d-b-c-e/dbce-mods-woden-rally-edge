@@ -12,7 +12,7 @@ namespace UnityEngine
     public record struct Vector2(float x,float y);
     public enum EventType { Repaint, MouseDown, MouseDrag, MouseUp, Used, KeyDown, KeyUp, ScrollWheel }
     public enum KeyCode { None, Tab, Return, Space, LeftArrow, RightArrow, PageDown, PageUp, F6, Escape }
-    public static class Time {public static int frameCount;}
+    public static class Time {public static int frameCount; public static float timeScale = 1;}
     public static class Input
     {
         public static bool FailRead,Held;
