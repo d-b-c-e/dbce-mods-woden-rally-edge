@@ -34,3 +34,14 @@ The known-good private reference is now outside disposable worktrees at `%LOCALA
 The former playback worktree was archived at `%LOCALAPPDATA%/Dbce/SessionEvidence/woden-20261005/session-playback-worktree.zip` (SHA-256 `423CE47E9731F67E33AB22BDCA50F34D448FEE194818FA8666B3A412BE616A13`), with all 3,902 files byte-verified. Its Git worktree/branch are retired; archived file leftovers remain after automated cleanup was blocked. The player ZIP, checksum, original receipt and both validation logs were also copied unchanged to the canonical checkout paths above. The receipt retains its original build location. The canonical TelemetryInspector successfully reviewed the stable private reference after consolidation.
 
 A bounded reachable-history filename scan found no Assembly-CSharp, GameAssembly, UnityEngine DLL, .env, registry backup or matching save/recording paths. Complete content/license review remains a publication check.
+
+The October 5 content screen at source a10d419 read all 645 reachable Git blobs
+(6,724,765 bytes) and all 20 session-focus.1 player ZIP files. Nine historical
+PE blobs were the vendored toolkit recording/FFB/telemetry/playback revisions;
+no historical ZIP blobs were present. The defined game-assembly/save/recording
+path patterns and narrow AWS/GitHub-token/private-key patterns produced no
+candidates. Private receipt: results/release-prep-20261005/content-screen.json.
+The player archive includes MIT notices and the pinned first-install loader
+source/download notice, without bundling the loader. This is a bounded content
+screen, not an exhaustive privacy or license certification. Final publication
+and downloaded-byte verification remain separate.
