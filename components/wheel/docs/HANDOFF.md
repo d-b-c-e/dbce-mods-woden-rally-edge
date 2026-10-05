@@ -30,9 +30,9 @@ Recording/playback (STD-002) is Codex's. Merge or rebase this branch first so pl
 built on the installed behaviour. Standards status: repo root `TOOLKIT-ADOPTION.md`.
 
 ---
-# Session handoff — 2026-09-30
+# Session handoff — 2026-10-03
 
-Read [STATE](STATE.md) first, then [the complete option inventory and acceptance report](UX-OVERNIGHT-2026-09-16.md). **0.2.12 / bf58042 is installed**, with installer revision 3, on `codex/ux-simple-advanced-0.2.8`. All nine payloads and four owner configuration/binding files were verified at install; the nine payloads were reverified after the first live run. Exact package/receipt identities are in STATE. Prior dirty work is preserved separately in `9d28b83` and ignored `artifacts/ux-baseline-20260917-001141`. The first attended 0.2.12 recording completed; its evidence and limits are in STATE. Coordinate a new desktop lease before any further launch.
+Read [STATE](STATE.md) first, then [the complete option inventory and acceptance report](UX-OVERNIGHT-2026-09-16.md). The currently installed receipt is **0.2.14 / e3d118e**, with all nine receipt payload hashes matching on October 3; saved FFB is Off. This `codex/ux-simple-advanced-0.2.8` checkout documents the historical 0.2.12 / bf58042 source and attended recording, not the later installed source. Exact evidence and limits are in STATE. Prior dirty work is preserved separately in `9d28b83` and ignored `artifacts/ux-baseline-20260917-001141`. Coordinate a new desktop lease and the owner's attended FFB choice before any further force test.
 
 0.2.12 prepares the next seated owner drive as a GUID-correlated source recording plus device-free model-3 baseline and immutable tuning trials. The command defaults to force suppression; attended physical FFB remains explicit. It never kills Woden on timeout. Offline reprocessing requires complete/drop-free source data, stable tuning, explicit reset/gate semantics and real driving coverage. Trials revalidate the original case/baseline and write a new observation with a separately hashed candidate config. The two historical captures contain zero driving samples and cannot pass. Read [recorded owner-drive boundaries](RECORDED-PLAYBACK.md). Shared contract source is toolkit `87b47d53121c0b3fc8479e622ae8a79c8ca3fa58`; native/Recording pins are unchanged.
 
