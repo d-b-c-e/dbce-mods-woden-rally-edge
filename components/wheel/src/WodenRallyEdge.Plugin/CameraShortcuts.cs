@@ -27,7 +27,7 @@ internal static class CameraShortcuts
             bool held = Runtime.Wheel.Button(action, false);
             if (!Repeats[action].Tick(held, allowed, Runtime.Clock.Elapsed.TotalSeconds, action != "Camera reset")) continue;
             if (action == "Camera reset") { cfg.ResetCamera(bumper); Panel.ShowCameraMessage((bumper ? "Bumper" : "Bonnet") + ": default view restored"); Panel.SettingsChanged(); return; }
-            pose = CameraTuning.Adjust(pose, action); changed = true;
+            pose = CameraTuning.Adjust(pose, action, cfg.CameraSteps); changed = true;
             Panel.ShowCameraMessage((bumper ? "Bumper" : "Bonnet") + ": " + CameraTuning.Labels[Array.IndexOf(CameraTuning.Actions, action)] + $" · height {pose.Height:F2} m · forward {pose.Forward:F2} m · tilt {pose.Pitch:F0}° · FOV {pose.Fov:F0}°");
         }
         if (!changed) return;

@@ -4,6 +4,7 @@
 
 ### Changed
 
+- Camera shortcut step sizes are settings (Advanced → Cameras, toolkit default 0.02 m / 1° / 2° per press; was a fixed 0.05 m).
 - Camera numpad defaults follow the family layout (owner, 2026-10-04): 8/2 forward/back, 9/3 up/down, 4/6 left/right, 7/1 tilt forward/back, +/− FOV, 5 reset. Untouched earlier default sets (either old tilt order, or the interim iRacing set) move on load; customised sets are kept.
 - Triple screens under Surround: the desktop size joins the game's resolution list; menu pillarbox hidden on three-screen windows; Forza RPM (nominal scale), gear and HUD speed.
 
@@ -88,6 +89,7 @@
 
 ### Changed
 
+- Camera shortcut step sizes are settings (Advanced → Cameras, toolkit default 0.02 m / 1° / 2° per press; was a fixed 0.05 m).
 - F6 adopts Setup, Controls, FFB, Cameras, Telemetry and Help, common display
   labels, explicit Save calibration and visible Stop FFB/Close without changing
   existing binding keys. Remaining UX gaps are documented.
@@ -105,6 +107,7 @@ Effective controls, camera behavior and physical FFB still need an attended test
 
 ### Changed
 
+- Camera shortcut step sizes are settings (Advanced → Cameras, toolkit default 0.02 m / 1° / 2° per press; was a fixed 0.05 m).
 - Replaced confusing action-like toggles such as `ON Allow FFB` with labeled
   Off/On choices. Preserved the owner's edited settings and bindings on update.
 

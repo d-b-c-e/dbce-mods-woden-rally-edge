@@ -25,6 +25,17 @@ public readonly record struct CameraPose(float Side, float Height, float Forward
     }
 }
 
+/// <summary>Per-press adjustment sizes, a player setting (toolkit default 0.02 m, 1°, 2°).</summary>
+public readonly record struct CameraSteps(float Move, float Tilt, float Fov)
+{
+    public static CameraSteps Default => new(.02f, 1, 2);
+    public CameraSteps Bounded()
+    {
+        static float Limit(float value, float min, float max, float fallback) => float.IsFinite(value) ? Math.Clamp(value, min, max) : fallback;
+        return new(Limit(Move, .005f, .25f, .02f), Limit(Tilt, .1f, 10, 1), Limit(Fov, .5f, 10, 2));
+    }
+}
+
 public static class CameraTuning
 {
     public static readonly string[] Actions = { "Camera", "Rear view", "Camera up", "Camera down", "Camera forward", "Camera back", "Camera left", "Camera right", "Camera pitch up", "Camera pitch down", "Camera wider", "Camera narrower", "Camera reset" };
@@ -67,12 +78,17 @@ public static class CameraTuning
         var keys = DefaultKeys().Where(k => adjustments.Contains(k.Key)).Select(k => k.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
         return bindings.CameraKeys.FirstOrDefault(k => !adjustments.Contains(k.Key) && keys.Contains(k.Value)).Key;
     }
-    public static CameraPose Adjust(CameraPose pose, string action) => (action switch
+    public static CameraPose Adjust(CameraPose pose, string action) => Adjust(pose, action, CameraSteps.Default);
+    public static CameraPose Adjust(CameraPose pose, string action, CameraSteps steps)
     {
-        "Camera up" => pose with { Height = pose.Height + .05f }, "Camera down" => pose with { Height = pose.Height - .05f },
-        "Camera forward" => pose with { Forward = pose.Forward + .05f }, "Camera back" => pose with { Forward = pose.Forward - .05f },
-        "Camera left" => pose with { Side = pose.Side - .05f }, "Camera right" => pose with { Side = pose.Side + .05f },
-        "Camera pitch up" => pose with { Pitch = pose.Pitch - 1 }, "Camera pitch down" => pose with { Pitch = pose.Pitch + 1 },
-        "Camera wider" => pose with { Fov = pose.Fov + 2 }, "Camera narrower" => pose with { Fov = pose.Fov - 2 }, _ => pose
-    }).Bounded();
+        steps = steps.Bounded(); float m = steps.Move, t = steps.Tilt, f = steps.Fov;
+        return (action switch
+        {
+            "Camera up" => pose with { Height = pose.Height + m }, "Camera down" => pose with { Height = pose.Height - m },
+            "Camera forward" => pose with { Forward = pose.Forward + m }, "Camera back" => pose with { Forward = pose.Forward - m },
+            "Camera left" => pose with { Side = pose.Side - m }, "Camera right" => pose with { Side = pose.Side + m },
+            "Camera pitch up" => pose with { Pitch = pose.Pitch - t }, "Camera pitch down" => pose with { Pitch = pose.Pitch + t },
+            "Camera wider" => pose with { Fov = pose.Fov + f }, "Camera narrower" => pose with { Fov = pose.Fov - f }, _ => pose
+        }).Bounded();
+    }
 }

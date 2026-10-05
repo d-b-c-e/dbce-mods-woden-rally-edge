@@ -465,6 +465,11 @@ internal static class Panel
             var edited=new CameraPose(side,height,forward,pitch,fov);if(edited!=pose){cfg.SetCameraPose(_editBumper,edited);if(!_editBumper)cfg.CameraAutoFit=false;Dirty();}
             if(Button(250,y,260,"Reset this view")){cfg.ResetCamera(_editBumper);Dirty();}y+=46;
             Label(250,y,690,"Position moves the selected mount in metres; positive tilt looks down. FOV widens the image. Reset restores this mount's defaults.",true,58);y+=66;
+            Slider(y,"Move step per press (m)",ref cfg.CameraMoveStep,.005f,.25f,"F3");y+=44;
+            Slider(y,"Tilt step per press (°)",ref cfg.CameraTiltStep,.1f,10,"F1");y+=44;
+            Slider(y,"FOV step per press (°)",ref cfg.CameraFovStep,.5f,10,"F1");y+=44;
+            if(Button(250,y,330,"Default steps: 0.02 m, 1°, 2°")){cfg.CameraMoveStep=CameraSteps.Default.Move;cfg.CameraTiltStep=CameraSteps.Default.Tilt;cfg.CameraFovStep=CameraSteps.Default.Fov;Dirty();}y+=46;
+            Label(250,y,690,"Steps set how far each numpad press moves, tilts or zooms the active view. Smaller steps place the view more finely.",true,46);y+=54;
         }
         Label(250,y,690,MountedCamera.Status,true,42);End(y+50);
     }

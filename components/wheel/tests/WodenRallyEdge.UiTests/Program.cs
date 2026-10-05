@@ -93,7 +93,7 @@ var previousPose=Runtime.Settings.GetCameraPose(false);var previousBumper=Runtim
 Keyboard.current![Key.Numpad9].isPressed=true;CameraShortcuts.Update();Panel.Close(false);CameraShortcuts.Update();
 Check(Runtime.Settings.GetCameraPose(false)==previousPose,"actual shortcut source waits for release on panel close");
 Keyboard.current.Clear();CameraShortcuts.Update();Keyboard.current[Key.Numpad9].isPressed=true;CameraShortcuts.Update();
-Check(Math.Abs(Runtime.Settings.CameraHeight-previousPose.Height-.05f)<.0001f&&Runtime.Settings.GetCameraPose(true)==previousBumper,"actual shortcut moves only active mount");
+Check(Math.Abs(Runtime.Settings.CameraHeight-previousPose.Height-Runtime.Settings.CameraMoveStep)<.0001f&&Runtime.Settings.GetCameraPose(true)==previousBumper,"actual shortcut moves only active mount");
 Draw();Check(GUI.Commands.Any(c=>c.Text.StartsWith("Bonnet:")),"live camera adjustment reports active mount and value");
 Runtime.Focused=false;CameraShortcuts.Update();Runtime.Focused=true;var afterTap=Runtime.Settings.GetCameraPose(false);CameraShortcuts.Update();Check(Runtime.Settings.GetCameraPose(false)==afterTap,"focus return cannot repeat a held shortcut");Keyboard.current.Clear();CameraShortcuts.Update();
 Panel.Toggle();

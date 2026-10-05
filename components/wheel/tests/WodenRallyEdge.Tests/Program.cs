@@ -158,9 +158,12 @@ Test("camera fit, manual tuning, bounds and key bindings survive legacy and new 
     Check(pose.Pitch > 0 && pose.Fov == 70, "default looks down with explicit FOV");
     Check(CameraPose.FitBonnet(Vector3.Zero, Vector3.Zero) == CameraPose.Bonnet, "missing bounds fallback");
     Check(CameraPose.FitBonnet(Vector3.Zero, new(float.NaN)) == CameraPose.Bonnet, "nonfinite bounds fallback");
-    Near(CameraTuning.Adjust(pose, "Camera up").Height, pose.Height + .05, "move up");
-    Near(CameraTuning.Adjust(pose, "Camera back").Forward, pose.Forward - .05, "move back");
-    Near(CameraTuning.Adjust(pose, "Camera left").Side, -.05, "move left");
+    Near(CameraTuning.Adjust(pose, "Camera up").Height, pose.Height + .02, "move up (default 0.02 m step)");
+    Near(CameraTuning.Adjust(pose, "Camera back").Forward, pose.Forward - .02, "move back");
+    Near(CameraTuning.Adjust(pose, "Camera left").Side, -.02, "move left");
+    var fine = new CameraSteps(.005f, .25f, .5f);
+    Near(CameraTuning.Adjust(pose, "Camera forward", fine).Forward, pose.Forward + .005, "fine move step"); Near(CameraTuning.Adjust(pose, "Camera pitch down", fine).Pitch, pose.Pitch + .25, "fine tilt step");
+    Near(CameraTuning.Adjust(pose, "Camera wider", fine).Fov, pose.Fov + .5, "fine FOV step"); Near(new CameraSteps(0, float.NaN, 99).Bounded().Move, .005, "step bounds");
     Near(CameraTuning.Adjust(pose, "Camera pitch up").Pitch, pose.Pitch - 1, "pitch up");
     Near(CameraTuning.Adjust(pose with { Fov = 110 }, "Camera wider").Fov, 110, "FOV clamp");
     Near(CameraTuning.Adjust(pose with { Forward = -2 }, "Camera back").Forward, -2, "position clamp");
