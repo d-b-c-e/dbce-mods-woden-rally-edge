@@ -98,6 +98,13 @@ internal static class DevInput
         if (changed) Push();
     }
 
+    private static string PathOf(Transform t)
+    {
+        string path = t.name;
+        for (var parent = t.parent; parent != null; parent = parent.parent) path = parent.name + "/" + path;
+        return path;
+    }
+
     private static void Parse(string line, double now)
     {
         var p = line.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -108,6 +115,30 @@ internal static class DevInput
             string name = p.Length > 1 ? p[1] : DateTime.Now.ToString("HHmmss");
             ScreenCapture.CaptureScreenshot(Path.Combine(_dir!, name + ".png"), 1);
             Runtime.Log.LogInfo($"Dev input: screenshot {name}.png; triple {TripleView.Status}; screen {Screen.width}x{Screen.height}");
+            return;
+        }
+        if (verb == "ui")
+        {
+            // Lists UI images that are wide (over 2000 px) or near black, with their scene paths.
+            foreach (var g in UnityEngine.Object.FindObjectsOfType<UnityEngine.UI.Graphic>())
+            {
+                if (g == null || !g.isActiveAndEnabled) continue;
+                var rt = g.rectTransform;
+                float wpx = rt.rect.width * rt.lossyScale.x, hpx = rt.rect.height * rt.lossyScale.y;
+                var c = g.color;
+                bool dark = c.a > 0.5f && c.r < 0.1f && c.g < 0.1f && c.b < 0.1f;
+                if (wpx < 2000 && !dark) continue;
+                Runtime.Log.LogInfo($"Dev input: ui {PathOf(g.transform)} [{g.GetIl2CppType().Name}] {wpx:0}x{hpx:0} at x {rt.position.x:0} color {c.r:0.00},{c.g:0.00},{c.b:0.00},{c.a:0.00}");
+            }
+            return;
+        }
+        if (verb == "hide" && p.Length >= 2)
+        {
+            // hide <exact scene path from ui>: deactivates that object for a live look.
+            string path = line.Trim().Substring(5).Trim();
+            foreach (var g in UnityEngine.Object.FindObjectsOfType<UnityEngine.UI.Graphic>())
+                if (g != null && PathOf(g.transform) == path) { g.gameObject.SetActive(false); Runtime.Log.LogInfo("Dev input: hid " + path); return; }
+            Runtime.Log.LogWarning("Dev input: hide found nothing at " + path);
             return;
         }
         if (verb == "window" && p.Length >= 3 && int.TryParse(p[1], out int w) && int.TryParse(p[2], out int h))

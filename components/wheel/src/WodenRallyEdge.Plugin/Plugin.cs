@@ -33,6 +33,7 @@ public sealed class Plugin : BasePlugin
         {
             TripleView.Bind(Config);
             DesktopResolution.Bind(Config);
+            MenuBorders.Bind(Config);
             DevInput.Bind(Config, Path.GetDirectoryName(typeof(Plugin).Assembly.Location)!);
             Runtime.Start(Path.GetDirectoryName(typeof(Plugin).Assembly.Location)!);
             _harmony = new Harmony(Id);
@@ -179,6 +180,7 @@ internal static class Runtime
             InputPolling.OncePerFrame();
             DevInput.FrameTick(now);
             TripleView.FrameTick(now);
+            MenuBorders.FrameTick(now);
             Panel.Update();
             CameraShortcuts.Update();
             StockWheelOwner.Update();
