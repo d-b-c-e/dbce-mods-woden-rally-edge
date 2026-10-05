@@ -26,3 +26,7 @@ The owner requested documentation, simple setup and release readiness. This repo
 The older `Package-Delivery.ps1` deliberately repacks a frozen 0.2.13 baseline; do not use it for this newer runtime. `components/wheel/tools/Package.ps1` is the active runtime builder. The new wrapper adds player documentation around that builder's exact payload and existing installer.
 
 The known-good private reference is now outside disposable worktrees at `%LOCALAPPDATA%/Dbce/StagePlayback/references/woden-kenya-20261005`; all seven sealed files were copied and hash-verified. It must remain private. Archive private evidence before removing any finished worktree.
+
+## Prepared player candidate
+
+`WodenRallyEdge-0.2.14-preview.1.zip` was built from clean `e534231fd9ed6b5205164322b8f3ef2510944e16`; SHA-256 `1200E49856C353701ED36221FE506D8C5FE23B50CD0B54DF051B08387D988935`. The exact extracted player package passed all **111 installer checks under stock Windows PowerShell 5.1**. Runtime build passed 42 suites / 37,760 assertions plus 580 UI assertions with zero warnings/errors. The candidate adds the player quick-start and dependency notices. It is neither installed nor published; the accepted installed runtime remains the a628e04 candidate above. Private logs: `components/wheel/artifacts/public-preview-1*.log`. Package receipt and checksum are beside the ZIP under `components/wheel/dist`.
