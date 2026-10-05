@@ -8,7 +8,8 @@ if ((Get-FileHash -LiteralPath (Join-Path $game 'GameAssembly.dll')).Hash -ne 'F
 & (Join-Path $PSScriptRoot 'Verify-Dependencies.ps1')
 $loader = Join-Path $root 'lib\loader\bepinex-788'
 if (-not (Test-Path -LiteralPath (Join-Path $loader 'winhttp.dll'))) { throw 'Run Initialize-Dependencies.ps1 first' }
-$package = Join-Path $root 'dist\WodenRallyEdgeWheel-0.2.12-dev.zip'
+$version = ([xml](Get-Content (Join-Path $root 'Directory.Build.props') -Raw)).Project.PropertyGroup.Version
+$package = Join-Path $root "dist\WodenRallyEdgeWheel-$version-dev.zip"
 if (-not (Test-Path -LiteralPath $package)) { throw 'Run tools/Package.ps1 first' }
 function Assert-UnlinkedPath([string]$path) {
     $cursor = [IO.Path]::GetFullPath($path)

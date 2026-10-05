@@ -46,7 +46,7 @@ try {
     } finally { $process.Dispose() }
 } finally { Pop-Location }
 $first = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
-Check ($first.files.Count -eq 9 -and $first.mode -eq 'Install' -and -not $first.gameLaunched) 'Install receipt'
+Check ($first.files.Count -eq 13 -and $first.mode -eq 'Install' -and -not $first.gameLaunched) 'Install receipt includes playback library, provenance, license and command'
 Check ($first.installerRevision -eq 3) 'Default-root player installer revision'
 Check ((Hash (Join-Path $plugin 'WodenRallyEdgeWheel.dll')) -eq (Hash (Join-Path $PackageRoot 'BepInEx\plugins\WodenRallyEdgeWheel\WodenRallyEdgeWheel.dll'))) 'Default-root selected wrong package'
 foreach ($entry in $first.files) { Check ((Hash (Join-Path $fixture $entry.path)) -eq $entry.sha256) ('Payload ' + $entry.path) }

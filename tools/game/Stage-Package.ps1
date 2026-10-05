@@ -12,12 +12,16 @@ $stage = Join-Path $root ('dist\candidate-' + [guid]::NewGuid().ToString('N'))
 $plugin = Join-Path $stage 'BepInEx\plugins\WodenRallyEdgeWheel'
 $null = New-Item -ItemType Directory -Path $plugin
 $bin = Join-Path $wheel 'src\WodenRallyEdge.Plugin\bin\Release\net6.0'
-foreach ($name in 'WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Recording.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll') {
+foreach ($name in 'WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Recording.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll','Dbce.Wheel.Playback.dll') {
     Copy-Item -LiteralPath (Join-Path $bin $name) -Destination $plugin
 }
 $version = (Get-Item -LiteralPath (Join-Path $plugin 'WodenRallyEdgeWheel.dll')).VersionInfo.ProductVersion
-if ($version -notmatch '^0\.2\.13(?:\+.*)?$') { throw 'Unexpected unified candidate version' }
+$sourceVersion = ([xml](Get-Content (Join-Path $wheel 'Directory.Build.props') -Raw)).Project.PropertyGroup.Version
+if ($version -notmatch ('^' + [regex]::Escape($sourceVersion) + '(?:\+.*)?$')) { throw 'Unexpected unified candidate version' }
 Copy-Item -LiteralPath (Join-Path $wheel 'lib\recording\provenance.json') -Destination (Join-Path $plugin 'recording-provenance.json')
+Copy-Item -LiteralPath (Join-Path $root 'vendor/playback/provenance.json') -Destination (Join-Path $plugin 'playback-provenance.json')
+Copy-Item -LiteralPath (Join-Path $root 'vendor/playback/LICENSE') -Destination (Join-Path $plugin 'playback-LICENSE.txt')
+Copy-Item -LiteralPath (Join-Path $root 'vendor/playback/Stage-Session.ps1') -Destination $plugin
 Copy-Item -LiteralPath (Join-Path $wheel 'lib\toolkit\VERSION') -Destination (Join-Path $plugin 'toolkit.version')
 # Release provenance is deliberately outside the legacy installer-owned payload.
 Copy-Item -LiteralPath (Join-Path $wheel 'lib\toolkit\INPUT-OVERRIDE.json') -Destination (Join-Path $stage 'input-override.json')

@@ -91,6 +91,7 @@ internal static class Runtime
         try { _recordLaunch = DiagnosticLaunch.Consume(requestPath, DateTimeOffset.UtcNow); DiagnosticNoForce = _recordLaunch?.DisableForces == true; }
         catch (Exception ex) { Log.LogError("Diagnostic launch rejected; force suppressed for this run: " + ex.Message); }
         if (_recordLaunch != null) Log.LogInfo($"Diagnostic launch {_recordLaunch.Id}; physical FFB suppressed={DiagnosticNoForce}");
+        StagePlayback.Initialize();
         ApplyOutputs();
         Wheel = new(Path.Combine(Paths.ConfigPath, "wheel-bindings.json"));
         try { Devices = new(directory); }
@@ -108,7 +109,7 @@ internal static class Runtime
             if (_recordLaunch != null) PrepareRequestedRecording();
             else if (Settings.Record) _recordingPath = Path.Combine(Paths.BepInExRootPath, "WodenRecordings", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-" + Guid.NewGuid().ToString("N") + ".jsonl");
         }
-        var options = new OutputOptions(Settings.ForzaPort, Settings.DetailPort, Settings.DetailHz, _recordingPath, Settings.TelemetryEnabled);
+        var options = new OutputOptions(Settings.ForzaPort, Settings.DetailPort, Settings.DetailHz, _recordingPath, Settings.TelemetryEnabled && !StagePlayback.OutputMuted);
         if (Output == null) Output = new(options, SessionId, _provenance, Plugin.Version, _recordingProperties);
         else Output.ConfigureNetwork(options);
         Log.LogInfo("Telemetry outputs applied; capture=" + (_recordingPath ?? "disabled"));
@@ -161,10 +162,12 @@ internal static class Runtime
         var phase = car.Status switch { MainCar.CarStatus.WARMING => PlayerPhase.Countdown, MainCar.CarStatus.RACE => PlayerPhase.Racing,
             MainCar.CarStatus.END => PlayerPhase.Finished, MainCar.CarStatus.DESTROYED => PlayerPhase.Destroyed, _ => PlayerPhase.Unavailable };
         bool photo = car.MyControls?.PauseScript?.PhotomodeActive == true;
-        return new(phase, true, Focused, Panel.Open, Pause.Paused, car.Replay, car.Respawning, photo, car.locked);
+        return new(phase, true, Focused, Panel.Open, Pause.Paused, car.Replay || StagePlayback.Owns(car), car.Respawning, photo, car.locked);
     }
     internal static bool Driving(MainCar car) => ControlState(car).Driving;
-    internal static bool CameraAvailable(MainCar car) => ControlState(car).CameraAvailable;
+    internal static bool CameraAvailable(MainCar car) => StagePlayback.Owns(car)
+        ? Focused && !Panel.Open && !Pause.Paused && !car.Respawning && !car.Replay
+        : ControlState(car).CameraAvailable;
     internal static void Update()
     {
         using var lease = Activity.TryEnter(); if (lease == null) return;
@@ -173,6 +176,7 @@ internal static class Runtime
         TimingDiagnostics.Frame(now);
         try
         {
+            StagePlayback.Update(now);
             InputPolling.OncePerFrame();
             Panel.Update();
             CameraShortcuts.Update();
@@ -202,6 +206,7 @@ internal static class Runtime
     internal static void Stop()
     {
         if (_stopped) return;
+        StagePlayback.Stop();
         _stopped = true;
         Activity.StopAndDrain(FinishStop);
     }
@@ -221,7 +226,8 @@ internal static class Runtime
 [HarmonyPatch(typeof(MainCar), nameof(MainCar.FixedUpdate))]
 internal static class CarHook
 {
-    private static void Prefix(out double __state) { Runtime.HookCalls++; __state = Runtime.Clock.Elapsed.TotalMilliseconds; }
+    private static bool Prefix(MainCar __instance, out double __state)
+    { Runtime.HookCalls++; __state = Runtime.Clock.Elapsed.TotalMilliseconds; return StagePlayback.BeforeCar(__instance); }
     private static void Postfix(MainCar __instance, double __state)
     {
         using var lease = Runtime.Activity.TryEnter(); if (lease == null) return;
@@ -233,9 +239,11 @@ internal static class CarHook
             Runtime.LastLocal = Runtime.Clock.Elapsed.TotalSeconds;
             double started = Runtime.Clock.Elapsed.TotalMilliseconds;
             var sample = GameSampler.Read(__instance, Runtime.Wheel?.LastFor(__instance));
+            if (StagePlayback.Playing) sample.State = "trajectory";
             TimingDiagnostics.SampleMs = Runtime.Clock.Elapsed.TotalMilliseconds - started;
             started = Runtime.Clock.Elapsed.TotalMilliseconds;
             Runtime.Force.Tick(sample);
+            StagePlayback.Observe(sample);
             TimingDiagnostics.ForceMs = Runtime.Clock.Elapsed.TotalMilliseconds - started;
             TimingDiagnostics.Record(sample);
             Runtime.Output?.Publish(sample);

@@ -1,3 +1,5 @@
+Recording/playback candidate (2026-10-04): read docs/STAGE-PLAYBACK.md. This branch adds explicit output-muted stage tooling and original-signal capture. Builds/offline tests pass; game hooks are not installed or runtime-qualified. Preserve other worktrees' uncommitted triple-screen work when integrating. No game-input determinism or physical-force acceptance is claimed.
+
 # Super Woden Rally Edge coordination
 
 Read components/wheel/AGENTS.md and its STATE and HANDOFF before feature work. Their safety, ownership and fixture requirements remain in force.
