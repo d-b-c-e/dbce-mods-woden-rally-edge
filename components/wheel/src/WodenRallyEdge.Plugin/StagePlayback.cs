@@ -106,6 +106,7 @@ internal static class StagePlayback
         public void StartSignals(string directory)
         {
             AnalysisForce.Reset(); _signalCount = 0;
+            StageCaptureContext.Write(directory, _car ?? throw new InvalidOperationException("Player unavailable"));
             RecordingArtifacts.WriteForceConfig(Path.Combine(directory, "force-config.json"), Runtime.Settings.ForceOptions);
             File.WriteAllText(Path.Combine(directory, "channels.json"), JsonSerializer.Serialize(TelemetrySchema.Channels));
             var properties = new Dictionary<string, string> { ["capability"] = "signal-reprocess", ["physicalOutput"] = "false", ["captureSource"] = "live-physics",
@@ -125,7 +126,7 @@ internal static class StagePlayback
             signals.Dispose();
             if (signals.RecordingDrops != 0 || signals.RecordingError != null || signals.RecordingStatus != "Completed" || _signalCount < 2 || _signalCount != Session.Samples)
                 throw new IOException("Signal recording was not complete: " + signals.RecordingStatus + "; " + signals.RecordingError);
-            return new[] { "source.jsonl", "force-config.json", "channels.json" };
+            return new[] { "source.jsonl", "force-config.json", "channels.json", "stage-context.json" };
         }
         public TrajectoryFrame Read()
         {

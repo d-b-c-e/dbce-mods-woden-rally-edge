@@ -1,5 +1,13 @@
 # Developer recording and trajectory playback candidate - 2026-10-04
 
+**October 5 offline continuation:** the owner is using a separate Woden
+triple-screen session and owns the screen. No launch/deployment/display/input
+work here. The original 116-second owner drive was recovered and hash-verified;
+all pose channels exist, but scene/setup provenance is missing. New source adds
+a sealed, read-only `stage-context.json` for future captures. Build and eight
+legacy-source inspection tests pass; no new runtime qualification. Read
+[the offline review](2026-10-05-playback-offline-review.md) before proceeding.
+
 This is an implementation candidate, not runtime-qualified support. The plugin
 builds and offline tests pass. It has not been installed or exercised in this
 game. Art of Rally's successful trajectory tests do not qualify these hooks.

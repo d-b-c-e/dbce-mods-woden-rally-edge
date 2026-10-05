@@ -1,4 +1,4 @@
-Recording/playback candidate (2026-10-04): read docs/STAGE-PLAYBACK.md. This branch adds explicit output-muted stage tooling and original-signal capture. Builds/offline tests pass; game hooks are not installed or runtime-qualified. Preserve other worktrees' uncommitted triple-screen work when integrating. No game-input determinism or physical-force acceptance is claimed.
+Recording/playback continuation (2026-10-05): owner is working on Woden triples in a separate session and owns the screen. Keep this work offline; do not launch/deploy or change display/input/settings. Read docs/2026-10-05-playback-offline-review.md and docs/STAGE-PLAYBACK.md. Original owner drive recovered: 6,981 contiguous driving poses, original source hash verified, scene/setup not captured. Source now seals read-only stage context for future recordings; build and eight inspection tests pass, runtime remains unqualified. Preserve concurrent triple work before integration. Do not repeat accepted iRacing launches.
 
 # Super Woden Rally Edge coordination
 
