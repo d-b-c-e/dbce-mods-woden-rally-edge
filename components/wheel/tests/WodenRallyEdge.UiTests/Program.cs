@@ -67,9 +67,9 @@ Click("Cameras");Snapshot("cameras-720");Click("+ Adjustment bindings");BindActi
 Check(Runtime.Wheel.Bindings.CameraKeys["Camera up"]=="U","actual camera capture binds non-numpad key");
 Click("Cameras");BindAction("Move down");ArmCapture();KeyPress(Key.U);Check(Runtime.Wheel.CaptureButton=="Camera down"&&Runtime.Wheel.Status.Contains("Already assigned"),"conflict rejects without silently removing other action");
 KeyPress(Key.J,true);Check(Runtime.Wheel.CaptureButton!=null&&Runtime.Wheel.Status.Contains("Chords"),"modifier chord rejected");
-Click("Cancel");Check(Runtime.Wheel.Bindings.CameraKeys["Camera down"]=="Numpad2","cancel retained previous shortcut");
+Click("Cancel");Check(Runtime.Wheel.Bindings.CameraKeys["Camera down"]=="Numpad3","cancel retained previous shortcut");
 Click("Cameras");BindAction("Move down");typeof(WheelInput).GetField("_captureDeadline",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(Runtime.Wheel,-1d);Runtime.Wheel.UpdateCapture();Check(!Runtime.Wheel.Capturing&&Runtime.Wheel.Status.Contains("timed out"),"timeout preserves prior shortcut");
-Click("Cameras");Click("Restore numpad defaults");Check(Runtime.Wheel.Bindings.CameraKeys["Camera pitch down"]=="Numpad1"&&Runtime.Settings.CameraHeight==1.23f,"default restore uses family tilt pair and preserves pose");
+Click("Cameras");Click("Restore numpad defaults");Check(Runtime.Wheel.Bindings.CameraKeys["Camera pitch down"]=="Numpad7"&&Runtime.Settings.CameraHeight==1.23f,"default restore uses family tilt pair and preserves pose");
 Runtime.Wheel.TryCommit(b=>{b.CameraKeys["Camera up"]="U";b.CameraKeys["Camera"]="Numpad8";});
 var resetBefore=File.ReadAllText(Path.Combine(dir,"bindings.json"));var resetKeys=Runtime.Wheel.Bindings.CameraKeys.ToDictionary();
 Click("Restore numpad defaults");Check(Panel.Message.Contains("Camera")&&Runtime.Wheel.Bindings.CameraKeys.SequenceEqual(resetKeys)&&File.ReadAllText(Path.Combine(dir,"bindings.json"))==resetBefore,"batch defaults reject camera-cycle collision before any saved/effective change");
@@ -90,9 +90,9 @@ foreach(var view in new[]{"Simple","Advanced"})
 Click("Setup");Runtime.Settings.UiScale=150;Screen.width=1280;Screen.height=720;Snapshot("setup-720-scale150");Check(Find("Close")!=null&&Find("Stop FFB")!=null,"large scale retains escape routes");Runtime.Settings.UiScale=100;
 Runtime.Local=new();MountedCamera.Cycle.StockChanged(4,0,true,true);
 var previousPose=Runtime.Settings.GetCameraPose(false);var previousBumper=Runtime.Settings.GetCameraPose(true);
-Keyboard.current![Key.Numpad8].isPressed=true;CameraShortcuts.Update();Panel.Close(false);CameraShortcuts.Update();
+Keyboard.current![Key.Numpad9].isPressed=true;CameraShortcuts.Update();Panel.Close(false);CameraShortcuts.Update();
 Check(Runtime.Settings.GetCameraPose(false)==previousPose,"actual shortcut source waits for release on panel close");
-Keyboard.current.Clear();CameraShortcuts.Update();Keyboard.current[Key.Numpad8].isPressed=true;CameraShortcuts.Update();
+Keyboard.current.Clear();CameraShortcuts.Update();Keyboard.current[Key.Numpad9].isPressed=true;CameraShortcuts.Update();
 Check(Math.Abs(Runtime.Settings.CameraHeight-previousPose.Height-.05f)<.0001f&&Runtime.Settings.GetCameraPose(true)==previousBumper,"actual shortcut moves only active mount");
 Draw();Check(GUI.Commands.Any(c=>c.Text.StartsWith("Bonnet:")),"live camera adjustment reports active mount and value");
 Runtime.Focused=false;CameraShortcuts.Update();Runtime.Focused=true;var afterTap=Runtime.Settings.GetCameraPose(false);CameraShortcuts.Update();Check(Runtime.Settings.GetCameraPose(false)==afterTap,"focus return cannot repeat a held shortcut");Keyboard.current.Clear();CameraShortcuts.Update();
@@ -115,7 +115,7 @@ File.Move(bindingPath,bindingPath+".previous");Directory.CreateDirectory(binding
 Check(!Runtime.Wheel.TryCommit(proposed=>proposed.SetAxis("Handbrake",null))&&Runtime.Wheel.Bindings.Handbrake!=null,"failed Clear cannot erase effective axis");
 Click("Cancel");Check(!Runtime.Wheel.SavePending&&Runtime.Wheel.Bindings.Handbrake!=null,"failed Clear offers Cancel and preserves axis");
 var customKeys=Runtime.Wheel.Bindings.CameraKeys.ToDictionary();Check(!Runtime.Wheel.TryCommit(CameraTuning.RestoreAdjustmentKeys)&&Runtime.Wheel.Bindings.CameraKeys.SequenceEqual(customKeys),"failed defaults do not alter effective keys");
-Directory.Delete(bindingPath);File.Move(bindingPath+".previous",bindingPath);Click("Retry save");Check(Runtime.Wheel.Bindings.CameraKeys["Camera up"]=="Numpad8"&&!Runtime.Wheel.Capturing,"failed defaults retry without changing the proposal");
+Directory.Delete(bindingPath);File.Move(bindingPath+".previous",bindingPath);Click("Retry save");Check(Runtime.Wheel.Bindings.CameraKeys["Camera up"]=="Numpad9"&&!Runtime.Wheel.Capturing,"failed defaults retry without changing the proposal");
 Runtime.Wheel.BeginButton("Confirm");ArmCapture();var previousButton=Runtime.Wheel.Bindings.Buttons.GetValueOrDefault("Confirm");Runtime.Devices!.Pressed.Add(new(id,72));
 File.Move(bindingPath,bindingPath+".previous");Directory.CreateDirectory(bindingPath);Runtime.Wheel.UpdateCapture();Check(Runtime.Wheel.CaptureButton=="Confirm"&&Runtime.Wheel.Bindings.Buttons.GetValueOrDefault("Confirm")==previousButton,"failed wheel button save preserves assignment and draft");
 Directory.Delete(bindingPath);File.Move(bindingPath+".previous",bindingPath);Runtime.Devices.Pressed.Clear();Click("Retry save");Check(Runtime.Wheel.Bindings.Buttons["Confirm"].Button==72,"wheel button retry succeeds after releasing the captured button");

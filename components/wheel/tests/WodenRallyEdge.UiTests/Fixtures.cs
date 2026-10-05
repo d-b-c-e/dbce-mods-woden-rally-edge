@@ -57,7 +57,7 @@ namespace UnityEngine.EventSystems
 }
 namespace UnityEngine.InputSystem
 {
-    public enum Key {None,F6,F8,Escape,A,B,C,U,J,LeftShift,RightShift,LeftCtrl,RightCtrl,LeftAlt,RightAlt,LeftMeta,RightMeta,Numpad8,Numpad2,Numpad9,Numpad7,Numpad4,Numpad6,Numpad1,Numpad3,NumpadPlus,NumpadMinus,Numpad0}
+    public enum Key {None,F6,F8,Escape,A,B,C,U,J,LeftShift,RightShift,LeftCtrl,RightCtrl,LeftAlt,RightAlt,LeftMeta,RightMeta,Numpad8,Numpad2,Numpad9,Numpad7,Numpad4,Numpad6,Numpad1,Numpad3,NumpadPlus,NumpadMinus,Numpad0,Numpad5}
     public sealed class KeyControl { public bool wasPressedThisFrame,isPressed; }
     public sealed class Keyboard
     { public static Keyboard? current=new();public bool FailF8;private readonly Dictionary<Key,KeyControl> keys=new();public KeyControl anyKey=>new(){isPressed=keys.Values.Any(k=>k.isPressed)};public KeyControl this[Key key] {get{if(key==Key.F8&&FailF8)throw new InvalidOperationException("fixture F8 read failed");if(!keys.ContainsKey(key))keys[key]=new();return keys[key];}}public void Clear(){foreach(var k in keys.Values){k.wasPressedThisFrame=false;k.isPressed=false;}} }

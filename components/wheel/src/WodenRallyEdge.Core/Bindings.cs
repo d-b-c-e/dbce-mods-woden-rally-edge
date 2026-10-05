@@ -22,6 +22,8 @@ public sealed class Bindings
     public bool HandbrakeUsesAxis { get; set; }
     public Dictionary<string, ButtonBinding> Buttons { get; set; } = new();
     public Dictionary<string, string> CameraKeys { get; set; } = CameraTuning.DefaultKeys();
+    /// <summary>Load moved untouched old camera defaults to the current layout (not saved).</summary>
+    [System.Text.Json.Serialization.JsonIgnore] public bool CameraKeysMigrated { get; set; }
     public string? Conflict(string action, ButtonBinding? button = null, string? key = null)
     {
         // One physical control may intentionally serve several actions. Assignment
@@ -57,7 +59,9 @@ public sealed class Bindings
         foreach (var name in new[] { "Steer", "Throttle", "Brake", "Handbrake" })
             if (bindings.Axis(name) is { } b && !b.Valid) throw new IOException("Invalid saved " + name + " calibration");
         if (bindings.Buttons == null || bindings.Buttons.Any(x => x.Value?.Valid != true)) throw new IOException("Invalid saved button binding");
-        if (!hadKeys) bindings.CameraKeys = CameraTuning.LegacyKeys();
+        // No saved keys, or an untouched earlier default set: the current family layout.
+        if (!hadKeys) { bindings.CameraKeys = CameraTuning.DefaultKeys(); bindings.CameraKeysMigrated = true; }
+        else bindings.CameraKeysMigrated = CameraTuning.MigratePreviousDefaults(bindings.CameraKeys);
         return bindings;
     }
     public void Save(string path)

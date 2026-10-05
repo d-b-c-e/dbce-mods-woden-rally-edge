@@ -29,10 +29,32 @@ public static class CameraTuning
 {
     public static readonly string[] Actions = { "Camera", "Rear view", "Camera up", "Camera down", "Camera forward", "Camera back", "Camera left", "Camera right", "Camera pitch up", "Camera pitch down", "Camera wider", "Camera narrower", "Camera reset" };
     public static readonly string[] Labels = { "Change camera", "Look behind", "Move up", "Move down", "Move forward", "Move back", "Move left", "Move right", "Tilt up", "Tilt down", "Widen FOV", "Narrow FOV", "Reset view" };
-    private static readonly string[] Keys = { "None", "None", "Numpad8", "Numpad2", "Numpad9", "Numpad7", "Numpad4", "Numpad6", "Numpad3", "Numpad1", "NumpadPlus", "NumpadMinus", "Numpad0" };
+    // Family layout (owner, 2026-10-04): 8/2 forward/back, 9/3 up/down, 4/6 left/right,
+    // 7/1 tilt forward/back, +/- FOV, 5 reset. Tilt forward looks down (pitch down).
+    private static readonly string[] Keys = { "None", "None", "Numpad9", "Numpad3", "Numpad8", "Numpad2", "Numpad4", "Numpad6", "Numpad1", "Numpad7", "NumpadPlus", "NumpadMinus", "Numpad5" };
     public static Dictionary<string, string> DefaultKeys() => Actions.Select((a, i) => (a, i)).ToDictionary(x => x.a, x => Keys[x.i]);
-    public static Dictionary<string, string> LegacyKeys()
-    { var keys = DefaultKeys(); keys["Camera pitch up"] = "Numpad1"; keys["Camera pitch down"] = "Numpad3"; return keys; }
+
+    // Earlier family defaults, adjustment keys only (up, down, forward, back, left, right,
+    // pitch up, pitch down, wider, narrower, reset). A saved set equal to one of these
+    // records no player choice and moves to the current layout.
+    private static readonly string[][] PreviousLayouts =
+    {
+        new[] { "Numpad8", "Numpad2", "Numpad9", "Numpad7", "Numpad4", "Numpad6", "Numpad3", "Numpad1", "NumpadPlus", "NumpadMinus", "Numpad0" },
+        new[] { "Numpad8", "Numpad2", "Numpad9", "Numpad7", "Numpad4", "Numpad6", "Numpad1", "Numpad3", "NumpadPlus", "NumpadMinus", "Numpad0" },
+        new[] { "Numpad9", "Numpad3", "Numpad8", "Numpad2", "NumpadDivide", "NumpadMultiply", "Numpad4", "Numpad6", "NumpadPlus", "NumpadMinus", "Numpad5" },
+        new[] { "Numpad9", "Numpad3", "Numpad8", "Numpad2", "NumpadDivide", "NumpadMultiply", "Numpad6", "Numpad4", "NumpadPlus", "NumpadMinus", "Numpad5" },
+    };
+
+    /// <summary>Moves an untouched earlier default set to the current layout; true when it did.</summary>
+    public static bool MigratePreviousDefaults(Dictionary<string, string> keys)
+    {
+        var adjustments = Actions.Skip(2).ToArray();
+        string Saved(string action) => keys.TryGetValue(action, out var key) ? key : "None";
+        if (!PreviousLayouts.Any(layout => adjustments.Select((a, i) => string.Equals(Saved(a), layout[i], StringComparison.OrdinalIgnoreCase)).All(x => x))) return false;
+        var current = DefaultKeys();
+        foreach (var action in adjustments) keys[action] = current[action];
+        return true;
+    }
     public static void RestoreAdjustmentKeys(Bindings bindings)
     {
         var conflict = AdjustmentDefaultsConflict(bindings);

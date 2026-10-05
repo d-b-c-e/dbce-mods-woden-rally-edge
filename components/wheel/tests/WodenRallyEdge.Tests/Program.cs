@@ -166,7 +166,7 @@ Test("camera fit, manual tuning, bounds and key bindings survive legacy and new 
     Near(CameraTuning.Adjust(pose with { Forward = -2 }, "Camera back").Forward, -2, "position clamp");
     string path = Path.Combine(Path.GetTempPath(), "woden-camera-bindings-" + Guid.NewGuid() + ".json");
     File.WriteAllText(path, "{\"Version\":1,\"Buttons\":{}}");
-    var bindings = Bindings.Load(path); Check(bindings.CameraKeys["Camera up"] == "Numpad8", "legacy bindings acquire numpad defaults");
+    var bindings = Bindings.Load(path); Check(bindings.CameraKeys["Camera up"] == "Numpad9", "legacy bindings acquire numpad defaults");
     bindings.CameraKeys["Camera up"] = "U"; bindings.CameraKeys["Camera down"] = "None";
     bindings.Buttons["Camera down"] = new(Guid.NewGuid(), 5);
     bindings.Save(path); var restored = Bindings.Load(path);

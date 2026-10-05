@@ -37,7 +37,12 @@ internal sealed class WheelInput
     internal WheelInput(string path)
     {
         _path = path;
-        try { Bindings = Bindings.Load(path); } catch (Exception ex) { Status = "Bindings could not load: " + ex.Message; SaveError = Status; }
+        try
+        {
+            Bindings = Bindings.Load(path);
+            if (Bindings.CameraKeysMigrated) Runtime.Log.LogInfo("Camera keys: default numpad layout is 8/2 forward/back, 9/3 up/down, 4/6 left/right, 7/1 tilt, +/- FOV, 5 reset (untouched old defaults moved)");
+        }
+        catch (Exception ex) { Status = "Bindings could not load: " + ex.Message; SaveError = Status; }
     }
     internal void Save() => TryCommit(_ => { });
     internal bool TryCommit(Action<Bindings> edit)
