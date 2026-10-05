@@ -6,7 +6,7 @@
 
 - Camera shortcut step sizes are settings (Advanced → Cameras, toolkit default 0.02 m / 1° / 2° per press; was a fixed 0.05 m).
 - Camera numpad defaults follow the family layout (owner, 2026-10-04): 8/2 forward/back, 9/3 up/down, 4/6 left/right, 7/1 tilt forward/back, +/− FOV, 5 reset. Untouched earlier default sets (either old tilt order, or the interim iRacing set) move on load; customised sets are kept.
-- Triple screens under Surround: the desktop size joins the game's resolution list; menu pillarbox hidden on three-screen windows; Forza RPM (nominal scale), gear and HUD speed.
+- Triple screens under Surround (docs/TRIPLE.md): the desktop size joins the game's resolution list, also when the saved index points past the stock list (switching Surround and independent monitors); menu pillarbox hidden on three-screen windows; Forza RPM (nominal scale), gear and HUD speed.
 
 ### Fixed
 

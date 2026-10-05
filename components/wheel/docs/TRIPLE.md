@@ -1,0 +1,72 @@
+# Triple screens
+
+Woden renders across three screens from one wide window (NVIDIA Surround, or a
+borderless window spanning three monitors). Port of iRacing Arcade's `TripleView`;
+toolkit standards STD-007 and STD-008.
+
+**Status (2026-10-04):** working under Surround at 7680x1440. The owner drove stages in
+bonnet and bumper views; triple views, centred HUD and menus verified at the rig.
+Separate monitors without Surround: renders when the window spans all three (seen with
+the dev span), but the mod does not create the span itself yet.
+
+## How it works
+
+- **Views** (`TripleView.cs`): a `Car_Cam.LateUpdate` postfix (Priority.Last) splits the
+  window into thirds. The game camera stays the centre view with an off-axis (Kooima)
+  projection from `TripleGeometry`; two side cameras copy its pose and settings, yawed by
+  the panel angle, each with its own PostProcessLayer (`Init(m_Resources)`;
+  `usePhysicalProperties` keeps PPv2 from resetting the projection). HUD canvases move to
+  a HUD camera on the centre third.
+- **Stripped engine** (`TripleNative.cs`): this build lacks many Camera/Canvas setters, so
+  they are resolved as `il2cpp_resolve_icall("UnityEngine.Camera::set_depth_Injected")` etc.
+  If a required binding is missing, triple stays off and says why.
+- **Resolution** (`DesktopResolution.cs`): the game's list (`ResolutionManager.ResList`,
+  copied in `Progress.Resolutions`) is hardcoded and stops at 5120x1440; the saved
+  `Resolution` pref is an index into it, applied once by `FirstResolutionSet`. A prefix adds
+  the desktop size (from `GetSystemMetrics`) when missing, and also when the saved index
+  points past the stock list, so the index stays valid when switching between Surround
+  (entry 13 = 7680x1440) and three independent monitors (entry 13 = 2560x1440). 7680x1440 is
+  then a normal choice in Options and startup is a no-op at the desktop size.
+- **Menus** (`MenuBorders.cs`): hides the game's pillarbox images
+  `Menu Camera/CANVAS/ScreenBorders/BorderL|R` on a three-wide window; the game re-enables
+  and moves them per menu, so they are re-checked twice a second.
+
+## Settings (`dbce.wodenrallyedgewheel.cfg`, `[Triple]`)
+
+| Key | Default | Meaning |
+|---|---|---|
+| Mode | Auto | Auto = on when the window is at least 2.9x as wide as tall; On; Off |
+| ToggleKey | F11 | Toggle in game |
+| CenterHud | true | HUD and menus on the centre screen |
+| MatchGameFov | false | Use the camera's own FOV (then F6 bonnet/bumper FOV sliders drive it) instead of the eye distance. Owner's install: true |
+| ChaseUsesGameFov | true | Stock chase cameras keep the game FOV |
+| PanelWidthMm / PanelHeightMm / EyeDistanceMm / SideAngle / BezelMm | 708.4 / 398.5 / 660 / 70 / 8 | Rig geometry |
+| OfferDesktopResolution | true | Add the desktop size to the game's resolution list |
+| HideMenuBorders | true | Hide the menu pillarbox on three-wide windows |
+
+TODO (STD-004): move these into F6 like the other mods; F10 vs F11 toggle consistency with DRIVE.
+
+## Testing safely (read before any display test)
+
+On 2026-10-04 stacked runtime resolution changes at 7680 (windowed, borderless resize,
+title-screen apply, `Screen.SetResolution` FullScreenWindow twice) reset the NVIDIA
+driver twice and the machine needed a hard reboot. Rules:
+- Monitor profiles only via `MonitorProfileSwitcher.exe --ipc apply "Sim Racing Surround"`
+  / `"Sim Racing"`; wait for the verified reply, then ~30 s before launching.
+- Set the resolution before launch (registry `HKCU\Software\ViJuDa\Super Woden Rally Edge`:
+  `Resolution_h2981718891` = 13, `Screenmanager Resolution Width_h182942802` = desktop width),
+  not at runtime. The dev `window` command allows one change per launch.
+- Run `tools/dev/Display-Watchdog.ps1` (hidden pwsh, `-RestoreProfile "Sim Racing"`) for
+  every display test: nvlddmkm events or 30 s without new frames kill the game and restore
+  the profile. Needs `[Dev] InputCommandFile = true` for the heartbeat.
+
+## Dev tools (owner-away development only)
+
+`[Dev] InputCommandFile = true` enables `dev\cmd.txt` beside the plugin (`DevInput.cs`):
+`press/hold/release <Key> [ms]`, `pad A|B|Start|... [ms]`, `stick x y ms`, `shot name`,
+`status` (also lists ResList), `ui` (wide/black UI graphics with scene paths),
+`hide <path>`, `window W H [mode]` (one per launch). It forces `runInBackground` and writes
+`dev\heartbeat.txt` each second. `tools/dev/Woden-Dev.ps1` wraps launch, commands and
+screenshots. Woden pauses when unfocused; startup screens read legacy Input (need focus),
+later screens read GamePadSystem (`pad`/`stick` work without focus); attract-mode DEMO PLAY
+uses `Car_Cam` and is a good render test. Turn the dev channel off after testing.

@@ -37,8 +37,14 @@ internal static class DesktopResolution
             int width = GetSystemMetrics(0), height = GetSystemMetrics(1);
             var list = __instance.ResList;
             if (list == null || list.Length == 0 || width < 1280 || height < 720) return;
+            // A saved index past the stock list was this entry on a previous desktop (Surround);
+            // keep it valid on any desktop so FirstResolutionSet never indexes out of range.
+            int saved = -1;
+            try { saved = PlayerPrefs.GetInt("Resolution", -1); } catch { }
+            bool present = false;
             for (int i = 0; i < list.Length; i++)
-                if ((int)list[i].x == width && (int)list[i].y == height) return;
+                if ((int)list[i].x == width && (int)list[i].y == height) present = true;
+            if (present && saved < list.Length) return;
 
             var desktop = new Vector2(width, height);
             __instance.ResList = Grow(list, desktop);

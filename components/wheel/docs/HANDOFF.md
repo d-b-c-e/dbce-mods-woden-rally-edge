@@ -1,3 +1,35 @@
+# Session handoff — 2026-10-04 (Claude → Codex)
+
+**Installed now:** the `claude/triple-screens` build (this worktree,
+`E:\Source\_worktrees\woden-triple`), not 0.2.14. Backup of the previous install:
+`E:\Source\_archive\2026-10-04\woden-install-before-triple-dev`; registry backup
+`E:\Source\_archive\2026-10-04\woden-registry\before-careful-attempt.reg`. Display left on
+"Sim Racing" (three independent monitors).
+
+**Branch:** `claude/triple-screens`, 7 commits on `origin/main` (e3d118e), the same base as
+`codex/session-playback`. A dry `git merge-tree codex/session-playback claude/triple-screens`
+merges cleanly (only `Plugin.cs` touched by both). Not pushed.
+
+What it adds (details in [TRIPLE](TRIPLE.md)):
+- Triple screens under Surround, verified by the owner driving (STD-007/008).
+- Camera numpad family layout 8/2 forward/back, 9/3 up/down, 4/6 left/right, 7/1 tilt,
+  +/- FOV, 5 reset, with migration of untouched old sets (STD-005); seen migrating the
+  owner's bindings on 2026-10-04.
+- Camera step sizes as settings, default 0.02 m / 1 deg / 2 deg (STD-006), Advanced → Cameras.
+- Forza: Speed from the HUD's `TrueSpeed` (about 3x physics m/s, sent as km/h), RPM on a
+  nominal 8000 scale from the 0..1 rev fraction, gear (STD-009). Owner still to confirm
+  RPM/gear on the dashboard.
+- Dev input commands, heartbeat and `tools/dev/Display-Watchdog.ps1`.
+
+Owner feedback 2026-10-04: triple works; FFB felt (it had been saved Off in config,
+predating this work; now On); bumper FOV fine with `MatchGameFov = true`; menu black bars
+fixed. Installed config: `[Dev] InputCommandFile = false`, `[Triple] Mode = Auto`,
+`MatchGameFov = true`. Saved resolution index 13 (valid on both profiles).
+
+Recording/playback (STD-002) is Codex's. Merge or rebase this branch first so playback is
+built on the installed behaviour. Standards status: repo root `TOOLKIT-ADOPTION.md`.
+
+---
 # Session handoff — 2026-09-30
 
 Read [STATE](STATE.md) first, then [the complete option inventory and acceptance report](UX-OVERNIGHT-2026-09-16.md). **0.2.12 / bf58042 is installed**, with installer revision 3, on `codex/ux-simple-advanced-0.2.8`. All nine payloads and four owner configuration/binding files were verified at install; the nine payloads were reverified after the first live run. Exact package/receipt identities are in STATE. Prior dirty work is preserved separately in `9d28b83` and ignored `artifacts/ux-baseline-20260917-001141`. The first attended 0.2.12 recording completed; its evidence and limits are in STATE. Coordinate a new desktop lease before any further launch.
