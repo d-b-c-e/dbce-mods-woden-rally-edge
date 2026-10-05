@@ -3,7 +3,8 @@
 The first cold-launch Kenya SS1 / car 8 reference passed all 3,601 poses and the owner accepted its route and camera changes. The game exited normally; owner files and raw preferences were restored exactly. Current installed runtime: `05837ee/session-focus.1`, which passed that full reference again at 21:09 UTC. Prior accepted runtime `a628e04` is backed up. See [integration evidence](2026-10-05-playback-integration.md) and [remaining public-release checks](PUBLIC-RELEASE.md).
 
 Claude subsequently observed the combined runtime's triples in the Kenya stage
-at 7680 pixels, but a separate foreground prompt blocked playback acquisition.
+at 7680 pixels, but the adapter's focus gate blocked playback acquisition. One
+run had a foreground prompt; another reported none but still logged Unfocused.
 The [scoped background replay fix](2026-10-05-background-replay.md) is installed
 and passed the full cold-start reference with the renderer reporting 7680
 triples, normal quit and exact restoration. It retains normal wheel/recording
@@ -77,9 +78,9 @@ physical steering forces across games. Separate requested output from device
 permission/acceptance and from the explicitly labelled hypothetical analysis
 model. No automatic gain or normalization tune is applied to owner settings.
 
-The separate `vendor/playback` pin is shared core 0.2.0 at
-`50b6b679e3c6e01025b6a50f8dd0f3eb85d9d4bb`, with DLL/command hashes and MIT license.
-It does not change the existing native/toolkit pin. The core has 54 offline
+The separate `vendor/playback` pin is shared core 0.2.1 at
+`af4d20d65a8c87bcbfe07a002fda693e6cc492b4`, with DLL/command hashes and MIT license.
+It does not change the existing native/toolkit pin. The core has 62 offline
 assertions; the command script passed isolated request/no-overwrite checks.
 
 ## Required live qualification

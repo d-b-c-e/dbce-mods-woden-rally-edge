@@ -1,9 +1,13 @@
 # Supervised replay without foreground focus
 
-Claude's combined triple-screen Kenya run reached the stage but never acquired
-the car: a separate Windows prompt held focus. The adapter reused the ordinary
-wheel driving predicate, so it waited until its startup deadline despite having
-latched physical output off. Moving focus was an unnecessary unattended prerequisite.
+Claude's combined triple-screen Kenya runs reached the stage but never acquired
+the car. A Windows prompt held focus in the first report; the retry had no
+visible prompt or reported foreground obstruction, but still logged Unfocused.
+The actual foreground HWND was not captured in that retry. The adapter reused
+the ordinary wheel driving predicate, so it waited until its startup deadline
+despite having latched physical output off. Moving focus was an unnecessary
+unattended prerequisite; the visible window arrangement does not establish the
+focus value seen by the game.
 
 The candidate vendors clean toolkit playback core 0.2.1 / af4d20d. Its explicit
 ReplayActive property distinguishes an accepted armed replay from an armed
@@ -56,3 +60,28 @@ new runtime has passed its full foreground regression, while the specific
 background condition still needs a live check. Claude has the working Windows
 UI helper and the targeted focus-loss handoff. No physical torque qualification
 or complete pause/Stop/stage/device matrix is implied.
+
+## Delayed 15:47 report and the remaining check
+
+`artifacts/claude-triple-motion-02` is request
+`76c07a3564c2426d93d3bba50e7bcc5d`. It failed at 20:45:15 UTC with zero replay
+samples, then restored owner state at 20:45:24 UTC. Its log shows thousands of
+local car callbacks and triples on at 7680x1440 while the ordinary force gate
+reported Unfocused. This is the pre-fix failure, before the 21:08 installation,
+not a failure of the later candidate. Do not erase it or count the subsequent
+focused pass as background qualification.
+
+After the delayed report, a read-only check verified all 13 currently installed
+payloads against the 05837ee receipt. Keep that candidate and the current display
+settings. Claude has the targeted runtime handoff, subject to the existing idle
+gate and runner-owned rig lease; no competing launch was queued by Codex.
+
+For one controlled cold-background run, keep a neutral desktop application in
+the foreground before car acquisition, using the supported UI helper. The log
+must show `focused=False; backgroundAuthorized=True`, then
+`unfocusedReplaySteps` greater than zero, all 3,601 poses including final readback,
+normal exit and exact restoration with no force/network delivery. A run that
+acquires focused and only later loses focus can qualify continuation, but cannot
+qualify background acquisition. Record that distinction instead of automatically
+repeating tests. The ordinary `ffb=Unfocused` state is expected while backgrounded;
+use replay acquisition/pose results to judge playback, not the physical-force gate.
