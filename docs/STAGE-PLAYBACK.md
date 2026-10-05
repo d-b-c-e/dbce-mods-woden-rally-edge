@@ -1,4 +1,4 @@
-# Developer recording and unattended playback — 2026-10-05
+# Developer recording and unattended playback â€” 2026-10-05
 
 The first cold-launch Kenya SS1 / car 8 reference passed all 3,601 poses and the owner accepted its route and camera changes. The game exited normally; owner files and raw preferences were restored exactly. Installed runtime: `a628e04`. See [integration evidence](2026-10-05-playback-integration.md) and [remaining public-release checks](PUBLIC-RELEASE.md).
 
@@ -13,6 +13,13 @@ From the canonical repository, after building TelemetryInspector:
 ```
 
 Choose a new result directory. Recording needs the owner to choose single-player Arcade practice and drive. Playback uses native menu controllers to select the recorded stage/car without manual setup. F12 or Stage-Session Stop terminates the request. Both modes retain original source signals while latching physical wheel/network output off, then save and close normally. Recover an interrupted run only after the game closes, using the same Result with `-RestoreOnly`.
+
+The PowerShell 7 session runner now enforces the shared rig slot through the
+hash-pinned toolkit `Stage-RigLease.ps1`. A slot younger than two hours refuses
+launch before owner backup or command arming. `rig-lease.json` preserves its
+unique ownership token for closed-game `-RestoreOnly` recovery. A failed launch
+removes only its own pending request; another session's slot/request is retained.
+This runner-only change does not replace the accepted installed game DLLs.
 
 ## Commands and lifecycle
 

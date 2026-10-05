@@ -56,9 +56,11 @@ driver twice and the machine needed a hard reboot. Rules:
 - Set the resolution before launch (registry `HKCU\Software\ViJuDa\Super Woden Rally Edge`:
   `Resolution_h2981718891` = 13, `Screenmanager Resolution Width_h182942802` = desktop width),
   not at runtime. The dev `window` command allows one change per launch.
-- Run `tools/dev/Display-Watchdog.ps1` (hidden pwsh, `-RestoreProfile "Sim Racing"`) for
-  every display test: nvlddmkm events or 30 s without new frames kill the game and restore
-  the profile. Needs `[Dev] InputCommandFile = true` for the heartbeat.
+- The legacy `tools/dev/Display-Watchdog.ps1` kills by process name and changes the
+  monitor profile. Do not use it for recording/playback. Toolkit `docs/STAGE-SUPERVISION.md`
+  defines the replacement with exact process identity and current-request output-mute
+  confirmation; Woden has not adopted that heartbeat yet. Its existing stage runner
+  requests normal Stop on timeout and retains explicit recovery instructions.
 
 ## Dev tools (owner-away development only)
 

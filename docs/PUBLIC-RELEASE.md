@@ -13,7 +13,7 @@ The owner requested documentation, simple setup and release readiness. This repo
 
 | Item | Status / next action |
 |---|---|
-| Expected triples on normal launch | Open: combined playback was single-screen. Claude's prior accepted triples used Surround. Prepare the selected monitor profile and game preferences before launch; use one profile change with settle time and a display watchdog. Preserve the corrected normal-play configuration afterwards. |
+| Expected triples on normal launch | Open: combined playback was single-screen. Claude's prior accepted triples used Surround. Prepare the selected monitor profile and game preferences before launch; use one profile change with settle time. Do not use the legacy name-based `Display-Watchdog.ps1` for recording/playback; the toolkit replacement requires a correlated output-mute heartbeat that Woden has not yet adopted. Preserve the corrected normal-play configuration afterwards. |
 | Public player archive | `Prepare-PublicRelease.ps1` builds a local candidate with the current quick-start guide, notices, checksums and existing installer. Run exact-package installer checks, then retain immutable outputs. |
 | Current feature coverage | Owner accepted this one reference. Stop/focus-loss/pause and wider car/stage/device coverage remain explicit limits. |
 | Repository visibility | Review reachable source history, tracked binaries and dependency notices before making private source public. No game assemblies, generated interop, saves or recordings in public artifacts. |

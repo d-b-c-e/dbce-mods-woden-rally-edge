@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 # Supervised real-drive recording and cold-launch offline replay. The adapter owns menus/physics; this runner owns
 # the process deadline, evidence and exact local owner-state restoration.
 [CmdletBinding()]
@@ -12,6 +13,12 @@ param(
     [switch]$CheckEnvironment
 )
 $ErrorActionPreference = 'Stop'
+$slot = Join-Path $env:LOCALAPPDATA 'dbce/test-slot.txt'
+$rigLease = $null
+$rigScript = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../vendor/playback/Stage-RigLease.ps1'))
+$rigPin = Get-Content (Join-Path (Split-Path $rigScript -Parent) 'rig-lease-provenance.json') -Raw | ConvertFrom-Json
+if ($rigPin.schema -ne 'dbce.stage-rig-lease-pin@1' -or (Get-FileHash -LiteralPath $rigScript).Hash -ine $rigPin.sha256) { throw 'Rig lease source pin differs' }
+. $rigScript
 . (Join-Path $PSScriptRoot 'ReplayEnvironment.ps1')
 $Result = [IO.Path]::GetFullPath($Result)
 $GameDir = [IO.Path]::GetFullPath($GameDir)
@@ -117,7 +124,16 @@ $held = $false
 try {
     try { $held = $lease.WaitOne(0) } catch [Threading.AbandonedMutexException] { $held = $true }
     if (!$held) { throw 'Another replay runner owns the test slot.' }
-    if ($RestoreOnly) { Restore-Owner; Write-Output 'Owner files and preferences restored and verified.'; return }
+    if ($RestoreOnly) {
+        Restore-Owner
+        $savedLease = Join-Path $Result 'rig-lease.json'
+        if (Test-Path -LiteralPath $savedLease) {
+            $restoredLease = Get-Content -LiteralPath $savedLease -Raw | ConvertFrom-Json
+            if ($restoredLease.path -ine $slot) { throw 'Recovery rig lease path differs' }
+            $null = Exit-StageRigLease $restoredLease
+        }
+        Write-Output 'Owner files and preferences restored and verified.'; return
+    }
     if (Test-Path -LiteralPath $Result) { throw 'Choose a new result directory.' }
     if ($CheckEnvironment) { Save-Owner; Restore-Owner; Write-Output 'PASS: owner environment backup and exact readback.'; return }
     if ($Record -and $Recording) { throw 'Choose either Record or a completed Recording.' }
@@ -125,10 +141,12 @@ try {
     if (!$Record) { $sourceReview = Review-Recording $Recording }
     if ($Record) { $Recording = Join-Path $Result 'recording' }
     if (Test-Path -LiteralPath (Join-Path $control 'request.txt')) { throw 'An unconsumed stage request exists.' }
-    $other = Get-Process -Name 'artofrally','iracing-arcade','DRIVERally' -ErrorAction SilentlyContinue
+    $other = Get-Process -Name 'artofrally','iracing-arcade','DRIVERally','SonicRacingCrossWorldsSteam','OR2006C2C' -ErrorAction SilentlyContinue
     if ($other) { throw 'Another game owns the test slot.' }
+    $rigLease = Enter-StageRigLease -Path $slot -Owner 'codex woden-rally-edge' -Purpose 'supervised stage session'
     $command = Join-Path $GameDir 'BepInEx/plugins/WodenRallyEdgeWheel/Stage-Session.ps1'
     Save-Owner
+    $rigLease | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Result 'rig-lease.json') -Encoding utf8
     if (!$Record) { $sourceReview | Set-Content -LiteralPath (Join-Path $Result 'source-review.json') -Encoding utf8 }
     foreach ($file in @((Join-Path $GameDir 'BepInEx/LogOutput.log'),(Join-Path $data 'Player.log'))) {
         if (Test-Path -LiteralPath $file) { Copy-Exact $file (Join-Path $Result ('previous-'+[IO.Path]::GetFileName($file))) }
@@ -176,9 +194,15 @@ try {
     Review-Recording $Recording | Set-Content -LiteralPath (Join-Path $Result 'source-review.json') -Encoding utf8
     Write-Output ('PASS: requested session completed, game closed and owner state restored. '+$Result)
 } finally {
+    # A failed launch must not leave this recording/replay armed for ordinary play.
+    if ($id -and !(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue)) {
+        $pending = Join-Path $control 'request.txt'
+        if ((Test-Path -LiteralPath $pending) -and ((Get-Content -LiteralPath $pending) -contains ('id='+$id))) { Remove-Item -LiteralPath $pending }
+    }
     if ((Test-Path -LiteralPath (Join-Path $backup 'manifest.json')) -and !(Test-Path -LiteralPath (Join-Path $Result 'restored.txt')) -and !(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue)) {
         Restore-Owner
     }
     if ($held) { $lease.ReleaseMutex() }
     $lease.Dispose()
+    if ($rigLease -and !(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue)) { $null = Exit-StageRigLease $rigLease }
 }

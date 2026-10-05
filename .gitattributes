@@ -8,3 +8,6 @@
 *.dll binary
 # Release manifests hash the exact upstream bytes, including line endings.
 lib/toolkit/** -text -whitespace
+
+# Exact toolkit rig-lease source blob.
+vendor/playback/Stage-RigLease.ps1 -text
