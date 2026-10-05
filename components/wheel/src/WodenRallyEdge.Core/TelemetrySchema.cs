@@ -17,6 +17,7 @@ public static class TelemetrySchema
         { foreach (var axis in new[] { "x", "y", "z" }) Add(key + "." + axis, unit, origin, source); }
         Add("sample.simulationSeconds", "s", "measured", "Time.timeAsDouble called inside FixedUpdate; idle heartbeat uses 0");
         Add("sample.sequence", "integer", "measured", "Sample attempt sequence; gaps possible in UDP");
+        Add("capture.trajectoryIndex", "integer", "measured", "Developer stage capture: zero-based row in trajectory.tsv, same physics callback, prefix pose and postfix signals");
         Add("sample.driving", "boolean 0/1", "derived", "Selected player, RACE state, focused, unpaused, not replay/photo/respawning/locked");
         Add("sample.discontinuity", "boolean 0/1", "derived", "Current sample reset motion/model continuity; reason is retained as an ordered marker");
         Add("ffb.frontLoad", "Unity force units", "derived", "Sum of measured front WheelHit.force magnitudes");

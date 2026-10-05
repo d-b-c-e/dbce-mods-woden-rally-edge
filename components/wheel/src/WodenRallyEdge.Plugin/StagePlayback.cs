@@ -64,6 +64,8 @@ internal static class StagePlayback
         // independent model stream for normalization, never a fabricated native write.
         try
         {
+            if (_signalCount != Session.Samples - 1) throw new IOException("Source sample does not match the next recorded pose");
+            sample.Add("capture.trajectoryIndex", _signalCount);
             var analysis = AnalysisForce.Evaluate(sample, Runtime.Settings.ForceOptions);
             sample.Add("analysis.force.preview", analysis.Preview);
             sample.Add("analysis.force.valid", analysis.Valid ? 1 : 0);
@@ -110,16 +112,18 @@ internal static class StagePlayback
                 ["gameAssemblySha256"] = GameHash, ["pluginSha256"] = RecordingArtifacts.Sha256(typeof(Plugin).Assembly.Location),
                 ["forceConfigSha256"] = RecordingArtifacts.Sha256(Path.Combine(directory, "force-config.json")),
                 ["analysisForce"] = "Independent ForceSignal@3 history; no delivery gates or device writes; actual ffb.* stream remains separate",
-                ["posePhase"] = "MainCar.FixedUpdate.prefix; signals from postfix before Unity solve" };
+                ["posePhase"] = "MainCar.FixedUpdate.prefix; signals from postfix before Unity solve",
+                ["alignment"] = "capture.trajectoryIndex is the zero-based trajectory row; sample.simulationSeconds is the absolute physics clock" };
             _signals = new TelemetryOutput(new OutputOptions(RecordingPath: Path.Combine(directory, "source.jsonl"), Enabled: false), Runtime.SessionId,
-                File.ReadAllText(Path.Combine(Path.GetDirectoryName(typeof(Plugin).Assembly.Location)!, "recording-provenance.json")), Plugin.Version, properties);
+                File.ReadAllText(Path.Combine(Path.GetDirectoryName(typeof(Plugin).Assembly.Location)!, "recording-provenance.json")), Plugin.Version, properties,
+                new Dbce.Wheel.Recording.RecordingOptions { QueueCapacity = 512, MaxDurationSeconds = 1801, MaxFileBytes = 128L * 1024 * 1024, MaxChannelsPerSample = 512 });
         }
         public string[] FinishSignals()
         {
             var signals = _signals; _signals = null;
             if (signals == null) return Array.Empty<string>();
             signals.Dispose();
-            if (signals.RecordingDrops != 0 || signals.RecordingError != null || signals.RecordingStatus != "Completed" || _signalCount < 2)
+            if (signals.RecordingDrops != 0 || signals.RecordingError != null || signals.RecordingStatus != "Completed" || _signalCount < 2 || _signalCount != Session.Samples)
                 throw new IOException("Signal recording was not complete: " + signals.RecordingStatus + "; " + signals.RecordingError);
             return new[] { "source.jsonl", "force-config.json", "channels.json" };
         }

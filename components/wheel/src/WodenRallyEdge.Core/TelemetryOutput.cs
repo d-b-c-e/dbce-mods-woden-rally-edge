@@ -75,7 +75,7 @@ public sealed class TelemetryOutput : IDisposable
     public long RecordingDrops => _recorder?.DroppedSamples ?? 0;
 
     public TelemetryOutput(OutputOptions options, string sessionId, string recordingSource, string pluginVersion = "unknown",
-        IReadOnlyDictionary<string, string>? recordingProperties = null)
+        IReadOnlyDictionary<string, string>? recordingProperties = null, RecordingOptions? recordingOptions = null)
     {
         Validate(options);
         _options = options;
@@ -95,7 +95,7 @@ public sealed class TelemetryOutput : IDisposable
                 StartedUtc = DateTime.UtcNow,
                 Properties = properties,
                 ChannelUnits = TelemetrySchema.Channels.ToDictionary(x => x.Key, x => x.Value.Unit)
-            }, new RecordingOptions { QueueCapacity = 512, MaxDurationSeconds = 1200, MaxFileBytes = 64L * 1024 * 1024, MaxChannelsPerSample = 512 });
+            }, recordingOptions ?? new RecordingOptions { QueueCapacity = 512, MaxDurationSeconds = 1200, MaxFileBytes = 64L * 1024 * 1024, MaxChannelsPerSample = 512 });
         }
         try { ConfigureNetwork(options); } catch { _recorder?.Stop(TimeSpan.FromMilliseconds(500)); throw; }
         _worker = new Thread(Run) { IsBackground = true, Name = "Woden telemetry output" };
