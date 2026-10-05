@@ -23,8 +23,11 @@ internal static class StagePlayback
     private static readonly ForceSignal AnalysisForce = new();
     private static double _lastTick = -1;
     private static int _signalCount;
+    private static int _unfocusedReplaySteps;
     internal static bool OutputMuted { get; private set; }
     internal static bool Playing => Session.Playing;
+    internal static bool BackgroundReplay => StageReplayPolicy.BackgroundAllowed(Session.ReplayActive,
+        StageRunLifecycle.ReplayPath != null, StageStartup.Validated, OutputMuted, StageStartup.BackgroundConfigured);
     internal static void Initialize()
     {
         try
@@ -45,7 +48,7 @@ internal static class StagePlayback
             _control.Poll(now);
             if (Session.Active && UnityEngine.Input.GetKeyDown(KeyCode.F12)) Session.Stop();
             StageRunLifecycle.Tick(Session.Active, Session.Status, _control.LastError, now);
-            StageStartup.Tick(Session.Active, Session.Playing, now);
+            StageStartup.Tick(Session.Active, Session.ReplayActive, Session.Playing, now);
         }
         catch (Exception ex) { Session.Abort("stage control: " + ex.Message); }
     }
@@ -56,7 +59,12 @@ internal static class StagePlayback
         {
             _car = car;
             double time = Time.timeAsDouble;
-            if (time != _lastTick) { _lastTick = time; Session.FixedStep(Runtime.Clock.Elapsed.TotalSeconds); }
+            if (time != _lastTick)
+            {
+                _lastTick = time;
+                if (Session.Playing && !Runtime.Focused) _unfocusedReplaySteps++;
+                Session.FixedStep(Runtime.Clock.Elapsed.TotalSeconds);
+            }
             return !Session.Playing;
         }
         catch (Exception ex) { Session.Abort(ex.Message); return true; }
@@ -114,7 +122,8 @@ internal static class StagePlayback
         // Reuse all normal driving exclusions, including photo mode, native
         // replay and the start/end lock. Only our own trajectory ownership is
         // ignored here; it remains a force/input exclusion everywhere else.
-        public bool PlaybackAllowed => _car != null && Runtime.ControlState(_car, includeStageOwnership: false).Driving &&
+        public bool PlaybackAllowed => _car != null && StageReplayPolicy.Eligibility(
+            Runtime.ControlState(_car, includeStageOwnership: false), BackgroundReplay).Driving &&
             (_ownedCar == null || _car.Pointer == _ownedCar.Pointer) &&
             _car.Rb != null && _car.field_Private_RaceConditions_0?.PlayerCarList?.Count == 1;
         public void MuteOutputs()
@@ -161,6 +170,8 @@ internal static class StagePlayback
         }
         public void Acquire()
         {
+            _unfocusedReplaySteps = 0;
+            Runtime.Log.LogInfo("Stage replay acquired: focused=" + Runtime.Focused + "; backgroundAuthorized=" + BackgroundReplay);
             var car = _car ?? throw new InvalidOperationException("Player unavailable");
             _body = car.Rb;
             _ownedCar = car;
@@ -188,6 +199,7 @@ internal static class StagePlayback
                 () => { if (body != null) PlaybackBodyNative.Interpolation(body, _interpolation); },
                 () => { if (body != null && !_kinematic) body.linearVelocity = _velocity; },
                 () => { if (body != null && !_kinematic) body.angularVelocity = _angular; });
+            Runtime.Log.LogInfo("Stage replay released: unfocusedReplaySteps=" + _unfocusedReplaySteps);
         }
     }
 }

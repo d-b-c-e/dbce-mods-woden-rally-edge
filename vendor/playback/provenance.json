@@ -1,8 +1,8 @@
 {
-  "version": "0.2.0",
-  "sourceRevision": "50b6b679e3c6e01025b6a50f8dd0f3eb85d9d4bb",
+  "version": "0.2.1",
+  "sourceRevision": "af4d20d65a8c87bcbfe07a002fda693e6cc492b4",
   "sourceState": "clean",
-  "sha256": "2F987D570616742D259422324734F7BD3DC15D68B1359CF0154290A235E718A4",
+  "sha256": "B83C075656D4E39C6F304E8539BB2E267BB0593E4E0F8F7BBE797670612A21C0",
   "commandSha256": "3EF19BFF650866C336C73FFF954CB3CB64128A893EF2D2C58D35D47DFC44DD88",
   "repository": "https://github.com/d-b-c-e/dbce-wheel-mod-toolkit"
 }

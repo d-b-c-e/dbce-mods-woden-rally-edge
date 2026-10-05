@@ -2,7 +2,12 @@
 
 The first cold-launch Kenya SS1 / car 8 reference passed all 3,601 poses and the owner accepted its route and camera changes. The game exited normally; owner files and raw preferences were restored exactly. Installed runtime: `a628e04`. See [integration evidence](2026-10-05-playback-integration.md) and [remaining public-release checks](PUBLIC-RELEASE.md).
 
-**Presentation remains open:** the run used one screen, not the expected triples. Claude's accepted triple test used Surround; the later desktop profile was independent monitors. Keeping mod settings did not restore that display state. Do not repeat the accepted route merely for assurance; the next relevant test is the corrected triple launch.
+Claude subsequently observed the combined runtime's triples in the Kenya stage
+at 7680 pixels, but a separate foreground prompt blocked playback acquisition.
+The [scoped background replay fix](2026-10-05-background-replay.md) is being
+prepared for a new cold-start check. It retains normal wheel/recording focus
+gates and does not change the display profile. Combined route completion under
+triples remains pending until that check.
 
 From the canonical repository, after building TelemetryInspector:
 

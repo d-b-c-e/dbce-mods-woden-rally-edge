@@ -10,6 +10,7 @@ var outputDir=Path.GetFullPath("artifacts/ux-ui-fixture");Directory.CreateDirect
 var dir=Path.Combine(outputDir,Guid.NewGuid().ToString("N"));Directory.CreateDirectory(dir);
 int checks=0;void Check(bool ok,string message){checks++;if(!ok)throw new Exception(message);}
 StageLifecycleChecks.Run(dir, Check);
+StageReplayChecks.Run(Check);
 void Draw(Event? e=null){GUI.Commands.Clear();Event.current=e??new();Panel.Draw();Check(Runtime.Log.Errors.Count==0,string.Join("\n",Runtime.Log.Errors));}
 DrawCommand? Find(string label,int index=0)=>GUI.Commands.Where(c=>c.Kind=="text"&&c.Text==label).Skip(index).FirstOrDefault();
 void Click(string label,int index=0)

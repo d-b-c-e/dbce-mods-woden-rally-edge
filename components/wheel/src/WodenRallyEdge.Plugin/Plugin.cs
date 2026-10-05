@@ -177,7 +177,7 @@ internal static class Runtime
     }
     internal static bool Driving(MainCar car) => ControlState(car).Driving;
     internal static bool CameraAvailable(MainCar car) => StagePlayback.Owns(car)
-        ? Focused && !Panel.Open && !Pause.Paused && !car.Respawning && !car.Replay
+        ? StageReplayPolicy.Eligibility(ControlState(car, includeStageOwnership: false), StagePlayback.BackgroundReplay).CameraAvailable
         : ControlState(car).CameraAvailable;
     internal static void Update()
     {
@@ -202,7 +202,7 @@ internal static class Runtime
         }
         catch (Exception ex) { Force.Disarm("Runtime error"); if (now > _nextReport) Log.LogError("Input/UI update failed: " + ex); }
         TimingDiagnostics.UpdateMs = Clock.Elapsed.TotalMilliseconds - now * 1000;
-        if ((!Focused || Pause.Paused || now - LastLocal > .5) && now - _lastIdle > .1)
+        if (((!Focused && !(StagePlayback.Playing && StagePlayback.BackgroundReplay)) || Pause.Paused || now - LastLocal > .5) && now - _lastIdle > .1)
         {
             MountedCamera.Restore();
             var sample = new TelemetrySample { SessionId = SessionId, Sequence = Sequence++, ElapsedSeconds = now,

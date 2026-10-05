@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Runtime.InteropServices;
+using Il2CppInterop.Runtime;
 using Dbce.Wheel.Playback;
 using Dbce.Wheel.Recording;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
@@ -19,6 +21,10 @@ internal static class StageStartup
     private static double _enteredAt;
     private static readonly List<(int Mode, int Preset, MountedView View)> Cameras = new();
     internal static string? Status { get; private set; }
+    internal static bool Validated { get; private set; }
+    internal static bool BackgroundConfigured { get; private set; }
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate void SetBool([MarshalAs(UnmanagedType.I1)] bool value);
 
     internal static void Initialize(string? source)
     {
@@ -61,6 +67,7 @@ internal static class StageStartup
                     (MountedView)Integer("camera.mountedView", 0, 2)));
             }
             if (Cameras.Count != tape.Frames.Length) throw new IOException("Presentation sample count differs");
+            Validated = true;
             Status = "PLAYBACK - starting recorded Arcade stage";
         }
         catch (Exception ex) { _failure = ex.Message; }
@@ -69,11 +76,23 @@ internal static class StageStartup
     private static string Text(string key) => _context.GetProperty(key).GetString() ?? throw new IOException("Missing " + key);
     private static int Number(string key) => _context.GetProperty(key).GetInt32();
     private static T? Find<T>() where T : UnityEngine.Object => UnityEngine.Object.FindObjectOfType<T>();
-    internal static void Tick(bool active, bool playing, double now)
+    internal static void Tick(bool active, bool replayActive, bool playing, double now)
     {
         if (!_requested || _done) return;
         if (_failure != null) { _done = true; throw new IOException(_failure); }
         if (!active) { _done = true; return; }
+        if (!replayActive || !StagePlayback.OutputMuted) throw new IOException("Native startup requires an accepted, muted replay");
+        if (!BackgroundConfigured)
+        {
+            // Unity-thread-only, process-local: keep the bounded supervisor's
+            // terminal/normal-quit ticks alive too. No display/preferences or
+            // InputSystem device-focus policy changes; recording never enters.
+            var address = IL2CPP.il2cpp_resolve_icall("UnityEngine.Application::set_runInBackground");
+            if (address == IntPtr.Zero) throw new IOException("Background replay binding unavailable");
+            Marshal.GetDelegateForFunctionPointer<SetBool>(address)(true);
+            BackgroundConfigured = true;
+            Runtime.Log.LogInfo("Supervised muted replay: background simulation enabled; ordinary input/force focus gates retained.");
+        }
         if (playing) { _done = true; Status = null; return; }
         string scene = SceneManager.GetActiveScene().name;
         if (scene != _scene) { _scene = scene; _enteredAt = now; _issuedFor = null; }
