@@ -5,7 +5,10 @@ $ErrorActionPreference='Stop';$root=Split-Path (Split-Path $PSScriptRoot -Parent
 if(Test-Path -LiteralPath $OutputPath){throw 'Preparation evidence exists; preserve its identity'}
 . (Join-Path $PSScriptRoot 'Woden-Delivery.ps1')
 $null=Assert-WodenDelivery -Root $BaselineStage
-$commit=(& git -c "safe.directory=$root" -C $root rev-parse HEAD).Trim();if($LASTEXITCODE){throw 'Runtime source identity unavailable'}
+$head=(& git -c "safe.directory=$root" -C $root rev-parse HEAD).Trim();if($LASTEXITCODE){throw 'Runtime source identity unavailable'}
+$commit='e3d118e6d72e1e9847b73620e02e9f101fb22de3'
+& git -c "safe.directory=$root" -C $root merge-base --is-ancestor $commit $head
+if($LASTEXITCODE){throw 'Frozen consumer is not an ancestor'}
 if(@(& git -c "safe.directory=$root" -C $root status --porcelain).Count){throw 'Commit consumer source before preparation'}
 $n=Get-Content -LiteralPath $NativeProvenance -Raw|ConvertFrom-Json
 if($n.sourceCommit -ne 'a51bed99ee1f9e02cc92a397c47f9461e225bf4b' -or $n.dirty -or $n.nativeVersion -ne 502 -or $n.inputCapabilities -ne 1){throw 'Held or incorrect native source; no adoption'}
