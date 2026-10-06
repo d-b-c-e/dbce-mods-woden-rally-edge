@@ -77,3 +77,13 @@ driver twice and the machine needed a hard reboot. Rules:
 screenshots. Woden pauses when unfocused; startup screens read legacy Input (need focus),
 later screens read GamePadSystem (`pad`/`stick` work without focus); attract-mode DEMO PLAY
 uses `Car_Cam` and is a good render test. Turn the dev channel off after testing.
+
+## Separate monitors without Surround (STD-015, 2026-10-06, unverified)
+
+`SpanWindow` ports DRIVE's plain-launch span: with three or more equal-height monitors side by side and a
+single-screen primary, `Screen.SetResolution` calls made while `ResolutionManager.FirstResolutionSet` runs (the
+game's single startup apply) become one windowed apply at the virtual-desktop span; the window is then made a
+borderless popup and placed over the span without activation, re-checked every 2 s. Patched one by one after
+`PatchAll` so a missing `SetResolution` overload disables only this. `[Triple] SpanSeparateMonitors` is **off**
+until a rig check: launch on "Sim Racing", expect `Span window: spanning 7680x1440 at (-2560,0)` in the log and
+triples on in a stage. DRIVE's identical recipe passed the owner reference replay on that layout.

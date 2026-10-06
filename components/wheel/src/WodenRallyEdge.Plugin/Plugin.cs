@@ -33,11 +33,13 @@ public sealed class Plugin : BasePlugin
         {
             TripleView.Bind(Config);
             DesktopResolution.Bind(Config);
+        SpanWindow.Bind(Config, () => TripleView.Allowed);
             MenuBorders.Bind(Config);
             DevInput.Bind(Config, Path.GetDirectoryName(typeof(Plugin).Assembly.Location)!);
             Runtime.Start(Path.GetDirectoryName(typeof(Plugin).Assembly.Location)!);
             _harmony = new Harmony(Id);
             _harmony.PatchAll(typeof(Plugin).Assembly);
+        SpanWindow.Apply(_harmony);
             AddComponent<Lifecycle>();
             Log.LogInfo("F6 opens settings and bindings; F8 saves FFB Off. Saved FFB On resumes through driving gates. Waiting for local MainCar.FixedUpdate.");
         }
@@ -191,6 +193,7 @@ internal static class Runtime
             InputPolling.OncePerFrame();
             DevInput.FrameTick(now);
             TripleView.FrameTick(now);
+        SpanWindow.Tick();
             MenuBorders.FrameTick(now);
             Panel.Update();
             CameraShortcuts.Update();
