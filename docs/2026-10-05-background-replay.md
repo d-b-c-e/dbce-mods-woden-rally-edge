@@ -1,5 +1,14 @@
 # Supervised replay without foreground focus
 
+**Qualified October 6:** request `27fb67943faa446caccd583242a78823` acquired with
+`focused=False; backgroundAuthorized=True` and completed all 3,601 poses with
+`unfocusedReplaySteps=3601`. Session-span.1 reported zero physical writes/Forza
+sends, normal exit and exact restoration. This closes naturally unfocused
+acquisition and full-reference continuation; it does not establish focus
+transitions or the entire interruption matrix. See
+[the current evidence and promoted install](2026-10-06-span-qualification.md).
+The pending statements below describe the earlier focused-only checkpoint.
+
 Claude's combined triple-screen Kenya runs reached the stage but never acquired
 the car. A Windows prompt held focus in the first report; the retry had no
 visible prompt or reported foreground obstruction, but still logged Unfocused.

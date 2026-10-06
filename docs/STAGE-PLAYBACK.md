@@ -1,12 +1,13 @@
 # Developer recording and unattended playback — 2026-10-05
 
-**October 6 candidate:** installed `b9e9929/session-span.1` adds the separate-monitor
-span and countdown leaderboard guard. Its first launch was blocked by another
-Steam session before any game process started; state was restored and a retry
-queued after 02:00 CT. [Current qualification record](2026-10-06-span-qualification.md).
-The accepted runtime history below remains separate.
+**October 6 qualification:** the 02:05 `b9e9929/session-span.1` replay passed all
+3,601 poses while naturally unfocused, with the separate-monitor span and inspected
+triple-view frames. Normal exit, zero physical/network delivery and exact owner
+restoration passed. The installed `8678f06/session-span.2` now defaults the span on
+for new configs while keeping explicit opt-outs. Plain-launch/default and Surround
+return checks remain open. [Current qualification record](2026-10-06-span-qualification.md).
 
-The first cold-launch Kenya SS1 / car 8 reference passed all 3,601 poses and the owner accepted its route and camera changes. The game exited normally; owner files and raw preferences were restored exactly. Current installed runtime: `05837ee/session-focus.1`, which passed that full reference again at 21:09 UTC. Prior accepted runtime `a628e04` is backed up. See [integration evidence](2026-10-05-playback-integration.md) and [remaining public-release checks](PUBLIC-RELEASE.md).
+The first cold-launch Kenya SS1 / car 8 reference passed all 3,601 poses and the owner accepted its route and camera changes. The game exited normally; owner files and raw preferences were restored exactly. Earlier runtime `05837ee/session-focus.1` passed that full reference again at 21:09 UTC. Prior accepted runtime `a628e04` is backed up. See [integration evidence](2026-10-05-playback-integration.md) and [remaining public-release checks](PUBLIC-RELEASE.md).
 
 Claude subsequently observed the combined runtime's triples in the Kenya stage
 at 7680 pixels, but the adapter's focus gate blocked playback acquisition. One
@@ -15,7 +16,9 @@ The [scoped background replay fix](2026-10-05-background-replay.md) is installed
 and passed the full cold-start reference with the renderer reporting 7680
 triples, normal quit and exact restoration. It retains normal wheel/recording
 focus gates and does not change the display profile. That run stayed focused;
-actual background coverage and new rendered acceptance remain separate checks.
+the October 6 run above subsequently qualified background acquisition and the
+full reference, with rendered evidence. Focus transitions and the broader
+pause/Stop/stage/device matrix remain separate checks.
 
 From the canonical repository, after building TelemetryInspector:
 

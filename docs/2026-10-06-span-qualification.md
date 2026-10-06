@@ -1,9 +1,14 @@
 # Separate-monitor span candidate — 2026-10-06
 
-Installed `b9e9929c40d79b2884189e7bff7c410e1d55982a`, candidate
+**Current:** the 02:05 replay passed, including naturally unfocused acquisition;
+Claude inspected the frames and installed `8678f06/session-span.2` with the new
+span default on. Explicit opt-outs remain intact. Plain launch and Surround
+return remain open. Exact promotion and independent verification follow below.
+
+Earlier installed `b9e9929c40d79b2884189e7bff7c410e1d55982a`, candidate
 `0.2.14-session-span.1`: countdown leaderboard guard `884a106`, span `b043bbc`,
 offline exporter `fbcf686`, restored replay span override and passive game-frame
-capture. Span remains **default off pending runtime qualification**.
+capture. That candidate kept span default off pending the qualification below.
 
 ## Package and installation
 
@@ -79,3 +84,39 @@ installed config had no such key). Candidate `0.2.14-session-span.2`: 42 suites 
 the rig lease (backup `WodenWheelBackups/before-install-20261006-021053-31870fbf`; log in
 `results/install-session-span.2-*`). Not yet seen: a plain launch with the new default (expect the same
 span log line) and the Surround round trip (Target() returns null under Surround, so nothing changes there).
+
+## Independent readback and background qualification
+
+Codex checked request `27fb67943faa446caccd583242a78823` against the actual run
+log. It acquired with `focused=False; backgroundAuthorized=True`, then released
+with **unfocusedReplaySteps=3601**. Force writes and Forza sends stayed zero.
+Normal exit and restoration completed at `07:07:03.3575464Z`. This qualifies
+naturally unfocused acquisition and the full Kenya reference on session-span.1;
+focus transitions and the broader interruption/device matrix remain untested.
+
+Frames 01 and 03 were independently inspected and show the drive progressing,
+bonnet view across the three rendered views and the HUD confined to the centre.
+Both frame sidecars report 7680x1440, Windowed, triples On and focused false.
+Original-signal review remains exact: 3,601 samples, 3,553 valid force samples,
+3,477 nonzero and zero force-reprocess error or physical-delivery attempts.
+
+At `07:14:53Z`, the promoted session-span.2 installation matched all **13** owned
+payload hashes. All **60** config/save/controller files in the replay's original
+owner manifest and all **25** raw registry values (including exact names/types/
+bytes) still matched. These are read-only checks; no new game run or display
+change was made. Installed receipt source:
+`8678f06fa967e0985d963315b72ef879c79e3235`; installed plugin SHA-256:
+`224B51ECC0B7E589D2EB51DA9882C6A5637231FD22A3CA21293097EB04A75EDC`.
+Player ZIP SHA-256:
+`53D3115372CEFF76F0969B12250A31B91AB864DF36EEE6D637ECF617ED8D007A`.
+The package-preparation JSON's `installed:false` is its build-time state; the
+subsequent game receipt and installer log identify the installed candidate.
+
+An independent private archive retains 155 files: the entire replay/queue result,
+five images, original/after-run owner snapshots, promotion install log/receipt,
+player package and source archive. Location:
+`%LOCALAPPDATA%/Dbce/StagePlayback/SessionEvidence/woden-span-pass-promotion-20261006`.
+Evidence manifest SHA-256:
+`22CAEFAF0AE1100F94C692544F9CB19659A2F763F738917845AF72049C30F7C0`.
+Do not publish its owner backups. The former deferred worker has completed;
+`awaiting-visual-review` is its terminal handoff state, now reviewed above.

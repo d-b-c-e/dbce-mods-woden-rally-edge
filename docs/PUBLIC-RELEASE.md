@@ -29,13 +29,14 @@ screen is complete; full license/content closure remains open.
 Rebuild a fresh final player archive from final source, verify its standalone
 installer and notices, finish the targeted owner drive, then publish the exact
 tested archive/checksum and verify its public download. Preserve prior packages.
-Claude is building the shared startup span helper: separate-monitor triples
-currently require `Launch-Wide.ps1` and are not automatic on plain launch.
-Recheck ordinary Steam/Stream Deck startup after adopting that helper.
+The shared startup span helper is installed and defaults on in session-span.2
+after a complete separate-monitor replay with inspected frames. Explicit saved
+opt-outs remain intact. Recheck ordinary Steam/Stream Deck startup with that new
+default and the return to Surround; supervised replay does not close those cases.
 
 ## Current candidate
 
-The owner requested documentation, simple setup and release readiness. This repository is still private; no new binary has been published. The installed candidate is `0.2.14+05837eec1df75eefb6fc154be005512b842adb2a`, from player archive `session-focus.1`, installed at 21:08:13 UTC with existing settings retained. It passed the full 3,601-pose cold replay and all 111 PS5.1 installer checks. See [exact package/install/runtime evidence](2026-10-05-background-replay.md). Prior accepted a628e04 is backed up.
+The owner requested documentation, simple setup and release readiness. This repository is still private; no new binary has been published. Installed candidate `0.2.14+8678f06fa967e0985d963315b72ef879c79e3235`, player archive `session-span.2`, promotes the new-config span default after session-span.1 passed all 3,601 Kenya poses while naturally unfocused with inspected triple-view frames. All 13 current payloads, 60 owner files and 25 raw preferences match. Claude's package gate passed 42 suites / 37,760 assertions, 630 UI assertions and all 111 PS5.1 exact-package installer checks. See [exact package/install/runtime evidence](2026-10-06-span-qualification.md). Earlier accepted packages remain backed up.
 
 ## Passed
 
@@ -48,7 +49,7 @@ The owner requested documentation, simple setup and release readiness. This repo
 
 | Item | Status / next action |
 |---|---|
-| Expected triples on normal launch | Claude observed the combined Kenya stage at 7680. The new candidate completed all 3,601 poses with the triple renderer active; new rendered acceptance and actual background execution remain separate checks. Preserve the current display/profile configuration. Do not use the legacy name-based Display-Watchdog.ps1; Woden has not adopted the replacement's correlated output-mute heartbeat. |
+| Expected triples on normal launch | Session-span.1 passed all 3,601 poses while naturally unfocused; 7680x1440 frames were inspected. Session-span.2 promotes the span default. Plain launch with that default and return to Surround remain open; preserve the current display/profile configuration. Do not use the legacy name-based Display-Watchdog.ps1. |
 | Public player archive | `Prepare-PublicRelease.ps1` builds a local candidate with the current quick-start guide, notices, checksums and existing installer. Run exact-package installer checks, then retain immutable outputs. |
 | Current feature coverage | Owner accepted this one reference. Stop/focus-loss/pause and wider car/stage/device coverage remain explicit limits. |
 | Repository visibility | Review reachable source history, tracked binaries and dependency notices before making private source public. No game assemblies, generated interop, saves or recordings in public artifacts. |
