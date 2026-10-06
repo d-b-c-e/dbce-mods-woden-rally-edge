@@ -1,5 +1,11 @@
 # Developer recording and unattended playback — 2026-10-05
 
+**October 6 candidate:** installed `b9e9929/session-span.1` adds the separate-monitor
+span and countdown leaderboard guard. Its first launch was blocked by another
+Steam session before any game process started; state was restored and a retry
+queued after 02:00 CT. [Current qualification record](2026-10-06-span-qualification.md).
+The accepted runtime history below remains separate.
+
 The first cold-launch Kenya SS1 / car 8 reference passed all 3,601 poses and the owner accepted its route and camera changes. The game exited normally; owner files and raw preferences were restored exactly. Current installed runtime: `05837ee/session-focus.1`, which passed that full reference again at 21:09 UTC. Prior accepted runtime `a628e04` is backed up. See [integration evidence](2026-10-05-playback-integration.md) and [remaining public-release checks](PUBLIC-RELEASE.md).
 
 Claude subsequently observed the combined runtime's triples in the Kenya stage
