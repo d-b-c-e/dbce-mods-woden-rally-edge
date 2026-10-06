@@ -2,8 +2,10 @@
 
 **Current:** the 02:05 replay passed, including naturally unfocused acquisition;
 Claude inspected the frames and installed `8678f06/session-span.2` with the new
-span default on. Explicit opt-outs remain intact. Plain launch and Surround
-return remain open. Exact promotion and independent verification follow below.
+span default on. Explicit opt-outs remain intact. Plain launch passed at 03:24;
+the 11:34 Surround round trip passed on that same installation. Focus transitions
+and interruptions remain open. Exact promotion and independent verification
+follow below; this does not close the broader public-release checklist.
 
 Earlier installed `b9e9929c40d79b2884189e7bff7c410e1d55982a`, candidate
 `0.2.14-session-span.1`: countdown leaderboard guard `884a106`, span `b043bbc`,
@@ -137,3 +139,33 @@ CLI with 35 s settle; no input sent; game-window captures only.
 - Unity prefs (HKCU Software\ViJuDa\Super Woden Rally Edge) deleted and re-imported from the pre-run export,
   then compared byte-exact; LocalLow originals restored. Evidence (private, local):
   `E:\Source\_archive\2026-10-06\woden-surround-return-113341`.
+
+## Independent Surround-return readback — Codex, 2026-10-06
+
+Readback at 11:55 CT verifies all **13** installed payloads against the unchanged
+`8678f06` receipt, all **55** original LocalLow files against Claude's backup,
+and byte-identical pre-run, restored and newly exported current registry files.
+Registry export SHA-256:
+`C79542829318A38FE9279C73C92667F3402A3892C3773E283D4CC332DC6A4B37`.
+This compares original files; it does not claim that no additional LocalLow files
+were created. No restoration, launch, install, input, focus or display operation
+was performed by this readback.
+
+Both t+30 screenshots were inspected: the startup message screen renders across
+the wide window. The Sim Racing log records span placement at (-2560,0) and
+`Stopped; outputWorkerStopped=True`. Normal exits and exact window styles/positions
+are Claude's observed results; the supplied evidence has no separate process-exit
+receipt. These ordinary launches are not output-muted playback: the retained log
+reports Forza sends, so do not apply the earlier replay's zero-output claim to them.
+
+Startup line backgrounds still extend onto the side screens. Keep STD-019 partial;
+this window-placement pass does not establish centre-only loading/front-end/mod
+panels or new in-race rendering acceptance. Focus-transition/interruption checks
+remain separate from the passed naturally unfocused replay. See PUBLIC-RELEASE.md
+for the remaining owner drive, force normalization and publication work.
+
+All supplied evidence plus current registry/installation verification is retained
+as **65** hash-verified files outside the checkout:
+`%LOCALAPPDATA%/Dbce/StagePlayback/SessionEvidence/woden-surround-return-20261006`.
+Manifest SHA-256:
+`97C295B3E170E77FB799B771F30021BFD29CD4F13832A206D052C50561D9BA20`.

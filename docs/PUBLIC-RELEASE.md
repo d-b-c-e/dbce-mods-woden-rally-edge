@@ -31,8 +31,9 @@ installer and notices, finish the targeted owner drive, then publish the exact
 tested archive/checksum and verify its public download. Preserve prior packages.
 The shared startup span helper is installed and defaults on in session-span.2
 after a complete separate-monitor replay with inspected frames. Explicit saved
-opt-outs remain intact. Recheck ordinary Steam/Stream Deck startup with that new
-default and the return to Surround; supervised replay does not close those cases.
+opt-outs remain intact. Ordinary Steam startup and the return to Surround passed
+on session-span.2 (October 6, 03:24/11:34). The owner's plain-launch drive and
+feature checks below remain separate from those startup/window-placement passes.
 
 ## Current candidate
 
@@ -49,7 +50,7 @@ The owner requested documentation, simple setup and release readiness. This repo
 
 | Item | Status / next action |
 |---|---|
-| Expected triples on normal launch | Session-span.1 passed all 3,601 poses while naturally unfocused; 7680x1440 frames were inspected. Session-span.2 promotes the span default. Plain launch with that default and return to Surround remain open; preserve the current display/profile configuration. Do not use the legacy name-based Display-Watchdog.ps1. |
+| Expected triples on normal launch | Session-span.1 passed all 3,601 poses while naturally unfocused with inspected frames. Session-span.2 plain Steam launch and Surround return passed: borderless at (0,0) on Surround, then (-2560,0) on separate monitors; original settings/saves and 13 payloads independently verified. The owner's plain-launch drive remains; startup side backgrounds keep STD-019 partial. See the span qualification report. |
 | Public player archive | `Prepare-PublicRelease.ps1` builds a local candidate with the current quick-start guide, notices, checksums and existing installer. Run exact-package installer checks, then retain immutable outputs. |
 | Current feature coverage | Owner accepted this one reference. Stop/focus-loss/pause and wider car/stage/device coverage remain explicit limits. |
 | Repository visibility | Review reachable source history, tracked binaries and dependency notices before making private source public. No game assemblies, generated interop, saves or recordings in public artifacts. |
