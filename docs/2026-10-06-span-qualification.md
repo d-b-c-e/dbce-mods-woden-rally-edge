@@ -122,3 +122,18 @@ Do not publish its owner backups. The former deferred worker has completed;
 `awaiting-visual-review` is its terminal handoff state, now reviewed above.
 
 **Plain launch with the new default, 2026-10-06 03:24 CT (Claude):** Steam launch (no arguments) of installed session-span.2 on "Sim Racing" logged `Span window: spanning 7680x1440 at (-2560,0)`; the frame is 7680x1440; the config now carries `SpanSeparateMonitors = true` (written as the default); normal close. Surround return not yet checked.
+
+## Surround return (Claude, 2026-10-06 11:34)
+
+Installed session-span.2 unchanged; prefs at start were the span session's (Unity window 7680x1440 at x = -2560,
+windowed; game setting resolution index 13, fullscreen). Lease held across both switches; profiles via the switcher
+CLI with 35 s settle; no input sent; game-window captures only.
+
+- `Sim Racing Surround` (verified nvidia-surround 7680x1440, one display), plain Steam launch: window 0,0
+  7680x1440, style 0x94000000 (borderless popup) at t+15 and t+30, startup screen across the full 48:9 window;
+  normal exit.
+- Back on `Sim Racing` (verified independent, three monitors), plain Steam launch: `Span window: spanning
+  7680x1440 at (-2560,0)`, window -2560,0 7680x1440 borderless; normal exit.
+- Unity prefs (HKCU Software\ViJuDa\Super Woden Rally Edge) deleted and re-imported from the pre-run export,
+  then compared byte-exact; LocalLow originals restored. Evidence (private, local):
+  `E:\Source\_archive\2026-10-06\woden-surround-return-113341`.
