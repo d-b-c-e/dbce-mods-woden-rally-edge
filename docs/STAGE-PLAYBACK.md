@@ -15,11 +15,26 @@ From the canonical repository, after building TelemetryInspector:
 
 ```powershell
 ./tools/game/Run-StageSession.ps1 -Recording "$env:LOCALAPPDATA/Dbce/StagePlayback/references/woden-kenya-20261005" -Result ('results/replay-' + (Get-Date -Format yyyyMMdd-HHmmss))
+# Optional separate-monitor span qualification; the original config is restored:
+./tools/game/Run-StageSession.ps1 -Recording "$env:LOCALAPPDATA/Dbce/StagePlayback/references/woden-kenya-20261005" -SpanSeparateMonitors -Result ('results/span-replay-' + (Get-Date -Format yyyyMMdd-HHmmss))
 # Separate owner-driven capture, never switching to playback mid-race:
 ./tools/game/Run-StageSession.ps1 -Record -Seconds 60 -Result ('results/record-' + (Get-Date -Format yyyyMMdd-HHmmss))
 ```
 
 Choose a new result directory. Recording needs the owner to choose single-player Arcade practice and drive. Playback uses native menu controllers to select the recorded stage/car without manual setup. F12 or Stage-Session Stop terminates the request. Both modes retain original source signals while latching physical wheel/network output off, then save and close normally. Recover an interrupted run only after the game closes, using the same Result with `-RestoreOnly`.
+
+The optional span switch changes only `Triple.SpanSeparateMonitors` after the
+runner has acquired its lease and backed up the owner configuration. It does not
+change Windows display profiles, the saved resolution or the owner's Triple mode.
+The normal restoration path restores exact original config bytes. The switch is
+replay-only. Run `tools/game/Test-SessionSpan.ps1` for its device-free config cases.
+
+Supervised cold replay captures up to five native game frames and matching
+screen size/triple/focus/sample metadata under `Result/visual`. Capture starts
+only while validated playback is running with outputs muted. It does not enable
+the developer input channel, move focus or change input behavior. A capture error
+is logged separately from the route result; inspect the images before claiming
+rendered triple-screen acceptance.
 
 The PowerShell 7 session runner now enforces the shared rig slot through the
 hash-pinned toolkit `Stage-RigLease.ps1`. A slot younger than two hours refuses

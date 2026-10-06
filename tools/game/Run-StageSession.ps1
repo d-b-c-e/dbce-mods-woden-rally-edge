@@ -6,6 +6,7 @@ param(
     [switch]$Record,
     [ValidateRange(10,1800)][int]$Seconds = 60,
     [string]$Recording,
+    [switch]$SpanSeparateMonitors,
     [Parameter(Mandatory)][string]$Result,
     [string]$GameDir = 'D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge',
     [ValidateRange(240,2400)][int]$TimeoutSeconds = 360,
@@ -137,6 +138,7 @@ try {
     if (Test-Path -LiteralPath $Result) { throw 'Choose a new result directory.' }
     if ($CheckEnvironment) { Save-Owner; Restore-Owner; Write-Output 'PASS: owner environment backup and exact readback.'; return }
     if ($Record -and $Recording) { throw 'Choose either Record or a completed Recording.' }
+    if ($Record -and $SpanSeparateMonitors) { throw 'The temporary span override is for replay qualification only.' }
     if (!$Record -and (!$Recording -or !(Test-Path -LiteralPath (Join-Path $Recording 'complete.tsv')))) { throw 'A completed recording is required.' }
     if (!$Record) { $sourceReview = Review-Recording $Recording }
     if ($Record) { $Recording = Join-Path $Result 'recording' }
@@ -147,6 +149,10 @@ try {
     $command = Join-Path $GameDir 'BepInEx/plugins/WodenRallyEdgeWheel/Stage-Session.ps1'
     Save-Owner
     $rigLease | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Result 'rig-lease.json') -Encoding utf8
+    if ($SpanSeparateMonitors) {
+        Enable-SessionSpan (Join-Path $GameDir 'BepInEx/config/dbce.wodenrallyedgewheel.cfg')
+        'Triple.SpanSeparateMonitors=true; restored with owner config after exit' | Set-Content (Join-Path $Result 'span-override.txt')
+    }
     if (!$Record) { $sourceReview | Set-Content -LiteralPath (Join-Path $Result 'source-review.json') -Encoding utf8 }
     foreach ($file in @((Join-Path $GameDir 'BepInEx/LogOutput.log'),(Join-Path $data 'Player.log'))) {
         if (Test-Path -LiteralPath $file) { Copy-Exact $file (Join-Path $Result ('previous-'+[IO.Path]::GetFileName($file))) }

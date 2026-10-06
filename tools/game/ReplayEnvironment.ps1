@@ -34,3 +34,20 @@ public static class WodenSessionRegistry {
 function Get-SessionRegistryValue([string]$Name) { Initialize-SessionRegistry; [WodenSessionRegistry]::Read($Name) }
 function Set-SessionRegistryValue($Value) { Initialize-SessionRegistry; [WodenSessionRegistry]::Write($Value.name, $Value.type, $Value.data) }
 
+# Called only after the runner has saved the exact owner files under its rig lease.
+# Modify this one known key; Restore-Owner restores the original bytes, including absence.
+function Enable-SessionSpan([string]$Path) {
+    $text = [IO.File]::ReadAllText($Path)
+    $sections = [regex]::Matches($text, '(?ms)^\[Triple\][ \t]*\r?\n.*?(?=^\[|\z)')
+    if ($sections.Count -gt 1) { throw 'Duplicate Triple section; preserve and inspect owner config.' }
+    if ($sections.Count -eq 0) { $text += "`r`n[Triple]`r`nSpanSeparateMonitors = true`r`n" }
+    else {
+        $section = $sections[0]
+        $key = [regex]'(?m)^[ \t]*SpanSeparateMonitors[ \t]*=[^\r\n]*'
+        if ($key.Matches($section.Value).Count -gt 1) { throw 'Duplicate span key; preserve and inspect owner config.' }
+        $updated = if ($key.IsMatch($section.Value)) { $key.Replace($section.Value, 'SpanSeparateMonitors = true') }
+            else { $section.Value.TrimEnd("`r", "`n") + "`r`nSpanSeparateMonitors = true`r`n`r`n" }
+        $text = $text.Substring(0, $section.Index) + $updated + $text.Substring($section.Index + $section.Length)
+    }
+    [IO.File]::WriteAllText($Path, $text, [Text.UTF8Encoding]::new($false))
+}

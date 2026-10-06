@@ -49,6 +49,7 @@ internal static class StagePlayback
             if (Session.Active && UnityEngine.Input.GetKeyDown(KeyCode.F12)) Session.Stop();
             StageRunLifecycle.Tick(Session.Active, Session.Status, _control.LastError, now);
             StageStartup.Tick(Session.Active, Session.ReplayActive, Session.Playing, now);
+            StageVisualCapture.Tick(Session.Playing && OutputMuted, Session.Samples, now);
         }
         catch (Exception ex) { Session.Abort("stage control: " + ex.Message); }
     }
