@@ -64,3 +64,18 @@ pass leaves the separate background-acquisition check open. After qualification,
 enable the new-config span default, preserve explicit saved opt-outs, and package
 and install the final candidate with its own receipt. Build/installer checks alone
 do not establish plain-launch span or public-release readiness.
+
+## Default promotion and install — 2026-10-06 02:10 CT (Claude)
+
+The 02:05 queued replay (`results/woden-kenya-span-after2-20261006-020506`) passed: 3,601 poses,
+max 6.1e-05 m / 1.7e-05 deg, `Span window: spanning 7680x1440 at (-2560,0)`, five passive frames at
+7680x1440 windowed with triples on, owner state restored. Claude inspected frames 01 and 03: bonnet view
+continuous across both seams, HUD centred, side views angle-correct. The game re-runs
+`FirstResolutionSet` on scene loads; each run is substituted, so no apply is added.
+
+`8678f06` makes `[Triple] SpanSeparateMonitors` default true; an explicit saved false is kept (the owner's
+installed config had no such key). Candidate `0.2.14-session-span.2`: 42 suites / 37,760 assertions,
+630 UI assertions, all 111 Windows PowerShell 5.1 exact-package installer checks; installed 02:10 CT under
+the rig lease (backup `WodenWheelBackups/before-install-20261006-021053-31870fbf`; log in
+`results/install-session-span.2-*`). Not yet seen: a plain launch with the new default (expect the same
+span log line) and the Surround round trip (Target() returns null under Surround, so nothing changes there).
