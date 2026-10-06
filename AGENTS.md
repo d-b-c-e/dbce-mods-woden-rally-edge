@@ -1,3 +1,5 @@
+**FFB comparison (2026-10-06):** `docs/FFB-COMPARISON.md` documents the new offline tools and remaining physical acceptance. No installed tune/default was changed. Coordinate normalization with the shared toolkit findings before changing gains.
+
 Release/readiness (2026-10-05): read docs/PUBLIC-RELEASE.md, docs/STAGE-PLAYBACK.md and docs/2026-10-05-background-replay.md. Installed 05837ee/session-focus.1 passed all 3,601 Kenya poses, normal quit/exact restoration, zero physical writes, 111 PS5.1 installer checks. It scopes background execution to validated supervised muted replay; this run remained focused, so background qualification awaits a naturally unfocused coordinated run. Do not move focus or inject OS input to manufacture coverage. The log reports triples at the retained 7680 config; new rendered acceptance is separate. Prior a628e04 owner acceptance and exact backup remain. Private reference is sealed outside worktrees under LocalAppData/Dbce/StagePlayback/references/woden-kenya-20261005. Do not delete results when consolidating source.
 
 # Super Woden Rally Edge coordination

@@ -10,7 +10,7 @@ Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 |---|---|---|---|
 | STD-001 | One mod per game | adopted | one combined mod |
 | STD-002 | Recording and playback from launch | n/a | Superseded by STD-012. |
-| STD-003 | Normalized FFB strength | unchecked | Original signal/model data preserved; physical cross-game normalization remains unverified and saved tuning is unchanged. |
+| STD-003 | Normalized FFB strength | partial | Original analysis model and offline strength/cap trials validated; 25% cap occupied 46.46% of valid intervals. Physical normalization and defaults remain pending. See docs/FFB-COMPARISON.md. |
 | STD-004 | Consistent settings UX | adopted | F6 Simple/Advanced |
 | STD-005 | Camera numpad layout 8/2 9/3 4/6 7/1 +/- 5 | adopted | 580a907, retained in merged source 83b72d9 |
 | STD-006 | Camera step sizes are settings | adopted | 2e32e46, retained in merged source 83b72d9 |

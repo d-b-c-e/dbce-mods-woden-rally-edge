@@ -9,3 +9,5 @@ The owner recorded and accepted a one-minute Kenya SS1 playback, including camer
 Triple views were accepted in the earlier Surround drive. The combined runtime subsequently completed all 3,601 replay poses at 7680×1440 with triples active. Separate monitors currently need the developer Launch-Wide script; automatic startup spanning is being implemented. A final plain-launch owner drive and dashboard RPM/gear check remain.
 
 One repository and package contain the plugin. Game-specific code is under `components/wheel`, shared playback artifacts under `vendor/playback`. Proprietary game files and private recordings are excluded from releases.
+
+Developer: [offline FFB comparison and normalization status](docs/FFB-COMPARISON.md).
