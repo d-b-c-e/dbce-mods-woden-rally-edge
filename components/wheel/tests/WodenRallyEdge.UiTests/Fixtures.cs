@@ -108,6 +108,7 @@ namespace WodenRallyEdge
     internal sealed class GameAction {internal string name="fixture";}
     internal static class ControlActions {internal static GameAction[]? For(Controls c)=>null;}
     internal static class CountdownTimerAssist {internal static string Status=>"Fixture: assist waiting for gameplay";}
+    internal static class LeaderboardGuard {internal static string Status=>"Online times: uploaded as normal";}
     internal static class MountedCamera
     {internal static bool PlayerOwned=true;internal static CameraCycle Cycle=new();internal static string Status=>"Fixture mounted view";internal static CameraPose Pose(bool bumper)=>Runtime.Settings.GetCameraPose(bumper);}
     internal sealed class ForceController

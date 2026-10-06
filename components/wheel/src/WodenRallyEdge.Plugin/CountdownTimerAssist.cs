@@ -26,6 +26,7 @@ internal static class CountdownTimerAssist
             if (!adjustment.HasValue) return;
             __state = adjustment;
             __instance.TimerControl = adjustment.Value.AdjustedAnchor;
+            LeaderboardGuard.MarkAssisted(); // STD-018: this race's time stays off the leaderboards
             Status = $"Countdown running at {cfg.CountdownSpeed:F0}%";
             if (++_adjustedUpdates == 1) Runtime.Log.LogInfo($"Countdown assist active at {cfg.CountdownSpeed:F0}%; native expiry uses scaled countdown, lap/stage clocks unchanged");
         }

@@ -20,6 +20,8 @@ namespace WodenRallyEdge
         internal object GM = new();
     }
     internal static class Pause { internal static bool Paused; }
+    // STD-018: the linked assist marks the race so its leaderboard upload is refused.
+    internal static class LeaderboardGuard { internal static int Marks; internal static void MarkAssisted() => Marks++; }
     internal sealed class CountDown
     {
         internal bool Active = true;

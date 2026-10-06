@@ -480,7 +480,7 @@ internal static class Panel
         Label(250,270,690,$"At {cfg.CountdownSpeed:F0}%, 60 timer seconds allow about {6000/cfg.CountdownSpeed:F0} driving seconds.",true,48);
         if(Button(250,338,230,"Default speed: 75%")){cfg.CountdownSpeed=75;Dirty();}
         Label(250,402,690,"Slows only the single-player time limit. Car physics, elapsed stage clocks and checkpoint bonuses keep their normal behavior. Default Off.",true,72);
-        Label(250,498,690,cfg.CountdownAssistEnabled?CountdownTimerAssist.Status:"Off — normal countdown speed",true,46);End(554);
+        Label(250,498,690,(cfg.CountdownAssistEnabled?CountdownTimerAssist.Status:"Off — normal countdown speed")+" · "+LeaderboardGuard.Status,true,46);End(554);
     }
     private static void TextPort(float y,string label,ref string text)
     { Label(250,y,370,label);var r=R(670,y-4,220,38);if(Visible(r))text=GUI.TextArea(r,text,5); }
