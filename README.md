@@ -6,6 +6,6 @@ Extract the complete player ZIP and run **Install.bat** with the game closed. Th
 
 The owner recorded and accepted a one-minute Kenya SS1 playback, including camera changes. All 3,601 poses passed; original force samples reprocess with zero error while physical wheel/network outputs stay muted. The [operator guide](docs/STAGE-PLAYBACK.md) documents unattended startup, Stop, normal exit and restoration.
 
-Triple views were accepted in Claude's earlier Surround test. The combined playback ran single-screen because Windows was left on independent monitors. Preserving mod settings alone did not restore the intended triple presentation. The ordinary launch/display correction remains a final check; do not label it completed.
+Triple views were accepted in the earlier Surround drive. The combined runtime subsequently completed all 3,601 replay poses at 7680×1440 with triples active. Separate monitors currently need the developer Launch-Wide script; automatic startup spanning is being implemented. A final plain-launch owner drive and dashboard RPM/gear check remain.
 
 One repository and package contain the plugin. Game-specific code is under `components/wheel`, shared playback artifacts under `vendor/playback`. Proprietary game files and private recordings are excluded from releases.

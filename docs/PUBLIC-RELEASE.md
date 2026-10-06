@@ -1,5 +1,40 @@
 # Public release preparation — 2026-10-05
 
+## Whole-repository publication decision
+
+The owner decided on October 5 that the **whole repository, including source
+history, becomes public with the release**. Historical private-only instructions
+are superseded by that decision; keep visibility private while completing the
+release checks below. Publication has not happened.
+
+The October 5 final inventory at `379be9a` covered 81 reachable commits and 651
+unique blobs after fetching origin. Private complete-history Git bundles were
+verified outside the repository. The six remote `codex/` branches and
+`pm/reviewed-woden-unified-20261001` are ancestors of main and can be retired at
+release freeze after rechecking their exact OIDs. Preserve
+`pm/reviewed-woden-cadence-20261001`: its two unique commits contain an unmerged
+experimental force adapter. Do not merge it solely for cleanup. Keep the
+historical `v0.2.14-shutdown.1` tag unchanged; its release is a draft, not a
+published stable release.
+
+Five path-changing historical commits contain local build paths in vendored
+DLL debug metadata; the current FFB DLL still has one. The publication plan
+recommends retaining immutable history/pins and generalizing future build paths,
+rather than rewriting accepted artifacts for username-only paths. Complete the
+historical per-revision license/source/notice matrix, including toolkit overrides
+and the separately pinned recorder. Inspect repository content and GitHub logs,
+PRs and release assets as well as the final player ZIP. A bounded credential
+screen is complete; full license/content closure remains open.
+
+Rebuild a fresh final player archive from final source, verify its standalone
+installer and notices, finish the targeted owner drive, then publish the exact
+tested archive/checksum and verify its public download. Preserve prior packages.
+Claude is building the shared startup span helper: separate-monitor triples
+currently require `Launch-Wide.ps1` and are not automatic on plain launch.
+Recheck ordinary Steam/Stream Deck startup after adopting that helper.
+
+## Current candidate
+
 The owner requested documentation, simple setup and release readiness. This repository is still private; no new binary has been published. The installed candidate is `0.2.14+05837eec1df75eefb6fc154be005512b842adb2a`, from player archive `session-focus.1`, installed at 21:08:13 UTC with existing settings retained. It passed the full 3,601-pose cold replay and all 111 PS5.1 installer checks. See [exact package/install/runtime evidence](2026-10-05-background-replay.md). Prior accepted a628e04 is backed up.
 
 ## Passed

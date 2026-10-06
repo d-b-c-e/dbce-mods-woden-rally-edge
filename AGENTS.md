@@ -2,6 +2,11 @@ Release/readiness (2026-10-05): read docs/PUBLIC-RELEASE.md, docs/STAGE-PLAYBACK
 
 # Super Woden Rally Edge coordination
 
+Owner decision, October 5 23:35 CT: publish the whole repository and history
+with the final release. This supersedes older private-only instructions once
+the checks in docs/PUBLIC-RELEASE.md are complete. Keep visibility private during
+preparation; preserve historical tags/artifacts and unmerged cadence work.
+
 Read components/wheel/AGENTS.md and its STATE and HANDOFF before feature work. Their safety, ownership and fixture requirements remain in force.
 
 One game repository, one installable package, one setup and release version. Source folders are internal features, not separately released products. Preserve legacy plugin/adapter IDs, settings, receipts, histories and frozen archives. The shared feature contract remains under review; package metadata is not installed optimizer discovery.
