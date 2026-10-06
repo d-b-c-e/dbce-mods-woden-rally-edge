@@ -47,8 +47,9 @@ internal static class SpanWindow
     internal static void Bind(ConfigFile cfg, Func<bool> triplesAllowed)
     {
         _triplesAllowed = triplesAllowed;
-        // Default off until verified on the rig (DRIVE's identical recipe passed a full replay on 2026-10-06).
-        _enabled = cfg.Bind("Triple", "SpanSeparateMonitors", false, "With three side-by-side monitors and no Surround, open the game as one borderless window across all of them so the triple views can run (STD-015). Not yet verified at the rig for Woden.");
+        // On by default since the 2026-10-06 qualification (Kenya replay, 3,601 poses at 0.06 mm, triples
+        // on the separate-monitor span); an explicit false in the config is kept.
+        _enabled = cfg.Bind("Triple", "SpanSeparateMonitors", true, "With three side-by-side monitors and no Surround, open the game as one borderless window across all of them so the triple views can run (STD-015). Set false to keep the stock single screen.");
     }
 
     /// <summary>The virtual-desktop span when it should be used, else null.</summary>

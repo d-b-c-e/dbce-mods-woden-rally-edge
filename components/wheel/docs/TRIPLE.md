@@ -84,6 +84,9 @@ uses `Car_Cam` and is a good render test. Turn the dev channel off after testing
 single-screen primary, `Screen.SetResolution` calls made while `ResolutionManager.FirstResolutionSet` runs (the
 game's single startup apply) become one windowed apply at the virtual-desktop span; the window is then made a
 borderless popup and placed over the span without activation, re-checked every 2 s. Patched one by one after
-`PatchAll` so a missing `SetResolution` overload disables only this. `[Triple] SpanSeparateMonitors` is **off**
-until a rig check: launch on "Sim Racing", expect `Span window: spanning 7680x1440 at (-2560,0)` in the log and
-triples on in a stage. DRIVE's identical recipe passed the owner reference replay on that layout.
+`PatchAll` so a missing `SetResolution` overload disables only this. `[Triple] SpanSeparateMonitors` is **on by
+default** since 2026-10-06: Astra's cold Kenya replay on "Sim Racing" with the span (results/woden-kenya-span-after2-20261006-020506)
+passed 3,601 poses at 0.06 mm with `Span window: spanning 7680x1440 at (-2560,0)`, five frames at 7680x1440 windowed
+with triples on, the bonnet view continuous across both seams and the HUD centred; owner state restored. The game
+re-runs `FirstResolutionSet` on scene loads; each is substituted, so no apply is added. Set it false for the stock
+single screen.
