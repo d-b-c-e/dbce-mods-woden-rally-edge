@@ -120,3 +120,5 @@ Evidence manifest SHA-256:
 `22CAEFAF0AE1100F94C692544F9CB19659A2F763F738917845AF72049C30F7C0`.
 Do not publish its owner backups. The former deferred worker has completed;
 `awaiting-visual-review` is its terminal handoff state, now reviewed above.
+
+**Plain launch with the new default, 2026-10-06 03:24 CT (Claude):** Steam launch (no arguments) of installed session-span.2 on "Sim Racing" logged `Span window: spanning 7680x1440 at (-2560,0)`; the frame is 7680x1440; the config now carries `SpanSeparateMonitors = true` (written as the default); normal close. Surround return not yet checked.
