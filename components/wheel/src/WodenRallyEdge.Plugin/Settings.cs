@@ -11,7 +11,7 @@ public sealed class Settings
     public bool CountdownAssistEnabled;
     public float CountdownSpeed = 75;
     public float CameraHeight = CameraPose.Bonnet.Height, CameraForward = CameraPose.Bonnet.Forward, CameraPitch = 8, CameraSide, CameraFov = 70;
-    public float BumperHeight = .35f, BumperForward = 2.2f, BumperPitch, BumperSide, BumperFov = 70;
+    public float BumperHeight = .35f, BumperForward = 2.2f, BumperPitch, BumperSide, BumperFov = 70, BumperAhead = CameraPose.BumperAheadDefault;
     public bool CameraAutoFit = true;
     public float CameraMoveStep = CameraSteps.Default.Move, CameraTiltStep = CameraSteps.Default.Tilt, CameraFovStep = CameraSteps.Default.Fov;
     public CameraSteps CameraSteps => new CameraSteps(CameraMoveStep, CameraTiltStep, CameraFovStep).Bounded();
@@ -57,7 +57,7 @@ public sealed class Settings
         else { CameraSide = pose.Side; CameraHeight = pose.Height; CameraForward = pose.Forward; CameraPitch = pose.Pitch; CameraFov = pose.Fov; }
     }
     public void ResetCamera(bool bumper)
-    { SetCameraPose(bumper, bumper ? WodenRallyEdge.Core.CameraPose.Bumper : WodenRallyEdge.Core.CameraPose.Bonnet); if (!bumper) CameraAutoFit = true; }
+    { SetCameraPose(bumper, bumper ? WodenRallyEdge.Core.CameraPose.Bumper : WodenRallyEdge.Core.CameraPose.Bonnet); if (bumper) BumperAhead = CameraPose.BumperAheadDefault; else CameraAutoFit = true; }
     public void Save() { Validate(); Sync(false); _config.Save(); }
     public void Validate()
     {
@@ -67,6 +67,7 @@ public sealed class Settings
         FfbStrength = Bound(FfbStrength, 0, 100, 50); FfbPeak = Bound(FfbPeak, 0, 50, 25);
         FfbLoadReference = Bound(FfbLoadReference, 100, 50000, 6000); FfbSlipScale = Bound(FfbSlipScale, .02f, 3, .35f);
         FfbSmoothing = Bound(FfbSmoothing, 0, 200, 35); FfbDamping = Bound(FfbDamping, 0, .5f, .05f);
+        BumperAhead = Bound(BumperAhead, -1, 2, CameraPose.BumperAheadDefault);
         CountdownSpeed = Bound(CountdownSpeed, 25, 100, 75);
         var steps = CameraSteps; CameraMoveStep = steps.Move; CameraTiltStep = steps.Tilt; CameraFovStep = steps.Fov;
         UiView = SettingsPresentation.View(UiView); UiPage = SettingsPresentation.Page(UiPage, UiView);
@@ -93,9 +94,10 @@ public sealed class Settings
         Item("Camera", "BonnetEnabled", ref Bonnet, "Include bonnet in the normal camera-button cycle. Does not force this view.");
         Item("Camera", "BumperEnabled", ref Bumper, "Include bumper in the normal camera-button cycle.");
         Item("Camera", "Height", ref CameraHeight, "Car-local vertical offset."); Item("Camera", "Forward", ref CameraForward, "Car-local forward offset."); Item("Camera", "PitchDegrees", ref CameraPitch, "Downward pitch.");
-        Item("Camera", "BumperHeight", ref BumperHeight, "Bumper car-local vertical offset."); Item("Camera", "BumperForward", ref BumperForward, "Bumper car-local forward offset."); Item("Camera", "BumperPitchDegrees", ref BumperPitch, "Bumper downward pitch.");
+        Item("Camera", "BumperHeight", ref BumperHeight, "Bumper car-local vertical offset."); Item("Camera", "BumperForward", ref BumperForward, "Bumper car-local forward offset; used only when the car body cannot be measured."); Item("Camera", "BumperPitchDegrees", ref BumperPitch, "Bumper downward pitch.");
         Item("Camera", "Side", ref CameraSide, "Bonnet car-local side offset."); Item("Camera", "Fov", ref CameraFov, "Bonnet vertical field of view, degrees.");
         Item("Camera", "BumperSide", ref BumperSide, "Bumper car-local side offset."); Item("Camera", "BumperFov", ref BumperFov, "Bumper vertical field of view, degrees.");
+        Item("Camera", "BumperAheadMetres", ref BumperAhead, "Bumper distance in front of the car body, -1..2 m. The view follows each car's length.");
         Item("Camera", "MoveStepMetres", ref CameraMoveStep, "Camera shortcut move per press, 0.005..0.25 m.");
         Item("Camera", "TiltStepDegrees", ref CameraTiltStep, "Camera shortcut tilt per press, 0.1..10 degrees.");
         Item("Camera", "FovStepDegrees", ref CameraFovStep, "Camera shortcut field-of-view change per press, 0.5..10 degrees.");

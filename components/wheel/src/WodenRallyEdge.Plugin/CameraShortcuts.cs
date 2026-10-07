@@ -31,7 +31,7 @@ internal static class CameraShortcuts
             Panel.ShowCameraMessage((bumper ? "Bumper" : "Bonnet") + ": " + CameraTuning.Labels[Array.IndexOf(CameraTuning.Actions, action)] + $" · height {pose.Height:F2} m · forward {pose.Forward:F2} m · tilt {pose.Pitch:F0}° · FOV {pose.Fov:F0}°");
         }
         if (!changed) return;
-        cfg.SetCameraPose(bumper, pose); if (!bumper) cfg.CameraAutoFit = false;
+        MountedCamera.SavePose(bumper, pose);
         Panel.SettingsChanged();
     }
 }

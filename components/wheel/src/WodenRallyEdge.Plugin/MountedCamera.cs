@@ -161,16 +161,45 @@ internal static class MountedCamera
     internal static CameraPose Pose(bool bumper)
     {
         var cfg = Runtime.Settings;
-        if (bumper || !cfg.CameraAutoFit) return cfg.GetCameraPose(bumper);
+        if (bumper)
+            return Bounds() is { } b ? CameraPose.FitBumper(b.Lo, b.Hi, cfg.GetCameraPose(true), cfg.BumperAhead) : cfg.GetCameraPose(true);
+        if (!cfg.CameraAutoFit) return cfg.GetCameraPose(false);
         var car = Runtime.Local;
         if (car == null) return CameraPose.Bonnet;
         if (_fittedCar == car.GetInstanceID()) return _fittedBonnet;
         _fittedCar = car.GetInstanceID(); _fittedBonnet = CameraPose.Bonnet;
+        if (Bounds() is { } body)
+        {
+            _fittedBonnet = CameraPose.FitBonnet(body.Lo, body.Hi);
+            Runtime.Log.LogInfo($"Bonnet body bounds {body.Lo} .. {body.Hi}; fitted {_fittedBonnet}");
+        }
+        return _fittedBonnet;
+    }
+
+    /// <summary>Saves an adjusted pose; the bumper keeps its distance from the body front so it carries to other cars.</summary>
+    internal static void SavePose(bool bumper, CameraPose pose)
+    {
+        var cfg = Runtime.Settings;
+        cfg.SetCameraPose(bumper, pose);
+        if (bumper && Bounds() is { } b) cfg.BumperAhead = CameraPose.BumperAhead(b.Hi, pose);
+        if (!bumper) cfg.CameraAutoFit = false;
+    }
+
+    private static int _boundsCar;
+    private static (System.Numerics.Vector3 Lo, System.Numerics.Vector3 Hi)? _bounds;
+
+    /// <summary>The local car's body-mesh bounds in car space, measured once per car.</summary>
+    private static (System.Numerics.Vector3 Lo, System.Numerics.Vector3 Hi)? Bounds()
+    {
+        var car = Runtime.Local;
+        if (car == null) return null;
+        if (_boundsCar == car.GetInstanceID()) return _bounds;
+        _boundsCar = car.GetInstanceID(); _bounds = null;
         try
         {
             var renderer = car.CarMesh;
             var mesh = renderer?.GetComponent<MeshFilter>()?.sharedMesh;
-            if (mesh == null) { Runtime.Log.LogWarning("Bonnet fit: body mesh unavailable; using fallback offsets"); return _fittedBonnet; }
+            if (mesh == null) { Runtime.Log.LogWarning("Camera fit: body mesh unavailable; using fallback offsets"); return null; }
             var bounds = mesh.bounds; var min = bounds.min; var max = bounds.max;
             var lo = new System.Numerics.Vector3(float.PositiveInfinity);
             var hi = new System.Numerics.Vector3(float.NegativeInfinity);
@@ -181,11 +210,11 @@ internal static class MountedCamera
                 var v = new System.Numerics.Vector3(p.x, p.y, p.z);
                 lo = System.Numerics.Vector3.Min(lo, v); hi = System.Numerics.Vector3.Max(hi, v);
             }
-            _fittedBonnet = CameraPose.FitBonnet(lo, hi);
-            Runtime.Log.LogInfo($"Bonnet body bounds {lo} .. {hi}; fitted {_fittedBonnet}");
+            _bounds = (lo, hi);
+            Runtime.Log.LogInfo($"Camera fit: body front {hi.Z:0.###} m; bumper view {Runtime.Settings.BumperAhead:0.###} m ahead of it");
         }
-        catch (Exception ex) { Runtime.Log.LogWarning("Bonnet fit unavailable; using fallback offsets: " + ex.Message); }
-        return _fittedBonnet;
+        catch (Exception ex) { Runtime.Log.LogWarning("Camera fit unavailable; using fallback offsets: " + ex.Message); }
+        return _bounds;
     }
 }
 

@@ -453,7 +453,7 @@ internal static class Panel
             }
             y+=46;Label(250,y,690,"Restores adjustment shortcuts only. Saved camera positions and Change camera stay unchanged.",true,46);y+=58;
         }
-        bool custom=!cfg.CameraAutoFit || cfg.GetCameraPose(true)!=CameraPose.Bumper;
+        bool custom=!cfg.CameraAutoFit || (cfg.GetCameraPose(true) with {Forward=CameraPose.Bumper.Forward})!=CameraPose.Bumper || cfg.BumperAhead!=CameraPose.BumperAheadDefault;
         if(!Advanced&&custom){if(Button(250,y,694,"Custom camera positioning active. Review in Advanced"))Navigate("Cameras","Advanced");y+=48;}
         if(Advanced)
         {
@@ -462,7 +462,7 @@ internal static class Panel
             var pose=MountedCamera.Pose(_editBumper);float side=pose.Side,height=pose.Height,forward=pose.Forward,pitch=pose.Pitch,fov=pose.Fov;
             Slider(y,"Side position (m)",ref side,-2,2);y+=44;Slider(y,"Height (m)",ref height,.1f,3);y+=44;Slider(y,"Forward position (m)",ref forward,-2,4);y+=44;
             Slider(y,"Tilt down (degrees)",ref pitch,-30,30,"F1");y+=44;Slider(y,"Field of view (degrees)",ref fov,30,110,"F0");y+=44;
-            var edited=new CameraPose(side,height,forward,pitch,fov);if(edited!=pose){cfg.SetCameraPose(_editBumper,edited);if(!_editBumper)cfg.CameraAutoFit=false;Dirty();}
+            var edited=new CameraPose(side,height,forward,pitch,fov);if(edited!=pose){MountedCamera.SavePose(_editBumper,edited);Dirty();}
             if(Button(250,y,260,"Reset this view")){cfg.ResetCamera(_editBumper);Dirty();}y+=46;
             Label(250,y,690,"Position moves the selected mount in metres; positive tilt looks down. FOV widens the image. Reset restores this mount's defaults.",true,58);y+=66;
             Slider(y,"Move step per press (m)",ref cfg.CameraMoveStep,.005f,.25f,"F3");y+=44;

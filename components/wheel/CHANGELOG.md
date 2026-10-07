@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- The bumper view sits just in front of each car's body (`[Camera] BumperAheadMetres`, default 0.05 m). It used one fixed distance for every car, which put it inside longer cars. Moving it forward or back is saved relative to the body's front, so it carries to other cars.
+
 ## 0.2.14-beta.1 — 2026-10-06, first public early-tester build
 
 Runtime `8678f06` (the build the owner drove; later commits change documentation only).

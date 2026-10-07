@@ -56,8 +56,8 @@ The owner approved shipping beta.1 to early testers and added three items:
      196° in the bumper view and about 244° in the bonnet view. With the rig's real geometry
      (`MatchGameFov = false`, eye 660 mm) they span 181°: the outer edges of the side screens are
      level with the eyes, so the bumper corners just beside a camera that has cleared the bumper
-     belong at those edges. Owner decision pending: real geometry for mounted views, or keep the
-     wider game FOV.
+     belong at those edges. Owner chose (2026-10-06) real geometry for bonnet/bumper and the game FOV
+     for chase cameras (`MatchGameFov = false`, `ChaseUsesGameFov = true`); bumper fit implemented.
 2. **Normalize the FFB values** to the family scale: at Strength 50 forces should roughly match
    art of rally at 50 (toolkit STD-021, refines STD-003). Codex owns the tuning; the offline
    Strength 35 / cap 50 trial in `docs/FFB-COMPARISON.md` is the starting point; the owner's

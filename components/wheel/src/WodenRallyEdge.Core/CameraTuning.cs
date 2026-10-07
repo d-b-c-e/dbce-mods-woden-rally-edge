@@ -23,6 +23,25 @@ public readonly record struct CameraPose(float Side, float Height, float Forward
         return new CameraPose((min.X + max.X) * .5f, min.Y + size.Y * .78f + .15f,
             (min.Z + max.Z) * .5f + size.Z * .18f + .05f, 8, 70).Bounded();
     }
+
+    /// <summary>Default distance of the bumper view in front of the car body, metres.</summary>
+    public const float BumperAheadDefault = .05f;
+
+    /// <summary>
+    /// Bumper view a saved distance in front of the body's front. One fixed forward offset put
+    /// the view inside longer cars (owner, 2026-10-06: body front at 2.31 m, offset 2.2 m).
+    /// Height, side, tilt and FOV stay the saved values; missing bounds keep the saved pose.
+    /// </summary>
+    public static CameraPose FitBumper(Vector3 min, Vector3 max, CameraPose saved, float ahead)
+    {
+        var size = max - min;
+        if (!float.IsFinite(size.X + size.Y + size.Z + max.Z + ahead) || size.X < .2f || size.Y < .2f || size.Z < .5f)
+            return saved.Bounded();
+        return (saved with { Forward = max.Z + ahead }).Bounded();
+    }
+
+    /// <summary>How far an adjusted bumper pose sits in front of the body front.</summary>
+    public static float BumperAhead(Vector3 max, CameraPose pose) => pose.Bounded().Forward - max.Z;
 }
 
 /// <summary>Per-press adjustment sizes, a player setting (toolkit default 0.02 m, 1°, 2°).</summary>

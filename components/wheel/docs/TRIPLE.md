@@ -43,7 +43,7 @@ foreground. Retry with nothing else in front.
 | Mode | Auto | Auto = on when the window is at least 2.9x as wide as tall; On; Off |
 | ToggleKey | F11 | Toggle in game |
 | CenterHud | true | HUD and menus on the centre screen |
-| MatchGameFov | false | Use the camera's own FOV (then F6 bonnet/bumper FOV sliders drive it) instead of the eye distance. Owner's install: true |
+| MatchGameFov | false | Use the camera's own FOV (then F6 bonnet/bumper FOV sliders drive it) instead of the eye distance. With 70° sides the screens then span more than 180° (bumper 38° vertical: about 196°; bonnet 70°: about 244°; real geometry: 181°). Owner's install: true until 2026-10-06, then false at the owner's request (real geometry for bonnet/bumper) |
 | ChaseUsesGameFov | true | Stock chase cameras keep the game FOV |
 | PanelWidthMm / PanelHeightMm / EyeDistanceMm / SideAngle / BezelMm | 708.4 / 398.5 / 660 / 70 / 8 | Rig geometry |
 | OfferDesktopResolution | true | Add the desktop size to the game's resolution list |

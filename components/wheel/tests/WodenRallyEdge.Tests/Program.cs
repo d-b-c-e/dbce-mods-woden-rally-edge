@@ -216,6 +216,36 @@ Test("bonnet defaults match the owner's raised/forward correction while preservi
         reloaded.ResetCamera(false); Check(reloaded.CameraAutoFit && reloaded.GetCameraPose(false) == CameraPose.Bonnet, "reset selects corrected default fit");
     } finally { File.Delete(path); }
 });
+Test("bumper view sits in front of each car's body and keeps its adjustment across cars", () => {
+    var saved = CameraPose.Bumper;
+    // Body bounds observed in game: the owner's 2026-10-06 car (front 2.307 m) and two earlier cars.
+    var owners = (lo: new Vector3(-1.018577f, -.47877452f, -2.3073466f), hi: new Vector3(1.0185976f, 1.0041455f, 2.3073452f));
+    var longer = (lo: new Vector3(-1.0630412f, -.5870567f, -2.460395f), hi: new Vector3(1.0630587f, .91786325f, 2.4637225f));
+    var shorter = (lo: new Vector3(-1.0647197f, -.5397808f, -2.1166487f), hi: new Vector3(1.0647128f, .84692115f, 2.1351051f));
+    Check(saved.Forward < owners.hi.Z && saved.Forward < longer.hi.Z, "the old fixed 2.2 m offset was inside both longer bodies");
+    foreach (var car in new[] { owners, longer, shorter })
+    {
+        var pose = CameraPose.FitBumper(car.lo, car.hi, saved, CameraPose.BumperAheadDefault);
+        Near(pose.Forward, car.hi.Z + CameraPose.BumperAheadDefault, "view just ahead of this body's front");
+        Check(pose.Height == saved.Height && pose.Side == saved.Side && pose.Pitch == saved.Pitch && pose.Fov == saved.Fov, "only forward follows the body");
+    }
+    var moved = CameraTuning.Adjust(CameraPose.FitBumper(owners.lo, owners.hi, saved, CameraPose.BumperAheadDefault), "Camera forward");
+    float ahead = CameraPose.BumperAhead(owners.hi, moved);
+    Near(ahead, CameraPose.BumperAheadDefault + .02, "a forward press is saved relative to the body front");
+    Near(CameraPose.FitBumper(shorter.lo, shorter.hi, saved, ahead).Forward, shorter.hi.Z + ahead, "the adjustment carries to a shorter car");
+    Check(CameraPose.FitBumper(Vector3.Zero, Vector3.Zero, saved with { Forward = 2.54f }, ahead).Forward == 2.54f, "unmeasured body keeps the saved pose");
+    Check(CameraPose.FitBumper(owners.lo, new(float.NaN), saved, ahead) == saved, "nonfinite bounds keep the saved pose");
+    string path = Path.Combine(Path.GetTempPath(), "woden-bumper-" + Guid.NewGuid() + ".cfg");
+    try {
+        File.WriteAllText(path, "[Camera]\nBumperForward = 2.5399997\nBumperHeight = 0.37\nBumperFov = 38\n");
+        var cfg = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(path, false));
+        Near(cfg.BumperAhead, CameraPose.BumperAheadDefault, "an existing config gains the default distance");
+        Near(cfg.BumperHeight, .37, "saved bumper height kept"); Near(cfg.BumperFov, 38, "saved bumper FOV kept");
+        cfg.BumperAhead = .3f; cfg.Save(); var reloaded = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(path, false));
+        Near(reloaded.BumperAhead, .3, "distance persists"); reloaded.ResetCamera(true); Near(reloaded.BumperAhead, CameraPose.BumperAheadDefault, "reset restores the distance");
+        reloaded.BumperAhead = float.NaN; reloaded.Validate(); Near(reloaded.BumperAhead, CameraPose.BumperAheadDefault, "invalid distance falls back");
+    } finally { File.Delete(path); }
+});
 Test("game window policy excludes foreign, console, hidden and unrepresentable handles", () => {
     uint self = (uint)Environment.ProcessId;
     Check(WodenRallyEdge.GameWindow.Eligible(0x1234, self, "UnityWndClass", true), "visible owned Unity window accepted");
