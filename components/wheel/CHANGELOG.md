@@ -2,9 +2,14 @@
 
 ## [Unreleased]
 
+## 0.2.14-beta.2 — 2026-10-06
+
+Runtime `b47ba15`, driven and approved by the owner.
+
 ### Fixed
 
 - The bumper view sits just in front of each car's body (`[Camera] BumperAheadMetres`, default 0.05 m). It used one fixed distance for every car, which put it inside longer cars. Moving it forward or back is saved relative to the body's front, so it carries to other cars.
+- Triple screens: the default real-geometry view for bonnet and bumper (`[Triple] MatchGameFov = false`) is what the owner now uses. Turning it on shows each camera's own field of view on the centre screen, and with side screens angled 70° the three screens then span well over 180°.
 
 ## 0.2.14-beta.1 — 2026-10-06, first public early-tester build
 

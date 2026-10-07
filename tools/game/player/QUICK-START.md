@@ -1,6 +1,6 @@
 # Super Woden Rally Edge setup
 
-Early-tester build. Please report problems at https://github.com/d-b-c-e/dbce-mods-woden-rally-edge/issues with your wheel, screen layout and what happened. Known limits: force feedback strength is not yet matched to our other mods, the bumper camera's field of view looks a little off, and there is no H-pattern shifter or clutch yet.
+Early-tester build. Please report problems at https://github.com/d-b-c-e/dbce-mods-woden-rally-edge/issues with your wheel, screen layout and what happened. Known limits: force feedback strength is not yet matched to our other mods, and there is no H-pattern shifter or clutch yet.
 
 1. Close the game and extract the entire player ZIP into a new folder.
 2. Run **Install.bat**. It finds Steam libraries or asks for the game folder. A first install downloads the pinned BepInEx loader; updates reuse the supported loader. Players need Windows PowerShell 5.1 and no SDK or compiler.

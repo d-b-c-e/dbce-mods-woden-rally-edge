@@ -5,14 +5,14 @@ wheel, pedals and a handbrake. One mod adds direct wheel and pedal controls, for
 for any DirectInput wheel, Forza-format telemetry for SimHub, bonnet and bumper cameras, and
 angle-correct triple screens (NVIDIA Surround or three separate monitors).
 
-**Early-tester build.** 0.2.14-beta.1 is the first public build. It has been driven on one
+**Early-tester build.** 0.2.14-beta.2 is the current public build. It has been driven on one
 rig (MOZA R12, three 2560x1440 screens). Reports from other wheels and setups are welcome:
 open an [issue](https://github.com/d-b-c-e/dbce-mods-woden-rally-edge/issues) with your wheel,
 screen layout and what happened.
 
 ## Install
 
-1. Close the game. Download **WodenRallyEdge-0.2.14-beta.1.zip** from the
+1. Close the game. Download **WodenRallyEdge-0.2.14-beta.2.zip** from the
    [release](https://github.com/d-b-c-e/dbce-mods-woden-rally-edge/releases) Assets (not
    GitHub's Source code download) and extract the whole ZIP into a new folder.
 2. Double-click **Install.bat**. It finds the Steam game folder, backs up anything it replaces
@@ -32,7 +32,7 @@ files and keeps settings and the shared loader. Full steps: [setup guide](tools/
 - **Force feedback:** steering load from the tyres, for any DirectInput force-feedback wheel.
 - **Telemetry:** Forza Horizon "Data Out" format (speed, RPM, gear, pedals and more) for
   SimHub and other dashboards; on by default (F6 → Telemetry).
-- **Cameras:** Bonnet and Bumper views join the game's camera cycle. Numpad moves the camera
+- **Cameras:** Bonnet and Bumper views join the game's camera cycle; both fit each car's body. Numpad moves the camera
   (8/2 forward/back, 9/3 up/down, 4/6 left/right, 7/1 tilt, +/− field of view, 5 reset).
 - **Triple screens:** three angle-correct views with the HUD and menus on the centre screen.
   On Surround, choose the Surround resolution in the game. On three separate monitors the mod
@@ -43,7 +43,6 @@ files and keeps settings and the shared loader. Full steps: [setup guide](tools/
 
 - Force feedback strength is not yet matched to our other mods' 50% scale; adjust Strength
   to taste.
-- The bumper camera's field of view looks a little off.
 - No H-pattern shifter or clutch yet.
 - Tested on one wheel and one screen layout. Only the current Steam build of the game is
   supported; the installer refuses other builds.
