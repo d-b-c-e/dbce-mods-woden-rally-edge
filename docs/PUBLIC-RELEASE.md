@@ -16,6 +16,14 @@ or discussions; the `v0.2.14-shutdown.1` release stays a draft. History is kept 
 the publication plan (username-only PDB paths in vendored DLLs). Branch-name retirement and the
 full per-revision licence matrix remain open follow-ups; all code is MIT (ours and the
 toolkit's) and the loader is downloaded, not bundled.
+**Published 2026-10-06 ~20:30 CT.** Repository visibility changed to public, then the
+[v0.2.14-beta.1 pre-release](https://github.com/d-b-c-e/dbce-mods-woden-rally-edge/releases/tag/v0.2.14-beta.1)
+(not marked latest) from tag `v0.2.14-beta.1` at clean `591f4e1`. Player ZIP SHA-256
+`9AC3A84C764111C029C456601C05B588D16ADC78B72C309DF00E143AD06772F3`; downloaded again without
+credentials and matched. Gates on that source: 42 suites / 37,760 assertions, 630 UI
+assertions, all 111 PS 5.1 exact-package installer checks. Installed locally with the package's
+Manage-Install.ps1 (game closed): all 13 plugin payloads match, owner config files unchanged;
+installer backup `WodenWheelBackups/before-install-20261006-202620-a25f2028`.
 ## Whole-repository publication decision
 
 The owner decided on October 5 that the **whole repository, including source
