@@ -87,3 +87,5 @@ wheel drives the menus. A fix in the shape of DRIVE's `WheelPrompts` / art of ra
 while the wheel is the active input, show the bound wheel button ("B12", or the owner's name for it) for the
 action the button's gamepad key maps to through the mod's own bindings, and leave pads alone. Needs an in-game
 pass (dev-channel screenshots) to find where the label is drawn and to check the layout.
+
+Survey launch 2026-10-07 05:21 (unattended, dev input channel, owner files restored exactly): the title's prompt is the text "PRESS START", stretched across the 7680 span with the title art. The in-process dev pad cannot leave the title: the title reads legacy Input, which needs the game window focused, and the mod never takes focus. The menu prompts therefore need an attended look (the owner presses Start, then dev `shot`) or the stage-session menu driver that Run-StageSession uses.
