@@ -17,6 +17,8 @@ public sealed class Settings
     public CameraSteps CameraSteps => new CameraSteps(CameraMoveStep, CameraTiltStep, CameraFovStep).Bounded();
     private int _cameraDefaultsVersion;
     public float FfbStrength = 50, FfbPeak = 25, FfbLoadReference = 6000, FfbSlipScale = .35f, FfbSmoothing = 35, FfbDamping = .05f;
+    public bool CrashEnabled = true;
+    public float CrashStrength = 50;
     public string FfbGuid = "";
     public bool FfbFollowSteering = true, TelemetryEnabled = true;
     private int _selectionVersion;
@@ -64,7 +66,7 @@ public sealed class Settings
         static float Bound(float value, float min, float max, float fallback) => float.IsFinite(value) ? Math.Clamp(value, min, max) : fallback;
         Player = Math.Clamp(Player, 0, 3); ForzaPort = Math.Clamp(ForzaPort, 0, 65535); DetailPort = Math.Clamp(DetailPort, 0, 65535); DetailHz = Math.Clamp(DetailHz, 1, 60);
         SetCameraPose(false, GetCameraPose(false)); SetCameraPose(true, GetCameraPose(true));
-        FfbStrength = Bound(FfbStrength, 0, 100, 50); FfbPeak = Bound(FfbPeak, 0, 50, 25);
+        FfbStrength = Bound(FfbStrength, 0, 100, 50); FfbPeak = Bound(FfbPeak, 0, 50, 25); CrashStrength = Bound(CrashStrength, 0, 100, 50);
         FfbLoadReference = Bound(FfbLoadReference, 100, 50000, 6000); FfbSlipScale = Bound(FfbSlipScale, .02f, 3, .35f);
         FfbSmoothing = Bound(FfbSmoothing, 0, 200, 35); FfbDamping = Bound(FfbDamping, 0, .5f, .05f);
         BumperAhead = Bound(BumperAhead, -1, 2, CameraPose.BumperAheadDefault);
@@ -106,6 +108,8 @@ public sealed class Settings
         Item("ForceFeedback", "Enabled", ref FfbEnabled, "Saved FFB On/Off preference. Feedback starts only during valid player driving. F8 saves Off.");
         Item("ForceFeedback", "DeviceGuid", ref FfbGuid, "Exact FFB wheel GUID selected in F6; no fallback.");
         Item("ForceFeedback", "StrengthPercent", ref FfbStrength, "Overall strength, default 50%. Original output gain restored; no additional reduction.");
+        Item("ForceFeedback", "CrashEnabled", ref CrashEnabled, "Crash kick: art of rally's cue (a short push plus a 25 Hz rattle) when the car hits something. Default On.");
+        Item("ForceFeedback", "CrashStrengthPercent", ref CrashStrength, "Crash kick strength, percent of full force for the hardest hit; independent of Strength and the peak cap, as in art of rally. Default 50.");
         Item("ForceFeedback", "PeakPercent", ref FfbPeak, "Hard peak cap, 0..50% of the device nominal range.");
         Item("ForceFeedback", "LoadReference", ref FfbLoadReference, "Estimated tyre-signal normalization reference in Unity force units; uncalibrated.");
         Item("ForceFeedback", "SlipScale", ref FfbSlipScale, "Unity sideways-slip scale for the provisional aligning estimate.");

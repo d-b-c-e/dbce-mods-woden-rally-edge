@@ -24,6 +24,8 @@ public static class TelemetrySchema
         Add("ffb.alignmentEstimate", "normalized estimate", "derived", "Contact-weighted tanh(sidewaysSlip/slipScale), divided by reference load; NOT measured rack torque");
         Add("ffb.dampingEstimate", "normalized estimate", "derived", "Calibrated steering velocity damping");
         Add("ffb.preview", "normalized -1..1", "derived", "Toolkit-shaped force preview before output permission/ownership gates");
+        Add("crash.cue", "normalized -1..1", "derived", "Crash kick added to the written force: toolkit CrashCue (art of rally's 120 ms push + 25 Hz rattle); 0 when idle or blocked");
+        Add("crash.count", "count", "derived", "Crash cues played since the car went live");
         Add("analysis.force.preview", "normalized -1..1", "derived", "Developer stage capture only: independent ForceSignal@3 history without device delivery gates; not physical output");
         Add("analysis.force.valid", "boolean 0/1", "derived", "Independent analysis force model accepted the recorded inputs");
         Add("analysis.force.reset", "count", "derived", "Independent analysis force model reset epoch");

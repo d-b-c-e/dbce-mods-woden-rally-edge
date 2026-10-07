@@ -422,6 +422,8 @@ internal static class Panel
         if(Advanced)
         {
             Label(250,y,690,"Strength sets overall force. On is remembered; feedback starts during driving. F8 / Stop FFB saves Off.",true,46);y+=58;
+            Toggle(250,y,450,"Crash kick",ref cfg.CrashEnabled);y+=40;Label(250,y,690,"A short push and rattle when you hit something (art of rally's crash cue). Now: "+force.CrashStatus,true,40);y+=46;
+            if(cfg.CrashEnabled){Slider(y,"Crash strength (%)",ref cfg.CrashStrength,0,100,"F0");y+=44;}
             Slider(y,"Peak output cap (%)",ref cfg.FfbPeak,0,50,"F0");y+=36;Label(250,y,690,"Maximum commanded force; default 25%. Lower values limit peak load.",true,40);y+=48;
             Slider(y,"Smoothing (ms)",ref cfg.FfbSmoothing,0,200,"F0");y+=36;Label(250,y,690,"Higher values soften rapid changes but delay feedback. Default 35 ms.",true,40);y+=48;
             Slider(y,"Steering damping",ref cfg.FfbDamping,0,.5f);y+=36;Label(250,y,690,"Resists wheel movement; dimensionless gain, default 0.05.",true,40);y+=48;

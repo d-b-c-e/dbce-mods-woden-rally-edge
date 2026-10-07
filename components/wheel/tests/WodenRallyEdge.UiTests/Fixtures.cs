@@ -114,7 +114,7 @@ namespace WodenRallyEdge
      internal static void SavePose(bool bumper,CameraPose pose){Runtime.Settings.SetCameraPose(bumper,pose);if(!bumper)Runtime.Settings.CameraAutoFit=false;}}
     internal sealed class ForceController
     {
-        internal int Reconnects,Changes;internal long Attempts=>0;internal long Failures=>0;internal float Sent=>0;
+        internal int Reconnects,Changes;internal long Attempts=>0;internal long Failures=>0;internal float Sent=>0;internal string CrashStatus=>"ready";
         internal string Status=>Runtime.Settings.FfbEnabled?"FFB inactive — settings open":"FFB off";
         internal void Suspend(string reason){}internal void Reconnect(string reason)=>Reconnects++;
         internal void SetEnabled(bool enabled){Runtime.Settings.FfbEnabled=enabled;Runtime.Settings.Save();Changes++;}internal void Panic()=>SetEnabled(false);

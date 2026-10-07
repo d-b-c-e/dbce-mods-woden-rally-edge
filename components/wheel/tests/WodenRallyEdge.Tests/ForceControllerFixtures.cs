@@ -21,6 +21,8 @@ internal sealed class TestSettings
 {
     internal bool FfbEnabled = true, WheelEnabled = true, FfbFollowSteering = false;
     internal bool CountdownAssistEnabled;
+    internal bool CrashEnabled = true, FfbInvert = false;
+    internal float CrashStrength = 50;
     internal float CountdownSpeed = 75;
     internal string FfbGuid = Guid.NewGuid().ToString();
     internal ForceOptions Options = new();
@@ -67,7 +69,28 @@ internal static class ForceControllerChecks
         Panel.Open = false; StockWheelOwner.Ready = true; MountedCamera.PlayerOwned = true;
         var device = new FakeForceDevice(); return (new(device), device);
     }
-    internal static void Recovery(Action<bool, string> check, Func<double, TelemetrySample> contact)
+    internal static void Crash(Action<bool, string> check, Func<double, TelemetrySample> contact)
+    {
+        var (controller, device) = Create();
+        controller.Prepare();
+        double time = 1;
+        for (int i = 0; i < 80; i++) { controller.Prepare(); controller.Tick(contact(time += .02)); }
+        check(controller.CrashStatus == "ready", "crash kick is ready while driving: " + controller.CrashStatus);
+        controller.CrashContact(time, 20f, 0f);                       // hardest hit; CrashStrength 50
+        var hit = contact(time += .02); controller.Tick(hit);
+        check(Math.Abs(hit.Get("crash.cue") - .25f) < .01f, $"push + rattle trough 20 ms in: 0.5 x (1 - 0.5), got {hit.Get("crash.cue")}");
+        check(Math.Abs(device.Writes.Last() - Math.Clamp(hit.Get("ffb.preview") + hit.Get("crash.cue"), -1, 1)) < 1e-5f, "written force is the steering preview plus the cue");
+        check(controller.CrashCount == 1, "one cue played");
+        controller.CrashContact(time, 2f, 0f); controller.CrashContact(time, 20f, .9f);   // too slow; ground contact
+        for (int i = 0; i < 15; i++) controller.Tick(contact(time += .02));
+        var after = contact(time += .02); controller.Tick(after);
+        check(after.Get("crash.cue") == 0 && controller.CrashCount == 1, "cue over after 250 ms; slow and ground contacts ignored");
+        Runtime.Settings.CrashEnabled = false;
+        controller.CrashContact(time, 20f, 0f);
+        var off = contact(time += .02); controller.Tick(off);
+        check(off.Get("crash.cue") == 0 && controller.CrashStatus == "off", "crash kick off writes no cue");
+        Runtime.Settings.CrashEnabled = true;
+    }    internal static void Recovery(Action<bool, string> check, Func<double, TelemetrySample> contact)
     {
         var (controller, device) = Create();
         controller.Prepare();

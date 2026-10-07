@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Crash kick: when the car hits a wall, barrier or another car the wheel gets art of rally's crash cue, a 120 ms push plus a 25 Hz rattle at half its strength fading out over 250 ms (toolkit `CrashCue`, the shape the owner picked on the wheel). On by default at 50 % (`[ForceFeedback] CrashEnabled`, `CrashStrengthPercent`; F6 FFB Advanced). It sits on top of the steering force and is not limited by the peak cap. Body contacts with a mostly horizontal normal at more than 3 m/s count; ground contacts and slow touches do not.
+
 ## 0.2.14-beta.2 — 2026-10-06
 
 Runtime `b47ba15`, driven and approved by the owner.

@@ -164,6 +164,34 @@ internal sealed class ForceController
         if (!ready) { Failures++; _faulted = true; Status = _device.Error ?? "FFB open failed; choose On or Refresh to retry"; }
         else Status = "Ready — feedback starts while driving";
     }
+    private readonly Dbce.Wheel.Ffb.CrashDetector _crash = new();
+    private readonly Dbce.Wheel.Ffb.CrashCue _cue = new();
+    private bool _crashLive;
+    internal string CrashStatus { get; private set; } = "waiting for driving";
+    internal int CrashCount => _cue.Played;
+    /// <summary>A body contact of the local car (collision hook), at Unity physics time.</summary>
+    internal void CrashContact(double time, float normalSpeed, float verticalShare)
+    {
+        lock (_lifecycleLock)
+        {
+            if (!_crashLive) return;
+            float intensity = _crash.Observe(time, normalSpeed, verticalShare, false);
+            if (intensity > 0f) _cue.Trigger(intensity * Math.Clamp(Runtime.Settings.CrashStrength, 0f, 100f) / 100f, time);
+        }
+    }
+    // art of rally's crash cue on top of the (capped) steering force, clamped to full force.
+    private float WithCrash(TelemetrySample sample, float steering, bool live)
+    {
+        double time = sample.SimulationSeconds;
+        _crashLive = live && Runtime.Settings.CrashEnabled && double.IsFinite(time) && time > 0;
+        if (!_crashLive) { _crash.Reset(); _cue.Reset(); CrashStatus = Runtime.Settings.CrashEnabled ? "waiting for driving" : "off"; sample.Add("crash.cue", 0); return steering; }
+        _crash.Track(time);
+        float cue = _cue.Sample(time);
+        if (Runtime.Settings.FfbInvert) cue = -cue;
+        sample.Add("crash.cue", cue); sample.Add("crash.count", CrashCount);
+        CrashStatus = cue != 0 ? "playing" : CrashCount == 0 ? "ready" : $"ready ({CrashCount} played)";
+        return Math.Clamp(steering + cue, -1f, 1f);
+    }
     internal void Tick(TelemetrySample sample)
     {
         lock (_lifecycleLock) { _capture?.Emit(StopRequested ? "terminal-reject" : "invocation", "tick"); if (!StopRequested) TickCore(sample); }
@@ -189,11 +217,12 @@ internal sealed class ForceController
             Runtime.Settings.WheelEnabled && !sample.Channels.ContainsKey("wheelInput.steer") ? "Wheel input unavailable" :
             !Last.Valid ? Last.Reason : !_native ? "Waiting for wheel connection" : null;
         _capture?.Emit("gate", gate);
-        if (blocked != null) { Suspend(blocked); Record(sample, gate, resetBefore); return; }
+        if (blocked != null) { WithCrash(sample, 0f, false); Suspend(blocked); Record(sample, gate, resetBefore); return; }
         _suspended = false;
         Attempts++;
-        bool accepted = _device.Write(Last.Preview);
-        LastAccepted = accepted; Sent = accepted ? Last.Preview : 0;
+        float output = WithCrash(sample, Last.Preview, true);
+        bool accepted = _device.Write(output);
+        LastAccepted = accepted; Sent = accepted ? output : 0;
         if (!accepted)
         {
             string error = _device.Error ?? "Force update failed; choose On or Refresh to retry";
