@@ -64,6 +64,9 @@ The owner approved shipping beta.1 to early testers and added three items:
    A/B at the rig is the acceptance.
 3. **H-pattern shifting.** Gates select gears, out of gear is neutral, reverse works, on its own
    USB device (STD-020 H and DEV), as in #DRIVE Rally. Clutch routing is not implemented either.
+   **Built 2026-10-07 (900f20c, hpattern.1), waiting for the rig.** Woden has no neutral or reverse
+   gear, so out of gear cuts the drive and R swaps the pedals; gates step the game's own Shift
+   up/down; needs the game's manual transmission. See CHANGELOG.
 
 ## Reference lessons carried forward
 

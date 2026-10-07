@@ -27,7 +27,7 @@ files and keeps settings and the shared loader. Full steps: [setup guide](tools/
 ## What works
 
 - **Controls:** steering, throttle, brake and an analog handbrake from any USB devices, each
-  bound and calibrated in F6; sequential shift up/down on any button. Menus can be driven from
+  bound and calibrated in F6; sequential shift up/down on any button, or an H-pattern shifter (Gear 1-6 and R; needs the game's manual transmission). Menus can be driven from
   wheel buttons.
 - **Force feedback:** steering load from the tyres, for any DirectInput force-feedback wheel.
 - **Telemetry:** Forza Horizon "Data Out" format (speed, RPM, gear, pedals and more) for

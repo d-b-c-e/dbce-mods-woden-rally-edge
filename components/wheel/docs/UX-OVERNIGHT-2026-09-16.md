@@ -52,7 +52,7 @@ S = Simple (also in Advanced); D = Simple on demand; A = Advanced only; Internal
 | Pause / Confirm / Back / Menu up/down/left/right | Controls → Menu buttons, D | Unbound | Pause retains native route; mod panel focus or existing selected Unity stock UI handlers receive context-gated events |
 | Settings panel / Panic stop | Controls → Mod buttons, D | Unbound; F6/F8 reserved | Saved wheel bindings plus keyboard escape routes; panic saves Off |
 | Lights / Horn / Records / Next song | Controls → Extra game buttons, D | Unbound | Native action names/routes retained |
-| H-pattern / clutch | Controls groups, D | Unavailable | Visible implementation-gap message; sequential and native keyboard/controller routes remain |
+| H-pattern / clutch | Controls → Shifter bindings, D | Gear 1-6, Gear R unbound | H-pattern steps the game's Shift up/down to the held gate (manual transmission); out of gear cuts drive, R swaps pedals; clutch not routed; sequential and native keyboard/controller routes remain |
 | General.PlayerIndex | Controls, A | 0, range 0–3 | Existing local-player selection; normal first player remains Simple |
 | ForceFeedback.Enabled | FFB, S; Stop global S | On | One saved preference; F8/Stop saves Off; view changes cannot enable |
 | ForceFeedback.FollowSteering / DeviceGuid | FFB dropdown, S | Follow saved Steering; no GUID fallback | Legacy explicit GUID retained; direct physical-wheel choices |
