@@ -1,6 +1,7 @@
 // Vendored from dbce-wheel-mod-toolkit 6121d47 (dotnet/Dbce.Wheel.Telemetry/FrameRateMonitor.cs), the family
 // frame-rate readout (STD-023/024). Woden pins toolkit v0.12.0, which predates it; drop this copy when the pin
 // moves to a toolkit release that ships FrameRateMonitor. Do not edit here: change the toolkit and re-vendor.
+#nullable disable   // toolkit source, written without nullable annotations
 using System;
 
 namespace Dbce.Wheel.Telemetry
