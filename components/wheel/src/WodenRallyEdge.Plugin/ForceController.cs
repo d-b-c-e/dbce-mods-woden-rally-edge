@@ -17,6 +17,11 @@ internal interface IForceDevice
 internal sealed class ForceController
 {
     private readonly ForceSignal _signal = new();
+    // Force model 4 (Grip): evaluated every tick so its front-load reference stays current; drives the wheel when selected.
+    private readonly GripSignal _grip = new();
+    private int _carId, _carEpoch;
+    internal string GripStatus { get; private set; } = "waiting for driving";
+    private long ResetCount(ForceOptions o) => o.Grip ? _grip.ResetCount : _signal.ResetCount;
     private readonly IForceDevice _device;
     private readonly CommandProvenanceCapture? _capture;
     private readonly object _lifecycleLock = new();
@@ -48,9 +53,10 @@ internal sealed class ForceController
     }
     private void ResetSignal()
     {
-        long before = _signal.ResetCount;
-        _signal.Reset();
-        _capture?.Emit("reset", "explicit", before: before, after: _signal.ResetCount);
+        var selected = Runtime.Settings.ForceOptions;
+        long before = ResetCount(selected);
+        _signal.Reset(); _grip.Reset();
+        _capture?.Emit("reset", "explicit", before: before, after: ResetCount(selected));
     }
 
     internal void SetEnabled(bool enabled)
@@ -200,11 +206,20 @@ internal sealed class ForceController
     }
     private void TickCore(TelemetrySample sample)
     {
-        long resetBefore = _signal.ResetCount;
         var options = Runtime.Settings.ForceOptions;
+        if (sample.CarInstanceId != _carId) { _carId = sample.CarInstanceId; _carEpoch++; _grip.NewCar(); }
+        long resetBefore = ResetCount(options);
         _capture?.Options(options);
-        Last = _signal.Evaluate(sample, options);
-        _capture?.Emit("model", "evaluated", command: BitConverter.SingleToInt32Bits(Last.Preview), result: Last.Valid, before: resetBefore, after: _signal.ResetCount,
+        var grip = _grip.Evaluate(sample, options);
+        Last = options.Grip ? grip : _signal.Evaluate(sample, options);
+        var reference = _grip.Reference;
+        string measured = reference.Kind == FrontLoadReferenceKind.Resting ? $"front load {reference.Load:F0} measured at rest"
+            : reference.Kind == FrontLoadReferenceKind.Provisional ? $"front load {reference.Load:F0} provisional (stop briefly to measure it at rest)" : "measuring the front load (stop briefly, or drive for 2 s)";
+        GripStatus = !options.Grip ? "not selected" : grip.Valid ? "grip model, " + measured : grip.Reason;
+        sample.Add("ffb.grip.previousOutput", _grip.PreviousOutput); sample.Add("ffb.grip.reference", _grip.ReferenceUsed);
+        sample.Add("ffb.grip.referenceKind", (int)reference.Kind); sample.Add("ffb.grip.referenceChanges", reference.Changes); sample.Add("ffb.grip.carEpoch", _carEpoch);
+        sample.Add("ffb.grip.preview", grip.Preview); sample.Add("ffb.grip.valid", grip.Valid ? 1 : 0);
+        _capture?.Emit("model", "evaluated", command: BitConverter.SingleToInt32Bits(Last.Preview), result: Last.Valid, before: resetBefore, after: ResetCount(options),
             simulation: sample.SimulationSeconds, elapsed: sample.ElapsedSeconds);
         sample.Add("ffb.frontLoad", Last.FrontLoad); sample.Add("ffb.alignmentEstimate", Last.Alignment); sample.Add("ffb.dampingEstimate", Last.Damping);
         sample.Add("ffb.preview", Last.Preview);
@@ -244,12 +259,13 @@ internal sealed class ForceController
         var tuning = Runtime.Settings.ForceOptions;
         sample.Add("ffb.modelValid", Last.Valid ? 1 : 0);
         sample.Add("ffb.modelReason", sample.Discontinuity != null ? 11 : ForceObservationSemantics.ModelReason(Last.Reason));
-        sample.Add("ffb.modelResetBefore", resetBefore); sample.Add("ffb.modelResetAfter", _signal.ResetCount);
+        sample.Add("ffb.modelResetBefore", resetBefore); sample.Add("ffb.modelResetAfter", ResetCount(tuning));
         sample.Add("ffb.gate", ForceObservationSemantics.Gate(gate));
         sample.Add("ffb.tuning.strengthPercent", tuning.Strength); sample.Add("ffb.tuning.peakPercent", tuning.PeakPercent);
         sample.Add("ffb.tuning.loadReference", tuning.LoadReference); sample.Add("ffb.tuning.slipScale", tuning.SlipScale);
         sample.Add("ffb.tuning.smoothingMs", tuning.SmoothingMs); sample.Add("ffb.tuning.damping", tuning.Damping);
-        sample.Add("ffb.tuning.invert", tuning.Invert ? 1 : 0); sample.Add("ffb.tuning.modelVersion", 3);
+        sample.Add("ffb.tuning.invert", tuning.Invert ? 1 : 0); sample.Add("ffb.tuning.modelVersion", tuning.Model);
+        sample.Add("ffb.tuning.loadRatio", tuning.LoadRatio); sample.Add("ffb.tuning.gripSmoothing", tuning.GripSmoothing);
         sample.Add("ffb.armed", Armed ? 1 : 0); sample.Add("ffb.sent", Sent); sample.Add("ffb.deliveryAttempts", Attempts); sample.Add("ffb.deliveryFailures", Failures);
         sample.Add("ffb.connected", Connected ? 1 : 0); sample.Add("ffb.connectionAttempts", Opens); sample.Add("ffb.lastConnectionMs", OpenMilliseconds);
         if (LastAccepted.HasValue) sample.Add("ffb.accepted", LastAccepted.Value ? 1 : 0);

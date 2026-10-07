@@ -24,6 +24,15 @@ public static class TelemetrySchema
         Add("ffb.alignmentEstimate", "normalized estimate", "derived", "Contact-weighted tanh(sidewaysSlip/slipScale), divided by reference load; NOT measured rack torque");
         Add("ffb.dampingEstimate", "normalized estimate", "derived", "Calibrated steering velocity damping");
         Add("ffb.preview", "normalized -1..1", "derived", "Toolkit-shaped force preview before output permission/ownership gates");
+        Add("ffb.grip.preview", "normalized -1..1", "derived", "Grip model (v4) result this tick, whether or not it is the selected model");
+        Add("ffb.grip.valid", "bool", "derived", "The grip model had valid inputs this tick");
+        Add("ffb.grip.previousOutput", "normalized -1..1", "derived", "Grip model smoothed output before this tick");
+        Add("ffb.grip.reference", "N", "derived", "Front load reference the grip model used (0 until measured)");
+        Add("ffb.grip.referenceKind", "enum", "derived", "0 none, 1 provisional (moving mean), 2 measured at rest");
+        Add("ffb.grip.referenceChanges", "count", "derived", "Changes of the grip reference kind or resting load");
+        Add("ffb.grip.carEpoch", "count", "derived", "Cars seen; a change measures a new reference");
+        Add("ffb.tuning.loadRatio", "multiplier", "setting", "Grip: full scale as a multiple of the resting front load");
+        Add("ffb.tuning.gripSmoothing", "0..0.95", "setting", "Grip: per-update smoothing factor");
         Add("crash.cue", "normalized -1..1", "derived", "Crash cue calculated this tick (toolkit CrashCue fallback crash-constant-fallback@2: art of rally's push + 25 Hz rattle averaged per update), whether or not it was delivered");
         Add("crash.count", "count", "derived", "Crash cues played since the car went live");
         Add("crash.delivered", "bool", "derived", "The crash cue was added to the written force this tick");
@@ -44,9 +53,10 @@ public static class TelemetrySchema
             Add(k + "classified", "bool", "derived", "The collider had a tag other than Untagged for that classification");
             Add(k + "intensity", "0..1", "derived", "Crash detector intensity for the contact (0 when rejected)");
         }        Add("ffb.deliveredOutput", "normalized -1..1", "derived", "Force written to the wheel: ffb.preview plus the crash cue when delivered");
-        Add("analysis.force.preview", "normalized -1..1", "derived", "Developer stage capture only: independent ForceSignal@3 history without device delivery gates; not physical output");
+        Add("analysis.force.preview", "normalized -1..1", "derived", "Developer stage capture only: independent history of the selected model (ForceSignal@3 or GripSignal@4, see analysis.force.modelVersion) without device delivery gates; not physical output");
         Add("analysis.force.valid", "boolean 0/1", "derived", "Independent analysis force model accepted the recorded inputs");
         Add("analysis.force.reset", "count", "derived", "Independent analysis force model reset epoch");
+        Add("analysis.force.modelVersion", "integer", "setting", "3 = classic ForceSignal, 4 = GripSignal");
         Add("ffb.modelValid", "boolean 0/1", "derived", "Actual ForceSignal accepted the current recorded model inputs");
         Add("ffb.modelReason", "enum", "derived", "Stable ForceSignal reason code; see RECORDED-PLAYBACK.md");
         Add("ffb.modelResetBefore", "count", "measured", "ForceSignal reset epoch immediately before evaluating this sample");

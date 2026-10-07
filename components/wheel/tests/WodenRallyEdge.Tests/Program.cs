@@ -125,7 +125,52 @@ TelemetrySample Contact(double time, double slip = .3, double speed = 20, string
     foreach (var c in new[] { "fl", "fr" }) { s.Add("wheel." + c + ".grounded", 1); s.Add("wheel." + c + ".contactForce", 3000); s.Add("wheel." + c + ".sidewaysSlip", slip); }
     s.Add("wheelInput.steer", 0); return s;
 }
-Test("shared force shaping: symmetric sign, literal gain, cap, ramp and low-speed fade", () => {
+TelemetrySample GripSample(double time, double slip, double frontLoad = 10000, double speed = 25, string state = "driving", double extremum = .2, double stiffness = 1) {
+    var s = Sample(time, state: state); s.Add("motion.speed", speed); s.Add("motion.velocity.local.z", speed);
+    foreach (var c in new[] { "fl", "fr" }) {
+        string p = "wheel." + c + "."; s.Add(p + "grounded", 1); s.Add(p + "contactForce", frontLoad / 2); s.Add(p + "sidewaysSlip", slip);
+        s.Add(p + "sideFriction.extremumSlip", extremum); s.Add(p + "sideFriction.extremumValue", 1); s.Add(p + "sideFriction.asymptoteSlip", extremum * 2.5);
+        s.Add(p + "sideFriction.asymptoteValue", .75); s.Add(p + "sideFriction.stiffness", stiffness);
+    }
+    s.Add("wheelInput.steer", 0); return s;
+}
+GripSignal RestedGrip(double load = 10000) { var g = new GripSignal(); for (int i = 0; i < 30; i++) g.Evaluate(GripSample(i * .02, 0, load, 0, "inactive"), new()); return g; }
+Test("grip model v4: art of rally's shared curve on the rebuilt front lateral force, 50 means art's 50", () => {
+    Near(GripSignal.Curve(.1, .2, 1, .5, .75), .5, "curve rises linearly to the extremum");
+    Near(GripSignal.Curve(-.35, .2, 1, .5, .75), .875, "curve falls toward the asymptote");
+    Near(GripSignal.Curve(2, .2, 1, .5, .75), .75, "curve holds the asymptote");
+    var options = new ForceOptions(Model: 4, GripSmoothing: 0, Damping: 0);
+    var g = RestedGrip();
+    Check(g.Reference.Kind == FrontLoadReferenceKind.Resting && Math.Abs(g.Reference.Load - 10000) < 1e-6, "grid countdown measures the resting front load");
+    var atPeak = g.Evaluate(GripSample(1, .2), options);
+    // Fy = 10000 x 1 at the curve peak; trail 0.8 there; full scale 2 x 10000; Strength 50 = gain 1: 0.4, sign -sign(slip).
+    Near(atPeak.Preview, -.4, "peak-grip force at Strength 50", 1e-5); Check(atPeak.Valid && atPeak.Reason == "grip model", "valid grip reason");
+    var twicePeak = g.Evaluate(GripSample(1.02, .4), options);
+    Near(twicePeak.Preview, -(10000 * (1 - .25 * 2 / 3.0 * 1) * .6) / 20000 * 1, "past the peak the force falls and the trail lightens", 1e-4);
+    Check(Math.Abs(twicePeak.Preview) < Math.Abs(atPeak.Preview), "the wheel lightens as the front slides");
+    Near(g.Evaluate(GripSample(1.04, -.2), options).Preview, .4, "symmetric", 1e-5);
+    Near(g.Evaluate(GripSample(1.06, .2), options with { Strength = 100 }).Preview, -.8, "Strength 100 doubles it, no 25% cap", 1e-5);
+    Near(g.Evaluate(GripSample(1.08, .2), options with { Invert = true }).Preview, .4, "invert", 1e-5);
+    Near(g.Evaluate(GripSample(1.10, .2, stiffness: .5), options).Preview, -.2, "the game's stiffness scales the rebuilt force", 1e-5);
+    Near(g.Evaluate(GripSample(1.12, .2, speed: .7), options).Preview, 0, "faded below 3 km/h (0.7 m/s)");
+});
+Test("grip model v4: reference rules, measuring, missing friction curve and model selection", () => {
+    var options = new ForceOptions(Model: 4, GripSmoothing: 0, Damping: 0);
+    var fresh = new GripSignal();
+    var first = fresh.Evaluate(GripSample(0, .2, 1000, 30), options);
+    Check(first.Valid && first.Preview == 0 && first.Reason == "measuring front load" && fresh.Reference.Kind == FrontLoadReferenceKind.None, "a moving first sample is no reference");
+    for (int i = 1; i <= 110; i++) fresh.Evaluate(GripSample(i * .02, .2, i % 2 == 0 ? 1000 : 3000, 30), options);
+    Check(fresh.Reference.Kind == FrontLoadReferenceKind.Provisional && Math.Abs(fresh.Reference.Load - 2000) < 100, "2 s of moving load: provisional mean");
+    var g = RestedGrip();
+    var noCurve = GripSample(1, .2); noCurve.Channels.Remove("wheel.fl.sideFriction.extremumSlip");
+    var missing = g.Evaluate(noCurve, options);
+    Check(!missing.Valid && missing.Reason == "friction curve unavailable" && ForceObservationSemantics.ModelReason(missing.Reason) == 19, "missing friction curve stops the grip model");
+    Check(new ForceOptions().Model == 3 && !new ForceOptions().Grip && options.Grip, "ForceOptions defaults to the classic v3 record; Model 4 is grip");
+    var settings = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(Path.Combine(Path.GetTempPath(), "woden-grip-" + Guid.NewGuid().ToString("N") + ".cfg"), false));
+    Check(settings.ForceOptions.Grip && settings.FfbModel == "Grip" && settings.ForceOptions.LoadRatio == 2 && settings.ForceOptions.GripSmoothing == .2f, "the mod defaults to the grip model");
+    settings.FfbModel = "Classic"; Check(settings.ForceOptions.Model == 3, "Classic selects the unchanged v3 model");
+    settings.FfbModel = "anything"; settings.Validate(); Check(settings.FfbModel == "Grip", "unknown model names fall back to Grip");
+});Test("shared force shaping: symmetric sign, literal gain, cap, ramp and low-speed fade", () => {
     var left = new ForceSignal(); var right = new ForceSignal(); var inverted = new ForceSignal(); float final = 0;
     for (int i = 1; i <= 100; i++) {
         var a = left.Evaluate(Contact(i * .02), new()); var b = right.Evaluate(Contact(i * .02, -.3), new());

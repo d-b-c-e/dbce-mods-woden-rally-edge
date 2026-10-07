@@ -18,13 +18,15 @@ public sealed class Settings
     private int _cameraDefaultsVersion;
     public float FfbStrength = 50, FfbPeak = 25, FfbLoadReference = 6000, FfbSlipScale = .35f, FfbSmoothing = 35, FfbDamping = .05f;
     public bool CrashEnabled = true;
+    public string FfbModel = "Grip";
+    public float FfbLoadRatio = 2, FfbGripSmoothing = .2f;
     public float CrashStrength = 50;
     public string FfbGuid = "";
     public bool FfbFollowSteering = true, TelemetryEnabled = true;
     private int _selectionVersion;
     public string UiView = "Simple", UiPage = "Setup";
     public float UiScale = 100;
-    public bool CustomFfb => FfbPeak != 25 || FfbLoadReference != 6000 || FfbSlipScale != .35f || FfbSmoothing != 35 || FfbDamping != .05f || FfbInvert;
+    public bool CustomFfb => FfbModel != "Grip" || FfbLoadRatio != 2 || FfbGripSmoothing != .2f || FfbPeak != 25 || FfbLoadReference != 6000 || FfbSlipScale != .35f || FfbSmoothing != 35 || FfbDamping != .05f || FfbInvert;
     public void SetPresentation(string view, string page)
     {
         UiView = SettingsPresentation.View(view); UiPage = SettingsPresentation.Page(page, UiView);
@@ -32,7 +34,8 @@ public sealed class Settings
         _config.Bind("Interface", "Page", "Setup").Value = UiPage;
         _config.Save();
     }
-    public ForceOptions ForceOptions => new(FfbStrength, FfbPeak, FfbLoadReference, FfbSlipScale, FfbSmoothing, FfbDamping, FfbInvert);
+    public ForceOptions ForceOptions => new(FfbStrength, FfbPeak, FfbLoadReference, FfbSlipScale, FfbSmoothing, FfbDamping, FfbInvert,
+        FfbModel == "Classic" ? 3 : GripSignal.ModelVersion, FfbLoadRatio, FfbGripSmoothing);
     public Settings(ConfigFile config)
     {
         _config = config; _config.SaveOnConfigSet = false; Sync(true);
@@ -69,6 +72,7 @@ public sealed class Settings
         FfbStrength = Bound(FfbStrength, 0, 100, 50); FfbPeak = Bound(FfbPeak, 0, 50, 25); CrashStrength = Bound(CrashStrength, 0, 100, 50);
         FfbLoadReference = Bound(FfbLoadReference, 100, 50000, 6000); FfbSlipScale = Bound(FfbSlipScale, .02f, 3, .35f);
         FfbSmoothing = Bound(FfbSmoothing, 0, 200, 35); FfbDamping = Bound(FfbDamping, 0, .5f, .05f);
+        FfbModel = FfbModel == "Classic" ? "Classic" : "Grip"; FfbLoadRatio = Bound(FfbLoadRatio, .2f, 10, 2); FfbGripSmoothing = Bound(FfbGripSmoothing, 0, .95f, .2f);
         BumperAhead = Bound(BumperAhead, -1, 2, CameraPose.BumperAheadDefault);
         CountdownSpeed = Bound(CountdownSpeed, 25, 100, 75);
         var steps = CameraSteps; CameraMoveStep = steps.Move; CameraTiltStep = steps.Tilt; CameraFovStep = steps.Fov;
@@ -111,7 +115,10 @@ public sealed class Settings
         Item("ForceFeedback", "StrengthPercent", ref FfbStrength, "Overall strength, default 50%. Original output gain restored; no additional reduction.");
         Item("ForceFeedback", "CrashEnabled", ref CrashEnabled, "Crash kick: art of rally's cue (a short push plus a 25 Hz rattle) when the car hits something. Default On.");
         Item("ForceFeedback", "CrashStrengthPercent", ref CrashStrength, "Crash kick strength, percent of full force for the hardest hit; independent of Strength and the peak cap, as in art of rally. Default 50.");
-        Item("ForceFeedback", "PeakPercent", ref FfbPeak, "Hard peak cap, 0..50% of the device nominal range.");
+        Item("ForceFeedback", "Model", ref FfbModel, "Grip (default): art of rally's force model from the toolkit on the front tyres' lateral force, rebuilt from the game's tyre friction; the wheel lightens as the front slides and Strength 50 means the same as art of rally's 50. Classic: the earlier contact-weighted slip estimate with its peak cap.");
+        Item("ForceFeedback", "GripLoadRatio", ref FfbLoadRatio, "Grip: full scale as a multiple of the front load measured at rest, 0.2..10; higher is lighter. Default 2 (art of rally: 11,500 N for about 5,600 N of front load).");
+        Item("ForceFeedback", "GripSmoothing", ref FfbGripSmoothing, "Grip: smoothing per update, 0..0.95; default 0.2 as in art of rally.");
+        Item("ForceFeedback", "PeakPercent", ref FfbPeak, "Classic only: hard peak cap, 0..50% of the device nominal range.");
         Item("ForceFeedback", "LoadReference", ref FfbLoadReference, "Estimated tyre-signal normalization reference in Unity force units; uncalibrated.");
         Item("ForceFeedback", "SlipScale", ref FfbSlipScale, "Unity sideways-slip scale for the provisional aligning estimate.");
         Item("ForceFeedback", "SmoothingMs", ref FfbSmoothing, "Shared toolkit output smoothing time constant.");

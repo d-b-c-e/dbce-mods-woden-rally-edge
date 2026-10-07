@@ -21,6 +21,7 @@ internal static class StagePlayback
     private static MainCar? _car;
     private static TelemetryOutput? _signals;
     private static readonly ForceSignal AnalysisForce = new();
+    private static readonly GripSignal AnalysisGrip = new();
     private static double _lastTick = -1;
     private static int _signalCount;
     private static int _unfocusedReplaySteps;
@@ -79,10 +80,13 @@ internal static class StagePlayback
         {
             if (_signalCount != Session.Samples - 1) throw new IOException("Source sample does not match the next recorded pose");
             sample.Add("capture.trajectoryIndex", _signalCount);
-            var analysis = AnalysisForce.Evaluate(sample, Runtime.Settings.ForceOptions);
+            // The selected model (classic v3 or grip v4), independent of the muted output gate.
+            var options = Runtime.Settings.ForceOptions;
+            var analysis = options.Grip ? AnalysisGrip.Evaluate(sample, options) : AnalysisForce.Evaluate(sample, options);
             sample.Add("analysis.force.preview", analysis.Preview);
             sample.Add("analysis.force.valid", analysis.Valid ? 1 : 0);
-            sample.Add("analysis.force.reset", AnalysisForce.ResetCount);
+            sample.Add("analysis.force.reset", options.Grip ? AnalysisGrip.ResetCount : AnalysisForce.ResetCount);
+            sample.Add("analysis.force.modelVersion", options.Model);
             _signals.Publish(sample);
             _signalCount++;
         }
@@ -138,7 +142,7 @@ internal static class StagePlayback
         }
         public void StartSignals(string directory)
         {
-            AnalysisForce.Reset(); _signalCount = 0;
+            AnalysisForce.Reset(); AnalysisGrip.NewCar(); _signalCount = 0;
             StageCaptureContext.Write(directory, _car ?? throw new InvalidOperationException("Player unavailable"));
             RecordingArtifacts.WriteForceConfig(Path.Combine(directory, "force-config.json"), Runtime.Settings.ForceOptions);
             File.WriteAllText(Path.Combine(directory, "channels.json"), JsonSerializer.Serialize(TelemetrySchema.Channels));

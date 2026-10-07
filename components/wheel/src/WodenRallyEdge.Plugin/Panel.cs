@@ -419,18 +419,25 @@ internal static class Panel
         Label(250,y,690,force.Status,true,42);y+=48;
         if(Button(250,y,228,"Default strength: 50%")){cfg.FfbStrength=50;Dirty();}y+=46;
         if(!Advanced && cfg.CustomFfb){if(Button(250,y,694,"Custom FFB tuning active. Review in Advanced"))Navigate("FFB","Advanced");y+=44;}
+        Label(250,y+4,200,"Force model:");if(Button(460,y,150,"Grip",cfg.FfbModel=="Grip")&&cfg.FfbModel!="Grip"){cfg.FfbModel="Grip";Dirty();}if(Button(622,y,150,"Classic",cfg.FfbModel=="Classic")&&cfg.FfbModel!="Classic"){cfg.FfbModel="Classic";Dirty();}y+=44;
+        Label(250,y,690,cfg.FfbModel=="Grip"?"Grip: the front tyres' force, lightening as they slide, as in art of rally; 50% matches art of rally's 50%. Now: "+force.GripStatus:"Classic: the earlier slip estimate, capped at the peak below.",true,46);y+=52;
         if(Advanced)
         {
             Label(250,y,690,"Strength sets overall force. On is remembered; feedback starts during driving. F8 / Stop FFB saves Off.",true,46);y+=58;
             Toggle(250,y,450,"Crash kick",ref cfg.CrashEnabled);y+=40;Label(250,y,690,"A short push and rattle when you hit something (art of rally's crash cue). Now: "+force.CrashStatus,true,40);y+=46;
             if(cfg.CrashEnabled){Slider(y,"Crash strength (%)",ref cfg.CrashStrength,0,100,"F0");y+=44;}
-            Slider(y,"Peak output cap (%)",ref cfg.FfbPeak,0,50,"F0");y+=36;Label(250,y,690,"Maximum commanded force; default 25%. Lower values limit peak load.",true,40);y+=48;
+            if(cfg.FfbModel=="Grip")
+            {
+                Slider(y,"Grip: reference (x front load)",ref cfg.FfbLoadRatio,.2f,10,"F2");y+=36;Label(250,y,690,"Full scale as a multiple of the front load measured at rest. Higher is lighter; default 2.",true,40);y+=48;
+                Slider(y,"Grip: smoothing",ref cfg.FfbGripSmoothing,0,.95f,"F2");y+=36;Label(250,y,690,"Per-update smoothing; default 0.2 as in art of rally.",true,40);y+=48;
+            }
+            Slider(y,"Peak output cap (%)",ref cfg.FfbPeak,0,50,"F0");y+=36;Label(250,y,690,"Classic only: maximum commanded force; default 25%.",true,40);y+=48;
             Slider(y,"Smoothing (ms)",ref cfg.FfbSmoothing,0,200,"F0");y+=36;Label(250,y,690,"Higher values soften rapid changes but delay feedback. Default 35 ms.",true,40);y+=48;
             Slider(y,"Steering damping",ref cfg.FfbDamping,0,.5f);y+=36;Label(250,y,690,"Resists wheel movement; dimensionless gain, default 0.05.",true,40);y+=48;
             Slider(y,"Reference front load",ref cfg.FfbLoadReference,100,50000,"F0");y+=36;Label(250,y,690,"Higher values reduce the tyre estimate. Unity force units; default 6000.",true,40);y+=48;
             Slider(y,"Slip response scale",ref cfg.FfbSlipScale,.02f,3);y+=36;Label(250,y,690,"Larger values soften the slip response. Game slip units; default 0.35.",true,40);y+=48;
             Toggle(250,y,450,"Invert FFB",ref cfg.FfbInvert);y+=46;
-            if(Button(250,y,280,"Reset FFB tuning")){cfg.FfbStrength=50;cfg.FfbPeak=25;cfg.FfbSmoothing=35;cfg.FfbDamping=.05f;cfg.FfbLoadReference=6000;cfg.FfbSlipScale=.35f;cfg.FfbInvert=false;Dirty();}y+=46;
+            if(Button(250,y,280,"Reset FFB tuning")){cfg.FfbModel="Grip";cfg.FfbLoadRatio=2;cfg.FfbGripSmoothing=.2f;cfg.FfbStrength=50;cfg.FfbPeak=25;cfg.FfbSmoothing=35;cfg.FfbDamping=.05f;cfg.FfbLoadReference=6000;cfg.FfbSlipScale=.35f;cfg.FfbInvert=false;Dirty();}y+=46;
             Label(250,y,690,$"Accepted output {force.Sent:P1}; calls {force.Attempts}; failures {force.Failures}. Reset preserves On/Off and device.",true,46);y+=52;
         }
         End(y);

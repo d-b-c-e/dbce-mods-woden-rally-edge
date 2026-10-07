@@ -3,6 +3,8 @@ namespace WodenRallyEdge.Core;
 public static class ForceObservationSemantics
 {
     public const string Model = "woden-force-signal@3";
+    /// <summary>Force model version 4: GripSignal (toolkit AxleForceCurve on the rebuilt front lateral force).</summary>
+    public const string GripModel = "woden-grip-signal@4";
     public const long TicksPerSecond = 10_000_000;
 
     public static int ModelReason(string reason) => reason switch
@@ -18,6 +20,9 @@ public static class ForceObservationSemantics
         "invalid front contact" => 16,
         "front wheels airborne" => 17,
         "force sample gap" => 18,
+        "grip model" => 2,
+        "measuring front load" => 3,
+        "friction curve unavailable" => 19,
         _ => 99
     };
 
