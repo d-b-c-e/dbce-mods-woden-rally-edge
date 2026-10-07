@@ -647,6 +647,41 @@ Test("force model v4 replays through RecordedForceReplay; v4 trials need frictio
         Check(refused, "a v4 trial on a capture without friction curves is refused, never filled with default curves");
     }
     finally { Directory.Delete(v3, true); }
+});Test("crash stage replays from recorded contacts; tampered contact or cue is refused", () => {
+    string directory = Path.Combine(Path.GetTempPath(), "woden-crash-replay-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
+    var options = new ForceOptions(); string config = RecordingArtifacts.WriteForceConfig(Path.Combine(directory, "force-config.json"), options);
+    string profile = RecordingArtifacts.WriteCaptureProfile(Path.Combine(directory, "capture-profile.json"), new string('1', 64), new string('2', 64), new string('3', 64), new string('4', 64), true, true, true, "fixture-guid");
+    var properties = new Dictionary<string, string> { {"recordingContract","dbce.wheel.replay-case@1"}, {"capability","signal-reprocess"}, {"requestId",Guid.NewGuid().ToString()},
+        {"caseId","crash-replay"}, {"disableForces","false"}, {"gameAssemblySha256",new string('1',64)}, {"pluginSha256",new string('2',64)},
+        {"pluginProductVersion","0.2.14+fixture-source"}, {"runtimeSource","fixture-source"}, {"forceConfigSha256",config}, {"captureProfileSha256",profile} };
+    var (controller, _) = WodenRallyEdge.ForceControllerChecks.Create(); double time = 0; controller.Prepare();
+    try
+    {
+        using (var output = new TelemetryOutput(new(0, 0, 20, Path.Combine(directory, "source.jsonl")), "crash-fixture", "synthetic", "0.2.14", properties))
+        {
+            void Emit(TelemetrySample sample) { controller.Tick(sample); output.Publish(sample); }
+            for (int i = 0; i < 60; i++) Emit(Contact(time += .02));
+            Emit(Contact(time += .02, state: "paused"));                      // a known crash state: the stage resets off the live car
+            for (int i = 0; i < 30; i++) Emit(Contact(time += .02));
+            controller.CrashContact(time, 20f, 0f, false, true);             // hardest hit at the last tracked tick
+            for (int i = 0; i < 30; i++) Emit(Contact(time += .02));
+        }
+        var rows = SessionReader.Read(Path.Combine(directory, "source.jsonl")).Where(x => x.Kind == SessionRecordKind.Sample).Select(x => x.Sample).ToArray();
+        Check(rows.Count(r => r.Channels.GetValueOrDefault("crash.delivered") == 1) >= 10 && rows.Any(r => r.Channels.GetValueOrDefault("crash.contacts") == 1), "the capture holds a delivered crash cue and its contact");
+        Check(RecordedForceReplay.Reprocess(directory).ModelSamples == rows.Length, "the crash stage replays exactly from the recorded contact");
+        string Tampered(string name, Func<string, string> change)
+        {
+            string copy = Path.Combine(directory, name); Directory.CreateDirectory(copy);
+            foreach (string file in new[] { "source.jsonl", "force-config.json", "capture-profile.json" }) File.Copy(Path.Combine(directory, file), Path.Combine(copy, file));
+            var lines = File.ReadAllLines(Path.Combine(copy, "source.jsonl")); int i = Array.FindIndex(lines, l => l.Contains("\"crash.contacts\":1"));
+            lines[i] = change(lines[i]); File.WriteAllLines(Path.Combine(copy, "source.jsonl"), lines, new System.Text.UTF8Encoding(false)); return copy;
+        }
+        bool Refused(string dir) { try { RecordedForceReplay.Reprocess(dir); return false; } catch (IOException) { return true; } }
+        Check(Refused(Tampered("intensity", l => System.Text.RegularExpressions.Regex.Replace(l, "\"crash.contact0.intensity\":[0-9.Ee+-]+", "\"crash.contact0.intensity\":0.5"))), "a tampered contact intensity is refused");
+        Check(Refused(Tampered("cue", l => System.Text.RegularExpressions.Regex.Replace(l, "\"crash.cue\":[0-9.Ee+-]+", "\"crash.cue\":0.99"))), "a tampered crash cue is refused");
+        Check(Refused(Tampered("strength", l => System.Text.RegularExpressions.Regex.Replace(l, "\"crash.contact0.strength\":[0-9.Ee+-]+", "\"crash.contact0.strength\":10"))), "a tampered event-time strength changes the replayed cue and is refused");
+    }
+    finally { controller.Shutdown(); Directory.Delete(directory, true); }
 });Test("native handbrake adaptation restores boxed tuning and preserves game transient state", () => WodenRallyEdge.HandbrakeChecks.Run(Check));
 Test("UX view migration, scoped camera defaults, additive bindings and inversion persistence", () => WodenRallyEdge.UxChecks.SettingsAndBindings(Check));
 Test("strict follow/override output selection and camera release/repeat gates", () => WodenRallyEdge.UxChecks.SelectionAndRepeat(Check));

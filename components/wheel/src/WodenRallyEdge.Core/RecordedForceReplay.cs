@@ -153,6 +153,7 @@ public static class RecordedForceReplay
         // counts describe the recorded model only, so they are checked when the run uses it.
         bool sameModel = runOptions.Model == capture.OriginalOptions.Model;
         var signal = new ForceSignal(); var grip = new GripSignal(); var recordedReference = new FrontLoadReference(); var observations = new List<Observation>();
+        var crash = new CrashReplay();
         long ModelResets() => useGrip ? grip.ResetCount : signal.ResetCount;
         void ResetModel() { if (useGrip) grip.Reset(); else signal.Reset(); }
         long sourceSamples = 0, driving = 0; double? firstDriving = null, lastDriving = null; long? previousResetAfter = null; long lastTick = -1;
@@ -195,6 +196,7 @@ public static class RecordedForceReplay
                 CompareValue(result.Damping, Required(c, "ffb.dampingEstimate"), "damping", row.Sequence);
                 CompareValue(result.Preview, Required(c, "ffb.preview"), "preview", row.Sequence);
             }
+            if (verifyRecordedOutputs && sameModel) crash.Check(sample, c, gate, runOptions.Invert, row.Sequence);
             long tick = checked((long)Math.Round(row.ElapsedSeconds * ForceObservationSemantics.TicksPerSecond, MidpointRounding.AwayFromZero));
             if (tick < 0 || tick < lastTick) throw new IOException("Recording model timeline is not monotonic");
             lastTick = tick; observations.Add(new(tick, result.Preview)); previousResetAfter = after;
@@ -205,6 +207,64 @@ public static class RecordedForceReplay
         if (observations.Count == 0) throw new IOException("No reproducible force-model samples");
         EnsureCaptureUnchanged(capture);
         return new(observations, sourceSamples, driving, drivingSeconds);
+    }
+
+    /// <summary>
+    /// Replays the crash stage (Core <see cref="CrashStage"/>, crash-constant-fallback@2) from each row's recorded contacts,
+    /// motion, settings and delivery path, as iRacing Arcade's force contract 2 does. Seeds at the first row whose stage
+    /// state is known (the car not live, or a new detector epoch); a cue before that cannot be replayed and is refused.
+    /// Woden composes in floats: the written force is the steering preview plus the delivered cue, clamped.
+    /// </summary>
+    private sealed class CrashReplay
+    {
+        private CrashStage? _stage;
+        private long _epochOffset, _playedOffset;
+
+        internal void Check(TelemetrySample sample, IReadOnlyDictionary<string, double> c, int gate, bool invert, long sequence)
+        {
+            if (!c.ContainsKey("crash.modelVersion")) { if (c.Keys.Any(k => k.StartsWith("crash.", StringComparison.Ordinal))) throw new IOException("Crash channels without a model version at sample " + sequence); return; }
+            if (Required(c, "crash.modelVersion") != CrashStage.ModelVersion) throw new IOException("Unsupported crash model version at sample " + sequence);
+            bool enabled = Required(c, "crash.enabled") == 1, delivered = Required(c, "crash.delivered") == 1, discontinuous = Required(c, "crash.discontinuous") == 1;
+            double cue = Required(c, "crash.cue"); long played = Integer(c, "crash.count"), epoch = Integer(c, "crash.epoch");
+            long contacts = Integer(c, "crash.contacts"), dropped = Integer(c, "crash.contactsDropped");
+            if (cue is < -1 or > 1 || delivered && cue == 0 || contacts > CrashStage.MaxContactsPerTick) throw new IOException("Invalid recorded crash cue or contacts at sample " + sequence);
+            if (dropped > 0) throw new IOException($"{dropped} crash contacts were not recorded at sample {sequence}; the cue cannot be replayed");
+            // Live as production: the selected model's validity, both motion vectors and a running physics clock.
+            double time = sample.SimulationSeconds;
+            bool motion = sample.TryVector("motion.position.world", out var p) & sample.TryVector("motion.velocity.world", out var v);
+            bool live = Required(c, "ffb.modelValid") == 1 && motion && double.IsFinite(time) && time > 0;
+            bool deliver = gate is 0 or 11;   // the active path (11 = the write was attempted and failed)
+            bool seed = false;
+            if (_stage == null)
+            {
+                if (live && !discontinuous)
+                {
+                    if (cue != 0 || delivered) throw new IOException($"Crash cue at sample {sequence} comes before a row with a known crash state; it cannot be replayed");
+                    return;
+                }
+                _stage = new CrashStage(); seed = true;
+            }
+            for (int i = 0; i < contacts; i++)
+            {
+                string k = "crash.contact" + i + ".";
+                double at = Required(c, k + "time"); float speed = (float)Required(c, k + "speed"), share = (float)Required(c, k + "share"), strength = (float)Required(c, k + "strength");
+                bool road = Required(c, k + "road") == 1, classified = Required(c, k + "classified") == 1;
+                if (!seed) _stage.Observe(at, speed, share, road, classified, strength, out _);
+            }
+            float steering = (float)Required(c, "ffb.preview");
+            var m = new Dbce.Wheel.Ffb.MotionSample { Time = time, X = p.X, Y = p.Y, Z = p.Z, Vx = v.X, Vy = v.Y, Vz = v.Z };
+            float output = _stage.Mix(live, m, enabled, deliver, invert, steering);
+            if (seed) { _epochOffset = epoch - _stage.Epoch; _playedOffset = played - _stage.Played; }
+            else
+            {
+                for (int i = 0; i < contacts; i++) CompareValue(_stage.TickContact(i).Intensity, Required(c, "crash.contact" + i + ".intensity"), "crash contact intensity", sequence);
+                if (_stage.Epoch + _epochOffset != epoch || _stage.Played + _playedOffset != played || _stage.Discontinuous != discontinuous)
+                    throw new IOException("Recorded crash epoch/count/discontinuity differs from the replayed motion and contacts at sample " + sequence);
+            }
+            CompareValue(_stage.Cue, cue, "crash cue", sequence);
+            if (_stage.Delivered != delivered) throw new IOException("Recorded crash delivery differs from the replay at sample " + sequence);
+            if (deliver && c.TryGetValue("ffb.deliveredOutput", out double written)) CompareValue(output, written, "written force (steering + crash cue)", sequence);
+        }
     }
 
     private static void ValidateDrivingInputs(IReadOnlyDictionary<string, double> c, long sequence, bool grip)
