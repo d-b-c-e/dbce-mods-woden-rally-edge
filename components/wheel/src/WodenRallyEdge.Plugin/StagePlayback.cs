@@ -149,7 +149,8 @@ internal static class StagePlayback
             var properties = new Dictionary<string, string> { ["capability"] = "signal-reprocess", ["physicalOutput"] = "false", ["captureSource"] = "live-physics",
                 ["gameAssemblySha256"] = GameHash, ["pluginSha256"] = RecordingArtifacts.Sha256(typeof(Plugin).Assembly.Location),
                 ["forceConfigSha256"] = RecordingArtifacts.Sha256(Path.Combine(directory, "force-config.json")),
-                ["analysisForce"] = "Independent ForceSignal@3 history; no delivery gates or device writes; actual ffb.* stream remains separate",
+                ["analysisForce"] = (Runtime.Settings.ForceOptions.Grip ? "Independent GripSignal@4 history, using the recorded production front-load reference" : "Independent ForceSignal@3 history") +
+                    "; steering only; no delivery gates or device writes; actual ffb.* and crash.* streams remain separate",
                 ["posePhase"] = "MainCar.FixedUpdate.prefix; signals from postfix before Unity solve",
                 ["alignment"] = "capture.trajectoryIndex is the zero-based trajectory row; sample.simulationSeconds is the absolute physics clock" };
             _signals = new TelemetryOutput(new OutputOptions(RecordingPath: Path.Combine(directory, "source.jsonl"), Enabled: false), Runtime.SessionId,

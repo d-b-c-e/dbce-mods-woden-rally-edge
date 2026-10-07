@@ -12,6 +12,8 @@ foreach ($project in 'WodenRallyEdge.Tests','WodenRallyEdge.UiTests') {
     & dotnet run --project (Join-Path $wheel "tests\$project") -c Release --no-build
     if ($LASTEXITCODE -ne 0) { throw "$project failed" }
 }
+& dotnet run --project (Join-Path $wheel 'tests\TelemetryInspector.Tests') -c Release @restore
+if ($LASTEXITCODE -ne 0) { throw 'Stage analysis/export regression failed' }
 $triple = Join-Path $root 'components\triple'
 & dotnet build (Join-Path $triple 'tests\WodenTripleScreenProbe.Tests') -c Release -warnaserror @restore
 if ($LASTEXITCODE -ne 0) { throw 'Triple offline build failed' }

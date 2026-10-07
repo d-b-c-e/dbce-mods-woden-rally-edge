@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Text;
-using System.Text.Json;
+using Dbce.Wheel.Playback;
 using Dbce.Wheel.Recording;
 using WodenRallyEdge.Core;
 
@@ -13,19 +13,17 @@ internal static class ForceExport
         if (!float.IsFinite(strength) || strength < 0 || strength > 100 || !float.IsFinite(peak) || peak <= 0 || peak > 50)
             throw new ArgumentOutOfRangeException(nameof(strength), "Strength 0..100 and peak >0..50 required");
         StageCaptureReview.Run(directory); // Original hashes, continuous model, tune and no-output proof first.
-        using var config = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "force-config.json")));
-        var c = config.RootElement;
-        var options = new ForceOptions(strength, peak, c.GetProperty("loadReference").GetSingle(),
-            c.GetProperty("slipScale").GetSingle(), c.GetProperty("smoothingMs").GetSingle(),
-            c.GetProperty("damping").GetSingle(), c.GetProperty("invert").GetBoolean());
+        string sealHash = ArtifactSeal.Hash(Path.Combine(directory, "complete.tsv"));
+        var captured = StageCaptureReview.ReadOptions(directory);
+        var options = captured with { Strength = strength, PeakPercent = peak, Model = 3 };
         if (gripRatio.HasValue)
         {
             if (!float.IsFinite(gripRatio.Value) || gripRatio.Value <= 0) throw new ArgumentOutOfRangeException(nameof(gripRatio));
             options = options with { Model = GripSignal.ModelVersion, LoadRatio = gripRatio.Value,
-                GripSmoothing = c.TryGetProperty("gripSmoothing", out var gs) ? gs.GetSingle() : .2f };
+                GripSmoothing = captured.Grip ? captured.GripSmoothing : .2f };
         }
         var signal = new ForceSignal(); signal.Reset();
-        var grip = new GripSignal(); var recorded = new FrontLoadReference();
+        var grip = new GripSignal(); grip.NewCar();
         var csv = new StringBuilder("time_s,epoch,valid,speed_kmh,request,model,eligible,exclusion\n");
         foreach (var record in SessionReader.Read(Path.Combine(directory, "source.jsonl")))
         {
@@ -42,11 +40,12 @@ internal static class ForceExport
                     if (v.TryGetValue("wheel." + corner + ".grounded", out double g) && g == 1 && !v.ContainsKey("wheel." + corner + ".sideFriction.extremumSlip"))
                         throw new IOException("This stream has no recorded friction curves (captured before f1ee7af); a grip trial cannot be run from it");
                 FrontLoadReference? shared = null;
-                if (v.TryGetValue("ffb.grip.reference", out double load) && v.TryGetValue("ffb.grip.referenceKind", out double kind))
-                { recorded.Restore(load, (FrontLoadReferenceKind)(int)kind); shared = recorded; }
+                if (v.ContainsKey("ffb.grip.reference") || v.ContainsKey("ffb.grip.referenceKind"))
+                    shared = StageCaptureReview.ReadReference(v);
                 result = grip.Evaluate(sample, options, shared);
                 var reference = shared ?? grip.Reference;
-                exclusion = !result.Valid ? "model invalid" : reference.Kind != FrontLoadReferenceKind.Driving ? "provisional reference" : "";
+                exclusion = !result.Valid ? "model invalid" : reference.Kind == FrontLoadReferenceKind.None ? "no front-load reference" :
+                    reference.Kind != FrontLoadReferenceKind.Driving ? "provisional reference" : "";
             }
             else { result = signal.Evaluate(sample, options); exclusion = result.Valid ? "" : "model invalid"; }
             csv.AppendLine(string.Join(",", new[] { row.ElapsedSeconds.ToString("R", CultureInfo.InvariantCulture),
@@ -54,6 +53,8 @@ internal static class ForceExport
                 (Math.Abs(v["motion.speed"]) * 3.6).ToString("R", CultureInfo.InvariantCulture), result.Preview.ToString("R", CultureInfo.InvariantCulture),
                 options.Grip ? "grip" : "classic", exclusion.Length == 0 ? "1" : "0", exclusion }));
         }
+        ArtifactSeal.Verify(directory, "source.jsonl", "force-config.json", "stage-context.json", "channels.json");
+        if (ArtifactSeal.Hash(Path.Combine(directory, "complete.tsv")) != sealHash) throw new IOException("Capture seal changed during force export");
         using var file = new FileStream(output, FileMode.CreateNew, FileAccess.Write, FileShare.None);
         using var writer = new StreamWriter(file, new UTF8Encoding(false)); writer.Write(csv);
         Console.WriteLine(options.Grip ? $"Exported production GripSignal trial: strength {strength}, load ratio {options.LoadRatio}. Compare on the eligible column. No device output."

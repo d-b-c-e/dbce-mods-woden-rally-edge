@@ -2,7 +2,7 @@
 
 The shared [normalization runbook](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit/blob/master/docs/FFB-NORMALIZATION.md)
 defines the comparison manifest and duration-weighted statistics. Woden owns
-its actual ForceSignal model and the channel mapping.
+its Classic ForceSignal / experimental GripSignal adapters and channel mapping.
 
 From this repository root, with the original sealed stage directory:
 
@@ -10,11 +10,46 @@ From this repository root, with the original sealed stage directory:
 dotnet run --project components/wheel/tools/TelemetryInspector -c Release -- ffb-export $reference $newCsv 35 50
 ```
 
+This command selects **Classic v3**, even if the source was recorded with Grip.
 The last arguments are Strength and PeakPercent. The command validates original
 artifact hashes, tune, row alignment and the original force replay before running
 the production model with those two overrides. Other saved force parameters and
 reset boundaries are preserved. Existing output files are refused. No native
 device is opened and no game, profile or installed setting changes.
+
+For a Grip v4 trial, supply its reference ratio explicitly:
+
+```powershell
+dotnet run --project components/wheel/tools/TelemetryInspector -c Release -- stage-review $reference
+dotnet run --project components/wheel/tools/TelemetryInspector -c Release -- ffb-export $reference $newCsv 50 25 grip 2
+```
+
+Here `2` is the trial load ratio, not a calibrated recommendation. Grip ignores
+the Classic peak argument. Recorded smoothing/damping remain in effect; a
+Classic-to-Grip trial uses Grip smoothing 0.2. New Grip stages dispatch their
+original validation by force-config v2 / model4, restore the production
+front-load reference on every row, and check analysis model, tune, car, curve
+version and reset identity. Existing Classic stages retain v1 / model3 behavior.
+Never replace unavailable historical friction curves with current defaults:
+the original Kenya tape cannot support a Grip trial.
+
+Use this mapping with the shared normalization tool:
+
+```json
+{"time":"time_s","value":"request","valid":"eligible","epoch":"epoch","speed":"speed_kmh"}
+```
+
+`valid` describes the model calculation; `eligible` also excludes missing or
+provisional Grip references. The CSV explains each exclusion. A discontinuity
+starts a new force epoch. A changed car or tune requires a separate stage.
+Known-zero references stay zero; invalid/fractional reference kinds are refused.
+Synthetic fixtures remain labelled `synthetic-test` in the stage report.
+
+This validates **steering analysis**, not the crash cue or wheel torque. Original
+`ffb.*` delivery and `crash.*` replay remain separate. A kinematic route playback
+cannot produce a replacement live-physics force baseline. Collect a new muted
+original drive with real friction curves before calibrating Grip. See the
+[October 7 follow-up](2026-10-07-grip-stage-followup.md) for verified scope.
 
 For direct baseline analysis use `analysis.force.preview`, `.valid`, `.reset`
 and `motion.speed` (m/s). `ffb.preview` represents the actual output lifecycle and

@@ -1,5 +1,11 @@
 # Grip v4 source and fake-device review
 
+**Follow-up:** the three reproduced defects are fixed in `8bc3444` and pass
+the independent checks on `16f0f9c`. Core Grip replay and the later stage/export
+dispatch correction are covered in the [October 7 follow-up](2026-10-07-grip-stage-followup.md).
+The findings below retain their original candidate identity; physical acceptance
+and a new live-physics Grip capture remain pending.
+
 Reviewed `82f2812f5d552c941d0ac51e45626df7b03c8737`, including `4ec62c1` and
 `ca5e856`, following Claude's October 7 approximately 01:00 CT handoff. The
 subsequent GameSampler isolation change `66d46e8` was excluded from the frozen
