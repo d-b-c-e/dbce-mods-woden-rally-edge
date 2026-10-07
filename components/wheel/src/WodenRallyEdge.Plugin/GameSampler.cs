@@ -107,9 +107,13 @@ internal static class GameSampler
             if (grounded && hit != null)
             {
                 s.Add(p + "contactForce", hit.m_Force); s.Add(p + "forwardSlip", hit.m_ForwardSlip); s.Add(p + "sidewaysSlip", hit.m_SidewaysSlip);
-                var side = wheel.sidewaysFriction;
-                s.Add(p + "sideFriction.extremumSlip", side.m_ExtremumSlip); s.Add(p + "sideFriction.extremumValue", side.m_ExtremumValue);
-                s.Add(p + "sideFriction.asymptoteSlip", side.m_AsymptoteSlip); s.Add(p + "sideFriction.asymptoteValue", side.m_AsymptoteValue); s.Add(p + "sideFriction.stiffness", side.m_Stiffness);
+                try
+                {
+                    var side = wheel.sidewaysFriction;
+                    s.Add(p + "sideFriction.extremumSlip", side.m_ExtremumSlip); s.Add(p + "sideFriction.extremumValue", side.m_ExtremumValue);
+                    s.Add(p + "sideFriction.asymptoteSlip", side.m_AsymptoteSlip); s.Add(p + "sideFriction.asymptoteValue", side.m_AsymptoteValue); s.Add(p + "sideFriction.stiffness", side.m_Stiffness);
+                }
+                catch (Exception ex) { s.Unavailable.Add(p + "sideFriction:" + ex.GetType().Name); }   // the rest of the contact stays readable
                 s.Vector(p + "contactPoint.world", V(hit.m_Point)); s.Vector(p + "contactNormal.world", V(hit.m_Normal));
                 if (hit.m_Collider != null) s.Add(p + "colliderId", hit.m_Collider.GetInstanceID());
             }
