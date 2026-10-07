@@ -38,7 +38,12 @@ public sealed class Settings
         FfbModel == "Classic" ? 3 : GripSignal.ModelVersion, FfbLoadRatio, FfbGripSmoothing);
     public Settings(ConfigFile config)
     {
-        _config = config; _config.SaveOnConfigSet = false; Sync(true);
+        _config = config; _config.SaveOnConfigSet = false;
+        // An existing install keeps the model it was tuned with (Classic v3, Strength / 100 with the peak cap); only a new
+        // config starts on Grip v4. Never switch a saved owner model silently (Codex design review 2026-10-07).
+        bool keepClassic = SavedFfbWithoutModel(_config.ConfigFilePath);
+        Sync(true);
+        if (keepClassic) FfbModel = "Classic";
         if (_cameraDefaultsVersion < 1)
         {
             bool oldDefault = CameraHeight == .85f && CameraForward == .75f && CameraPitch == 3;
@@ -53,6 +58,22 @@ public sealed class Settings
         }
         if (_selectionVersion < 1) { FfbFollowSteering = string.IsNullOrWhiteSpace(FfbGuid); _selectionVersion = 1; }
         Validate();
+    }
+    private static bool SavedFfbWithoutModel(string? path)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return false;
+            bool inFfb = false, sawFfb = false;
+            foreach (string raw in File.ReadLines(path))
+            {
+                string line = raw.Trim();
+                if (line.StartsWith('[')) { inFfb = line == "[ForceFeedback]"; sawFfb |= inFfb; continue; }
+                if (inFfb && line.StartsWith("Model", StringComparison.Ordinal) && line.Contains('=')) return false;
+            }
+            return sawFfb;
+        }
+        catch (IOException) { return false; }
     }
     public CameraPose GetCameraPose(bool bumper) => bumper ? new(BumperSide, BumperHeight, BumperForward, BumperPitch, BumperFov) : new(CameraSide, CameraHeight, CameraForward, CameraPitch, CameraFov);
     public void SetCameraPose(bool bumper, CameraPose pose)

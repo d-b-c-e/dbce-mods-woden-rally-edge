@@ -21,6 +21,8 @@ internal sealed class ForceController
     private readonly GripSignal _grip = new();
     private int _carId, _carEpoch;
     internal string GripStatus { get; private set; } = "waiting for driving";
+    /// <summary>The production grip reference, observed in <see cref="Tick"/>; muted stage analysis uses it.</summary>
+    internal FrontLoadReference GripReference => _grip.Reference;
     private long ResetCount(ForceOptions o) => o.Grip ? _grip.ResetCount : _signal.ResetCount;
     private readonly IForceDevice _device;
     private readonly CommandProvenanceCapture? _capture;
@@ -197,7 +199,7 @@ internal sealed class ForceController
         {
             var c = _crash.TickContact(i); string k = "crash.contact" + i + ".";
             sample.Add(k + "time", c.Time); sample.Add(k + "speed", c.Speed); sample.Add(k + "share", c.Share);
-            sample.Add(k + "road", c.Road ? 1 : 0); sample.Add(k + "classified", c.Classified ? 1 : 0); sample.Add(k + "intensity", c.Intensity);
+            sample.Add(k + "road", c.Road ? 1 : 0); sample.Add(k + "classified", c.Classified ? 1 : 0); sample.Add(k + "intensity", c.Intensity); sample.Add(k + "strength", c.Strength);
         }
         return output;
     }    internal void Tick(TelemetrySample sample)
@@ -218,7 +220,7 @@ internal sealed class ForceController
         GripStatus = !options.Grip ? "not selected" : grip.Valid ? "grip model, " + measured : grip.Reason;
         sample.Add("ffb.grip.previousOutput", _grip.PreviousOutput); sample.Add("ffb.grip.reference", _grip.ReferenceUsed);
         sample.Add("ffb.grip.referenceKind", (int)reference.Kind); sample.Add("ffb.grip.referenceChanges", reference.Changes); sample.Add("ffb.grip.carEpoch", _carEpoch);
-        sample.Add("ffb.grip.preview", grip.Preview); sample.Add("ffb.grip.valid", grip.Valid ? 1 : 0);
+        sample.Add("ffb.grip.preview", grip.Preview); sample.Add("ffb.grip.valid", grip.Valid ? 1 : 0); sample.Add("ffb.grip.curveEstimateVersion", 1);
         _capture?.Emit("model", "evaluated", command: BitConverter.SingleToInt32Bits(Last.Preview), result: Last.Valid, before: resetBefore, after: ResetCount(options),
             simulation: sample.SimulationSeconds, elapsed: sample.ElapsedSeconds);
         sample.Add("ffb.frontLoad", Last.FrontLoad); sample.Add("ffb.alignmentEstimate", Last.Alignment); sample.Add("ffb.dampingEstimate", Last.Damping);

@@ -85,7 +85,7 @@ internal static class ForceControllerChecks
         check(Math.Abs(hit.Get("crash.cue") - first) < .01f, $"push + averaged rattle 20 ms in: {first:0.000}, got {hit.Get("crash.cue")}");
         check(Math.Abs(device.Writes.Last() - Math.Clamp(hit.Get("ffb.preview") + hit.Get("crash.cue"), -1, 1)) < 1e-5f && hit.Get("crash.delivered") == 1, "written force is the steering preview plus the cue");
         check(hit.Get("crash.contacts") == 1 && hit.Get("crash.contact0.speed") == 20 && hit.Get("crash.contact0.intensity") == 1 && hit.Get("crash.contact0.classified") == 1 &&
-            hit.Get("crash.contact0.time") == time - .02 && hit.Get("crash.modelVersion") == 2 && hit.Get("crash.strength") == 50, "the contact, its time, classification and the settings are recorded");
+            hit.Get("crash.contact0.time") == time - .02 && hit.Get("crash.contact0.strength") == 50 && hit.Get("crash.modelVersion") == 2 && hit.Get("crash.strength") == 50, "the contact, its time, classification and the settings are recorded");
         check(controller.CrashCount == 1, "one cue played");
         for (int i = 0; i < 15; i++) controller.Tick(Moving(time += .02));
         var after = Moving(time += .02); controller.Tick(after);

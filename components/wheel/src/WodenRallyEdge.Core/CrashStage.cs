@@ -3,7 +3,8 @@ using Dbce.Wheel.Ffb;
 namespace WodenRallyEdge.Core;
 
 /// <summary>One body contact as the crash stage saw it, in arrival order.</summary>
-public readonly record struct CrashContactRecord(double Time, float Speed, float Share, bool Road, bool Classified, float Intensity);
+/// <param name="Strength">Crash strength (percent) in force when the contact arrived; it scales any cue this contact starts.</param>
+public readonly record struct CrashContactRecord(double Time, float Speed, float Share, bool Road, bool Classified, float Intensity, float Strength);
 
 /// <summary>
 /// art of rally's crash cue (toolkit <see cref="CrashDetector"/> and <see cref="CrashCue"/>, through the constant-force
@@ -40,7 +41,7 @@ public sealed class CrashStage
     {
         played = false;
         float intensity = Live ? _detector.Observe(time, normalSpeed, verticalShare, road) : 0f;
-        if (_pendingCount < MaxContactsPerTick) _pending[_pendingCount++] = new(time, normalSpeed, verticalShare, road, classified, intensity);
+        if (_pendingCount < MaxContactsPerTick) _pending[_pendingCount++] = new(time, normalSpeed, verticalShare, road, classified, intensity, strengthPercent);
         else _pendingDropped++;
         if (intensity <= 0f) return 0f;
         float magnitude = intensity * Math.Clamp(float.IsFinite(strengthPercent) ? strengthPercent : 0f, 0f, 100f) / 100f;

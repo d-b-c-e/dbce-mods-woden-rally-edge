@@ -26,6 +26,7 @@ public static class TelemetrySchema
         Add("ffb.preview", "normalized -1..1", "derived", "Toolkit-shaped force preview before output permission/ownership gates");
         Add("ffb.grip.preview", "normalized -1..1", "derived", "Grip model (v4) result this tick, whether or not it is the selected model");
         Add("ffb.grip.valid", "bool", "derived", "The grip model had valid inputs this tick");
+        Add("ffb.grip.curveEstimateVersion", "integer", "derived", "1 = unity-friction-two-piece-flat-tangent-estimate@1: the rebuilt lateral force is an estimated tyre force, not solver newtons");
         Add("ffb.grip.previousOutput", "normalized -1..1", "derived", "Grip model smoothed output before this tick");
         Add("ffb.grip.reference", "N", "derived", "Front load reference the grip model used (0 until measured)");
         Add("ffb.grip.referenceKind", "enum", "derived", "0 none, 1 provisional (moving mean), 2 measured at rest");
@@ -52,6 +53,7 @@ public static class TelemetrySchema
             Add(k + "road", "bool", "derived", "The other collider was classified as road by tag/object name");
             Add(k + "classified", "bool", "derived", "The collider had a tag other than Untagged for that classification");
             Add(k + "intensity", "0..1", "derived", "Crash detector intensity for the contact (0 when rejected)");
+            Add(k + "strength", "percent", "setting", "Crash strength in force when the contact arrived (scales the cue it starts)");
         }        Add("ffb.deliveredOutput", "normalized -1..1", "derived", "Force written to the wheel: ffb.preview plus the crash cue when delivered");
         Add("analysis.force.preview", "normalized -1..1", "derived", "Developer stage capture only: independent history of the selected model (ForceSignal@3 or GripSignal@4, see analysis.force.modelVersion) without device delivery gates; not physical output");
         Add("analysis.force.valid", "boolean 0/1", "derived", "Independent analysis force model accepted the recorded inputs");

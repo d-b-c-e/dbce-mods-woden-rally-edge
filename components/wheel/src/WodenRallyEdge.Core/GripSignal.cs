@@ -58,7 +58,9 @@ public sealed class GripSignal
     public const int ModelVersion = 4;
     private const float PeakSlipDeg = 8f;
     public readonly FrontLoadReference Reference = new();
-    private double? _time, _steer;
+    /// <summary>Force ramps in over this long after a reset (unpause, stage start), as the classic shaper does.</summary>
+    public const double RampSeconds = .5;
+    private double? _time, _steer, _rampStart;
     private float _output;
     public long ResetCount { get; private set; }
     /// <summary>Output before the last evaluation, and the reference load it used, for recordings.</summary>
@@ -66,21 +68,32 @@ public sealed class GripSignal
     public double ReferenceUsed { get; private set; }
 
     // Woden's Stop() resets the model on every non-driving tick; the reference is kept for the car.
-    public void Reset() { _time = null; _steer = null; _output = 0; ResetCount++; }
+    public void Reset() { _time = null; _steer = null; _rampStart = null; _output = 0; ResetCount++; }
     public void NewCar() { Reset(); Reference.Clear(); }
 
-    /// <summary>Straight-segment Unity friction curve value at <paramref name="slip"/> (absolute).</summary>
+    /// <summary>Curve evaluator identity recorded with the model (the shape is an estimate, see <see cref="Curve"/>).</summary>
+    public const string CurveEstimate = "unity-friction-two-piece-flat-tangent-estimate@1";
+
+    /// <summary>
+    /// Estimated Unity sideways friction curve value at |<paramref name="slip"/>|. Unity documents a two-piece spline,
+    /// (0,0) to the extremum and then to the asymptote, with zero tangent at the extremum and at the asymptote; it does
+    /// not document the start tangent or the exact basis. This estimate uses a quadratic ease-out for the first piece
+    /// (zero slope at the extremum) and a smoothstep for the second (flat at both knots). The result is an
+    /// <b>estimated tyre force</b>, not the solver's exact lateral newtons (Codex design review 2026-10-07).
+    /// </summary>
     public static double Curve(double slip, double extremumSlip, double extremumValue, double asymptoteSlip, double asymptoteValue)
     {
         slip = Math.Abs(slip);
-        if (slip <= extremumSlip) return extremumValue * slip / extremumSlip;
-        if (slip <= asymptoteSlip) return extremumValue + (asymptoteValue - extremumValue) * (slip - extremumSlip) / (asymptoteSlip - extremumSlip);
+        if (slip <= extremumSlip) { double u = 1 - slip / extremumSlip; return extremumValue * (1 - u * u); }
+        if (slip <= asymptoteSlip) { double u = (slip - extremumSlip) / (asymptoteSlip - extremumSlip); return extremumValue + (asymptoteValue - extremumValue) * u * u * (3 - 2 * u); }
         return asymptoteValue;
     }
 
-    public ForceResult Evaluate(TelemetrySample s, ForceOptions options)
+    /// <param name="shared">Muted stage analysis passes the production reference (already observed this tick) instead of measuring its own.</param>
+    public ForceResult Evaluate(TelemetrySample s, ForceOptions options, FrontLoadReference? shared = null)
     {
-        PreviousOutput = _output; ReferenceUsed = Reference.Load;
+        var reference = shared ?? Reference;
+        PreviousOutput = _output; ReferenceUsed = reference.Load;
         ForceResult Stop(string why) { Reset(); return new(false, why, 0, 0, 0, 0); }
         double time = s.SimulationSeconds;
         bool motion = s.Channels.TryGetValue("motion.speed", out double speed) && double.IsFinite(speed) && speed >= 0 &&
@@ -90,8 +103,8 @@ public sealed class GripSignal
         foreach (string corner in new[] { "fl", "fr" })
             if (s.Channels.TryGetValue("wheel." + corner + ".grounded", out double g) && g == 1 && s.Channels.TryGetValue("wheel." + corner + ".contactForce", out double f) && double.IsFinite(f))
             { observedLoad += f; grounded++; }
-        if (motion && double.IsFinite(time)) Reference.Observe(time, observedLoad, grounded, speed, s.Driving && s.Discontinuity == null);
-        ReferenceUsed = Reference.Load;
+        if (shared == null && motion && double.IsFinite(time)) Reference.Observe(time, observedLoad, grounded, speed, s.Driving && s.Discontinuity == null);
+        ReferenceUsed = reference.Load;
 
         if (!s.Driving) return Stop(s.State);
         if (s.Discontinuity != null) return Stop(s.Discontinuity);
@@ -125,15 +138,16 @@ public sealed class GripSignal
             _steer = steering;
         }
         else _steer = null;
-        _time = time;
+        _time = time; _rampStart ??= time;
         float gain = Math.Clamp(options.Strength, 0, 100) / 50f;
-        if (Reference.Kind == FrontLoadReferenceKind.None) { _output = 0; return new(true, "measuring front load", (float)load, 0, damping, 0); }
+        float ramp = (float)Math.Clamp((time - _rampStart.Value) / RampSeconds, 0, 1);
+        if (reference.Kind == FrontLoadReferenceKind.None) { _output = 0; return new(true, "measuring front load", (float)load, 0, damping, 0); }
         // The friction curve's peak stands in for art's ideal slip angle: the trail is 0.8 there and 0.6 at twice it.
         float target = AxleForceCurve.Normalised((float)fy, (float)(relative / n * PeakSlipDeg), PeakSlipDeg, (float)(speed * 3.6),
-            (float)(options.LoadRatio * Reference.Load), gain, options.Invert);
+            (float)(options.LoadRatio * reference.Load), gain, options.Invert);
         _output = AxleForceCurve.Smooth(_output, target, Math.Clamp(options.GripSmoothing, 0, .95f));
         float d = options.Invert ? -damping : damping;
-        float preview = Math.Clamp(_output + d * gain, -1f, 1f);
+        float preview = Math.Clamp((_output + d * gain) * ramp, -1f, 1f);
         return new(true, speed * 3.6 < 3 ? "low-speed fade" : "grip model", (float)load, target, damping, preview);
     }
 }

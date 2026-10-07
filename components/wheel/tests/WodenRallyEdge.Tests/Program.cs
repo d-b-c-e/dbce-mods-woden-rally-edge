@@ -136,8 +136,9 @@ TelemetrySample GripSample(double time, double slip, double frontLoad = 10000, d
 }
 GripSignal DrivenGrip(double load = 10000) { var g = new GripSignal(); for (int i = 0; i < 110; i++) g.Evaluate(GripSample(i * .02, 0, load, 25), new(Model: 4)); return g; }
 Test("grip model v4: art of rally's shared curve on the rebuilt front lateral force, 50 means art's 50", () => {
-    Near(GripSignal.Curve(.1, .2, 1, .5, .75), .5, "curve rises linearly to the extremum");
-    Near(GripSignal.Curve(-.35, .2, 1, .5, .75), .875, "curve falls toward the asymptote");
+    Near(GripSignal.Curve(.1, .2, 1, .5, .75), .75, "first piece eases out to a flat extremum");
+    Near(GripSignal.Curve(.2, .2, 1, .5, .75), 1, "extremum value"); Near(GripSignal.Curve(.19999, .2, 1, .5, .75), 1, "flat tangent at the extremum", 1e-6);
+    Near(GripSignal.Curve(-.35, .2, 1, .5, .75), .875, "second piece: smoothstep toward the asymptote");
     Near(GripSignal.Curve(2, .2, 1, .5, .75), .75, "curve holds the asymptote");
     var options = new ForceOptions(Model: 4, GripSmoothing: 0, Damping: 0);
     var g = DrivenGrip();
@@ -148,7 +149,7 @@ Test("grip model v4: art of rally's shared curve on the rebuilt front lateral fo
     // Fy = 10000 x 1 at the curve peak; trail 0.8 there; full scale 2 x 10000; Strength 50 = gain 1: 0.4, sign -sign(slip).
     Near(atPeak.Preview, -.4, "peak-grip force at Strength 50", 1e-5); Check(atPeak.Valid && atPeak.Reason == "grip model", "valid grip reason");
     var twicePeak = g.Evaluate(GripSample(2.22, .4), options);
-    Near(twicePeak.Preview, -(10000 * (1 - .25 * 2 / 3.0 * 1) * .6) / 20000 * 1, "past the peak the force falls and the trail lightens", 1e-4);
+    Near(twicePeak.Preview, -(10000 * GripSignal.Curve(.4, .2, 1, .5, .75) * .6) / 20000, "past the peak the force falls and the trail lightens", 1e-5);
     Check(Math.Abs(twicePeak.Preview) < Math.Abs(atPeak.Preview), "the wheel lightens as the front slides");
     Near(g.Evaluate(GripSample(2.24, -.2), options).Preview, .4, "symmetric", 1e-5);
     Near(g.Evaluate(GripSample(2.26, .2), options with { Strength = 100 }).Preview, -.8, "Strength 100 doubles it, no 25% cap", 1e-5);
@@ -156,6 +157,27 @@ Test("grip model v4: art of rally's shared curve on the rebuilt front lateral fo
     Near(g.Evaluate(GripSample(2.30, .2, stiffness: .5), options).Preview, -.2, "the game's stiffness scales the rebuilt force", 1e-5);
     Near(g.Evaluate(GripSample(2.32, .2, speed: .7), options).Preview, 0, "faded below 3 km/h (0.7 m/s)");
 });
+Test("grip model v4: signed per-wheel sum, one wheel, airborne, start ramp (Codex design review)", () => {
+    var options = new ForceOptions(Model: 4, GripSmoothing: 0, Damping: 0);
+    var g = DrivenGrip();
+    TelemetrySample Wheels(double time, double slipL, double slipR, double loadL = 5000, double loadR = 5000, bool groundL = true, bool groundR = true)
+    {
+        var s = GripSample(time, slipL);
+        s.Channels["wheel.fr.sidewaysSlip"] = slipR; s.Channels["wheel.fl.contactForce"] = loadL; s.Channels["wheel.fr.contactForce"] = loadR;
+        s.Channels["wheel.fl.grounded"] = groundL ? 1 : 0; s.Channels["wheel.fr.grounded"] = groundR ? 1 : 0; return s;
+    }
+    Near(g.Evaluate(Wheels(2.20, .2, -.2), options).Preview, 0, "opposed front tyres cancel", 1e-6);
+    Near(g.Evaluate(Wheels(2.22, .2, .1), options).Preview, -(5000 * 1 + 5000 * .75) * AxleTrail(.75) / 20000, "unequal slips add signed", 1e-5);
+    Near(g.Evaluate(Wheels(2.24, .2, -.2, 8000, 2000), options).Preview, -6000 * .8 / 20000, "unequal loads: the heavier side wins", 1e-5);
+    Near(g.Evaluate(Wheels(2.26, .2, 0, groundR: false), options).Preview, -5000 * .8 / 20000, "one wheel grounded", 1e-5);
+    var airborne = g.Evaluate(Wheels(2.28, .2, .2, groundL: false, groundR: false), options);
+    Check(!airborne.Valid && airborne.Reason == "front wheels airborne", "both airborne stops the model");
+    var r = DrivenGrip(); r.Reset();
+    float start = r.Evaluate(GripSample(2.30, .2), options).Preview; float quarter = 0;
+    for (int i = 1; i <= 12; i++) quarter = r.Evaluate(GripSample(2.30 + i * .02, .2), options).Preview;
+    Check(start == 0 && Math.Abs(quarter - -.4 * .24 / GripSignal.RampSeconds) < 1e-4, $"0.5 s start ramp after a reset: {start}, {quarter}");
+});
+double AxleTrail(double relative) => Dbce.Wheel.Ffb.AxleForceCurve.Trail((float)(relative * 8), 8);
 Test("grip model v4: reference rules, measuring, missing friction curve and model selection", () => {
     var options = new ForceOptions(Model: 4, GripSmoothing: 0, Damping: 0);
     var fresh = new GripSignal();
@@ -176,6 +198,10 @@ Test("grip model v4: reference rules, measuring, missing friction curve and mode
     Check(settings.ForceOptions.Grip && settings.FfbModel == "Grip" && settings.ForceOptions.LoadRatio == 2 && settings.ForceOptions.GripSmoothing == .2f, "the mod defaults to the grip model");
     settings.FfbModel = "Classic"; Check(settings.ForceOptions.Model == 3, "Classic selects the unchanged v3 model");
     settings.FfbModel = "anything"; settings.Validate(); Check(settings.FfbModel == "Grip", "unknown model names fall back to Grip");
+    string old = Path.Combine(Path.GetTempPath(), "woden-old-" + Guid.NewGuid().ToString("N") + ".cfg"); File.WriteAllText(old, "[ForceFeedback]\nStrengthPercent = 49.583332\nPeakPercent = 25\n");
+    Check(new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(old, false)).FfbModel == "Classic", "an existing install keeps Classic: no silent model switch");
+    string chosen = Path.Combine(Path.GetTempPath(), "woden-chosen-" + Guid.NewGuid().ToString("N") + ".cfg"); File.WriteAllText(chosen, "[ForceFeedback]\nStrengthPercent = 50\nModel = Grip\n");
+    Check(new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(chosen, false)).FfbModel == "Grip", "a saved Grip choice is kept");
 });Test("shared force shaping: symmetric sign, literal gain, cap, ramp and low-speed fade", () => {
     var left = new ForceSignal(); var right = new ForceSignal(); var inverted = new ForceSignal(); float final = 0;
     for (int i = 1; i <= 100; i++) {

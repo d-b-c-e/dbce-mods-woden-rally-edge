@@ -82,7 +82,7 @@ internal static class StagePlayback
             sample.Add("capture.trajectoryIndex", _signalCount);
             // The selected model (classic v3 or grip v4), independent of the muted output gate.
             var options = Runtime.Settings.ForceOptions;
-            var analysis = options.Grip ? AnalysisGrip.Evaluate(sample, options) : AnalysisForce.Evaluate(sample, options);
+            var analysis = options.Grip ? AnalysisGrip.Evaluate(sample, options, Runtime.Force?.GripReference) : AnalysisForce.Evaluate(sample, options);
             sample.Add("analysis.force.preview", analysis.Preview);
             sample.Add("analysis.force.valid", analysis.Valid ? 1 : 0);
             sample.Add("analysis.force.reset", options.Grip ? AnalysisGrip.ResetCount : AnalysisForce.ResetCount);
