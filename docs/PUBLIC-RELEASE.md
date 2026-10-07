@@ -24,6 +24,8 @@ credentials and matched. Gates on that source: 42 suites / 37,760 assertions, 63
 assertions, all 111 PS 5.1 exact-package installer checks. Installed locally with the package's
 Manage-Install.ps1 (game closed): all 13 plugin payloads match, owner config files unchanged;
 installer backup `WodenWheelBackups/before-install-20261006-202620-a25f2028`.
+**Revision 2026-10-06 ~21:05 CT:** [v0.2.14-beta.2](https://github.com/d-b-c-e/dbce-mods-woden-rally-edge/releases/tag/v0.2.14-beta.2) from tag `v0.2.14-beta.2` at `fe91064` (runtime `b47ba15`, the bumper fit the owner drove and approved: "I think the Woden changes are good, we can ship those too as a revision"). ZIP SHA-256 `DF954661A190F21A5738E9BEFC7A822A68308F7DC8FA9A96FCC5B7743C8A8EC1`, public download matched; 43 suites / 37,777 assertions, 630 UI, 111 PS 5.1 installer checks. Locally the identical runtime is installed as bumper-fit.1.
+
 ## Whole-repository publication decision
 
 The owner decided on October 5 that the **whole repository, including source
