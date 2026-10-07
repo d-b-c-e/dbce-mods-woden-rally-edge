@@ -72,25 +72,46 @@ internal static class ForceControllerChecks
     internal static void Crash(Action<bool, string> check, Func<double, TelemetrySample> contact)
     {
         var (controller, device) = Create();
+        float jump = 0;
+        TelemetrySample Moving(double t)                              // 20 m/s along z, positions consistent
+        { var s = contact(t); s.Vector("motion.position.world", new(0, 0, (float)(t * 20) + jump)); s.Vector("motion.velocity.world", new(0, 0, 20)); return s; }
         controller.Prepare();
         double time = 1;
-        for (int i = 0; i < 80; i++) { controller.Prepare(); controller.Tick(contact(time += .02)); }
+        for (int i = 0; i < 80; i++) { controller.Prepare(); controller.Tick(Moving(time += .02)); }
         check(controller.CrashStatus == "ready", "crash kick is ready while driving: " + controller.CrashStatus);
-        controller.CrashContact(time, 20f, 0f);                       // hardest hit; CrashStrength 50
-        var hit = contact(time += .02); controller.Tick(hit);
-        check(Math.Abs(hit.Get("crash.cue") - .25f) < .01f, $"push + rattle trough 20 ms in: 0.5 x (1 - 0.5), got {hit.Get("crash.cue")}");
-        check(Math.Abs(device.Writes.Last() - Math.Clamp(hit.Get("ffb.preview") + hit.Get("crash.cue"), -1, 1)) < 1e-5f, "written force is the steering preview plus the cue");
+        controller.CrashContact(time, 20f, 0f, false, true);          // hardest hit; CrashStrength 50 -> magnitude 0.5
+        var hit = Moving(time += .02); controller.Tick(hit);
+        float first = .5f * (1 + .5f * 2 / MathF.PI);                  // push + the rattle averaged over its first 20 ms
+        check(Math.Abs(hit.Get("crash.cue") - first) < .01f, $"push + averaged rattle 20 ms in: {first:0.000}, got {hit.Get("crash.cue")}");
+        check(Math.Abs(device.Writes.Last() - Math.Clamp(hit.Get("ffb.preview") + hit.Get("crash.cue"), -1, 1)) < 1e-5f && hit.Get("crash.delivered") == 1, "written force is the steering preview plus the cue");
+        check(hit.Get("crash.contactSpeed") == 20 && hit.Get("crash.contactIntensity") == 1 && hit.Get("crash.contactClassified") == 1 && hit.Get("crash.modelVersion") == 2 && hit.Get("crash.strength") == 50,
+            "the contact, its classification and the settings are recorded");
         check(controller.CrashCount == 1, "one cue played");
-        controller.CrashContact(time, 2f, 0f); controller.CrashContact(time, 20f, .9f);   // too slow; ground contact
-        for (int i = 0; i < 15; i++) controller.Tick(contact(time += .02));
-        var after = contact(time += .02); controller.Tick(after);
-        check(after.Get("crash.cue") == 0 && controller.CrashCount == 1, "cue over after 250 ms; slow and ground contacts ignored");
+        for (int i = 0; i < 15; i++) controller.Tick(Moving(time += .02));
+        var after = Moving(time += .02); controller.Tick(after);
+        check(after.Get("crash.cue") == 0 && controller.CrashCount == 1, "cue over after 250 ms");
+        for (int i = 0; i < 3; i++) controller.Tick(Moving(time += .02));   // past the 0.35 s merge window
+        controller.CrashContact(time, 2f, 0f, false, true); controller.CrashContact(time, 20f, .9f, false, true); controller.CrashContact(time - .2, 20f, 0f, false, true);
+        controller.CrashContact(time, 20f, 0f, true, true);                    // road, recorded as the strongest contact
+        var ignored = Moving(time += .02); controller.Tick(ignored);
+        check(ignored.Get("crash.cue") == 0 && controller.CrashCount == 1 && ignored.Get("crash.contactRoad") == 1, "slow, ground, road and stale contacts are ignored");
+        controller.CrashContact(time, 20f, 0f, false, true);
+        int epoch = (int)ignored.Get("crash.epoch");
+        jump = 50;                                                    // the car is reset 50 m away while a cue plays
+        var teleport = Moving(time += .02); controller.Tick(teleport);
+        check(teleport.Get("crash.discontinuous") == 1 && teleport.Get("crash.epoch") > epoch && teleport.Get("crash.cue") == 0, "a teleport starts a new epoch and stops the cue");
+        controller.CrashContact(time, 20f, 0f, false, true);
+        var settling = Moving(time += .02); controller.Tick(settling);
+        check(settling.Get("crash.cue") == 0, "no cue in the first 0.1 s of a new epoch");
+        for (int i = 0; i < 10; i++) controller.Tick(Moving(time += .02));
         Runtime.Settings.CrashEnabled = false;
-        controller.CrashContact(time, 20f, 0f);
-        var off = contact(time += .02); controller.Tick(off);
-        check(off.Get("crash.cue") == 0 && controller.CrashStatus == "off", "crash kick off writes no cue");
+        controller.CrashContact(time, 20f, 0f, false, true);
+        var off = Moving(time += .02); controller.Tick(off);
+        check(off.Get("crash.cue") != 0 && off.Get("crash.delivered") == 0 && Math.Abs(device.Writes.Last() - off.Get("ffb.preview")) < 1e-5f && controller.CrashStatus == "off",
+            "crash kick off: the cue is still calculated and recorded but not written");
         Runtime.Settings.CrashEnabled = true;
-    }    internal static void Recovery(Action<bool, string> check, Func<double, TelemetrySample> contact)
+    }
+    internal static void Recovery(Action<bool, string> check, Func<double, TelemetrySample> contact)
     {
         var (controller, device) = Create();
         controller.Prepare();

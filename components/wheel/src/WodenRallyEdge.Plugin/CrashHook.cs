@@ -11,6 +11,7 @@ namespace WodenRallyEdge;
 internal static class CrashHook
 {
     private static bool _faulted;
+    internal static bool RoadName(string name) => !string.IsNullOrEmpty(name) && new[] { "road", "track", "ground", "terrain", "kerb", "curb" }.Any(k => name.IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0);
 
     private static void Prefix(MainImpacts __instance, Collision __0)
     {
@@ -33,7 +34,17 @@ internal static class CrashHook
                 float speed = Math.Abs(Vector3.Dot(relative, normal)) / length;
                 if (share <= Dbce.Wheel.Ffb.CrashDetector.MaxVerticalShare && speed > strongest) { strongest = speed; vertical = share; }
             }
-            if (strongest >= 0) Runtime.Force.CrashContact(Time.timeAsDouble, strongest, vertical);
+            if (strongest < 0) return;
+            // art of rally skips road colliders by tag; here they are classified by tag/object name (LayerToName is stripped),
+            // and the classification is recorded (Codex review 2026-10-06).
+            bool road = false, classified = false;
+            try
+            {
+                var other = __0.gameObject;
+                if (other != null) { string tag = other.tag ?? ""; classified = tag.Length > 0 && tag != "Untagged"; road = RoadName(tag) || RoadName(other.name); }
+            }
+            catch { classified = false; }
+            Runtime.Force.CrashContact(Time.timeAsDouble, strongest, vertical, road, classified);
         }
         catch (Exception ex) { _faulted = true; Runtime.Log.LogWarning("Crash observation disabled for this session: " + ex.Message); }
     }

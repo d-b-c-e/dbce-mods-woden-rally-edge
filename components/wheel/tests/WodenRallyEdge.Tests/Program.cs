@@ -350,7 +350,7 @@ Test("camera button extends the stock cycle without saving invalid native indice
 });
 Test("FFB saved preference, transient stop recovery and panic using actual consumer policy", () => WodenRallyEdge.ForceControllerChecks.Recovery(Check, t => Contact(t)));
 Test("FFB init/write failures and diagnostic launch cannot reconnect-loop or choose another wheel", () => WodenRallyEdge.ForceControllerChecks.Failures(Check, t => Contact(t)));
-Test("crash kick: art of rally's cue added to the written force on a body contact (toolkit CrashCue)", () => WodenRallyEdge.ForceControllerChecks.Crash(Check, t => Contact(t)));
+Test("crash kick: art of rally's rules and cue on a body contact; continuity, road and delivery gates (toolkit CrashCue@2)", () => WodenRallyEdge.ForceControllerChecks.Crash(Check, t => Contact(t)));
 Test("handbrake axis/button selection, proportional values and legacy binding persistence", () => {
     Near(HandbrakeInput.Amount(true, true, .25f, false, false), .25, "quarter pull");
     Near(HandbrakeInput.Amount(true, false, 1, false, false), 0, "disconnected axis releases");
