@@ -164,51 +164,37 @@ internal sealed class ForceController
         if (!ready) { Failures++; _faulted = true; Status = _device.Error ?? "FFB open failed; choose On or Refresh to retry"; }
         else Status = "Ready — feedback starts while driving";
     }
-    private readonly Dbce.Wheel.Ffb.CrashDetector _crash = new();
-    private readonly Dbce.Wheel.Ffb.CrashCue _cue = new();
-    private bool _crashLive;
-    private float _contactSpeed, _contactShare, _contactIntensity;
-    private bool _contactRoad, _contactClassified;
+    private readonly CrashStage _crash = new();
     internal string CrashStatus { get; private set; } = "waiting for driving";
-    internal int CrashCount => _cue.Played;
+    internal int CrashCount => _crash.Played;
     /// <summary>A body contact of the local car (collision hook), at Unity physics time.</summary>
     internal void CrashContact(double time, float normalSpeed, float verticalShare, bool road, bool classified)
     {
-        lock (_lifecycleLock)
-        {
-            if (!_crashLive) return;
-            float intensity = _crash.Observe(time, normalSpeed, verticalShare, road);
-            if (normalSpeed >= _contactSpeed) { _contactSpeed = normalSpeed; _contactShare = verticalShare; _contactRoad = road; _contactClassified = classified; _contactIntensity = Math.Max(_contactIntensity, intensity); }
-            if (intensity > 0f) _cue.Trigger(intensity * Math.Clamp(Runtime.Settings.CrashStrength, 0f, 100f) / 100f, time);
-        }
+        lock (_lifecycleLock) _crash.Observe(time, normalSpeed, verticalShare, road, classified, Runtime.Settings.CrashStrength, out _);
     }
-    // art of rally's crash cue (toolkit CrashCue, constant-force fallback crash-constant-fallback@2), calculated on
-    // every live driving tick (Codex review 2026-10-06: calculation separate from delivery) and recorded with its
-    // raw contact, settings and epoch. Returns the cue to add, -1..1 (already inverted with the force).
-    private float CrashTick(TelemetrySample sample, bool live)
+    // art of rally's crash cue through the shared-shape CrashStage (crash-constant-fallback@2): calculated on every
+    // live tick, delivered only on the active path with the crash kick on, recorded with every contact since the last
+    // tick in order (the iRacing force contract 2 review: a strongest-contact summary cannot be replayed).
+    private float CrashTick(TelemetrySample sample, bool live, bool deliver, float steering)
     {
         double time = sample.SimulationSeconds;
         bool motion = sample.TryVector("motion.position.world", out var p) & sample.TryVector("motion.velocity.world", out var v);
-        live = live && motion && double.IsFinite(time) && time > 0;
-        if (!live) { if (_crashLive) { _crash.Reset(); _cue.Reset(); } _crashLive = false; CrashStatus = Runtime.Settings.CrashEnabled ? "waiting for driving" : "off"; }
-        else
+        var m = new Dbce.Wheel.Ffb.MotionSample { Time = time, X = p.X, Y = p.Y, Z = p.Z, Vx = v.X, Vy = v.Y, Vz = v.Z };
+        float output = _crash.Mix(live && motion, m, Runtime.Settings.CrashEnabled, deliver, Runtime.Settings.FfbInvert, steering);
+        CrashStatus = !_crash.Live ? (Runtime.Settings.CrashEnabled ? "waiting for driving" : "off") : !Runtime.Settings.CrashEnabled ? "off"
+            : _crash.Cue != 0 ? "playing" : CrashCount == 0 ? "ready" : $"ready ({CrashCount} played)";
+        sample.Add("crash.modelVersion", CrashStage.ModelVersion); sample.Add("crash.enabled", Runtime.Settings.CrashEnabled ? 1 : 0); sample.Add("crash.strength", Runtime.Settings.CrashStrength);
+        sample.Add("crash.cue", _crash.Cue); sample.Add("crash.delivered", _crash.Delivered ? 1 : 0); sample.Add("crash.count", CrashCount);
+        sample.Add("crash.epoch", _crash.Epoch); sample.Add("crash.discontinuous", _crash.Discontinuous ? 1 : 0);
+        sample.Add("crash.contacts", _crash.TickContacts); sample.Add("crash.contactsDropped", _crash.TickContactsDropped);
+        for (int i = 0; i < _crash.TickContacts; i++)
         {
-            _crashLive = true;
-            _crash.Track(new Dbce.Wheel.Ffb.MotionSample { Time = time, X = p.X, Y = p.Y, Z = p.Z, Vx = v.X, Vy = v.Y, Vz = v.Z });
-            if (_crash.Discontinuous) _cue.Reset();
+            var c = _crash.TickContact(i); string k = "crash.contact" + i + ".";
+            sample.Add(k + "time", c.Time); sample.Add(k + "speed", c.Speed); sample.Add(k + "share", c.Share);
+            sample.Add(k + "road", c.Road ? 1 : 0); sample.Add(k + "classified", c.Classified ? 1 : 0); sample.Add(k + "intensity", c.Intensity);
         }
-        float cue = live ? _cue.Sample(time) : 0f;
-        if (Runtime.Settings.FfbInvert) cue = -cue;
-        if (live) CrashStatus = !Runtime.Settings.CrashEnabled ? "off" : cue != 0 ? "playing" : CrashCount == 0 ? "ready" : $"ready ({CrashCount} played)";
-        sample.Add("crash.cue", cue); sample.Add("crash.count", CrashCount); sample.Add("crash.epoch", _crash.Epoch);
-        sample.Add("crash.discontinuous", _crash.Discontinuous ? 1 : 0); sample.Add("crash.enabled", Runtime.Settings.CrashEnabled ? 1 : 0);
-        sample.Add("crash.strength", Runtime.Settings.CrashStrength); sample.Add("crash.modelVersion", 2);
-        sample.Add("crash.contactSpeed", _contactSpeed); sample.Add("crash.contactShare", _contactShare); sample.Add("crash.contactRoad", _contactRoad ? 1 : 0);
-        sample.Add("crash.contactClassified", _contactClassified ? 1 : 0); sample.Add("crash.contactIntensity", _contactIntensity);
-        _contactSpeed = _contactShare = _contactIntensity = 0f; _contactRoad = _contactClassified = false;
-        return cue;
-    }
-    internal void Tick(TelemetrySample sample)
+        return output;
+    }    internal void Tick(TelemetrySample sample)
     {
         lock (_lifecycleLock) { _capture?.Emit(StopRequested ? "terminal-reject" : "invocation", "tick"); if (!StopRequested) TickCore(sample); }
     }
@@ -233,13 +219,11 @@ internal sealed class ForceController
             Runtime.Settings.WheelEnabled && !sample.Channels.ContainsKey("wheelInput.steer") ? "Wheel input unavailable" :
             !Last.Valid ? Last.Reason : !_native ? "Waiting for wheel connection" : null;
         _capture?.Emit("gate", gate);
-        float cue = CrashTick(sample, Last.Valid);
-        if (blocked != null) { sample.Add("crash.delivered", 0); sample.Add("ffb.deliveredOutput", 0); Suspend(blocked); Record(sample, gate, resetBefore); return; }
+        if (blocked != null) { CrashTick(sample, Last.Valid, false, 0f); sample.Add("ffb.deliveredOutput", 0); Suspend(blocked); Record(sample, gate, resetBefore); return; }
         _suspended = false;
         Attempts++;
-        bool kick = Runtime.Settings.CrashEnabled && cue != 0f;
-        float output = kick ? Math.Clamp(Last.Preview + cue, -1f, 1f) : Last.Preview;
-        sample.Add("crash.delivered", kick ? 1 : 0); sample.Add("ffb.deliveredOutput", output);
+        float output = CrashTick(sample, Last.Valid, true, Last.Preview);
+        sample.Add("ffb.deliveredOutput", output);
         bool accepted = _device.Write(output);
         LastAccepted = accepted; Sent = accepted ? output : 0;
         if (!accepted)

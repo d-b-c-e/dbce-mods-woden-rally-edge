@@ -5,7 +5,6 @@
     <Compile Include="../../src/WodenRallyEdge.Plugin/RuntimeActivityGate.cs" Link="Consumer/RuntimeActivityGate.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CommandProvenanceCapture.cs" Link="Consumer/CommandProvenanceCapture.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ForceController.cs" Link="Consumer/ForceController.cs" />
-    <Compile Include="../../src/WodenRallyEdge.Plugin/Toolkit/CrashCue.cs" Link="Consumer/CrashCue.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ToolkitForceDevice.cs" Link="Consumer/ToolkitForceDevice.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ToolkitForceApi.cs" Link="Consumer/ToolkitForceApi.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/GameWindow.cs" Link="Consumer/GameWindow.cs" />

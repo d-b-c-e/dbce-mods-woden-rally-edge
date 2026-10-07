@@ -31,13 +31,19 @@ public static class TelemetrySchema
         Add("crash.discontinuous", "bool", "derived", "This tick started a new crash detector epoch");
         Add("crash.enabled", "bool", "setting", "Effective [ForceFeedback] CrashEnabled");
         Add("crash.strength", "percent", "setting", "Effective [ForceFeedback] CrashStrengthPercent");
-        Add("crash.modelVersion", "integer", "derived", "2 = Dbce.Wheel.Ffb CrashCue constant-force fallback crash-constant-fallback@2");
-        Add("crash.contactSpeed", "m/s", "measured", "Strongest body contact since the last tick: relative speed along the normal");
-        Add("crash.contactShare", "0..1", "measured", "That contact's |normal.y| / |normal|");
-        Add("crash.contactRoad", "bool", "derived", "That contact's collider was classified as road by tag/object name");
-        Add("crash.contactClassified", "bool", "derived", "The collider had a tag other than Untagged for that classification");
-        Add("crash.contactIntensity", "0..1", "derived", "Crash detector intensity for that contact (0 when rejected)");
-        Add("ffb.deliveredOutput", "normalized -1..1", "derived", "Force written to the wheel: ffb.preview plus the crash cue when delivered");
+        Add("crash.modelVersion", "integer", "derived", "2 = Core CrashStage over Dbce.Wheel.Ffb CrashCue, constant-force fallback crash-constant-fallback@2");
+        Add("crash.contacts", "count", "measured", "Body contacts observed since the previous force tick (recorded below in arrival order, at most 8)");
+        Add("crash.contactsDropped", "count", "measured", "Contacts beyond 8 since the previous tick that were not recorded; the cue cannot be replayed across them");
+        for (int i = 0; i < CrashStage.MaxContactsPerTick; i++)
+        {
+            string k = "crash.contact" + i + ".";
+            Add(k + "time", "s", "measured", "Unity physics time of the contact");
+            Add(k + "speed", "m/s", "measured", "Relative speed along the contact normal (strongest of the collision's contact points)");
+            Add(k + "share", "0..1", "measured", "|normal.y| / |normal| of that contact point");
+            Add(k + "road", "bool", "derived", "The other collider was classified as road by tag/object name");
+            Add(k + "classified", "bool", "derived", "The collider had a tag other than Untagged for that classification");
+            Add(k + "intensity", "0..1", "derived", "Crash detector intensity for the contact (0 when rejected)");
+        }        Add("ffb.deliveredOutput", "normalized -1..1", "derived", "Force written to the wheel: ffb.preview plus the crash cue when delivered");
         Add("analysis.force.preview", "normalized -1..1", "derived", "Developer stage capture only: independent ForceSignal@3 history without device delivery gates; not physical output");
         Add("analysis.force.valid", "boolean 0/1", "derived", "Independent analysis force model accepted the recorded inputs");
         Add("analysis.force.reset", "count", "derived", "Independent analysis force model reset epoch");

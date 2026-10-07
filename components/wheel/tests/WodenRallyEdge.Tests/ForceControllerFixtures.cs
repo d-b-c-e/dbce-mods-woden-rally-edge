@@ -84,8 +84,8 @@ internal static class ForceControllerChecks
         float first = .5f * (1 + .5f * 2 / MathF.PI);                  // push + the rattle averaged over its first 20 ms
         check(Math.Abs(hit.Get("crash.cue") - first) < .01f, $"push + averaged rattle 20 ms in: {first:0.000}, got {hit.Get("crash.cue")}");
         check(Math.Abs(device.Writes.Last() - Math.Clamp(hit.Get("ffb.preview") + hit.Get("crash.cue"), -1, 1)) < 1e-5f && hit.Get("crash.delivered") == 1, "written force is the steering preview plus the cue");
-        check(hit.Get("crash.contactSpeed") == 20 && hit.Get("crash.contactIntensity") == 1 && hit.Get("crash.contactClassified") == 1 && hit.Get("crash.modelVersion") == 2 && hit.Get("crash.strength") == 50,
-            "the contact, its classification and the settings are recorded");
+        check(hit.Get("crash.contacts") == 1 && hit.Get("crash.contact0.speed") == 20 && hit.Get("crash.contact0.intensity") == 1 && hit.Get("crash.contact0.classified") == 1 &&
+            hit.Get("crash.contact0.time") == time - .02 && hit.Get("crash.modelVersion") == 2 && hit.Get("crash.strength") == 50, "the contact, its time, classification and the settings are recorded");
         check(controller.CrashCount == 1, "one cue played");
         for (int i = 0; i < 15; i++) controller.Tick(Moving(time += .02));
         var after = Moving(time += .02); controller.Tick(after);
@@ -94,7 +94,10 @@ internal static class ForceControllerChecks
         controller.CrashContact(time, 2f, 0f, false, true); controller.CrashContact(time, 20f, .9f, false, true); controller.CrashContact(time - .2, 20f, 0f, false, true);
         controller.CrashContact(time, 20f, 0f, true, true);                    // road, recorded as the strongest contact
         var ignored = Moving(time += .02); controller.Tick(ignored);
-        check(ignored.Get("crash.cue") == 0 && controller.CrashCount == 1 && ignored.Get("crash.contactRoad") == 1, "slow, ground, road and stale contacts are ignored");
+        check(ignored.Get("crash.cue") == 0 && controller.CrashCount == 1 && ignored.Get("crash.contacts") == 4 && ignored.Get("crash.contact3.road") == 1 &&
+            Enumerable.Range(0, 4).All(i => ignored.Get("crash.contact" + i + ".intensity") == 0), "slow, ground, stale and road contacts are recorded in order and ignored");
+        var quiet = Moving(time += .02); controller.Tick(quiet);
+        check(quiet.Get("crash.contacts") == 0 && !quiet.Channels.ContainsKey("crash.contact0.speed"), "each tick records only the contacts since the previous tick");
         controller.CrashContact(time, 20f, 0f, false, true);
         int epoch = (int)ignored.Get("crash.epoch");
         jump = 50;                                                    // the car is reset 50 m away while a cue plays
