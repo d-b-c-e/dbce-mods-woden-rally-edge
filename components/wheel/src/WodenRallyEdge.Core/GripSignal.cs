@@ -54,11 +54,11 @@ public sealed class FrontLoadReference
 /// WheelCollider uses: contact load x the sideways friction curve at |sidewaysSlip| x its stiffness (the curve is read
 /// live, because the game varies it). The trail input is the slip relative to that curve's peak, so the wheel lightens
 /// past peak grip as in art of rally. Full scale is LoadRatio x the mean driving front load; gain is Strength / 50
-/// as in every mod (STD-003), so displayed 50 means the same as art of rally's 50 (STD-021). No 25% cap: that belongs to
+/// as in every mod (STD-003), the scale art of rally uses at 50 (STD-021; matching its level is still being calibrated). No 25% cap: that belongs to
 /// the classic estimate (version 3), which stays selectable and unchanged.
 /// </summary>
 /// <remarks>
-/// The friction curve is approximated by straight segments through (0,0), the extremum and the asymptote; Unity's
+/// The friction curve is estimated through (0,0), the extremum and the asymptote (<see cref="Curve"/>); Unity's
 /// internal spline between them is not exposed. The sign follows the classic model's verified direction (-sign(slip)).
 /// </remarks>
 public sealed class GripSignal
