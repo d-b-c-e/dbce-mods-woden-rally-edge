@@ -420,7 +420,7 @@ internal static class Panel
         if(Button(250,y,228,"Default strength: 50%")){cfg.FfbStrength=50;Dirty();}y+=46;
         if(!Advanced && cfg.CustomFfb){if(Button(250,y,694,"Custom FFB tuning active. Review in Advanced"))Navigate("FFB","Advanced");y+=44;}
         Label(250,y+4,200,"Force model:");if(Button(460,y,150,"Grip",cfg.FfbModel=="Grip")&&cfg.FfbModel!="Grip"){cfg.FfbModel="Grip";Dirty();}if(Button(622,y,150,"Classic",cfg.FfbModel=="Classic")&&cfg.FfbModel!="Classic"){cfg.FfbModel="Classic";Dirty();}y+=44;
-        Label(250,y,690,cfg.FfbModel=="Grip"?"Grip: the front tyres' force, lightening as they slide, as in art of rally; 50% matches art of rally's 50%. Now: "+force.GripStatus:"Classic: the earlier slip estimate, capped at the peak below.",true,46);y+=52;
+        Label(250,y,690,cfg.FfbModel=="Grip"?"Grip: the front tyres' estimated force, lightening as they slide, as in art of rally (art's strength scale; calibration pending). Now: "+force.GripStatus:"Classic: the earlier slip estimate, capped at the peak below.",true,46);y+=52;
         if(Advanced)
         {
             Label(250,y,690,"Strength sets overall force. On is remembered; feedback starts during driving. F8 / Stop FFB saves Off.",true,46);y+=58;
@@ -428,7 +428,7 @@ internal static class Panel
             if(cfg.CrashEnabled){Slider(y,"Crash strength (%)",ref cfg.CrashStrength,0,100,"F0");y+=44;}
             if(cfg.FfbModel=="Grip")
             {
-                Slider(y,"Grip: reference (x front load)",ref cfg.FfbLoadRatio,.2f,10,"F2");y+=36;Label(250,y,690,"Full scale as a multiple of the front load measured at rest. Higher is lighter; default 2.",true,40);y+=48;
+                Slider(y,"Grip: reference (x front load)",ref cfg.FfbLoadRatio,.2f,10,"F2");y+=36;Label(250,y,690,"Full scale as a multiple of the mean driving front load. Higher is lighter; default 2.",true,40);y+=48;
                 Slider(y,"Grip: smoothing",ref cfg.FfbGripSmoothing,0,.95f,"F2");y+=36;Label(250,y,690,"Per-update smoothing; default 0.2 as in art of rally.",true,40);y+=48;
             }
             Slider(y,"Peak output cap (%)",ref cfg.FfbPeak,0,50,"F0");y+=36;Label(250,y,690,"Classic only: maximum commanded force; default 25%.",true,40);y+=48;

@@ -107,11 +107,17 @@ public sealed class GripSignal
         bool motion = s.Channels.TryGetValue("motion.speed", out double speed) && double.IsFinite(speed) && speed >= 0 &&
             s.Channels.TryGetValue("motion.velocity.local.z", out double forward) && double.IsFinite(forward);
         // The reference averages the driving front load (see FrontLoadReference for why not the grid or a stop).
-        double observedLoad = 0; int grounded = 0;
+        // Only a row whose grounded front loads are all usable enters the mean (Codex review of 82f2812: rejected
+        // negative/nonfinite loads poisoned it).
+        double observedLoad = 0; int grounded = 0; bool loadsUsable = true;
         foreach (string corner in new[] { "fl", "fr" })
-            if (s.Channels.TryGetValue("wheel." + corner + ".grounded", out double g) && g == 1 && s.Channels.TryGetValue("wheel." + corner + ".contactForce", out double f) && double.IsFinite(f))
-            { observedLoad += f; grounded++; }
-        if (shared == null && motion && double.IsFinite(time)) Reference.Observe(time, observedLoad, grounded, speed, s.Driving && s.Discontinuity == null);
+        {
+            if (!s.Channels.TryGetValue("wheel." + corner + ".grounded", out double g) || g is not (0 or 1)) { loadsUsable = false; continue; }
+            if (g == 0) continue;
+            if (s.Channels.TryGetValue("wheel." + corner + ".contactForce", out double f) && double.IsFinite(f) && f >= 0) { observedLoad += f; grounded++; }
+            else loadsUsable = false;
+        }
+        if (shared == null && motion && loadsUsable && double.IsFinite(time)) Reference.Observe(time, observedLoad, grounded, speed, s.Driving && s.Discontinuity == null);
         ReferenceUsed = reference.Load;
 
         if (!s.Driving) return Stop(s.State);
@@ -130,7 +136,8 @@ public sealed class GripSignal
                 !double.IsFinite(force) || force < 0 || !double.IsFinite(slip)) return Stop("invalid front contact");
             if (!s.Channels.TryGetValue(p + "sideFriction.extremumSlip", out double es) || !s.Channels.TryGetValue(p + "sideFriction.extremumValue", out double ev) ||
                 !s.Channels.TryGetValue(p + "sideFriction.asymptoteSlip", out double asl) || !s.Channels.TryGetValue(p + "sideFriction.asymptoteValue", out double av) ||
-                !s.Channels.TryGetValue(p + "sideFriction.stiffness", out double st) || !(es > 0) || !(asl > es) || !double.IsFinite(ev) || !double.IsFinite(av) || !double.IsFinite(st) || st < 0)
+                !s.Channels.TryGetValue(p + "sideFriction.stiffness", out double st) || !double.IsFinite(es) || !double.IsFinite(asl) || !(es > 0) || !(asl > es) ||
+                !double.IsFinite(ev) || !double.IsFinite(av) || ev < 0 || av < 0 || !double.IsFinite(st) || st < 0)
                 return Stop("friction curve unavailable");
             load += force;
             fy -= Math.Sign(slip) * force * Curve(slip, es, ev, asl, av) * st;
@@ -154,7 +161,10 @@ public sealed class GripSignal
         float target = AxleForceCurve.Normalised((float)fy, (float)(relative / n * PeakSlipDeg), PeakSlipDeg, (float)(speed * 3.6),
             (float)(options.LoadRatio * reference.Load), gain, options.Invert);
         _output = AxleForceCurve.Smooth(_output, target, Math.Clamp(options.GripSmoothing, 0, .95f));
-        float d = options.Invert ? -damping : damping;
+        // Damping fades out at parking speed with the tyre force (the classic shaper fades the whole request; Codex review
+        // of 82f2812: a stationary steering motion wrote -0.5).
+        float fade = AxleForceCurve.SmoothStep01((float)((speed * 3.6 - AxleForceCurve.FadeStartKmh) / (AxleForceCurve.FadeFullKmh - AxleForceCurve.FadeStartKmh)));
+        float d = (options.Invert ? -damping : damping) * fade;
         float preview = Math.Clamp((_output + d * gain) * ramp, -1f, 1f);
         return new(true, speed * 3.6 < 3 ? "low-speed fade" : "grip model", (float)load, target, damping, preview);
     }

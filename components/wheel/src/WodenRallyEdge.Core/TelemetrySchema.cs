@@ -28,8 +28,8 @@ public static class TelemetrySchema
         Add("ffb.grip.valid", "bool", "derived", "The grip model had valid inputs this tick");
         Add("ffb.grip.curveEstimateVersion", "integer", "derived", "1 = unity-friction-two-piece-flat-tangent-estimate@1: the rebuilt lateral force is an estimated tyre force, not solver newtons");
         Add("ffb.grip.previousOutput", "normalized -1..1", "derived", "Grip model smoothed output before this tick");
-        Add("ffb.grip.reference", "N", "derived", "Front load reference the grip model used (0 until measured)");
-        Add("ffb.grip.referenceKind", "enum", "derived", "0 none, 1 provisional (moving mean), 2 measured at rest");
+        Add("ffb.grip.reference", "N", "derived", "Front load reference the grip model used: mean driving front load (0 until measured)");
+        Add("ffb.grip.referenceKind", "enum", "derived", "0 none, 1 provisional (under 2 s of driving), 2 driving mean (duration-weighted front load above 15 km/h)");
         Add("ffb.grip.referenceChanges", "count", "derived", "Changes of the grip reference kind or resting load");
         Add("ffb.grip.carEpoch", "count", "derived", "Cars seen; a change measures a new reference");
         Add("ffb.tuning.loadRatio", "multiplier", "setting", "Grip: full scale as a multiple of the resting front load");

@@ -135,7 +135,7 @@ TelemetrySample GripSample(double time, double slip, double frontLoad = 10000, d
     s.Add("wheelInput.steer", 0); return s;
 }
 GripSignal DrivenGrip(double load = 10000) { var g = new GripSignal(); for (int i = 0; i < 110; i++) g.Evaluate(GripSample(i * .02, 0, load, 25), new(Model: 4)); return g; }
-Test("grip model v4: art of rally's shared curve on the rebuilt front lateral force, 50 means art's 50", () => {
+Test("grip model v4: art of rally's shared curve on the estimated front lateral force, art's strength scale", () => {
     Near(GripSignal.Curve(.1, .2, 1, .5, .75), .75, "first piece eases out to a flat extremum");
     Near(GripSignal.Curve(.2, .2, 1, .5, .75), 1, "extremum value"); Near(GripSignal.Curve(.19999, .2, 1, .5, .75), 1, "flat tangent at the extremum", 1e-6);
     Near(GripSignal.Curve(-.35, .2, 1, .5, .75), .875, "second piece: smoothstep toward the asymptote");
@@ -176,6 +176,24 @@ Test("grip model v4: signed per-wheel sum, one wheel, airborne, start ramp (Code
     float start = r.Evaluate(GripSample(2.30, .2), options).Preview; float quarter = 0;
     for (int i = 1; i <= 12; i++) quarter = r.Evaluate(GripSample(2.30 + i * .02, .2), options).Preview;
     Check(start == 0 && Math.Abs(quarter - -.4 * .24 / GripSignal.RampSeconds) < 1e-4, $"0.5 s start ramp after a reset: {start}, {quarter}");
+});
+Test("grip model v4: Codex review of 82f2812 (stationary damping, poisoned reference, negative curve)", () => {
+    var still = new ForceOptions(Model: 4, GripSmoothing: 0);   // default damping 0.05
+    var g = DrivenGrip();
+    for (int i = 0; i <= 30; i++) g.Evaluate(GripSample(2.20 + i * .02, 0), still);   // past the start ramp
+    var rest = GripSample(2.82, 0, speed: 0); rest.Channels["wheelInput.steer"] = .2;
+    Near(g.Evaluate(rest, still).Preview, 0, "a steering motion at rest writes no damping force (fades with the tyre force)", 1e-6);
+    var poisoned = new GripSignal(); var options = new ForceOptions(Model: 4, GripSmoothing: 0, Damping: 0);
+    for (int i = 0; i < 110; i++) { var bad = GripSample(i * .02, .1, speed: 25); bad.Channels["wheel.fl.contactForce"] = -4999; bad.Channels["wheel.fr.contactForce"] = 5000;
+        Check(!poisoned.Evaluate(bad, options).Valid, "a negative load is rejected"); }
+    Check(poisoned.Reference.Kind == FrontLoadReferenceKind.None && poisoned.Reference.Load == 0, "rejected rows do not enter the reference mean");
+    for (int i = 110; i < 230; i++) poisoned.Evaluate(GripSample(i * .02, 0, speed: 25), options);
+    Check(Math.Abs(poisoned.Reference.Load - 10000) < 1e-6, "good rows then measure the true load");
+    var neg = GripSample(2.20, .2); foreach (var c in new[] { "fl", "fr" }) { neg.Channels["wheel." + c + ".sideFriction.extremumValue"] = -1; neg.Channels["wheel." + c + ".sideFriction.asymptoteValue"] = -.75; }
+    var refused = DrivenGrip().Evaluate(neg, options);
+    Check(!refused.Valid && refused.Reason == "friction curve unavailable", "negative curve magnitudes are refused");
+    var zero = GripSample(2.20, .2); foreach (var c in new[] { "fl", "fr" }) zero.Channels["wheel." + c + ".sideFriction.stiffness"] = 0;
+    var z = DrivenGrip().Evaluate(zero, options); Check(z.Valid && z.Preview == 0, "zero stiffness stays a valid zero-force observation");
 });
 double AxleTrail(double relative) => Dbce.Wheel.Ffb.AxleForceCurve.Trail((float)(relative * 8), 8);
 Test("grip model v4: reference rules, measuring, missing friction curve and model selection", () => {
