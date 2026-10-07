@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## 0.2.14-beta.1 — 2026-10-06, first public early-tester build
+
+Runtime `8678f06` (the build the owner drove; later commits change documentation only).
+
+### Added
+
+- Triple screens on three separate monitors without Surround: the mod opens one borderless
+  window across them on a normal Steam launch (`[Triple] SpanSeparateMonitors`, on by default;
+  STD-015). Surround keeps working as before.
+- The countdown-timer assist keeps the race it was used in off the Steam leaderboards
+  (`SteamLeaderBoard.UpdateScore` is refused for that race; stock play uploads as normal; STD-018).
+- Recording and playback of a stage for automated tests, with physical wheel and network output
+  muted during playback.
+
 ### Changed
 
 - Camera shortcut step sizes are settings (Advanced → Cameras, toolkit default 0.02 m / 1° / 2° per press; was a fixed 0.05 m).

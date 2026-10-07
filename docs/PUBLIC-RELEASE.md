@@ -1,5 +1,21 @@
 # Public release preparation — 2026-10-05
 
+## Early-tester publication — 2026-10-06
+
+Owner, October 6 evening: "lets ship Woden" and "lets package it and make it public for now
+to get an early tester or two". So the repository goes public with a **pre-release**,
+0.2.14-beta.1, built from current main (runtime `8678f06`, the session-span.2 build the owner
+drove; later commits are documentation). FFB normalization (STD-003/STD-021), the bumper-camera
+FOV and H-pattern shifting are follow-ups in the [roadmap](../components/wheel/docs/ROADMAP.md),
+named as known limits in the release notes.
+
+Before visibility changed: commits since the October 5 inventory (`379be9a`) add no binaries,
+and their added lines match none of the personal-path, e-mail, Steam ID, token or private-key
+patterns. GitHub surfaces: one merged PR (#1), two Actions runs already scanned, no issues, wiki
+or discussions; the `v0.2.14-shutdown.1` release stays a draft. History is kept as it is, per
+the publication plan (username-only PDB paths in vendored DLLs). Branch-name retirement and the
+full per-revision licence matrix remain open follow-ups; all code is MIT (ours and the
+toolkit's) and the loader is downloaded, not bundled.
 ## Whole-repository publication decision
 
 The owner decided on October 5 that the **whole repository, including source

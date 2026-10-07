@@ -37,6 +37,19 @@ Required output behavior: pause/focus/menu/respawn/replay/stale suppression, wat
 
 The owner requested a more forgiving countdown/time limit. Advanced → Driving in 0.2.8 exposes an opt-in saved countdown rate without changing elapsed lap/stage times or vehicle physics. Native countdown hook and settings tests pass. Confirm the visible timer rate, checkpoint additions, pause/restart, expiry and persistence during an attended single-player run.
 
+## Owner work stream after 0.2.14-beta.1 (2026-10-06)
+
+The owner approved shipping beta.1 to early testers and added three items:
+
+1. **Bumper camera field of view looks a little odd.** Check the bumper view's FOV against the
+   bonnet view and the stock cameras, with and without triples (`MatchGameFov`, `ChaseUsesGameFov`).
+2. **Normalize the FFB values** to the family scale: at Strength 50 forces should roughly match
+   art of rally at 50 (toolkit STD-021, refines STD-003). Codex owns the tuning; the offline
+   Strength 35 / cap 50 trial in `docs/FFB-COMPARISON.md` is the starting point; the owner's
+   A/B at the rig is the acceptance.
+3. **H-pattern shifting.** Gates select gears, out of gear is neutral, reverse works, on its own
+   USB device (STD-020 H and DEV), as in #DRIVE Rally. Clutch routing is not implemented either.
+
 ## Reference lessons carried forward
 
 | Reference | Applied here | Still to implement |
