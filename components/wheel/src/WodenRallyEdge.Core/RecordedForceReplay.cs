@@ -20,6 +20,11 @@ public static class RecordedForceReplay
     private const int MaxObservationLineBytes = 16 * 1024;
     private const int MaxObservationRecords = 2_000_000;
     private static readonly string[] Tuning = { "strengthPercent", "peakPercent", "loadReference", "slipScale", "smoothingMs", "damping", "invert", "modelVersion" };
+    // Force model version 4 (GripSignal) adds these per-row inputs (force config v2).
+    private static readonly string[] GripTuning = { "loadRatio", "gripSmoothing" };
+    private static readonly string[] FrictionFields = { "extremumSlip", "extremumValue", "asymptoteSlip", "asymptoteValue", "stiffness" };
+    private static string ModelId(ForceOptions o) => o.Grip ? ForceObservationSemantics.GripModel : ForceObservationSemantics.Model;
+    private static string ConfigFormat(ForceOptions o) => o.Grip ? "woden.force-config@2" : "woden.force-config@1";
 
     private sealed record Observation(long Tick, double Magnitude);
     private sealed record ObservationFile(string CaseId, string CaseSha256, string Model, string Config, string Profile, List<Observation> Requests);
@@ -38,11 +43,11 @@ public static class RecordedForceReplay
         ReplayRun run = RunSource(capture, capture.OriginalOptions, verifyRecordedOutputs: true);
         EnsureCaptureUnchanged(capture);
         WriteManifest(manifest, capture.CaseId, capture.PluginVersion, capture.SourceRevision, capture.ExecutableHash,
-            capture.SourceHash, capture.ConfigHash, capture.ProfileHash);
+            capture.SourceHash, capture.ConfigHash, capture.ProfileHash, ConfigFormat(capture.OriginalOptions));
         string caseHash = RecordingArtifacts.Sha256(manifest);
-        WriteObservation(observation, capture.CaseId, caseHash, capture.ConfigHash, capture.ProfileHash, run.Observations);
+        WriteObservation(observation, capture.CaseId, caseHash, capture.ConfigHash, capture.ProfileHash, run.Observations, ModelId(capture.OriginalOptions));
         ObservationFile written = ReadObservation(observation);
-        RequireObservationIdentity(written, capture.CaseId, caseHash, capture.ConfigHash, capture.ProfileHash);
+        RequireObservationIdentity(written, capture.CaseId, caseHash, capture.ConfigHash, capture.ProfileHash, ModelId(capture.OriginalOptions));
         EnsureCaptureUnchanged(capture);
         return new(manifest, observation, capture.SourceHash, RecordingArtifacts.Sha256(observation), capture.CaseId,
             run.SourceSamples, run.Observations.Count, run.DrivingSamples, run.DrivingSeconds);
@@ -58,7 +63,7 @@ public static class RecordedForceReplay
         ManifestIdentity manifest = ReadManifest(manifestPath, capture);
         string baselineHash = RecordingArtifacts.Sha256(baselinePath), manifestHash = RecordingArtifacts.Sha256(manifestPath);
         ObservationFile baseline = ReadObservation(baselinePath);
-        RequireObservationIdentity(baseline, capture.CaseId, manifest.CaseSha256, capture.ConfigHash, capture.ProfileHash);
+        RequireObservationIdentity(baseline, capture.CaseId, manifest.CaseSha256, capture.ConfigHash, capture.ProfileHash, ModelId(capture.OriginalOptions));
 
         ReplayRun verified = RunSource(capture, capture.OriginalOptions, verifyRecordedOutputs: true);
         RequireMatchingTimelineAndMagnitudes(verified.Observations, baseline.Requests, Tolerance, "Baseline observation differs from the verified original model run");
@@ -74,7 +79,7 @@ public static class RecordedForceReplay
         if (RecordingArtifacts.Sha256(candidatePath) != candidateHash) throw new IOException("Candidate force config changed during trial");
         EnsureProtectedHashes(capture, manifestPath, manifestHash, baselinePath, baselineHash);
 
-        WriteObservation(candidateOutput, capture.CaseId, manifest.CaseSha256, candidateHash, capture.ProfileHash, trial.Observations);
+        WriteObservation(candidateOutput, capture.CaseId, manifest.CaseSha256, candidateHash, capture.ProfileHash, trial.Observations, ModelId(candidate));
         if (RecordingArtifacts.Sha256(candidatePath) != candidateHash) throw new IOException("Candidate force config changed while writing trial output");
         EnsureProtectedHashes(capture, manifestPath, manifestHash, baselinePath, baselineHash);
         ForceObservationComparison comparison = Compare(baselinePath, candidateOutput, tolerance);
@@ -142,7 +147,14 @@ public static class RecordedForceReplay
         CaptureIdentity current = ReadCapture(capture.Directory);
         if (current != capture) throw new IOException("Capture identity changed before model run");
         var records = SessionReader.Read(capture.SourcePath).ToArray();
-        var signal = new ForceSignal(); var observations = new List<Observation>();
+        // Dispatch by the run's model version: v3 classic ForceSignal, v4 GripSignal against the recorded reference.
+        bool useGrip = runOptions.Grip;
+        // A trial of the other model reruns it on the same inputs; the recorded model's validity, reasons and reset
+        // counts describe the recorded model only, so they are checked when the run uses it.
+        bool sameModel = runOptions.Model == capture.OriginalOptions.Model;
+        var signal = new ForceSignal(); var grip = new GripSignal(); var recordedReference = new FrontLoadReference(); var observations = new List<Observation>();
+        long ModelResets() => useGrip ? grip.ResetCount : signal.ResetCount;
+        void ResetModel() { if (useGrip) grip.Reset(); else signal.Reset(); }
         long sourceSamples = 0, driving = 0; double? firstDriving = null, lastDriving = null; long? previousResetAfter = null; long lastTick = -1;
         foreach (var record in records)
         {
@@ -154,24 +166,28 @@ public static class RecordedForceReplay
             if (!hasModel) continue;
             long before = Integer(c, "ffb.modelResetBefore"), after = Integer(c, "ffb.modelResetAfter");
             if (after < before || previousResetAfter.HasValue && before < previousResetAfter.Value) throw new IOException("Force reset epochs are not monotonic");
-            if (previousResetAfter.HasValue && before != previousResetAfter.Value) signal.Reset();
+            if (previousResetAfter.HasValue && before != previousResetAfter.Value) ResetModel();
             var sample = new TelemetrySample { Sequence = row.Sequence, ElapsedSeconds = row.ElapsedSeconds,
                 SimulationSeconds = Required(c, "sample.simulationSeconds"), State = isDriving ? "driving" : "inactive",
                 Discontinuity = Required(c, "sample.discontinuity") == 1 ? "recorded-discontinuity" : null };
             foreach (var pair in c) sample.Channels[pair.Key] = pair.Value;
             if (Options(c) != capture.OriginalOptions) throw new IOException("Force tuning changed during capture; split into stable-config cases before reprocessing");
-            if (isDriving) ValidateDrivingInputs(c, row.Sequence);
-            long runnerBefore = signal.ResetCount;
-            ForceResult result = signal.Evaluate(sample, runOptions);
-            long evaluateResets = signal.ResetCount - runnerBefore;
+            if (isDriving) ValidateDrivingInputs(c, row.Sequence, useGrip);
+            if (useGrip) recordedReference.Restore(Required(c, "ffb.grip.reference"), (FrontLoadReferenceKind)(int)Integer(c, "ffb.grip.referenceKind"));
+            long runnerBefore = ModelResets();
+            ForceResult result = useGrip ? grip.Evaluate(sample, runOptions, recordedReference) : signal.Evaluate(sample, runOptions);
+            long evaluateResets = ModelResets() - runnerBefore;
             int gate = (int)Integer(c, "ffb.gate");
             if (gate is < 0 or > 11) throw new IOException("Unsupported force gate code: " + gate);
-            if (gate != 0) signal.Reset();
+            if (gate != 0) ResetModel();
             long expectedResetDelta = evaluateResets + (gate == 0 ? 0 : 1);
-            if (after - before != expectedResetDelta) throw new IOException($"Force reset semantics differ at source sample {row.Sequence}");
-            CompareValue(result.Valid ? 1 : 0, Required(c, "ffb.modelValid"), "model validity", row.Sequence);
-            int reason = sample.Discontinuity != null ? 11 : ForceObservationSemantics.ModelReason(result.Reason);
-            CompareValue(reason, Required(c, "ffb.modelReason"), "model reason", row.Sequence);
+            if (sameModel)
+            {
+                if (after - before != expectedResetDelta) throw new IOException($"Force reset semantics differ at source sample {row.Sequence}");
+                CompareValue(result.Valid ? 1 : 0, Required(c, "ffb.modelValid"), "model validity", row.Sequence);
+                int reason = sample.Discontinuity != null ? 11 : ForceObservationSemantics.ModelReason(result.Reason);
+                CompareValue(reason, Required(c, "ffb.modelReason"), "model reason", row.Sequence);
+            }
             if (verifyRecordedOutputs)
             {
                 CompareValue(result.FrontLoad, Required(c, "ffb.frontLoad"), "front load", row.Sequence);
@@ -191,37 +207,49 @@ public static class RecordedForceReplay
         return new(observations, sourceSamples, driving, drivingSeconds);
     }
 
-    private static void ValidateDrivingInputs(IReadOnlyDictionary<string, double> c, long sequence)
+    private static void ValidateDrivingInputs(IReadOnlyDictionary<string, double> c, long sequence, bool grip)
     {
         foreach (string key in new[] { "motion.speed", "motion.velocity.local.z", "wheel.fl.grounded", "wheel.fr.grounded" }) _ = Required(c, key);
         foreach (string corner in new[] { "fl", "fr" }) if (Required(c, "wheel." + corner + ".grounded") == 1)
+        {
             foreach (string field in new[] { "contactForce", "sidewaysSlip" }) _ = Required(c, "wheel." + corner + "." + field);
+            // A v4 run needs the live friction curve the production model read; captures from before f1ee7af lack it.
+            if (grip) foreach (string field in FrictionFields) _ = Required(c, "wheel." + corner + ".sideFriction." + field);
+        }
         foreach (string name in Tuning) _ = Required(c, "ffb.tuning." + name);
+        if (grip) foreach (string key in new[] { "ffb.grip.reference", "ffb.grip.referenceKind" }) _ = Required(c, key);
     }
 
     private static ForceOptions Options(IReadOnlyDictionary<string, double> c)
     {
-        if (Required(c, "ffb.tuning.modelVersion") != 3) throw new IOException("Unsupported force model version");
-        return new((float)Required(c, "ffb.tuning.strengthPercent"), (float)Required(c, "ffb.tuning.peakPercent"),
+        double version = Required(c, "ffb.tuning.modelVersion");
+        if (version is not (3 or 4)) throw new IOException("Unsupported force model version");
+        var options = new ForceOptions((float)Required(c, "ffb.tuning.strengthPercent"), (float)Required(c, "ffb.tuning.peakPercent"),
             (float)Required(c, "ffb.tuning.loadReference"), (float)Required(c, "ffb.tuning.slipScale"),
             (float)Required(c, "ffb.tuning.smoothingMs"), (float)Required(c, "ffb.tuning.damping"), Required(c, "ffb.tuning.invert") == 1);
+        return version == 3 ? options : options with { Model = GripSignal.ModelVersion, LoadRatio = (float)Required(c, "ffb.tuning.loadRatio"), GripSmoothing = (float)Required(c, "ffb.tuning.gripSmoothing") };
     }
 
     private static ForceOptions ReadForceConfig(string path)
     {
         using var doc = JsonDocument.Parse(File.ReadAllText(path)); var root = doc.RootElement;
-        Strict(root, "schema", "version", "model", "strengthPercent", "peakPercent", "loadReference", "slipScale", "smoothingMs", "damping", "invert");
-        if (root.GetProperty("schema").GetString() != "woden.force-config" || root.GetProperty("version").GetInt32() != 1 ||
-            root.GetProperty("model").GetString() != ForceObservationSemantics.Model) throw new IOException("Unsupported force config artifact");
+        int version = root.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : 0;
+        string[] common = { "schema", "version", "model", "strengthPercent", "peakPercent", "loadReference", "slipScale", "smoothingMs", "damping", "invert" };
+        if (version == 2) Strict(root, common.Concat(GripTuning).ToArray()); else Strict(root, common);
+        string expectedModel = version == 2 ? ForceObservationSemantics.GripModel : ForceObservationSemantics.Model;
+        if (root.GetProperty("schema").GetString() != "woden.force-config" || version is not (1 or 2) || root.GetProperty("model").GetString() != expectedModel)
+            throw new IOException("Unsupported force config artifact");
         var options = new ForceOptions(root.GetProperty("strengthPercent").GetSingle(), root.GetProperty("peakPercent").GetSingle(), root.GetProperty("loadReference").GetSingle(),
             root.GetProperty("slipScale").GetSingle(), root.GetProperty("smoothingMs").GetSingle(), root.GetProperty("damping").GetSingle(), root.GetProperty("invert").GetBoolean());
+        if (version == 2) options = options with { Model = GripSignal.ModelVersion, LoadRatio = root.GetProperty("loadRatio").GetSingle(), GripSmoothing = root.GetProperty("gripSmoothing").GetSingle() };
         ValidateForceOptions(options); return options;
     }
 
     private static void ValidateForceOptions(ForceOptions options)
     {
         float[] values = { options.Strength, options.PeakPercent, options.LoadReference, options.SlipScale, options.SmoothingMs, options.Damping };
-        if (values.Any(x => !float.IsFinite(x)) || options.LoadReference <= 0 || options.SlipScale <= 0)
+        if (values.Any(x => !float.IsFinite(x)) || options.LoadReference <= 0 || options.SlipScale <= 0 ||
+            options.Grip && (!float.IsFinite(options.LoadRatio) || options.LoadRatio <= 0 || !float.IsFinite(options.GripSmoothing) || options.GripSmoothing is < 0 or > .95f))
             throw new IOException("Candidate force config contains invalid model tuning");
     }
 
@@ -241,7 +269,7 @@ public static class RecordedForceReplay
             throw new IOException("Manifest clock mismatch");
         string sourceHash = Artifact(root.GetProperty("source"), "source.jsonl", "dbce.wheel.session@1", capture.SourcePath);
         JsonElement artifacts = root.GetProperty("artifacts"); Strict(artifacts, "config", "profile");
-        string configHash = Artifact(artifacts.GetProperty("config"), "force-config.json", "woden.force-config@1", capture.ConfigPath);
+        string configHash = Artifact(artifacts.GetProperty("config"), "force-config.json", ConfigFormat(capture.OriginalOptions), capture.ConfigPath);
         string profileHash = Artifact(artifacts.GetProperty("profile"), "capture-profile.json", "woden.capture-profile@1", capture.ProfilePath);
         JsonElement provenance = root.GetProperty("provenance"); Strict(provenance, "sourceRevision", "dirty", "executableSha256");
         if (Identifier(provenance, "sourceRevision") != capture.SourceRevision || provenance.GetProperty("dirty").GetBoolean() ||
@@ -273,7 +301,7 @@ public static class RecordedForceReplay
     }
     private static void CompareValue(double actual, double recorded, string name, long sequence)
     {
-        if (Math.Abs(actual - recorded) > Tolerance) throw new IOException($"Recorded {name} differs from actual ForceSignal at sample {sequence}: {recorded} vs {actual}");
+        if (Math.Abs(actual - recorded) > Tolerance) throw new IOException($"Recorded {name} differs from the actual force model at sample {sequence}: {recorded} vs {actual}");
     }
 
     private static void RequireMatchingTimelineAndMagnitudes(IReadOnlyList<Observation> expected, IReadOnlyList<Observation> actual, double tolerance, string message)
@@ -284,9 +312,9 @@ public static class RecordedForceReplay
                 throw new IOException(message + $" at sequence {i}");
     }
 
-    private static void RequireObservationIdentity(ObservationFile file, string caseId, string caseHash, string configHash, string profileHash)
+    private static void RequireObservationIdentity(ObservationFile file, string caseId, string caseHash, string configHash, string profileHash, string model)
     {
-        if (file.CaseId != caseId || file.CaseSha256 != caseHash || file.Model != ForceObservationSemantics.Model ||
+        if (file.CaseId != caseId || file.CaseSha256 != caseHash || file.Model != model ||
             file.Config != configHash || file.Profile != profileHash) throw new IOException("Observation identity differs from verified case artifacts");
     }
     private static void EnsureCaptureUnchanged(CaptureIdentity capture)
@@ -302,7 +330,7 @@ public static class RecordedForceReplay
     }
     private static bool SamePath(string left, string right) => string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), StringComparison.OrdinalIgnoreCase);
 
-    private static void WriteObservation(string path, string caseId, string caseHash, string configHash, string profileHash, IReadOnlyList<Observation> observations)
+    private static void WriteObservation(string path, string caseId, string caseHash, string configHash, string profileHash, IReadOnlyList<Observation> observations, string model)
     {
         if (observations.Count > MaxObservationRecords) throw new IOException("Observation record bound exceeded");
         using var output = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None); long bytesWritten = 0;
@@ -314,7 +342,7 @@ public static class RecordedForceReplay
             output.Write(bytes, 0, bytes.Length); bytesWritten += bytes.Length;
         }
         WriteLine(new { kind = "header", schema = "dbce.wheel.force-observation", version = 1, caseId, caseSha256 = caseHash,
-            clock = new { domain = "monotonic", ticksPerSecond = ForceObservationSemantics.TicksPerSecond }, model = ForceObservationSemantics.Model,
+            clock = new { domain = "monotonic", ticksPerSecond = ForceObservationSemantics.TicksPerSecond }, model,
             configSha256 = configHash, profileSha256 = profileHash, output = "observe", physicalOutput = false });
         for (int i = 0; i < observations.Count; i++) WriteLine(new { kind = "force", sequence = i, tick = observations[i].Tick,
             frame = (long?)null, effect = "steering", family = "constant", operation = "set", magnitude = observations[i].Magnitude,
@@ -323,14 +351,14 @@ public static class RecordedForceReplay
     }
 
     private static void WriteManifest(string path, string caseId, string pluginVersion, string sourceRevision, string executableHash,
-        string sourceHash, string configHash, string profileHash)
+        string sourceHash, string configHash, string profileHash, string configFormat)
     {
         var value = new { schema = "dbce.wheel.replay-case", version = 1, caseId, game = "super-woden-rally-edge",
             adapter = "woden-rally-edge-wheel@" + pluginVersion, capability = "signal-reprocess",
             clock = new { domain = "monotonic", ticksPerSecond = ForceObservationSemantics.TicksPerSecond },
             source = new { path = "source.jsonl", sha256 = sourceHash, format = "dbce.wheel.session@1" }, initialState = (object?)null,
             artifacts = new Dictionary<string, object> {
-                ["config"] = new { path = "force-config.json", sha256 = configHash, format = "woden.force-config@1" },
+                ["config"] = new { path = "force-config.json", sha256 = configHash, format = configFormat },
                 ["profile"] = new { path = "capture-profile.json", sha256 = profileHash, format = "woden.capture-profile@1" } },
             provenance = new { sourceRevision, dirty = false, executableSha256 = executableHash } };
         using var output = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);

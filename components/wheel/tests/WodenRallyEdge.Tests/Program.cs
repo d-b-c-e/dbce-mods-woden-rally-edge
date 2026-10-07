@@ -567,7 +567,69 @@ Test("actual force controller capture replays active, pause, camera, discontinui
         Directory.Delete(directory,true);
     }
 });
-Test("native handbrake adaptation restores boxed tuning and preserves game transient state", () => WodenRallyEdge.HandbrakeChecks.Run(Check));
+Test("force model v4 replays through RecordedForceReplay; v4 trials need friction curves; versions dispatch", () => {
+    TelemetrySample Curved(double time, double slip) {
+        var s = Contact(time, slip: slip);
+        foreach (var c in new[] { "fl", "fr" }) { string k = "wheel." + c + ".sideFriction."; s.Add(k + "extremumSlip", .2); s.Add(k + "extremumValue", 1); s.Add(k + "asymptoteSlip", .5); s.Add(k + "asymptoteValue", .75); s.Add(k + "stiffness", 1); }
+        return s;
+    }
+    string Capture(string name, ForceOptions options, Func<double, double, TelemetrySample> sampleAt)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "woden-v4-" + name + "-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
+        string config = RecordingArtifacts.WriteForceConfig(Path.Combine(directory, "force-config.json"), options);
+        string profile = RecordingArtifacts.WriteCaptureProfile(Path.Combine(directory, "capture-profile.json"), new string('1', 64), new string('2', 64), new string('3', 64), new string('4', 64), true, true, true, "fixture-guid");
+        var properties = new Dictionary<string, string> { {"recordingContract","dbce.wheel.replay-case@1"}, {"capability","signal-reprocess"}, {"requestId",Guid.NewGuid().ToString()},
+            {"caseId","grip-" + name}, {"disableForces","false"}, {"gameAssemblySha256",new string('1',64)}, {"pluginSha256",new string('2',64)},
+            {"pluginProductVersion","0.2.14+fixture-source"}, {"runtimeSource","fixture-source"}, {"forceConfigSha256",config}, {"captureProfileSha256",profile} };
+        var (controller, _) = WodenRallyEdge.ForceControllerChecks.Create(); WodenRallyEdge.Runtime.Settings.Options = options; double time = 0; controller.Prepare();
+        try
+        {
+            using var output = new TelemetryOutput(new(0, 0, 20, Path.Combine(directory, "source.jsonl")), "grip-fixture", "synthetic", "0.2.14", properties);
+            void Emit(TelemetrySample sample) { controller.Tick(sample); output.Publish(sample); }
+            for (int i = 0; i < 160; i++) Emit(sampleAt(time += .02, i < 80 ? .15 : -.3));
+            Emit(sampleAt(time += .02, .1) is var paused && paused.State == "driving" ? Contact(time, state: "paused") : paused);
+            for (int i = 0; i < 60; i++) Emit(sampleAt(time += .02, .25));
+        }
+        finally { controller.Shutdown(); WodenRallyEdge.Runtime.Settings.Options = new(); }
+        return directory;
+    }
+    var grip = new ForceOptions(Model: 4);
+    string v4 = Capture("v4", grip, Curved);
+    try
+    {
+        var rows = SessionReader.Read(Path.Combine(v4, "source.jsonl")).Where(x => x.Kind == SessionRecordKind.Sample).Select(x => x.Sample).ToArray();
+        Check(rows.All(r => r.Channels["ffb.tuning.modelVersion"] == 4) && rows.Any(r => Math.Abs(r.Channels["ffb.preview"]) > .05), "the controller recorded grip-driven force");
+        using (var config = JsonDocument.Parse(File.ReadAllText(Path.Combine(v4, "force-config.json"))))
+            Check(config.RootElement.GetProperty("version").GetInt32() == 2 && config.RootElement.GetProperty("model").GetString() == "woden-grip-signal@4", "force config v2 declares the grip model");
+        var prepared = RecordedForceReplay.Reprocess(v4);
+        Check(prepared.ModelSamples == rows.Length && prepared.DrivingSamples > 100, "a v4 capture replays exactly through the grip model with its recorded reference");
+        using (var header = JsonDocument.Parse(File.ReadLines(prepared.ObservationPath).First()))
+            Check(header.RootElement.GetProperty("model").GetString() == "woden-grip-signal@4", "observation names the grip model");
+        string classicCandidate = Path.Combine(v4, "candidate-classic.json"); RecordingArtifacts.WriteForceConfig(classicCandidate, new ForceOptions());
+        var toClassic = RecordedForceReplay.Trial(v4, classicCandidate, Path.Combine(v4, "trial-classic.jsonl"));
+        Check(!toClassic.Comparison.Equal && toClassic.Comparison.CandidateModel == "woden-force-signal@3", "a v4 capture can trial the classic model");
+        string lighter = Path.Combine(v4, "candidate-ratio3.json"); RecordingArtifacts.WriteForceConfig(lighter, grip with { LoadRatio = 3 });
+        var ratio = RecordedForceReplay.Trial(v4, lighter, Path.Combine(v4, "trial-ratio3.jsonl"));
+        Check(!ratio.Comparison.Equal && ratio.Comparison.CandidateModel == "woden-grip-signal@4", "a grip ratio trial reruns the grip model");
+        // Tampered grip output fails exact replay.
+        string tampered = Path.Combine(Path.GetTempPath(), "woden-v4-tampered-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(tampered);
+        foreach (string file in new[] { "source.jsonl", "force-config.json", "capture-profile.json" }) File.Copy(Path.Combine(v4, file), Path.Combine(tampered, file));
+        var lines = File.ReadAllLines(Path.Combine(tampered, "source.jsonl")); int index = Array.FindIndex(lines, l => l.Contains("\"ffb.preview\":") && !l.Contains("\"ffb.preview\":0,"));
+        lines[index] = System.Text.RegularExpressions.Regex.Replace(lines[index], "\"ffb.preview\":-?[0-9.Ee+-]+", "\"ffb.preview\":0.987"); File.WriteAllLines(Path.Combine(tampered, "source.jsonl"), lines, new System.Text.UTF8Encoding(false));
+        bool refused = false; try { RecordedForceReplay.Reprocess(tampered); } catch (IOException) { refused = true; }
+        Check(refused, "a tampered grip output is refused"); Directory.Delete(tampered, true);
+    }
+    finally { Directory.Delete(v4, true); }
+    string v3 = Capture("v3-no-curves", new ForceOptions(), (time, slip) => Contact(time, slip: slip));
+    try
+    {
+        Check(RecordedForceReplay.Reprocess(v3).ModelSamples > 0, "classic captures replay as before");
+        string gripCandidate = Path.Combine(v3, "candidate-grip.json"); RecordingArtifacts.WriteForceConfig(gripCandidate, grip);
+        bool refused = false; try { RecordedForceReplay.Trial(v3, gripCandidate, Path.Combine(v3, "trial-grip.jsonl")); } catch (IOException ex) { refused = ex.Message.Contains("sideFriction"); }
+        Check(refused, "a v4 trial on a capture without friction curves is refused, never filled with default curves");
+    }
+    finally { Directory.Delete(v3, true); }
+});Test("native handbrake adaptation restores boxed tuning and preserves game transient state", () => WodenRallyEdge.HandbrakeChecks.Run(Check));
 Test("UX view migration, scoped camera defaults, additive bindings and inversion persistence", () => WodenRallyEdge.UxChecks.SettingsAndBindings(Check));
 Test("strict follow/override output selection and camera release/repeat gates", () => WodenRallyEdge.UxChecks.SelectionAndRepeat(Check));
 Test("atomic telemetry reconfiguration preserves capture and independent Stop", () => WodenRallyEdge.UxChecks.NetworkCapture(Check));

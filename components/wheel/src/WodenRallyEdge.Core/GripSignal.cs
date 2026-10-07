@@ -39,6 +39,14 @@ public sealed class FrontLoadReference
     }
 
     public void Clear() { _last = -1; _seconds = _sum = 0; Load = 0; if (Kind != FrontLoadReferenceKind.None) Changes++; Kind = FrontLoadReferenceKind.None; }
+
+    /// <summary>Offline replay: the reference as recorded on a row (the production one can predate the capture).</summary>
+    public void Restore(double load, FrontLoadReferenceKind kind)
+    {
+        if (!double.IsFinite(load) || load < 0 || kind is < FrontLoadReferenceKind.None or > FrontLoadReferenceKind.Driving || (kind == FrontLoadReferenceKind.None) != (load == 0))
+            throw new IOException("Invalid recorded grip reference");
+        Load = load; Kind = kind;
+    }
 }
 /// <summary>
 /// Force model version 4, "Grip": art of rally's model from the shared toolkit (<see cref="AxleForceCurve"/>, STD-025) on
