@@ -213,8 +213,8 @@ internal sealed class ForceController
         var grip = _grip.Evaluate(sample, options);
         Last = options.Grip ? grip : _signal.Evaluate(sample, options);
         var reference = _grip.Reference;
-        string measured = reference.Kind == FrontLoadReferenceKind.Resting ? $"front load {reference.Load:F0} measured at rest"
-            : reference.Kind == FrontLoadReferenceKind.Provisional ? $"front load {reference.Load:F0} provisional (stop briefly to measure it at rest)" : "measuring the front load (stop briefly, or drive for 2 s)";
+        string measured = reference.Kind == FrontLoadReferenceKind.Driving ? $"front load {reference.Load:F0} (mean while driving)"
+            : reference.Kind == FrontLoadReferenceKind.Provisional ? $"front load {reference.Load:F0} provisional (still measuring)" : "measuring the front load (drive above 15 km/h)";
         GripStatus = !options.Grip ? "not selected" : grip.Valid ? "grip model, " + measured : grip.Reason;
         sample.Add("ffb.grip.previousOutput", _grip.PreviousOutput); sample.Add("ffb.grip.reference", _grip.ReferenceUsed);
         sample.Add("ffb.grip.referenceKind", (int)reference.Kind); sample.Add("ffb.grip.referenceChanges", reference.Changes); sample.Add("ffb.grip.carEpoch", _carEpoch);

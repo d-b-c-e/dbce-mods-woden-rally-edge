@@ -3,66 +3,49 @@ using Dbce.Wheel.Ffb;
 namespace WodenRallyEdge.Core;
 
 /// <summary>Where the grip model's full-scale load comes from.</summary>
-public enum FrontLoadReferenceKind { None = 0, Provisional = 1, Resting = 2 }
+public enum FrontLoadReferenceKind { None = 0, Provisional = 1, Driving = 2 }
 
 /// <summary>
-/// The front axle's reference load for the grip model's full scale, observed on every valid tick apart from driving
-/// and output. Same rules as iRacing Arcade's GripReference (Codex review 2026-10-06): <b>resting</b> = both fronts
-/// grounded, under 0.5 m/s, for 0.5 s of continuous ticks within 5% of their mean, kept for the car; until then a
-/// <b>provisional</b> duration-weighted mean over at least 2 s of grounded ticks; before that, none.
+/// The front axle's reference load for Woden's grip model: the duration-weighted mean front load while driving above
+/// <see cref="MinKmh"/> with both fronts grounded, provisional until <see cref="QualifiedSeconds"/> of such driving, then
+/// "driving". Kept for the car; a new car measures again.
 /// </summary>
+/// <remarks>
+/// Not iRacing's resting rule, on evidence from the owner's Kenya drive: Woden's arcade physics load the fronts
+/// differently by state. On the grid (countdown) the fronts carry about 13,560; for the 0.08 s still moment of the
+/// launch about 5,850; while driving about 8,400 at every speed above 15 km/h (not speed-squared downforce). The rebuilt
+/// lateral force uses the actual driving load, so the driving load is the matching full-scale reference.
+/// </remarks>
 public sealed class FrontLoadReference
 {
-    public const double StillMs = .5, RestingSeconds = .5, RestingSpread = .05, ProvisionalSeconds = 2, MaxGapSeconds = .1;
-    private double _last = -1, _stillStart = -1, _stillSum, _movingSeconds, _movingSum, _stillMin, _stillMax;
-    private int _stillCount;
+    public const double MinKmh = 15, QualifiedSeconds = 2, MaxGapSeconds = .1;
+    private double _last = -1, _seconds, _sum;
 
     public double Load { get; private set; }
     public FrontLoadReferenceKind Kind { get; private set; }
     public int Changes { get; private set; }
 
-    public void Observe(double time, double frontLoad, int frontGrounded, double speedMs)
+    public void Observe(double time, double frontLoad, int frontGrounded, double speedMs, bool driving)
     {
-        if (!double.IsFinite(time) || !double.IsFinite(frontLoad) || !double.IsFinite(speedMs)) { _last = -1; _stillStart = -1; return; }
+        if (!double.IsFinite(time) || !double.IsFinite(frontLoad) || !double.IsFinite(speedMs)) { _last = -1; return; }
         double dt = _last < 0 ? 0 : time - _last;
-        if (_last >= 0 && (dt <= 0 || dt > MaxGapSeconds)) { _stillStart = -1; dt = 0; }
+        if (dt <= 0 || dt > MaxGapSeconds) dt = 0;
         _last = time;
-        bool grounded = frontGrounded >= 2 && frontLoad > 0;
-        if (grounded && Math.Abs(speedMs) < StillMs)
-        {
-            if (_stillStart < 0) { _stillStart = time; _stillSum = 0; _stillCount = 0; _stillMin = double.MaxValue; _stillMax = 0; }
-            _stillSum += frontLoad; _stillCount++; _stillMin = Math.Min(_stillMin, frontLoad); _stillMax = Math.Max(_stillMax, frontLoad);
-            if (time - _stillStart >= RestingSeconds)
-            {
-                double mean = _stillSum / _stillCount;
-                if (_stillMax - _stillMin <= RestingSpread * mean) Set(mean, FrontLoadReferenceKind.Resting);
-                _stillStart = -1;
-            }
-        }
-        else _stillStart = -1;
-        if (Kind != FrontLoadReferenceKind.Resting && grounded && dt > 0)
-        {
-            _movingSeconds += dt; _movingSum += frontLoad * dt;
-            if (_movingSeconds >= ProvisionalSeconds) Set(_movingSum / _movingSeconds, FrontLoadReferenceKind.Provisional);
-        }
+        if (!driving || frontGrounded < 2 || frontLoad <= 0 || Math.Abs(speedMs) * 3.6 < MinKmh || dt == 0) return;
+        _seconds += dt; _sum += frontLoad * dt;
+        var kind = _seconds >= QualifiedSeconds ? FrontLoadReferenceKind.Driving : FrontLoadReferenceKind.Provisional;
+        if (kind != Kind) Changes++;
+        Kind = kind; Load = _sum / _seconds;
     }
 
-    private void Set(double load, FrontLoadReferenceKind kind)
-    {
-        if (kind != Kind || kind == FrontLoadReferenceKind.Resting && load != Load) Changes++;
-        Load = load; Kind = kind;
-    }
-
-    public void Interrupt() { _last = -1; _stillStart = -1; }
-    public void Clear() { Interrupt(); _movingSeconds = _movingSum = 0; Load = 0; if (Kind != FrontLoadReferenceKind.None) Changes++; Kind = FrontLoadReferenceKind.None; }
+    public void Clear() { _last = -1; _seconds = _sum = 0; Load = 0; if (Kind != FrontLoadReferenceKind.None) Changes++; Kind = FrontLoadReferenceKind.None; }
 }
-
 /// <summary>
 /// Force model version 4, "Grip": art of rally's model from the shared toolkit (<see cref="AxleForceCurve"/>, STD-025) on
 /// Woden's front tyres. The front lateral force is rebuilt per grounded front wheel from what the game's own
 /// WheelCollider uses: contact load x the sideways friction curve at |sidewaysSlip| x its stiffness (the curve is read
 /// live, because the game varies it). The trail input is the slip relative to that curve's peak, so the wheel lightens
-/// past peak grip as in art of rally. Full scale is LoadRatio x the front load measured at rest; gain is Strength / 50
+/// past peak grip as in art of rally. Full scale is LoadRatio x the mean driving front load; gain is Strength / 50
 /// as in every mod (STD-003), so displayed 50 means the same as art of rally's 50 (STD-021). No 25% cap: that belongs to
 /// the classic estimate (version 3), which stays selectable and unchanged.
 /// </summary>
@@ -82,8 +65,7 @@ public sealed class GripSignal
     public float PreviousOutput { get; private set; }
     public double ReferenceUsed { get; private set; }
 
-    // Woden's Stop() resets the model on every non-driving tick; the reference keeps observing (it handles gaps itself),
-    // so the grid countdown can measure the resting load.
+    // Woden's Stop() resets the model on every non-driving tick; the reference is kept for the car.
     public void Reset() { _time = null; _steer = null; _output = 0; ResetCount++; }
     public void NewCar() { Reset(); Reference.Clear(); }
 
@@ -103,12 +85,12 @@ public sealed class GripSignal
         double time = s.SimulationSeconds;
         bool motion = s.Channels.TryGetValue("motion.speed", out double speed) && double.IsFinite(speed) && speed >= 0 &&
             s.Channels.TryGetValue("motion.velocity.local.z", out double forward) && double.IsFinite(forward);
-        // The reference watches every valid tick, driving or not (the grid countdown measures the resting load).
+        // The reference averages the driving front load (see FrontLoadReference for why not the grid or a stop).
         double observedLoad = 0; int grounded = 0;
         foreach (string corner in new[] { "fl", "fr" })
             if (s.Channels.TryGetValue("wheel." + corner + ".grounded", out double g) && g == 1 && s.Channels.TryGetValue("wheel." + corner + ".contactForce", out double f) && double.IsFinite(f))
             { observedLoad += f; grounded++; }
-        if (motion && double.IsFinite(time)) Reference.Observe(time, observedLoad, grounded, speed);
+        if (motion && double.IsFinite(time)) Reference.Observe(time, observedLoad, grounded, speed, s.Driving && s.Discontinuity == null);
         ReferenceUsed = Reference.Load;
 
         if (!s.Driving) return Stop(s.State);
