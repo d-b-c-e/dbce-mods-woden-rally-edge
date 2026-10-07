@@ -41,8 +41,23 @@ The owner requested a more forgiving countdown/time limit. Advanced → Driving 
 
 The owner approved shipping beta.1 to early testers and added three items:
 
-1. **Bumper camera field of view looks a little odd.** Check the bumper view's FOV against the
-   bonnet view and the stock cameras, with and without triples (`MatchGameFov`, `ChaseUsesGameFov`).
+1. **Bumper camera.** Owner: with one car the bumper view started inside the car; after moving it
+   forward with numpad 8, both bumper corners were still clearly visible, as if the view were wider
+   than 180°. Diagnosis (code and the 2026-10-06 log, no game run):
+   - *Inside the car is a bug.* `MountedCamera.Pose` fits only the bonnet to the car body; the
+     bumper uses one global pose for every car (default forward 2.2 m from the car origin). That
+     car's body reaches 2.31 m forward, so 2.2 m is inside it. The owner's saved forward is now
+     2.54 m, which will sit well ahead of shorter cars. Fix: fit the bumper to the front of the body
+     bounds (plus a small margin), keep manual offsets on top of the fit, like the bonnet.
+   - *The extra width is the FOV setting, not the projection.* This install has
+     `[Triple] MatchGameFov = true` (chosen at the rig on 2026-10-04), so the centre screen shows the
+     camera's own FOV (bumper 38° vertical; bonnet 70°) instead of the rig's real 33.6°, and the side
+     screens continue at the same scale. With the sides turned 70°, the three screens then span about
+     196° in the bumper view and about 244° in the bonnet view. With the rig's real geometry
+     (`MatchGameFov = false`, eye 660 mm) they span 181°: the outer edges of the side screens are
+     level with the eyes, so the bumper corners just beside a camera that has cleared the bumper
+     belong at those edges. Owner decision pending: real geometry for mounted views, or keep the
+     wider game FOV.
 2. **Normalize the FFB values** to the family scale: at Strength 50 forces should roughly match
    art of rally at 50 (toolkit STD-021, refines STD-003). Codex owns the tuning; the offline
    Strength 35 / cap 50 trial in `docs/FFB-COMPARISON.md` is the starting point; the owner's
