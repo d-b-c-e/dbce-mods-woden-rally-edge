@@ -11,7 +11,8 @@ internal sealed class InputLease
     private readonly double _started = Runtime.Clock.Elapsed.TotalMilliseconds;
     internal float Handbrake { get; }
     private static readonly (string, int)[] Buttons = { ("Gear down", 1), ("Respawn", 2), ("Gear up", 3), ("Lights", 4), ("Camera", 5), ("Next song", 8), ("Horn", 11), ("Records", 12) };
-    internal InputLease(Il2CppReferenceArray<GamePadSystem.Actions> actions, float steer, float throttle, float brake, WheelInput input, MainCar car)
+    internal InputLease(Il2CppReferenceArray<GamePadSystem.Actions> actions, float steer, float throttle, float brake, WheelInput input, MainCar car,
+        bool shiftUp = false, bool shiftDown = false)
     {
         _actions = actions; _input = input;
         void Set(int index, float value, bool merge = false)
@@ -34,6 +35,9 @@ internal sealed class InputLease
             if (input.Bindings.Handbrake?.Valid == true) { input.HandbrakeCar = car; input.HandbrakeAmount = Handbrake; }
             foreach (var (name, index) in Buttons)
                 if (input.Bindings.Buttons.ContainsKey(name) || input.Bindings.CameraKeys.ContainsKey(name)) Set(index, input.Button(name, false) ? 1 : 0, true);
+            // H-pattern: the shifter's synthetic Shift up / Shift down presses join any held sequential button.
+            if (shiftUp) Set(3, 1, true);
+            if (shiftDown) Set(1, 1, true);
         }
         catch { Restore(); throw; }
     }

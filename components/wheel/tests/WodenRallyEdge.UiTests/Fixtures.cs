@@ -102,9 +102,11 @@ namespace WodenRallyEdge
     internal sealed class Pause
     {internal static bool Paused;internal bool PhotomodeActive;internal void SetPause()=>Paused=true;internal void UnsetPause()=>Paused=false;}
     internal sealed class MainCar
-    {internal enum CarStatus {WARMING,RACE,END,DESTROYED} internal CarStatus Status=CarStatus.RACE;internal Controls? MyControls;internal int GetInstanceID()=>1;}
+    {internal enum CarStatus {WARMING,RACE,END,DESTROYED} internal CarStatus Status=CarStatus.RACE;internal Controls? MyControls;internal int GetInstanceID()=>1;internal int MyGear=1,Gears=5;internal DriveAssists? Aids=new();internal TransmissionSys? TransmissionSystem=new();}
+internal sealed class DriveAssists {internal bool Automatic;}
+internal sealed class TransmissionSys {internal bool Changing;}
     internal sealed class Controls {internal MainCar? field_Private_MainCar_0;internal Pause? PauseScript;}
-    internal sealed class InputLease {internal float Handbrake;internal InputLease(GameAction[] a,float s,float t,float b,WheelInput i,MainCar car){i.HandbrakeCar=null;i.HandbrakeAmount=0;} }
+    internal sealed class InputLease {internal float Handbrake;internal static bool LastUp,LastDown;internal static float LastThrottle,LastBrake;internal InputLease(GameAction[] a,float s,float t,float b,WheelInput i,MainCar car,bool up=false,bool down=false){i.HandbrakeCar=null;i.HandbrakeAmount=0;LastUp=up;LastDown=down;LastThrottle=t;LastBrake=b;} }
     internal sealed class GameAction {internal string name="fixture";}
     internal static class ControlActions {internal static GameAction[]? For(Controls c)=>null;}
     internal static class CountdownTimerAssist {internal static string Status=>"Fixture: assist waiting for gameplay";}

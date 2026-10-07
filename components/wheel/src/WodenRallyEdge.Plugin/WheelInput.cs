@@ -5,7 +5,20 @@ namespace WodenRallyEdge;
 
 internal sealed class WheelInput
 {
-    internal static readonly string[] ButtonActions = { "Gear up", "Gear down", "Handbrake", "Camera", "Rear view", "Lights", "Horn", "Respawn", "Pause", "Settings panel", "Panic stop", "Records", "Next song" };
+    internal static readonly string[] ButtonActions = { "Gear up", "Gear down", "Handbrake", "Camera", "Rear view", "Lights", "Horn", "Respawn", "Pause", "Settings panel", "Panic stop", "Records", "Next song",
+        "Gear 1", "Gear 2", "Gear 3", "Gear 4", "Gear 5", "Gear 6", "Gear R" };
+    /// <summary>H-pattern gate actions, in gate order (R last).</summary>
+    internal static readonly string[] GateActions = { "Gear 1", "Gear 2", "Gear 3", "Gear 4", "Gear 5", "Gear 6", "Gear R" };
+    internal readonly HPatternShifter Shifter = new();
+    /// <summary>Any gate is bound: the H-pattern drives the gearbox (sequential shift buttons still work out of gear).</summary>
+    internal bool HPatternBound => GateActions.Any(Bindings.Buttons.ContainsKey);
+    /// <summary>The held gate: 1..6, <see cref="HPatternShifter.Reverse"/>, or 0 out of gear.</summary>
+    internal int HeldGate()
+    {
+        if (Button("Gear R", false)) return HPatternShifter.Reverse;
+        for (int i = 0; i < HPatternShifter.MaxGates; i++) if (Button(GateActions[i], false)) return i + 1;
+        return 0;
+    }
     private readonly string _path;
     internal Bindings Bindings { get; private set; } = new();
     internal string Status { get; private set; } = "Ready to bind";
@@ -130,7 +143,14 @@ internal sealed class WheelInput
         { Status = "A bound device is not responding; stock controls retained. Use Refresh devices."; return null; }
         var actions = ControlActions.For(controls);
         if (actions == null || actions.Length < 18) { Status = "Waiting for Woden action table"; return null; }
-        var lease = new InputLease(actions, steer, throttle, brake, this, car);
+        bool shiftUp = false, shiftDown = false;
+        if (HPatternBound)
+        {
+            int gate = HeldGate();
+            (throttle, brake) = HPatternShifter.Pedals(gate, throttle, brake);
+            (shiftUp, shiftDown) = Shifter.Step(gate, car.MyGear, car.Gears, car.Aids?.Automatic == true, car.TransmissionSystem?.Changing == true, Runtime.Clock.Elapsed.TotalSeconds);
+        }
+        var lease = new InputLease(actions, steer, throttle, brake, this, car, shiftUp, shiftDown);
         _last = new(car.GetInstanceID(), Runtime.Clock.Elapsed.TotalSeconds, steer, throttle, brake, lease.Handbrake);
         if (++AppliedTicks == 1) Runtime.Log.LogInfo("Wheel action-table route active: " + string.Join(", ", new[] { 6, 7, 16, 17 }.Select(i => i + "=" + actions[i].name)));
         if (car.Status == MainCar.CarStatus.WARMING && ++PreRaceTicks == 1)

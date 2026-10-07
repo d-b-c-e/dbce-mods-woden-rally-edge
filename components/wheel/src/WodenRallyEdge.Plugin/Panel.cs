@@ -369,13 +369,13 @@ internal static class Panel
             if(b!=null)Label(638,y+64,304,$"Invert: {(b.Inverted?"On":"Off")} · Deadzone {b.Calibration.Deadzone:P0}",true);
             y+=104;
         }
-        foreach(var group in new[]{("Driving buttons",new[]{"Gear up","Gear down","Handbrake","Camera","Rear view","Respawn"}),("Menu buttons",new[]{"Pause","Confirm","Back","Menu up","Menu down","Menu left","Menu right"}),("Mod buttons",new[]{"Settings panel","Panic stop"}),("Extra game buttons",new[]{"Lights","Horn","Records","Next song"}),("Shifter bindings",Array.Empty<string>())})
+        foreach(var group in new[]{("Driving buttons",new[]{"Gear up","Gear down","Handbrake","Camera","Rear view","Respawn"}),("Menu buttons",new[]{"Pause","Confirm","Back","Menu up","Menu down","Menu left","Menu right"}),("Mod buttons",new[]{"Settings panel","Panic stop"}),("Extra game buttons",new[]{"Lights","Horn","Records","Next song"}),("Shifter bindings",WheelInput.GateActions)})
         {
             if(Button(250,y,694,(Expanded.Contains(group.Item1)?"− ":"+ ")+group.Item1,Expanded.Contains(group.Item1))) { if(!Expanded.Add(group.Item1))Expanded.Remove(group.Item1); }
             y+=46;
             if(!Expanded.Contains(group.Item1))continue;
             foreach(string action in group.Item2){BindingRow(y,action,action=="Handbrake"?"Handbrake (button)":null);y+=94;}
-            if(group.Item1=="Menu buttons"||group.Item1=="Shifter bindings") {Label(250,y,690,group.Item1=="Menu buttons"?"Up/down moves settings focus; left/right adjusts sliders. Confirm activates; Back closes. Native menus use their selected Unity UI item. "+MenuNavigation.Status:"Sequential Shift up/down is supported above. H-pattern and clutch routing are not implemented.",true,60);y+=70;}
+            if(group.Item1=="Menu buttons"||group.Item1=="Shifter bindings") {Label(250,y,690,group.Item1=="Menu buttons"?"Up/down moves settings focus; left/right adjusts sliders. Confirm activates; Back closes. Native menus use their selected Unity UI item. "+MenuNavigation.Status:"H-pattern: hold a gate for that gear; the mod steps the game's Shift up/down until it matches. Out of gear cuts the drive (Woden has no neutral). R swaps the pedals, because Woden reverses on the brake. Needs the game's manual transmission. Clutch is not routed. Now: "+(Runtime.Wheel?.Shifter.Status??""),true,60);y+=70;}
         }
         Label(250,y,690,"Handbrake: progressive rear braking/grip; the game's engine cut remains digital. Button input requests full braking.",true,48);y+=64;
         if(Advanced)

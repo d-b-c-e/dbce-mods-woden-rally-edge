@@ -220,6 +220,32 @@ Test("grip model v4: reference rules, measuring, missing friction curve and mode
     Check(new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(old, false)).FfbModel == "Classic", "an existing install keeps Classic: no silent model switch");
     string chosen = Path.Combine(Path.GetTempPath(), "woden-chosen-" + Guid.NewGuid().ToString("N") + ".cfg"); File.WriteAllText(chosen, "[ForceFeedback]\nStrengthPercent = 50\nModel = Grip\n");
     Check(new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(chosen, false)).FfbModel == "Grip", "a saved Grip choice is kept");
+});Test("H-pattern: a gate steps the game's own shift actions, one press at a time, never during a change", () => {
+    var h = new HPatternShifter(); double now = 0; int gear = 1, presses = 0; bool held = false;
+    // Drive the policy against a fake gearbox that changes gear on each new press after a 0.1 s change.
+    double changingUntil = -1;
+    void Frame(int gate, int gears = 5, bool automatic = false)
+    {
+        now += .02; bool changing = now < changingUntil;
+        var (up, down) = h.Step(gate, gear, gears, automatic, changing, now);
+        bool press = up || down;
+        if (press && !held) { presses++; gear += up ? 1 : -1; changingUntil = now + .1; }
+        held = press;
+    }
+    for (int i = 0; i < 100; i++) Frame(4);
+    Check(gear == 4 && presses == 3, $"gate 4 from first gear: three separate up presses ({gear}, {presses})");
+    for (int i = 0; i < 100; i++) Frame(2);
+    Check(gear == 2 && presses == 5, "gate 2: two down presses");
+    for (int i = 0; i < 100; i++) Frame(6, gears: 5);
+    Check(gear == 5, "a gate beyond the car's gears selects its top gear");
+    int before = presses; for (int i = 0; i < 50; i++) Frame(0);
+    Check(presses == before && h.Status.Contains("Out of gear"), "out of gear never shifts");
+    for (int i = 0; i < 200; i++) Frame(HPatternShifter.Reverse);
+    Check(gear == 1 && h.Status.Contains("R"), "R steps down to first gear");
+    before = presses; for (int i = 0; i < 50; i++) Frame(3, automatic: true);
+    Check(presses == before && h.Status.Contains("manual"), "an automatic gearbox is left alone with a status");
+    var (t1, b1) = HPatternShifter.Pedals(HPatternShifter.Reverse, .7f, .2f); var (t0, b0) = HPatternShifter.Pedals(0, .7f, .2f); var (t3, b3) = HPatternShifter.Pedals(3, .7f, .2f);
+    Check(t1 == .2f && b1 == .7f && t0 == 0 && b0 == .2f && t3 == .7f && b3 == .2f, "R swaps the pedals, out of gear cuts the throttle, a gear passes them through");
 });Test("shared force shaping: symmetric sign, literal gain, cap, ramp and low-speed fade", () => {
     var left = new ForceSignal(); var right = new ForceSignal(); var inverted = new ForceSignal(); float final = 0;
     for (int i = 1; i <= 100; i++) {
