@@ -473,6 +473,8 @@ internal static class Panel
             if(Button(250,y,330,"Default steps: 0.02 m, 1°, 2°")){cfg.CameraMoveStep=CameraSteps.Default.Move;cfg.CameraTiltStep=CameraSteps.Default.Tilt;cfg.CameraFovStep=CameraSteps.Default.Fov;Dirty();}y+=46;
             Label(250,y,690,"Steps set how far each numpad press moves, tilts or zooms the active view. Smaller steps place the view more finely.",true,46);y+=54;
         }
+        Toggle(250,y,450,"Show frame rate on screen",ref cfg.ShowFrameRate);y+=44;
+        Label(250,y,690,"Frame rate, last 10 s: "+FrameRate.Summary,true,42);y+=48;
         Label(250,y,690,MountedCamera.Status,true,42);End(y+50);
     }
     private static void DifficultyPage()

@@ -60,6 +60,7 @@ public sealed class Lifecycle : MonoBehaviour
         if (lease == null) return;
         Panel.Draw();
         StagePlayback.OnGui();
+        FrameRate.Draw(Runtime.Settings.ShowFrameRate);
     }
     private void OnApplicationQuit() => Runtime.Stop();
     private void OnDestroy() => Runtime.Stop();
@@ -187,6 +188,7 @@ internal static class Runtime
         if (_stopped) return;
         double now = Clock.Elapsed.TotalSeconds;
         TimingDiagnostics.Frame(now);
+        FrameRate.Tick(now, Time.unscaledDeltaTime);
         try
         {
             StagePlayback.Update(now);

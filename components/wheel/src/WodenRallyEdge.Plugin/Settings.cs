@@ -12,7 +12,7 @@ public sealed class Settings
     public float CountdownSpeed = 75;
     public float CameraHeight = CameraPose.Bonnet.Height, CameraForward = CameraPose.Bonnet.Forward, CameraPitch = 8, CameraSide, CameraFov = 70;
     public float BumperHeight = .35f, BumperForward = 2.2f, BumperPitch, BumperSide, BumperFov = 70, BumperAhead = CameraPose.BumperAheadDefault;
-    public bool CameraAutoFit = true;
+    public bool CameraAutoFit = true, ShowFrameRate;
     public float CameraMoveStep = CameraSteps.Default.Move, CameraTiltStep = CameraSteps.Default.Tilt, CameraFovStep = CameraSteps.Default.Fov;
     public CameraSteps CameraSteps => new CameraSteps(CameraMoveStep, CameraTiltStep, CameraFovStep).Bounded();
     private int _cameraDefaultsVersion;
@@ -105,6 +105,7 @@ public sealed class Settings
         Item("Camera", "FovStepDegrees", ref CameraFovStep, "Camera shortcut field-of-view change per press, 0.5..10 degrees.");
         Item("Camera", "AutoFitBonnet", ref CameraAutoFit, "Fit the bonnet view to the car body. Adjusting an offset switches to manual placement.");
         Item("Camera", "DefaultsVersion", ref _cameraDefaultsVersion, "Camera defaults migration marker; custom offsets are preserved.");
+        Item("Display", "ShowFrameRate", ref ShowFrameRate, "Draw the frame rate (current fps and the 1% low of the last 10 s) at the top right of the centre screen (STD-023). Default Off.");
         Item("ForceFeedback", "Enabled", ref FfbEnabled, "Saved FFB On/Off preference. Feedback starts only during valid player driving. F8 saves Off.");
         Item("ForceFeedback", "DeviceGuid", ref FfbGuid, "Exact FFB wheel GUID selected in F6; no fallback.");
         Item("ForceFeedback", "StrengthPercent", ref FfbStrength, "Overall strength, default 50%. Original output gain restored; no additional reduction.");

@@ -4,7 +4,8 @@
 
 ### Added
 
-- Crash kick: when the car hits a wall, barrier or another car the wheel gets art of rally's crash cue, a 120 ms push plus a 25 Hz rattle at half its strength fading out over 250 ms (toolkit `CrashCue`, the shape the owner picked on the wheel). On by default at 50 % (`[ForceFeedback] CrashEnabled`, `CrashStrengthPercent`; F6 FFB Advanced). It sits on top of the steering force and is not limited by the peak cap. Body contacts with a mostly horizontal normal at more than 3 m/s count; ground contacts and slow touches do not.
+- Crash kick: when the car hits a wall, barrier or another car the wheel gets art of rally's crash cue, a 120 ms push plus a 25 Hz rattle at half its strength fading out over 250 ms (toolkit `CrashCue`, the shape the owner picked on the wheel). On by default at 50 % (`[ForceFeedback] CrashEnabled`, `CrashStrengthPercent`; F6 FFB Advanced). It sits on top of the steering force and is not limited by the peak cap. Body contacts with a mostly horizontal normal at more than 3 m/s count; ground contacts, colliders tagged or named as road, slow touches, contacts older than 50 ms, and contacts in the first 0.1 s after the car appears or is reset (teleport, gap or duplicate physics tick) do not, as in art of rally. The cue starts with the push alone, its rattle is averaged over each update so the frame rate cannot turn it into a constant push, and it is recorded with the contact, its classification and whether it was delivered. Until the native library can play art's two effects separately, this is a labelled constant-force fallback (`crash-constant-fallback@2`).
+- Frame rate readout (STD-023/024, toolkit `FrameRateMonitor`): F6 Cameras shows the average, 1% low and worst frame of the last 10 s, the log repeats it every 30 s, and `Show frame rate on screen` (`[Display] ShowFrameRate`, default Off) draws the current fps and 1% low at the top right of the centre screen.
 
 ## 0.2.14-beta.2 — 2026-10-06
 
