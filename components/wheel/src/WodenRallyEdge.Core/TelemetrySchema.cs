@@ -110,6 +110,12 @@ public static class TelemetrySchema
             Add(p + "contactForce", "N", "measured", "WheelHit.force MAGNITUDE; neither signed lateral force nor rack torque");
             Add(p + "forwardSlip", "Unity slip units", "raw", "WheelHit.forwardSlip; not assumed equal to physical slip ratio");
             Add(p + "sidewaysSlip", "Unity slip units", "raw", "WheelHit.sidewaysSlip; not an angle in radians");
+            // Sideways friction curve in force on this wheel (the game varies stiffness): the evidence for a grip model on the shared AxleForceCurve (STD-025).
+            Add(p + "sideFriction.extremumSlip", "Unity slip units", "raw", "WheelCollider.sidewaysFriction extremum slip (peak of the friction curve)");
+            Add(p + "sideFriction.extremumValue", "curve units", "raw", "WheelCollider.sidewaysFriction value at the extremum");
+            Add(p + "sideFriction.asymptoteSlip", "Unity slip units", "raw", "WheelCollider.sidewaysFriction asymptote slip");
+            Add(p + "sideFriction.asymptoteValue", "curve units", "raw", "WheelCollider.sidewaysFriction value at and beyond the asymptote");
+            Add(p + "sideFriction.stiffness", "multiplier", "raw", "WheelCollider.sidewaysFriction stiffness multiplier");
             Add(p + "colliderId", "session instance ID", "measured", "WheelHit.collider.GetInstanceID; not a persistent surface category");
             Vector(p + "contactPoint.world", "m", "measured", "WheelHit.point, only while grounded");
             Vector(p + "contactNormal.world", "unit vector", "measured", "WheelHit.normal, only while grounded");
