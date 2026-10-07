@@ -77,3 +77,13 @@ The owner approved shipping beta.1 to early testers and added three items:
 | iRacing Arcade | BepInEx #788, per-game stripped interop, F6 settings/bindings, manual reconnect | Live driving-hook proof and complete mounted-view behavior |
 
 Current reference docs were inspected on 2026-09-12. Their own verification limits remain theirs; no physical or runtime validation transfers automatically to Woden.
+
+## Wheel button prompts (GLY, STD-020) — where they come from (2026-10-07, Claude)
+
+Interop survey only; not yet seen in game. Woden's menu buttons are `EnhancedButton`s that carry the gamepad
+button that selects them (`ControllerButtonStr`, a `Gamepadkeys` value, and `ControllerButtons`, its display
+strings), and `GamePadSystem` holds the pad's `ButtonNames`. So the prompts show gamepad letters even when the
+wheel drives the menus. A fix in the shape of DRIVE's `WheelPrompts` / art of rally's `PromptGlyphFallback`:
+while the wheel is the active input, show the bound wheel button ("B12", or the owner's name for it) for the
+action the button's gamepad key maps to through the mod's own bindings, and leave pads alone. Needs an in-game
+pass (dev-channel screenshots) to find where the label is drawn and to check the layout.
