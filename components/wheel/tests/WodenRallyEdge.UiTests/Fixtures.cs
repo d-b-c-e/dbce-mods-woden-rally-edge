@@ -113,8 +113,20 @@ internal sealed class TransmissionSys {internal bool Changing;}
     internal static class LeaderboardGuard {internal static string Status=>"Online times: uploaded as normal";}
 internal static class FrameRate {internal static string Summary=>"52 fps average, 1% low 31 fps, worst frame 40 ms";}
     internal enum TripleMode { Auto, On, Off }
-    internal static class TripleView {internal static TripleMode Mode=TripleMode.Auto;internal static string Status=>"Fixture: window is not three screens wide";}
-    internal static class SpanWindow {internal static bool Enabled=true;internal static string Status=>"Fixture: not needed (no separate triple monitors)";}
+    internal static class TripleView
+    {
+        private static BepInEx.Configuration.ConfigEntry<TripleMode> _mode=null!;
+        internal static void Bind(BepInEx.Configuration.ConfigFile cfg)=>_mode=cfg.Bind("Triple","Mode",TripleMode.Auto);
+        internal static TripleMode Mode {get=>_mode?.Value??TripleMode.Auto;set{if(_mode!=null&&_mode.Value!=value)_mode.Value=value;}}
+        internal static string Status=>"Fixture: window is not three screens wide";
+    }
+    internal static class SpanWindow
+    {
+        private static BepInEx.Configuration.ConfigEntry<bool> _enabled=null!;
+        internal static void Bind(BepInEx.Configuration.ConfigFile cfg)=>_enabled=cfg.Bind("Triple","SpanSeparateMonitors",true);
+        internal static bool Enabled {get=>_enabled!=null&&_enabled.Value;set{if(_enabled!=null&&_enabled.Value!=value)_enabled.Value=value;}}
+        internal static string Status=>"Fixture: not needed (no separate triple monitors)";
+    }
     internal static class MountedCamera
     {internal static bool PlayerOwned=true;internal static CameraCycle Cycle=new();internal static string Status=>"Fixture mounted view";internal static CameraPose Pose(bool bumper)=>Runtime.Settings.GetCameraPose(bumper);
      internal static void SavePose(bool bumper,CameraPose pose){Runtime.Settings.SetCameraPose(bumper,pose);if(!bumper)Runtime.Settings.CameraAutoFit=false;}}

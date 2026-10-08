@@ -456,9 +456,9 @@ internal static class Panel
         Label(250,y+6,170,"Triple screens");
         for(int i=0;i<TripleLayoutChoice.Labels.Length;i++)
             if(Button(i==0?426:i==1?544:686,y,i==0?110:i==1?134:258,TripleLayoutChoice.Labels[i],layout==i)&&layout!=i)
-            { var picked=TripleLayoutChoice.Apply(i); TripleView.Mode=picked.Off?TripleMode.Off:TripleView.Mode==TripleMode.On?TripleMode.On:TripleMode.Auto; SpanWindow.Enabled=picked.Span; layout=i; }
+            { var picked=TripleLayoutChoice.Apply(i); TripleView.Mode=picked.Off?TripleMode.Off:TripleView.Mode==TripleMode.On?TripleMode.On:TripleMode.Auto; SpanWindow.Enabled=picked.Span; layout=i; Dirty(); }
         y+=48;
-        Label(250,y,690,layout==0?"One view on one screen. Status: "+TripleView.Status:layout==1?"Three views when the game window spans your Surround desktop. Status: "+TripleView.Status:"One borderless window across three side-by-side monitors, applied at the next game start. Span: "+SpanWindow.Status+"; views: "+TripleView.Status,true,46);y+=56;
+        Label(250,y,690,layout==0?"Single view. Window size changes at the next game start. Status: "+TripleView.Status:layout==1?"Three views on Surround. Window layout applies at the next game start. Status: "+TripleView.Status:"One borderless window across three side-by-side monitors, applied at the next game start. Span: "+SpanWindow.Status+"; views: "+TripleView.Status,true,46);y+=56;
         Toggle(250,y,450,"Bonnet",ref cfg.Bonnet);y+=44;Toggle(250,y,450,"Bumper",ref cfg.Bumper);y+=56;
         BindingRow(y,"Camera");y+=100;
         Label(250,y,690,"Cycle to Bonnet or Bumper to adjust the active view. Open Adjustment bindings for your saved keys or to rebind them.",true,46);y+=60;

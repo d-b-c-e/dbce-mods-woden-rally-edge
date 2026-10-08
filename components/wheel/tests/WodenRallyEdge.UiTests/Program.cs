@@ -37,7 +37,8 @@ void KeyPress(Key key,bool modifier=false)
 }
 void Snapshot(string name){Draw();File.WriteAllText(Path.Combine(outputDir,name+".json"),JsonSerializer.Serialize(new{width=Screen.width,height=Screen.height,commands=GUI.Commands},new JsonSerializerOptions{IncludeFields=true,WriteIndented=true}));}
 
-Runtime.Settings=new(new ConfigFile(Path.Combine(dir,"settings.cfg"),false));Runtime.Wheel=new(Path.Combine(dir,"bindings.json"));
+var settingsFile=new ConfigFile(Path.Combine(dir,"settings.cfg"),false);
+Runtime.Settings=new(settingsFile);TripleView.Bind(settingsFile);SpanWindow.Bind(settingsFile);Runtime.Wheel=new(Path.Combine(dir,"bindings.json"));
 var id=Guid.NewGuid();var device=new DeviceHub.Device{Info=new(){InstanceGuid=id,Name="MOZA R12"}};device.Axes[0]=32768;Runtime.Devices!.Devices.Add(device);
 Runtime.Wheel.Bindings.Steer=new(id,0,new(0,65535,32768));Runtime.Wheel.Bindings.Throttle=new(id,2,new(0,65535));Runtime.Wheel.Bindings.Brake=new(id,5,new(0,65535));
 Runtime.Wheel.Bindings.Buttons["Handbrake"]=new(id,18);Runtime.Wheel.Save();Runtime.Settings.WheelEnabled=true;
@@ -66,7 +67,24 @@ Click("FFB");Snapshot("ffb-720");Check(Find("Custom FFB tuning active. Review in
 Click("Use steering wheel  v");Click("MOZA R12");Check(!Runtime.Settings.FfbFollowSteering&&Runtime.Settings.FfbGuid==id.ToString(),"direct dropdown saves explicit device");
 Click("MOZA R12  v");Click("Use steering wheel");Check(Runtime.Settings.FfbFollowSteering&&!Runtime.Settings.FfbEnabled,"follow selection preserves Off");
 Click("Cameras");Draw();for(int i=0;Find("Show frame rate on screen:")==null&&i<20;i++)Click("Down");{var fps=Find("Show frame rate on screen:");Check(fps!=null,"F6 Cameras shows the frame-rate toggle (STD-023)");var on=GUI.Commands.First(c=>c.Kind=="text"&&c.Text=="On"&&Math.Abs(c.Rect.y-fps!.Rect.y)<12);Draw(new(){type=EventType.MouseDown,mousePosition=new(on.Rect.x+10,on.Rect.y+12)});Draw();Check(Runtime.Settings.ShowFrameRate,"frame-rate toggle turns the on-screen counter on");Check(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.StartsWith("Frame rate, last 10 s: 52 fps")),"F6 Cameras shows the 10 s frame-rate summary (STD-024)");Runtime.Settings.ShowFrameRate=false;}
-Click("Cameras");Snapshot("cameras-720");Click("+ Adjustment bindings");BindAction("Move up");ArmCapture();KeyPress(Key.U);
+Click("Cameras");Snapshot("cameras-720");
+// Real panel clicks must schedule the production Settings save without closing
+// the panel or relying on another control's dirty state. The camera fixture uses
+// real BepInEx entries, with the same deferred-save behavior as runtime.
+Runtime.Clock.Advance(.8);Panel.Update();
+foreach(var choice in new[]{("Off",TripleMode.Off,false),("Surround",TripleMode.Auto,false),("Separate monitors",TripleMode.Auto,true)})
+{
+    string prior=File.ReadAllText(settingsFile.ConfigFilePath);
+    Click(choice.Item1);
+    Check(TripleView.Mode==choice.Item2&&SpanWindow.Enabled==choice.Item3,"selector applies "+choice.Item1);
+    Check(File.ReadAllText(settingsFile.ConfigFilePath)==prior,"selector defers disk write until debounce");
+    Check(GUI.Commands.Any(c=>c.Text.EndsWith("· Saving…")),"selector displays pending save");
+    Runtime.Clock.Advance(.8);Panel.Update();Draw();
+    var reopened=new ConfigFile(settingsFile.ConfigFilePath,false){SaveOnConfigSet=false};
+    Check(reopened.Bind("Triple","Mode",TripleMode.On).Value==choice.Item2&&reopened.Bind("Triple","SpanSeparateMonitors",!choice.Item3).Value==choice.Item3,"selector persists both keys without closing panel");
+    Check(Panel.Open&&GUI.Commands.Any(c=>c.Text.EndsWith("· Saved")),"selector saved while panel remains open");
+}
+Click("+ Adjustment bindings");BindAction("Move up");ArmCapture();KeyPress(Key.U);
 Check(Runtime.Wheel.Bindings.CameraKeys["Camera up"]=="U","actual camera capture binds non-numpad key");
 Click("Cameras");BindAction("Move down");ArmCapture();KeyPress(Key.U);Check(Runtime.Wheel.CaptureButton=="Camera down"&&Runtime.Wheel.Status.Contains("Already assigned"),"conflict rejects without silently removing other action");
 KeyPress(Key.J,true);Check(Runtime.Wheel.CaptureButton!=null&&Runtime.Wheel.Status.Contains("Chords"),"modifier chord rejected");
