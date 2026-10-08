@@ -13,6 +13,9 @@
     <Compile Include="../../src/WodenRallyEdge.Plugin/CountdownTimerAssist.cs" Link="Consumer/CountdownTimerAssist.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Settings.cs" Link="Consumer/Settings.cs" />
     <ProjectReference Include="../../src/WodenRallyEdge.Core/WodenRallyEdge.Core.csproj" />
+    <Compile Include="../../tools/TelemetryInspector/StageCaptureReview.cs" Link="Diagnostics/StageCaptureReview.cs" />
+    <Compile Include="../../tools/TelemetryInspector/ForceExport.cs" Link="Diagnostics/ForceExport.cs" />
+    <Reference Include="Dbce.Wheel.Playback" HintPath="../../../../vendor/playback/Dbce.Wheel.Playback.dll" />
     <Reference Include="Dbce.Wheel.Telemetry" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Telemetry.dll" />
     <Reference Include="Dbce.Wheel.Ffb" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Ffb.dll" />
     <Reference Include="BepInEx.Core" HintPath="../../lib/core/BepInEx.Core.dll" />

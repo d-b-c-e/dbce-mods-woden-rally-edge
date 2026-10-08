@@ -6,12 +6,29 @@ using WodenRallyEdge.Core;
 
 internal static class ForceExport
 {
-    /// <param name="gripRatio">Null: the classic v3 model (strength, peak). A value: the grip v4 model at that load ratio
+    /// <param name="gripRatio">Null: the classic v3 model (strength, peak). A value: the recorded Grip version at that load ratio
     /// (peak ignored), which needs the live friction-curve channels; streams without them are refused, never default-filled.</param>
     internal static void Run(string directory, string output, float strength, float peak, float? gripRatio = null)
     {
         if (!float.IsFinite(strength) || strength < 0 || strength > 100 || !float.IsFinite(peak) || peak <= 0 || peak > 50)
             throw new ArgumentOutOfRangeException(nameof(strength), "Strength 0..100 and peak >0..50 required");
+        // Never downgrade a damaged stage to the ordinary capture contract.
+        if (!new[] { "complete.tsv", "stage-context.json", "channels.json" }.Any(n => File.Exists(Path.Combine(directory, n))))
+        {
+            var rows = RecordedForceReplay.ExportTrial(directory, strength, peak, gripRatio);
+            var ordinary = new StringBuilder("time_s,epoch,valid,speed_kmh,request,model,eligible,exclusion,steering,damping,model_version\n");
+            foreach (var row in rows)
+                ordinary.AppendLine(string.Join(",", new[] { row.Time.ToString("R", CultureInfo.InvariantCulture),
+                    row.Epoch.ToString(CultureInfo.InvariantCulture), row.Valid ? "1" : "0", row.SpeedKmh?.ToString("R", CultureInfo.InvariantCulture) ?? "",
+                    row.Request.ToString("R", CultureInfo.InvariantCulture), row.ModelVersion >= 4 ? "grip" : "classic", row.Eligible ? "1" : "0", row.Exclusion,
+                    row.Steering?.ToString("R", CultureInfo.InvariantCulture) ?? "", row.Damping?.ToString("R", CultureInfo.InvariantCulture) ?? "",
+                    row.ModelVersion.ToString(CultureInfo.InvariantCulture) }));
+            using var target = new FileStream(output, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            using var text = new StreamWriter(target, new UTF8Encoding(false)); text.Write(ordinary);
+            Console.WriteLine($"Exported verified ordinary replay-case trial: {rows.Count} model rows; strength {strength}, " +
+                (gripRatio.HasValue ? $"Grip load ratio {gripRatio.Value}" : $"Classic peak {peak}") + ". Recorded gate/reset lifecycle retained; no device output.");
+            return;
+        }
         StageCaptureReview.Run(directory); // Original hashes, continuous model, tune and no-output proof first.
         string sealHash = ArtifactSeal.Hash(Path.Combine(directory, "complete.tsv"));
         var captured = StageCaptureReview.ReadOptions(directory);

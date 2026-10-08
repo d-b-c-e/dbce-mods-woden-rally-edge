@@ -12,6 +12,8 @@ public sealed record RecordedForceTrialResult(string ObservationPath, string Obs
 public sealed record ForceObservationComparison(bool Equal, int Differences, double MaximumMagnitudeError,
     string BaselineModel, string CandidateModel, string BaselineConfigSha256, string CandidateConfigSha256,
     string BaselineProfileSha256, string CandidateProfileSha256);
+public sealed record RecordedForceTrialSample(double Time, long Epoch, bool Valid, double? SpeedKmh, float Request,
+    int ModelVersion, bool Eligible, string Exclusion, float? Steering, float? Damping);
 
 public static class RecordedForceReplay
 {
@@ -104,6 +106,31 @@ public static class RecordedForceReplay
         return new(differences == 0, differences, maximum, a.Model, b.Model, a.Config, b.Config, a.Profile, b.Profile);
     }
 
+    /// <summary>Offline comparison rows from an ordinary, already reprocessed owner capture.
+    /// Verifies the original model, crash contract, manifest and baseline before a counterfactual trial.
+    /// No source artifacts or device state are changed.</summary>
+    public static IReadOnlyList<RecordedForceTrialSample> ExportTrial(string caseDirectory, float strength, float peak, float? gripRatio)
+    {
+        string directory = RequireDirectory(caseDirectory);
+        string manifestPath = Path.Combine(directory, "case.json"), baselinePath = Path.Combine(directory, "force-observation.jsonl");
+        CaptureIdentity capture = ReadCapture(directory);
+        ManifestIdentity manifest = ReadManifest(manifestPath, capture);
+        string manifestHash = RecordingArtifacts.Sha256(manifestPath), baselineHash = RecordingArtifacts.Sha256(baselinePath);
+        ObservationFile baseline = ReadObservation(baselinePath);
+        RequireObservationIdentity(baseline, capture.CaseId, manifest.CaseSha256, capture.ConfigHash, capture.ProfileHash, ModelId(capture.OriginalOptions));
+        ReplayRun verified = RunSource(capture, capture.OriginalOptions, verifyRecordedOutputs: true);
+        RequireMatchingTimelineAndMagnitudes(verified.Observations, baseline.Requests, Tolerance, "Baseline observation differs from the verified original model run");
+        EnsureProtectedHashes(capture, manifestPath, manifestHash, baselinePath, baselineHash);
+        var options = capture.OriginalOptions with { Strength = strength, PeakPercent = peak, Model = 3 };
+        if (gripRatio.HasValue)
+            options = options with { Model = capture.OriginalOptions.Grip ? capture.OriginalOptions.Model : GripSignal.ModelVersion,
+                LoadRatio = gripRatio.Value, GripSmoothing = capture.OriginalOptions.Grip ? capture.OriginalOptions.GripSmoothing : .2f };
+        var rows = new List<RecordedForceTrialSample>();
+        RunSource(capture, options, verifyRecordedOutputs: false, trialRows: rows);
+        EnsureProtectedHashes(capture, manifestPath, manifestHash, baselinePath, baselineHash);
+        return rows;
+    }
+
     private static string RequireDirectory(string path)
     {
         string directory = Path.GetFullPath(path);
@@ -141,7 +168,8 @@ public static class RecordedForceReplay
             sourceHash, configHash, profileHash, ReadForceConfig(config));
     }
 
-    private static ReplayRun RunSource(CaptureIdentity capture, ForceOptions runOptions, bool verifyRecordedOutputs)
+    private static ReplayRun RunSource(CaptureIdentity capture, ForceOptions runOptions, bool verifyRecordedOutputs,
+        List<RecordedForceTrialSample>? trialRows = null)
     {
         ValidateForceOptions(runOptions);
         CaptureIdentity current = ReadCapture(capture.Directory);
@@ -207,6 +235,18 @@ public static class RecordedForceReplay
             long tick = checked((long)Math.Round(row.ElapsedSeconds * ForceObservationSemantics.TicksPerSecond, MidpointRounding.AwayFromZero));
             if (tick < 0 || tick < lastTick) throw new IOException("Recording model timeline is not monotonic");
             lastTick = tick; observations.Add(new(tick, result.Preview)); previousResetAfter = after;
+            if (trialRows != null)
+            {
+                // Keep recorded gate/reset order: a muted ordinary capture resets
+                // the model on every blocked row, unlike the sealed stage's shadow.
+                string exclusion = !isDriving ? "not driving" : gate != 0 ? "force gate " + gate :
+                    !result.Valid ? "model invalid" : useGrip && recordedReference.Kind == FrontLoadReferenceKind.None ? "no front-load reference" :
+                    useGrip && recordedReference.Kind != FrontLoadReferenceKind.Driving ? "provisional reference" : "";
+                double? speed = c.TryGetValue("motion.speed", out double rawSpeed) && double.IsFinite(rawSpeed * 3.6) ? Math.Abs(rawSpeed * 3.6) : null;
+                if (isDriving && !speed.HasValue) throw new IOException("Missing/nonfinite speed conversion in driving force trial");
+                trialRows.Add(new(row.ElapsedSeconds, before, result.Valid, speed, result.Preview, runOptions.Model,
+                    exclusion.Length == 0, exclusion, useGrip ? grip.LastSteering : null, useGrip ? grip.LastDamping : null));
+            }
             if (isDriving) { driving++; firstDriving ??= row.ElapsedSeconds; lastDriving = row.ElapsedSeconds; }
         }
         double drivingSeconds = firstDriving.HasValue && lastDriving.HasValue ? lastDriving.Value - firstDriving.Value : 0;

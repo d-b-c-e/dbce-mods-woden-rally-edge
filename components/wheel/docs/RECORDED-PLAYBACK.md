@@ -52,6 +52,35 @@ Trials replay the recorded reset epochs and output gates. This matters for shapi
 
 ## Offline commands
 
+For normalization, `ffb-export` accepts either a sealed stage recording or an
+ordinary completed owner case from `Start-RecordedGame.ps1`. The ordinary path
+verifies the original source, config, profile, case and baseline observation,
+then replays the recorded gate/reset lifecycle before evaluating the trial.
+It preserves Grip v4/v5 selection, refuses unavailable friction curves, and
+never substitutes the continuously evaluated stage shadow for an attended drive.
+
+```powershell
+# From components/wheel; no game or device is opened.
+dotnet run --project tools\TelemetryInspector -c Release -- ffb-export '<case-directory>' '<new.csv>' 50 25 grip 1.15
+```
+
+The explicit strength and load ratio are counterfactual settings; use the
+recorded ratio when comparing the felt tune. Omitting `grip <ratio>` runs
+Classic with the explicit peak. CSV `request` includes model damping but no
+crash cue; `steering` and `damping` expose the evaluated Grip terms separately.
+Map normalization validity to `eligible`, not merely `valid`: inactive,
+blocked, invalid and provisional-reference rows remain in the timeline but
+are excluded. Unobserved non-driving speed is blank; missing driving speed
+is refused. Any stage marker requires a valid stage seal, even if other
+stage files are missing.
+
+Woden has no F11 capture-start shortcut. Prepare the one-launch ordinary
+recording with the command in Owner command; use `-AttendedFfb` only
+for an explicitly requested owner-attended drive. Normal exit completes the
+case. A default muted ordinary case preserves the blocked lifecycle and is
+not a substitute for that felt drive. See the
+[ordinary-export verification](../../../docs/2026-10-08-ordinary-force-export.md).
+
 ```powershell
 dotnet run --project tools\TelemetryInspector -c Release -- reprocess '<case-directory>'
 Copy-Item '<case-directory>\force-config.json' '<case-directory>\candidate-force-config.json'

@@ -6,7 +6,7 @@ using WodenRallyEdge.Core;
 var json = new JsonSerializerOptions(TelemetryOutput.Json) { WriteIndented = true };
 if ((args.Length == 5 || args.Length == 7 && args[5] == "grip") && args[0] == "ffb-export")
 {
-    // ffb-export <stage> <new.csv> <strength> <peak> [grip <loadRatio>]
+    // ffb-export <stage-or-case> <new.csv> <strength> <peak> [grip <loadRatio>]
     try { ForceExport.Run(args[1], args[2], float.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture), float.Parse(args[4], System.Globalization.CultureInfo.InvariantCulture),
         args.Length == 7 ? float.Parse(args[6], System.Globalization.CultureInfo.InvariantCulture) : null); return 0; }
     catch (Exception ex) { Console.Error.WriteLine("FORCE EXPORT REFUSED: " + ex.Message); return 2; }

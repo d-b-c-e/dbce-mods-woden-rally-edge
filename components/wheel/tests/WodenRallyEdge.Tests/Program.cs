@@ -619,7 +619,7 @@ Test("actual force controller capture replays active, pause, camera, discontinui
         {
             void Emit(TelemetrySample sample){controller.Tick(sample);output.Publish(sample);}
             for(int i=0;i<60;i++)Emit(Contact(time+=.02));
-            Emit(Contact(time+=.02,state:"paused"));
+            var noSpeed=Contact(time+=.02,state:"paused");noSpeed.Channels.Remove("motion.speed");Emit(noSpeed);
             WodenRallyEdge.MountedCamera.PlayerOwned=false;Emit(Contact(time+=.02));WodenRallyEdge.MountedCamera.PlayerOwned=true;
             var discontinuity=Contact(time+=.02);discontinuity.Discontinuity="wall-time-gap";Emit(discontinuity);
             for(int i=0;i<60;i++)Emit(Contact(time+=.02,slip:-.2));
@@ -630,6 +630,15 @@ Test("actual force controller capture replays active, pause, camera, discontinui
         Check(rows.Any(x=>x.Channels["ffb.modelReason"]==11&&x.Channels["ffb.modelResetAfter"]-x.Channels["ffb.modelResetBefore"]==2),"discontinuity retains model and gate reset ordering");
         Check(rows.Where(x=>x.Channels["ffb.gate"]==1).All(x=>x.Channels["ffb.modelResetAfter"]-x.Channels["ffb.modelResetBefore"]==1),"default no-force gate resets shaping after every valid model sample");
         var prepared=RecordedForceReplay.Reprocess(directory);Check(prepared.DrivingSamples>=120&&prepared.ModelSamples==rows.Length,"actual controller lifecycle recording reprocesses completely");
+        var exported = RecordedForceReplay.ExportTrial(directory, options.Strength, options.PeakPercent, null);
+        Check(exported.Count == rows.Length, "ordinary export keeps every model row");
+        Check(exported.Any(x => x.Eligible) && exported.Any(x => x.Exclusion == "force gate 1") && exported.Any(x => !x.Valid),
+            "ordinary export excludes diagnostic gates and invalid model rows");
+        Check(exported.Any(x=>!x.SpeedKmh.HasValue && !x.Eligible && x.Exclusion=="not driving"),"ordinary missing idle speed is unavailable, never a measured zero");
+        for (int i = 0; i < rows.Length; i++) {
+            Check(Math.Abs(exported[i].Request - rows[i].Channels["ffb.preview"]) < .000002, "ordinary same-tune request preserves the actual lifecycle");
+            Check(exported[i].Epoch == (long)rows[i].Channels["ffb.modelResetBefore"], "ordinary epochs preserve gate reset boundaries");
+        }
     }
     finally
     {
@@ -672,6 +681,9 @@ Test("force model v4 replays through RecordedForceReplay; v4 trials need frictio
         using (var config = JsonDocument.Parse(File.ReadAllText(Path.Combine(v4, "force-config.json"))))
             Check(config.RootElement.GetProperty("version").GetInt32() == 2 && config.RootElement.GetProperty("model").GetString() == "woden-grip-signal@4", "force config v2 declares the grip model");
         var prepared = RecordedForceReplay.Reprocess(v4);
+        var export4 = RecordedForceReplay.ExportTrial(v4, grip.Strength, grip.PeakPercent, grip.LoadRatio);
+        Check(export4.All(x => x.ModelVersion == 4), "ordinary v4 export keeps its recorded model version");
+        Check(export4.Any(x => x.Exclusion == "provisional reference") && export4.Any(x => x.Eligible), "ordinary grip export distinguishes provisional reference");
         Check(prepared.ModelSamples == rows.Length && prepared.DrivingSamples > 100, "a v4 capture replays exactly through the grip model with its recorded reference");
         using (var header = JsonDocument.Parse(File.ReadLines(prepared.ObservationPath).First()))
             Check(header.RootElement.GetProperty("model").GetString() == "woden-grip-signal@4", "observation names the grip model");
@@ -697,6 +709,8 @@ Test("force model v4 replays through RecordedForceReplay; v4 trials need frictio
         string gripCandidate = Path.Combine(v3, "candidate-grip.json"); RecordingArtifacts.WriteForceConfig(gripCandidate, grip);
         bool refused = false; try { RecordedForceReplay.Trial(v3, gripCandidate, Path.Combine(v3, "trial-grip.jsonl")); } catch (IOException ex) { refused = ex.Message.Contains("sideFriction"); }
         Check(refused, "a v4 trial on a capture without friction curves is refused, never filled with default curves");
+        refused = false; try { ForceExport.Run(v3, Path.Combine(v3,"no-curves.csv"),50,25,2); } catch(IOException ex) { refused=ex.Message.Contains("sideFriction"); }
+        Check(refused && !File.Exists(Path.Combine(v3,"no-curves.csv")),"ordinary exporter refuses missing friction curves before writing CSV");
     }
     finally { Directory.Delete(v3, true); }
     // v5 at Steering strength 80 with the wheel moving: its own identity, exact replay, recorded terms, and a v4 trial differs.
@@ -712,6 +726,32 @@ Test("force model v4 replays through RecordedForceReplay; v4 trials need frictio
             Check(config.RootElement.GetProperty("version").GetInt32() == 3 && config.RootElement.GetProperty("model").GetString() == "woden-grip-signal@5", "force config v3 declares grip v5");
         var prepared = RecordedForceReplay.Reprocess(v5);
         Check(prepared.ModelSamples == rows.Length && prepared.DrivingSamples > 100, "a v5 capture replays exactly");
+        var pins = new[] { "source.jsonl", "force-config.json", "capture-profile.json", "case.json", "force-observation.jsonl" }
+            .ToDictionary(n => n, n => RecordingArtifacts.Sha256(Path.Combine(v5,n)));
+        string csv80=Path.Combine(v5,"ordinary-80.csv"), csv0=Path.Combine(v5,"ordinary-0.csv");
+        ForceExport.Run(v5,csv80,80,v5Options.PeakPercent,v5Options.LoadRatio);
+        ForceExport.Run(v5,csv0,0,v5Options.PeakPercent,v5Options.LoadRatio);
+        var exported80=File.ReadAllLines(csv80).Skip(1).Select(l=>l.Split(',')).ToArray();
+        var exported0=File.ReadAllLines(csv0).Skip(1).Select(l=>l.Split(',')).ToArray();
+        Check(exported80.Length==rows.Length && exported0.Length==rows.Length,"ordinary CSV preserves every model row");
+        Check(exported80.Any(r=>r[6]=="1") && exported80.Any(r=>r[6]=="0"),"ordinary CSV labels eligibility instead of losing gated rows");
+        for(int i=0;i<rows.Length;i++) {
+            double Value(string s)=>double.Parse(s,System.Globalization.CultureInfo.InvariantCulture);
+            Check(Math.Abs(Value(exported80[i][4])-rows[i].Channels["ffb.preview"])<.000002,"ordinary CSV replays same-tune preview");
+            Check(Math.Abs(Value(exported80[i][8])-rows[i].Channels["ffb.grip.steering"])<.000002,"ordinary CSV exports actual trial steering");
+            Check(exported0[i][8]=="0" && exported0[i][9]==exported80[i][9],"zero steering trial retains independent damping");
+            Check(exported80[i][10]=="5","ordinary CSV retains v5 identity");
+        }
+        foreach(var pin in pins) Check(RecordingArtifacts.Sha256(Path.Combine(v5,pin.Key))==pin.Value,"ordinary CSV preserves "+pin.Key);
+        string observationText=File.ReadAllText(prepared.ObservationPath);
+        File.WriteAllText(prepared.ObservationPath,System.Text.RegularExpressions.Regex.Replace(observationText,"\"magnitude\":-?[0-9.Ee+-]+","\"magnitude\":0.998"));
+        bool invalidBaseline=false;try{ForceExport.Run(v5,Path.Combine(v5,"invalid-baseline.csv"),50,25,2);}catch(IOException ex){invalidBaseline=ex.Message.Contains("Baseline observation differs");}
+        Check(invalidBaseline&&!File.Exists(Path.Combine(v5,"invalid-baseline.csv")),"ordinary export rejects an altered baseline before writing CSV");
+        File.WriteAllText(prepared.ObservationPath,observationText,new System.Text.UTF8Encoding(false));
+        // A damaged stage cannot become an ordinary case by losing its seal.
+        string stageMarker=Path.Combine(v5,"stage-context.json");File.WriteAllText(stageMarker,"{}");
+        bool damagedStage=false;try{ForceExport.Run(v5,Path.Combine(v5,"damaged-stage.csv"),50,25,2);}catch(IOException){damagedStage=true;}
+        Check(damagedStage&&!File.Exists(Path.Combine(v5,"damaged-stage.csv")),"stage marker without seal refuses ordinary fallback");File.Delete(stageMarker);
         using (var header = JsonDocument.Parse(File.ReadLines(prepared.ObservationPath).First()))
             Check(header.RootElement.GetProperty("model").GetString() == "woden-grip-signal@5", "observation names grip v5");
         string asV4 = Path.Combine(v5, "candidate-v4.json"); RecordingArtifacts.WriteForceConfig(asV4, v5Options with { Model = 4 });
