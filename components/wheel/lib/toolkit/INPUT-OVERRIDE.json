@@ -1,23 +1,35 @@
 {
-  "status": "unpublished input-only component override; toolkit VERSION remains v0.12.0",
+  "status": "unpublished component overrides; toolkit VERSION remains v0.12.0",
   "baseTag": "v0.12.0",
   "baseRevision": "6f9c662e330af1ab790ca291a799265e0a50ef8a",
-  "sourceRevision": "9ad1f64044b57fa05c119697518a47f2a86ba0de",
-  "nativeVersion": 501,
-  "inputCapabilities": 1,
+  "baseTagObject": "d2c747c9cdd1e4b411609bea4787e889156b3479",
+  "managed": {
+    "sourceRevision": "9ad1f64044b57fa05c119697518a47f2a86ba0de",
+    "note": "Dbce.Wheel.Ffb managed wrapper unchanged since the 2026-09 input override"
+  },
+  "native": {
+    "sourceRevision": "c8ec2ee",
+    "sourceBranch": "codex/native-47-retained-guid-20261008",
+    "nativeVersion": 901,
+    "exports": 48,
+    "inputCapabilities": 1,
+    "note": "1f7a971 base + retained strict-identity release/refuse + the 9ad1f64 GetInputCapabilities/160-button legacy ReadDeviceState; built and qualified by Astra, reviewed by Claude 2026-10-08; adopted 2026-10-08 replacing native 0.5.1 a5ed124d"
+  },
   "artifacts": [
     {
       "path": "native/WheelFfb.dll",
-      "sha256": "a5ed124dd49b323e99821e26155c0f2b52901510ed894e4c8abe3c101cd84782"
+      "sha256": "f8361a08bbe08eaab936b37800d308cf1fc7edab34e2839db16a447fe34178c5",
+      "source": "native"
     },
     {
       "path": "dotnet/Dbce.Wheel.Ffb.dll",
-      "sha256": "f5217f81b5bd305e0efca3aacc459b9066c4366cd220c3e4299c511e23b5431a"
+      "sha256": "f5217f81b5bd305e0efca3aacc459b9066c4366cd220c3e4299c511e23b5431a",
+      "source": "managed"
     },
     {
       "path": "dotnet/Dbce.Wheel.Ffb.xml",
-      "sha256": "b23132aa3e3cc5e836cc15e61ba67df81cfcda8b1954c6e328266b5a5e01f2a2"
+      "sha256": "b23132aa3e3cc5e836cc15e61ba67df81cfcda8b1954c6e328266b5a5e01f2a2",
+      "source": "managed"
     }
-  ],
-  "baseTagObject": "d2c747c9cdd1e4b411609bea4787e889156b3479"
+  ]
 }
