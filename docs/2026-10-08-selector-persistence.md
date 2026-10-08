@@ -26,5 +26,18 @@ The old text incorrectly said steering only. Signal arithmetic, channels and
 recording format remain unchanged. `Compare-FfbToArt -Component steering` uses
 the explicit steering component described in FFB-COMPARISON.md.
 
-Source and fixture validation only; packaging, installation and owner rendering
-acceptance are separate. The installed triplesel.1-dev remains the earlier build.
+Claude independently reviewed `4645318`: all 705 panel assertions and 52 other
+suites (37,987 assertions) passed, with no build warnings. He installed that exact
+runtime as **0.2.14-triplesel.2-dev** at 07:53 CT on October 8. ZIP SHA-256:
+`72C4E198D39CBBFF68CFFCE9C74900A98017A2D211A7665484A6465CDA6E1089`.
+
+Independent readback verified all 13 installed payload hashes and the five
+backed-up owner files against the deployment backup; settings were unchanged.
+The exact package also passed all 111 installer fixture checks under Windows
+PowerShell 5.1. Private evidence: `artifacts/selector-independent-install.json`
+and `artifacts/selector-install-ps51.log`. No game or force device was used for
+these checks. Owner rendering acceptance remains pending; the earlier muted
+Kenya replay qualifies the underlying playback/native change, not this new UI.
+
+Low follow-up from review: the next-start help should say that a changed span
+choice may resize the window, rather than implying every choice always resizes.
