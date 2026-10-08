@@ -112,6 +112,9 @@ internal sealed class TransmissionSys {internal bool Changing;}
     internal static class CountdownTimerAssist {internal static string Status=>"Fixture: assist waiting for gameplay";}
     internal static class LeaderboardGuard {internal static string Status=>"Online times: uploaded as normal";}
 internal static class FrameRate {internal static string Summary=>"52 fps average, 1% low 31 fps, worst frame 40 ms";}
+    internal enum TripleMode { Auto, On, Off }
+    internal static class TripleView {internal static TripleMode Mode=TripleMode.Auto;internal static string Status=>"Fixture: window is not three screens wide";}
+    internal static class SpanWindow {internal static bool Enabled=true;internal static string Status=>"Fixture: not needed (no separate triple monitors)";}
     internal static class MountedCamera
     {internal static bool PlayerOwned=true;internal static CameraCycle Cycle=new();internal static string Status=>"Fixture mounted view";internal static CameraPose Pose(bool bumper)=>Runtime.Settings.GetCameraPose(bumper);
      internal static void SavePose(bool bumper,CameraPose pose){Runtime.Settings.SetCameraPose(bumper,pose);if(!bumper)Runtime.Settings.CameraAutoFit=false;}}

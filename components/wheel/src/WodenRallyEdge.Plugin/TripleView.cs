@@ -30,6 +30,8 @@ internal static class TripleView
     private static ConfigEntry<TripleMode> _mode = null!;
     /// <summary>Triples are not turned off (for SpanWindow).</summary>
     internal static bool Allowed => _mode != null && _mode.Value != TripleMode.Off;
+    /// <summary>The saved views setting (F6 Cameras selector, STD-022).</summary>
+    internal static TripleMode Mode { get => _mode?.Value ?? TripleMode.Auto; set { if (_mode != null && _mode.Value != value) _mode.Value = value; } }
     private static ConfigEntry<string> _toggleKey = null!;
     private static ConfigEntry<bool> _centerHud = null!, _matchGameFov = null!, _chaseGameFov = null!;
     private static ConfigEntry<float> _panelWidth = null!, _panelHeight = null!, _eye = null!, _sideAngle = null!, _bezel = null!;

@@ -25,6 +25,7 @@ Test("calibration endpoints, asymmetric centre, inverted pedals and deadzone", (
     var pedal = new AxisCalibration(60000, 1000); Near(pedal.Normalize(60000), 0, "rest"); Near(pedal.Normalize(1000), 1, "full"); Near(pedal.Normalize(30500), .5, "half");
     Check(!new AxisCalibration(1, 1).Valid, "zero span rejected"); Check(!new AxisCalibration(0, 100, 100).Valid, "centre endpoint rejected");
     Check(!new AxisCalibration(0, 100, null, double.NaN).Valid, "NaN deadzone rejected");
+Check(string.Join("|", TripleLayoutChoice.Labels) == "Off|Surround|Separate monitors", "STD-022 selector labels"); Check(TripleLayoutChoice.Current(true, false) == 0 && TripleLayoutChoice.Current(true, true) == 0, "views off wins over a saved span"); Check(TripleLayoutChoice.Current(false, false) == 1 && TripleLayoutChoice.Current(false, true) == 2, "Surround vs Separate"); Check(TripleLayoutChoice.Apply(0) == (true, false) && TripleLayoutChoice.Apply(1) == (false, false) && TripleLayoutChoice.Apply(2) == (false, true), "Off also ends the span at the next start"); for (int tl = 0; tl < 3; tl++) { var tc = TripleLayoutChoice.Apply(tl); Check(TripleLayoutChoice.Current(tc.Off, tc.Span) == tl, "selector round trip " + tl); }
 });
 Test("world finite difference rotated into current local frame", () => {
     var processor = new MotionProcessor(); var q = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 2);

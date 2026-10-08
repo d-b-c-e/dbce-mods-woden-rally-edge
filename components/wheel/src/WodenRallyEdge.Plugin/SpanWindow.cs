@@ -43,6 +43,8 @@ internal static class SpanWindow
     private static bool _maintain;
     private static float _next, _nextCheck;
     internal static string Status { get; private set; } = "not needed";
+    /// <summary>The saved separate-monitor span setting (F6 Cameras selector, STD-022); applies at the next start.</summary>
+    internal static bool Enabled { get => _enabled != null && _enabled.Value; set { if (_enabled != null && _enabled.Value != value) _enabled.Value = value; } }
 
     internal static void Bind(ConfigFile cfg, Func<bool> triplesAllowed)
     {
