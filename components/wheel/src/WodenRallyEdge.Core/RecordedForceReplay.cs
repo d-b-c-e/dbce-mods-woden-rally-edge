@@ -195,6 +195,13 @@ public static class RecordedForceReplay
                 CompareValue(result.Alignment, Required(c, "ffb.alignmentEstimate"), "alignment", row.Sequence);
                 CompareValue(result.Damping, Required(c, "ffb.dampingEstimate"), "damping", row.Sequence);
                 CompareValue(result.Preview, Required(c, "ffb.preview"), "preview", row.Sequence);
+                // The grip model's two pre-clamp terms: required on v5 rows, checked on older rows that carry them (Codex
+                // review of 2d5ab07: otherwise a tampered term would pass while the composed preview still matched).
+                if (useGrip && sameModel && (runOptions.Model == GripSignal.ModelVersion || c.ContainsKey("ffb.grip.steering")))
+                {
+                    CompareValue(grip.LastSteering, Required(c, "ffb.grip.steering"), "grip steering term", row.Sequence);
+                    CompareValue(grip.LastDamping, Required(c, "ffb.grip.dampingTerm"), "grip damping term", row.Sequence);
+                }
             }
             if (verifyRecordedOutputs && sameModel) crash.Check(sample, c, gate, runOptions.Invert, row.Sequence);
             long tick = checked((long)Math.Round(row.ElapsedSeconds * ForceObservationSemantics.TicksPerSecond, MidpointRounding.AwayFromZero));

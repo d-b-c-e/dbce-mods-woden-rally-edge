@@ -716,6 +716,18 @@ Test("force model v4 replays through RecordedForceReplay; v4 trials need frictio
         string asV4 = Path.Combine(v5, "candidate-v4.json"); RecordingArtifacts.WriteForceConfig(asV4, v5Options with { Model = 4 });
         var coupled = RecordedForceReplay.Trial(v5, asV4, Path.Combine(v5, "trial-v4.jsonl"));
         Check(!coupled.Comparison.Equal && coupled.Comparison.CandidateModel == "woden-grip-signal@4", "v4's strength-scaled damping differs from v5 on the same rows");
+        // A tampered pre-clamp term is refused even though the composed preview is untouched. The edit keeps the line's
+        // byte length (one digit), so the recording footer's byte count cannot be what refuses it.
+        string bent = Path.Combine(Path.GetTempPath(), "woden-v5-tampered-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(bent);
+        foreach (string file in new[] { "source.jsonl", "force-config.json", "capture-profile.json" }) File.Copy(Path.Combine(v5, file), Path.Combine(bent, file));
+        string bentPath = Path.Combine(bent, "source.jsonl"), bentText = File.ReadAllText(bentPath);
+        var hit = System.Text.RegularExpressions.Regex.Matches(bentText, "\"ffb.grip.steering\":-?0\\.([1-9])").FirstOrDefault();
+        Check(hit != null, "the v5 capture has a steering term of at least 0.1 to tamper with");
+        int digit = hit!.Groups[1].Index; char flipped = (char)('0' + (bentText[digit] - '0' + 5) % 10);
+        File.WriteAllText(bentPath, bentText[..digit] + flipped + bentText[(digit + 1)..], new System.Text.UTF8Encoding(false));
+        string termMessage = "accepted"; bool termRefused = false;
+        try { RecordedForceReplay.Reprocess(bent); } catch (IOException ex) { termMessage = ex.Message; termRefused = ex.Message.Contains("steering term"); }
+        Check(termRefused, "a tampered v5 steering term is refused: " + termMessage); Directory.Delete(bent, true);
     }
     finally { Directory.Delete(v5, true); }
 });Test("crash stage replays from recorded contacts; tampered contact or cue is refused", () => {

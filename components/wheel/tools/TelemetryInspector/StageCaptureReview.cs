@@ -107,6 +107,10 @@ internal static class StageCaptureReview
             var error = Math.Abs(result.Preview - Get("analysis.force.preview"));
             maxError = Math.Max(maxError, error);
             if (error > .000002) throw new IOException($"Model preview differs at sample {count}: {error:R}");
+            // Grip v5 captures carry the two pre-clamp terms; older grip captures are checked only if they have them.
+            if (options.Grip && (options.Model == GripSignal.ModelVersion || channels.ContainsKey("analysis.force.steering")))
+                foreach (var (key, value) in new[] { ("analysis.force.steering", grip.LastSteering), ("analysis.force.dampingTerm", grip.LastDamping) })
+                    if (Math.Abs(value - Get(key)) > .000002) throw new IOException($"Model {key} differs at sample {count}");
             if (result.Valid) valid++;
             if (result.Valid && (!options.Grip || reference!.Kind == FrontLoadReferenceKind.Driving)) qualified++;
             if (result.Preview != 0) nonzero++;

@@ -87,6 +87,7 @@ internal static class StagePlayback
             sample.Add("analysis.force.valid", analysis.Valid ? 1 : 0);
             sample.Add("analysis.force.reset", options.Grip ? AnalysisGrip.ResetCount : AnalysisForce.ResetCount);
             sample.Add("analysis.force.modelVersion", options.Model);
+            if (options.Grip) { sample.Add("analysis.force.steering", AnalysisGrip.LastSteering); sample.Add("analysis.force.dampingTerm", AnalysisGrip.LastDamping); }
             _signals.Publish(sample);
             _signalCount++;
         }

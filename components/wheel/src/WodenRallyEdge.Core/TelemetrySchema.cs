@@ -24,7 +24,7 @@ public static class TelemetrySchema
         Add("ffb.alignmentEstimate", "normalized estimate", "derived", "Contact-weighted tanh(sidewaysSlip/slipScale), divided by reference load; NOT measured rack torque");
         Add("ffb.dampingEstimate", "normalized estimate", "derived", "Calibrated steering velocity damping");
         Add("ffb.preview", "normalized -1..1", "derived", "Toolkit-shaped force preview before output permission/ownership gates");
-        Add("ffb.grip.preview", "normalized -1..1", "derived", "Grip model result this tick (the selected grip version, or the latest when Classic is selected), whether or not it drives the wheel");
+        Add("ffb.grip.preview", "normalized -1..1", "derived", "Grip model result this tick (the selected grip version, or the latest when Classic is selected), whether or not it drives the wheel. Only the selected model qualifies a capture; a Classic-selected shadow is diagnostic");
         Add("ffb.grip.steering", "normalized", "derived", "Grip model tyre (steering) term of ffb.grip.preview before the final clamp: smoothed tyre force at the Steering strength gain, start ramp included");
         Add("ffb.grip.dampingTerm", "normalized", "derived", "Grip model damping term of ffb.grip.preview before the final clamp, at its own gain (v4 also scaled it by Strength), start ramp included");
         Add("ffb.grip.valid", "bool", "derived", "The grip model had valid inputs this tick");
@@ -60,6 +60,8 @@ public static class TelemetrySchema
         Add("analysis.force.preview", "normalized -1..1", "derived", "Developer stage capture only: independent history of the selected model (ForceSignal@3 or GripSignal@4/@5, see analysis.force.modelVersion) without device delivery gates; not physical output");
         Add("analysis.force.valid", "boolean 0/1", "derived", "Independent analysis force model accepted the recorded inputs");
         Add("analysis.force.reset", "count", "derived", "Independent analysis force model reset epoch");
+        Add("analysis.force.steering", "normalized", "derived", "Developer stage capture only, grip models: the tyre (steering) term of analysis.force.preview before the final clamp");
+        Add("analysis.force.dampingTerm", "normalized", "derived", "Developer stage capture only, grip models: the damping term of analysis.force.preview before the final clamp");
         Add("analysis.force.modelVersion", "integer", "setting", "3 = classic ForceSignal, 4 = GripSignal v4 (Strength also scales damping), 5 = GripSignal v5 (Strength scales the tyre force only)");
         Add("ffb.modelValid", "boolean 0/1", "derived", "Actual ForceSignal accepted the current recorded model inputs");
         Add("ffb.modelReason", "enum", "derived", "Stable ForceSignal reason code; see RECORDED-PLAYBACK.md");

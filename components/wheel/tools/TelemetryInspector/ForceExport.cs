@@ -25,7 +25,9 @@ internal static class ForceExport
         }
         var signal = new ForceSignal(); signal.Reset();
         var grip = new GripSignal(); grip.NewCar();
-        var csv = new StringBuilder("time_s,epoch,valid,speed_kmh,request,model,eligible,exclusion\n");
+        // steering/damping are the evaluated trial's own pre-clamp terms (grip models; empty for classic), never the
+        // recorded ones: a strength override changes the steering term (Codex review of 2d5ab07).
+        var csv = new StringBuilder("time_s,epoch,valid,speed_kmh,request,model,eligible,exclusion,steering,damping,model_version\n");
         foreach (var record in SessionReader.Read(Path.Combine(directory, "source.jsonl")))
         {
             if (record.Kind != SessionRecordKind.Sample) continue;
@@ -52,7 +54,9 @@ internal static class ForceExport
             csv.AppendLine(string.Join(",", new[] { row.ElapsedSeconds.ToString("R", CultureInfo.InvariantCulture),
                 (options.Grip ? grip.ResetCount : signal.ResetCount).ToString(CultureInfo.InvariantCulture), result.Valid ? "1" : "0",
                 (Math.Abs(v["motion.speed"]) * 3.6).ToString("R", CultureInfo.InvariantCulture), result.Preview.ToString("R", CultureInfo.InvariantCulture),
-                options.Grip ? "grip" : "classic", exclusion.Length == 0 ? "1" : "0", exclusion }));
+                options.Grip ? "grip" : "classic", exclusion.Length == 0 ? "1" : "0", exclusion,
+                options.Grip ? grip.LastSteering.ToString("R", CultureInfo.InvariantCulture) : "", options.Grip ? grip.LastDamping.ToString("R", CultureInfo.InvariantCulture) : "",
+                options.Model.ToString(CultureInfo.InvariantCulture) }));
         }
         ArtifactSeal.Verify(directory, "source.jsonl", "force-config.json", "stage-context.json", "channels.json");
         if (ArtifactSeal.Hash(Path.Combine(directory, "complete.tsv")) != sealHash) throw new IOException("Capture seal changed during force export");
