@@ -80,7 +80,7 @@ internal static class StagePlayback
         {
             if (_signalCount != Session.Samples - 1) throw new IOException("Source sample does not match the next recorded pose");
             sample.Add("capture.trajectoryIndex", _signalCount);
-            // The selected model (classic v3 or grip v4), independent of the muted output gate.
+            // The selected model (classic v3 or grip v4/v5), independent of the muted output gate.
             var options = Runtime.Settings.ForceOptions;
             var analysis = options.Grip ? AnalysisGrip.Evaluate(sample, options, Runtime.Force?.GripReference) : AnalysisForce.Evaluate(sample, options);
             sample.Add("analysis.force.preview", analysis.Preview);
@@ -149,7 +149,7 @@ internal static class StagePlayback
             var properties = new Dictionary<string, string> { ["capability"] = "signal-reprocess", ["physicalOutput"] = "false", ["captureSource"] = "live-physics",
                 ["gameAssemblySha256"] = GameHash, ["pluginSha256"] = RecordingArtifacts.Sha256(typeof(Plugin).Assembly.Location),
                 ["forceConfigSha256"] = RecordingArtifacts.Sha256(Path.Combine(directory, "force-config.json")),
-                ["analysisForce"] = (Runtime.Settings.ForceOptions.Grip ? "Independent GripSignal@4 history, using the recorded production front-load reference" : "Independent ForceSignal@3 history") +
+                ["analysisForce"] = (Runtime.Settings.ForceOptions.Grip ? $"Independent GripSignal@{Runtime.Settings.ForceOptions.Model} history, using the recorded production front-load reference" : "Independent ForceSignal@3 history") +
                     "; steering only; no delivery gates or device writes; actual ffb.* and crash.* streams remain separate",
                 ["posePhase"] = "MainCar.FixedUpdate.prefix; signals from postfix before Unity solve",
                 ["alignment"] = "capture.trajectoryIndex is the zero-based trajectory row; sample.simulationSeconds is the absolute physics clock" };

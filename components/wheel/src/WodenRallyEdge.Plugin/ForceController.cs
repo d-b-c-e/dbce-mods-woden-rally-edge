@@ -17,7 +17,7 @@ internal interface IForceDevice
 internal sealed class ForceController
 {
     private readonly ForceSignal _signal = new();
-    // Force model 4 (Grip): evaluated every tick so its front-load reference stays current; drives the wheel when selected.
+    // The grip model (v5, or v4 for its recordings): evaluated every tick so its front-load reference stays current; drives the wheel when selected.
     private readonly GripSignal _grip = new();
     private int _carId, _carEpoch;
     internal string GripStatus { get; private set; } = "waiting for driving";
@@ -221,6 +221,7 @@ internal sealed class ForceController
         sample.Add("ffb.grip.previousOutput", _grip.PreviousOutput); sample.Add("ffb.grip.reference", _grip.ReferenceUsed);
         sample.Add("ffb.grip.referenceKind", (int)reference.Kind); sample.Add("ffb.grip.referenceChanges", reference.Changes); sample.Add("ffb.grip.carEpoch", _carEpoch);
         sample.Add("ffb.grip.preview", grip.Preview); sample.Add("ffb.grip.valid", grip.Valid ? 1 : 0); sample.Add("ffb.grip.curveEstimateVersion", 1);
+        sample.Add("ffb.grip.steering", _grip.LastSteering); sample.Add("ffb.grip.dampingTerm", _grip.LastDamping);
         _capture?.Emit("model", "evaluated", command: BitConverter.SingleToInt32Bits(Last.Preview), result: Last.Valid, before: resetBefore, after: ResetCount(options),
             simulation: sample.SimulationSeconds, elapsed: sample.ElapsedSeconds);
         sample.Add("ffb.frontLoad", Last.FrontLoad); sample.Add("ffb.alignmentEstimate", Last.Alignment); sample.Add("ffb.dampingEstimate", Last.Damping);

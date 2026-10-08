@@ -13,17 +13,17 @@ internal static class StageCaptureReview
         var c = config.RootElement;
         int version = c.GetProperty("version").GetInt32();
         var keys = new HashSet<string>(new[] { "schema", "version", "model", "strengthPercent", "peakPercent", "loadReference", "slipScale", "smoothingMs", "damping", "invert" });
-        if (version == 2) { keys.Add("loadRatio"); keys.Add("gripSmoothing"); }
+        if (version is 2 or 3) { keys.Add("loadRatio"); keys.Add("gripSmoothing"); }
         foreach (var property in c.EnumerateObject())
             if (!keys.Remove(property.Name)) throw new IOException("Unknown/duplicate force config key: " + property.Name);
         if (keys.Count != 0) throw new IOException("Missing force config keys");
-        if (c.GetProperty("schema").GetString() != "woden.force-config" || version is not (1 or 2) ||
-            c.GetProperty("model").GetString() != (version == 2 ? ForceObservationSemantics.GripModel : ForceObservationSemantics.Model))
+        if (c.GetProperty("schema").GetString() != "woden.force-config" || version is not (1 or 2 or 3) ||
+            c.GetProperty("model").GetString() != ForceObservationSemantics.ModelId(ForceObservationSemantics.ModelForConfigVersion(version)))
             throw new IOException("Unsupported force model");
         var options = new ForceOptions(c.GetProperty("strengthPercent").GetSingle(), c.GetProperty("peakPercent").GetSingle(),
             c.GetProperty("loadReference").GetSingle(), c.GetProperty("slipScale").GetSingle(),
             c.GetProperty("smoothingMs").GetSingle(), c.GetProperty("damping").GetSingle(), c.GetProperty("invert").GetBoolean());
-        if (version == 2) options = options with { Model = GripSignal.ModelVersion,
+        if (version >= 2) options = options with { Model = ForceObservationSemantics.ModelForConfigVersion(version),
             LoadRatio = c.GetProperty("loadRatio").GetSingle(), GripSmoothing = c.GetProperty("gripSmoothing").GetSingle() };
         if (new[] { options.Strength, options.PeakPercent, options.LoadReference, options.SlipScale, options.SmoothingMs, options.Damping,
             options.LoadRatio, options.GripSmoothing }.Any(x => !float.IsFinite(x)) || options.LoadReference <= 0 || options.SlipScale <= 0 ||
@@ -82,7 +82,7 @@ internal static class StageCaptureReview
             var capturedOptions = new ForceOptions((float)Get("ffb.tuning.strengthPercent"), (float)Get("ffb.tuning.peakPercent"),
                 (float)Get("ffb.tuning.loadReference"), (float)Get("ffb.tuning.slipScale"), (float)Get("ffb.tuning.smoothingMs"),
                 (float)Get("ffb.tuning.damping"), Get("ffb.tuning.invert") == 1);
-            if (options.Grip) capturedOptions = capturedOptions with { Model = GripSignal.ModelVersion,
+            if (options.Grip) capturedOptions = capturedOptions with { Model = options.Model,
                 LoadRatio = (float)Get("ffb.tuning.loadRatio"), GripSmoothing = (float)Get("ffb.tuning.gripSmoothing") };
             if (capturedOptions != options || Get("ffb.tuning.modelVersion") != options.Model || Get("ffb.tuning.invert") is not (0 or 1))
                 throw new IOException("Capture tune changed; split into stable configuration cases");

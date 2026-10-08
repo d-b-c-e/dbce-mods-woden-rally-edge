@@ -220,7 +220,32 @@ Test("grip model v4: reference rules, measuring, missing friction curve and mode
     Check(new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(old, false)).FfbModel == "Classic", "an existing install keeps Classic: no silent model switch");
     string chosen = Path.Combine(Path.GetTempPath(), "woden-chosen-" + Guid.NewGuid().ToString("N") + ".cfg"); File.WriteAllText(chosen, "[ForceFeedback]\nStrengthPercent = 50\nModel = Grip\n");
     Check(new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(chosen, false)).FfbModel == "Grip", "a saved Grip choice is kept");
-});Test("H-pattern: a gate steps the game's own shift actions, one press at a time, never during a change", () => {
+});
+Test("grip model v5: Steering strength scales the tyre force only; v4 keeps its coupled damping for replay", () => {
+    Check(GripSignal.ModelVersion == 5 && GripSignal.IsGripModel(4) && GripSignal.IsGripModel(5) && !GripSignal.IsGripModel(3), "grip models are 4 and 5; 5 is the latest");
+    Check(new ForceOptions(Model: 5).Grip && new ForceOptions(Model: 4).Grip && !new ForceOptions(Model: 3).Grip, "ForceOptions.Grip covers v4 and v5");
+    Check(ForceObservationSemantics.ModelId(5) == "woden-grip-signal@5" && ForceObservationSemantics.ModelId(4) == "woden-grip-signal@4" &&
+        ForceObservationSemantics.ConfigVersion(5) == 3 && ForceObservationSemantics.ModelForConfigVersion(2) == 4 && ForceObservationSemantics.ModelForConfigVersion(3) == 5, "v5 has its own identity and force-config version");
+    bool refused = false; try { ForceObservationSemantics.ModelId(6); } catch (IOException) { refused = true; } Check(refused, "an unknown model version is refused");
+    // The same tyre inputs with the wheel moving every tick: at 50 the versions agree; at 100 only v4 doubles the damping.
+    (float Preview, float Steering, float Damping) Run(int model, float strength)
+    {
+        var g = new GripSignal(); var o = new ForceOptions(Strength: strength, Model: model, GripSmoothing: 0, Damping: .2f); ForceResult? r = null;
+        for (int i = 0; i < 160; i++) { var s = GripSample(i * .02, .12, 10000, 40); s.Channels["wheelInput.steer"] = Math.Sin(i * .3) * .5; r = g.Evaluate(s, o); }
+        Check(r!.Valid, "the fixture drives a valid grip model");
+        return (r.Preview, g.LastSteering, g.LastDamping);
+    }
+    var v4at50 = Run(4, 50); var v5at50 = Run(5, 50); var v4at100 = Run(4, 100); var v5at100 = Run(5, 100);
+    Check(v4at50 == v5at50, "at Steering strength 50 v4 and v5 are identical");
+    Check(Math.Abs(v5at50.Damping) > 1e-4 && Math.Abs(v5at50.Steering) > 1e-3, "the fixture exercises both terms");
+    Near(v5at100.Steering, 2 * v5at50.Steering, "the tyre term scales with Steering strength", 1e-5);
+    Near(v5at100.Damping, v5at50.Damping, "v5: Steering strength does not scale the damping", 1e-6);
+    Near(v4at100.Damping, 2 * v4at50.Damping, "v4: Strength still scales the damping (exact replay of v4 recordings)", 1e-6);
+    Near(v5at100.Preview, Math.Clamp(v5at100.Steering + v5at100.Damping, -1, 1), "the preview is the clamped sum of the two recorded terms", 1e-5);
+    var fresh = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(Path.Combine(Path.GetTempPath(), "woden-v5-" + Guid.NewGuid().ToString("N") + ".cfg"), false));
+    Check(fresh.ForceOptions.Model == 5 && fresh.FfbModel == "Grip", "a fresh config runs grip v5");
+});
+Test("H-pattern: a gate steps the game's own shift actions, one press at a time, never during a change", () => {
     var h = new HPatternShifter(); double now = 0; int gear = 1, presses = 0; bool held = false;
     // Drive the policy against a fake gearbox that changes gear on each new press after a 0.1 s change.
     double changingUntil = -1;
@@ -673,6 +698,26 @@ Test("force model v4 replays through RecordedForceReplay; v4 trials need frictio
         Check(refused, "a v4 trial on a capture without friction curves is refused, never filled with default curves");
     }
     finally { Directory.Delete(v3, true); }
+    // v5 at Steering strength 80 with the wheel moving: its own identity, exact replay, recorded terms, and a v4 trial differs.
+    TelemetrySample Steered(double time, double slip) { var s = Curved(time, slip); s.Channels["wheelInput.steer"] = Math.Sin(time * 9) * .4; return s; }
+    var v5Options = new ForceOptions(Strength: 80, Model: 5, Damping: .2f);
+    string v5 = Capture("v5", v5Options, Steered);
+    try
+    {
+        var rows = SessionReader.Read(Path.Combine(v5, "source.jsonl")).Where(x => x.Kind == SessionRecordKind.Sample).Select(x => x.Sample).ToArray();
+        Check(rows.All(r => r.Channels["ffb.tuning.modelVersion"] == 5) && rows.Any(r => Math.Abs(r.Channels["ffb.grip.dampingTerm"]) > 1e-4), "the controller recorded v5 with a damping term");
+        Check(rows.All(r => Math.Abs(r.Channels["ffb.grip.preview"] - Math.Clamp(r.Channels["ffb.grip.steering"] + r.Channels["ffb.grip.dampingTerm"], -1, 1)) < 1e-5), "the recorded steering and damping terms compose the grip preview");
+        using (var config = JsonDocument.Parse(File.ReadAllText(Path.Combine(v5, "force-config.json"))))
+            Check(config.RootElement.GetProperty("version").GetInt32() == 3 && config.RootElement.GetProperty("model").GetString() == "woden-grip-signal@5", "force config v3 declares grip v5");
+        var prepared = RecordedForceReplay.Reprocess(v5);
+        Check(prepared.ModelSamples == rows.Length && prepared.DrivingSamples > 100, "a v5 capture replays exactly");
+        using (var header = JsonDocument.Parse(File.ReadLines(prepared.ObservationPath).First()))
+            Check(header.RootElement.GetProperty("model").GetString() == "woden-grip-signal@5", "observation names grip v5");
+        string asV4 = Path.Combine(v5, "candidate-v4.json"); RecordingArtifacts.WriteForceConfig(asV4, v5Options with { Model = 4 });
+        var coupled = RecordedForceReplay.Trial(v5, asV4, Path.Combine(v5, "trial-v4.jsonl"));
+        Check(!coupled.Comparison.Equal && coupled.Comparison.CandidateModel == "woden-grip-signal@4", "v4's strength-scaled damping differs from v5 on the same rows");
+    }
+    finally { Directory.Delete(v5, true); }
 });Test("crash stage replays from recorded contacts; tampered contact or cue is refused", () => {
     string directory = Path.Combine(Path.GetTempPath(), "woden-crash-replay-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
     var options = new ForceOptions(); string config = RecordingArtifacts.WriteForceConfig(Path.Combine(directory, "force-config.json"), options);

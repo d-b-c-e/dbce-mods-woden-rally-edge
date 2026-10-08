@@ -49,13 +49,16 @@ public sealed class FrontLoadReference
     }
 }
 /// <summary>
-/// Force model version 4, "Grip": art of rally's model from the shared toolkit (<see cref="AxleForceCurve"/>, STD-025) on
+/// The grip force model, versions 4 and 5: art of rally's model from the shared toolkit (<see cref="AxleForceCurve"/>, STD-025) on
 /// Woden's front tyres. The front lateral force is rebuilt per grounded front wheel from what the game's own
 /// WheelCollider uses: contact load x the sideways friction curve at |sidewaysSlip| x its stiffness (the curve is read
 /// live, because the game varies it). The trail input is the slip relative to that curve's peak, so the wheel lightens
 /// past peak grip as in art of rally. Full scale is LoadRatio x the mean driving front load; gain is Strength / 50
 /// as in every mod (STD-003), the scale art of rally uses at 50 (STD-021; matching its level is still being calibrated). No 25% cap: that belongs to
-/// the classic estimate (version 3), which stays selectable and unchanged.
+/// the classic estimate (version 3), which stays behind the config key and unchanged.
+/// Version 5 (STD-027, 2026-10-08) is version 4 with one difference: Strength scales only the tyre force, so the
+/// steering damping keeps its own gain instead of also scaling with Strength. At Strength 50 the two are identical.
+/// Version 4 stays evaluable so its recordings replay exactly.
 /// </summary>
 /// <remarks>
 /// The friction curve is estimated through (0,0), the extremum and the asymptote (<see cref="Curve"/>); Unity's
@@ -63,7 +66,11 @@ public sealed class FrontLoadReference
 /// </remarks>
 public sealed class GripSignal
 {
-    public const int ModelVersion = 4;
+    /// <summary>The latest grip model: Strength scales only the tyre force (STD-027).</summary>
+    public const int ModelVersion = 5;
+    /// <summary>The first grip model: Strength also scaled the damping term. Kept for exact replay of its recordings.</summary>
+    public const int CoupledDampingVersion = 4;
+    public static bool IsGripModel(int model) => model is CoupledDampingVersion or ModelVersion;
     private const float PeakSlipDeg = 8f;
     public readonly FrontLoadReference Reference = new();
     /// <summary>Force ramps in over this long after a reset (unpause, stage start), as the classic shaper does.</summary>
@@ -74,6 +81,10 @@ public sealed class GripSignal
     /// <summary>Output before the last evaluation, and the reference load it used, for recordings.</summary>
     public float PreviousOutput { get; private set; }
     public double ReferenceUsed { get; private set; }
+    /// <summary>The two terms of the last preview before the final clamp, ramp included: the tyre (steering) force at the
+    /// strength gain, and the damping term at its own gain. Recorded so normalization can compare tyre force alone.</summary>
+    public float LastSteering { get; private set; }
+    public float LastDamping { get; private set; }
 
     // Woden's Stop() resets the model on every non-driving tick; the reference is kept for the car.
     public void Reset() { _time = null; _steer = null; _rampStart = null; _output = 0; ResetCount++; }
@@ -101,7 +112,7 @@ public sealed class GripSignal
     public ForceResult Evaluate(TelemetrySample s, ForceOptions options, FrontLoadReference? shared = null)
     {
         var reference = shared ?? Reference;
-        PreviousOutput = _output; ReferenceUsed = reference.Load;
+        PreviousOutput = _output; ReferenceUsed = reference.Load; LastSteering = LastDamping = 0;
         ForceResult Stop(string why) { Reset(); return new(false, why, 0, 0, 0, 0); }
         double time = s.SimulationSeconds;
         bool motion = s.Channels.TryGetValue("motion.speed", out double speed) && double.IsFinite(speed) && speed >= 0 &&
@@ -165,7 +176,11 @@ public sealed class GripSignal
         // of 82f2812: a stationary steering motion wrote -0.5).
         float fade = AxleForceCurve.SmoothStep01((float)((speed * 3.6 - AxleForceCurve.FadeStartKmh) / (AxleForceCurve.FadeFullKmh - AxleForceCurve.FadeStartKmh)));
         float d = (options.Invert ? -damping : damping) * fade;
-        float preview = Math.Clamp((_output + d * gain) * ramp, -1f, 1f);
+        // Version 4 scaled the damping with Strength; from version 5 Strength is the steering (tyre) strength only, and a
+        // Classic-selected shadow evaluation (model 3) follows the latest grip model.
+        float dampingGain = options.Model == CoupledDampingVersion ? gain : 1f;
+        LastSteering = _output * ramp; LastDamping = d * dampingGain * ramp;
+        float preview = Math.Clamp((_output + d * dampingGain) * ramp, -1f, 1f);
         return new(true, speed * 3.6 < 3 ? "low-speed fade" : "grip model", (float)load, target, damping, preview);
     }
 }

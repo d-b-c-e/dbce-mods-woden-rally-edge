@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Force model **Grip version 5** is the default (STD-027, 2026-10-08): **Steering strength** scales only the tyre force, cornering resistance and return to centre. The steering damping keeps its own gain; in version 4 it also scaled with Strength. At Steering strength 50 the two versions are identical. Recordings declare `woden-grip-signal@5` (force config version 3), and version 4 recordings still replay exactly with version 4 arithmetic. New recorded channels `ffb.grip.steering` and `ffb.grip.dampingTerm` hold the two terms before the final clamp, so normalization can compare the tyre force on its own.
+- F6 FFB shows one force model with no selector, and its text no longer names other mods (STD-026). Steering strength and the crash kick (toggle and Crash strength) are both on the Simple page (STD-027). A saved Classic choice is kept and F6 says so; Reset FFB tuning in Advanced switches to the current model. Classic's own sliders (peak cap, smoothing in ms, reference front load, slip scale) appear only while Classic is active.
+
 ### Added
 
 - H-pattern shifting (owner work stream; F6 Controls > Shifter bindings: Gear 1-6 and Gear R, any device). Hold a gate and the mod steps the game's own Shift up / Shift down, one press at a time and never during a gear change, until the gear matches; a gate above the car's gears selects its top gear. Woden has no neutral or reverse gear, so out of gear cuts the drive, and R selects first gear and swaps the pedals (Woden reverses on the brake at a standstill). Needs the game's manual transmission; with automatic the shifter does nothing and says so. The sequential Shift up/down buttons keep working. Clutch is not routed. Not yet tried on the rig.

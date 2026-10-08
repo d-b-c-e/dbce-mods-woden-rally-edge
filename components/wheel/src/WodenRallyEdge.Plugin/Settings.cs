@@ -40,7 +40,7 @@ public sealed class Settings
     {
         _config = config; _config.SaveOnConfigSet = false;
         // An existing install keeps the model it was tuned with (Classic v3, Strength / 100 with the peak cap); only a new
-        // config starts on Grip v4. Never switch a saved owner model silently (Codex design review 2026-10-07).
+        // config starts on Grip (v5). Never switch a saved owner model silently (Codex design review 2026-10-07; STD-026).
         bool keepClassic = SavedFfbWithoutModel(_config.ConfigFilePath);
         Sync(true);
         if (keepClassic) FfbModel = "Classic";
@@ -133,17 +133,17 @@ public sealed class Settings
         Item("Display", "ShowFrameRate", ref ShowFrameRate, "Draw the frame rate (current fps and the 1% low of the last 10 s) at the top right of the centre screen (STD-023). Default Off.");
         Item("ForceFeedback", "Enabled", ref FfbEnabled, "Saved FFB On/Off preference. Feedback starts only during valid player driving. F8 saves Off.");
         Item("ForceFeedback", "DeviceGuid", ref FfbGuid, "Exact FFB wheel GUID selected in F6; no fallback.");
-        Item("ForceFeedback", "StrengthPercent", ref FfbStrength, "Overall strength, default 50%. Original output gain restored; no additional reduction.");
-        Item("ForceFeedback", "CrashEnabled", ref CrashEnabled, "Crash kick: art of rally's cue (a short push plus a 25 Hz rattle) when the car hits something. Default On.");
-        Item("ForceFeedback", "CrashStrengthPercent", ref CrashStrength, "Crash kick strength, percent of full force for the hardest hit; independent of Strength and the peak cap, as in art of rally. Default 50.");
-        Item("ForceFeedback", "Model", ref FfbModel, "Grip (default): art of rally's force model from the toolkit on the front tyres' lateral force, rebuilt from the game's tyre friction; the wheel lightens as the front slides. It uses art of rally's strength scale (Strength / 50); matching art of rally's level is still being calibrated. Classic: the earlier contact-weighted slip estimate with its peak cap.");
-        Item("ForceFeedback", "GripLoadRatio", ref FfbLoadRatio, "Grip: full scale as a multiple of the mean driving front load, 0.2..10; higher is lighter. Default 2 (art of rally: 11,500 N for about 5,600 N of front load); calibration pending.");
-        Item("ForceFeedback", "GripSmoothing", ref FfbGripSmoothing, "Grip: smoothing per update, 0..0.95; default 0.2 as in art of rally.");
+        Item("ForceFeedback", "StrengthPercent", ref FfbStrength, "Steering strength, 0..100%, default 50: cornering resistance and return to centre from the front tyres. Crash strength and steering damping are separate (the earlier Classic model also scales its damping).");
+        Item("ForceFeedback", "CrashEnabled", ref CrashEnabled, "Crash kick: a short push plus a 25 Hz rattle when the car hits something. Default On.");
+        Item("ForceFeedback", "CrashStrengthPercent", ref CrashStrength, "Crash kick strength, percent of full force for the hardest hit; independent of Steering strength and the peak cap. Default 50.");
+        Item("ForceFeedback", "Model", ref FfbModel, "Grip (default): the front tyres' force rebuilt from the game's tyre friction; the wheel lightens as the front slides, and Steering strength scales the tyre force only. Classic: the earlier contact-weighted slip estimate with its peak cap, kept for comparisons and not offered in F6. A saved Classic choice is kept until Grip is tuned for this game.");
+        Item("ForceFeedback", "GripLoadRatio", ref FfbLoadRatio, "Grip: full force at Steering strength 50 as a multiple of the mean driving front load, 0.2..10; higher is lighter. Default 2; calibration pending.");
+        Item("ForceFeedback", "GripSmoothing", ref FfbGripSmoothing, "Grip: smoothing per update, 0..0.95; default 0.2.");
         Item("ForceFeedback", "PeakPercent", ref FfbPeak, "Classic only: hard peak cap, 0..50% of the device nominal range.");
         Item("ForceFeedback", "LoadReference", ref FfbLoadReference, "Estimated tyre-signal normalization reference in Unity force units; uncalibrated.");
         Item("ForceFeedback", "SlipScale", ref FfbSlipScale, "Unity sideways-slip scale for the provisional aligning estimate.");
         Item("ForceFeedback", "SmoothingMs", ref FfbSmoothing, "Shared toolkit output smoothing time constant.");
-        Item("ForceFeedback", "Damping", ref FfbDamping, "Damping from calibrated steering movement. No input binding means no damping component.");
+        Item("ForceFeedback", "Damping", ref FfbDamping, "Steering damping from calibrated steering movement, 0..0.5; with Grip it has its own gain, independent of Steering strength. No input binding means no damping component.");
         Item("ForceFeedback", "Invert", ref FfbInvert, "Reverse output sign; stop the car before changing.");
     }
 }

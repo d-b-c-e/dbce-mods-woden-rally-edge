@@ -20,9 +20,9 @@ public static class RecordingArtifacts
         using (var writer = new Utf8JsonWriter(memory, WriterOptions))
         {
             writer.WriteStartObject();
-            // Version 2 declares the grip model (v4); version 1 readers refuse it instead of validating it as the classic model.
-            writer.WriteString("schema", "woden.force-config"); writer.WriteNumber("version", options.Grip ? 2 : 1);
-            writer.WriteString("model", options.Grip ? ForceObservationSemantics.GripModel : ForceObservationSemantics.Model);
+            // Version 2 declares grip v4 and version 3 grip v5; older readers refuse them instead of validating them as another model.
+            writer.WriteString("schema", "woden.force-config"); writer.WriteNumber("version", ForceObservationSemantics.ConfigVersion(options.Model));
+            writer.WriteString("model", ForceObservationSemantics.ModelId(options.Model));
             if (options.Grip) { writer.WriteNumber("loadRatio", options.LoadRatio); writer.WriteNumber("gripSmoothing", options.GripSmoothing); }
             writer.WriteNumber("strengthPercent", options.Strength); writer.WriteNumber("peakPercent", options.PeakPercent);
             writer.WriteNumber("loadReference", options.LoadReference); writer.WriteNumber("slipScale", options.SlipScale);
