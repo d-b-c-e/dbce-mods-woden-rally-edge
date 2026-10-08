@@ -17,7 +17,7 @@ the production model with those two overrides. Other saved force parameters and
 reset boundaries are preserved. Existing output files are refused. No native
 device is opened and no game, profile or installed setting changes.
 
-For a Grip v4 trial, supply its reference ratio explicitly:
+For a Grip trial, supply its reference ratio explicitly:
 
 ```powershell
 dotnet run --project components/wheel/tools/TelemetryInspector -c Release -- stage-review $reference
@@ -26,8 +26,10 @@ dotnet run --project components/wheel/tools/TelemetryInspector -c Release -- ffb
 
 Here `2` is the trial load ratio, not a calibrated recommendation. Grip ignores
 the Classic peak argument. Recorded smoothing/damping remain in effect; a
-Classic-to-Grip trial uses Grip smoothing 0.2. New Grip stages dispatch their
-original validation by force-config v2 / model4, restore the production
+Classic-to-Grip trial uses Grip smoothing 0.2 and the latest Grip model (currently
+v5). A Grip capture keeps its recorded version: v4 remains coupled-damping v4;
+v5 keeps independent steering strength. New v5 stages use force-config v3 /
+model5; v4 stages keep force-config v2 / model4. Both restore the production
 front-load reference on every row, and check analysis model, tune, car, curve
 version and reset identity. Existing Classic stages retain v1 / model3 behavior.
 Never replace unavailable historical friction curves with current defaults:
@@ -45,7 +47,15 @@ starts a new force epoch. A changed car or tune requires a separate stage.
 Known-zero references stay zero; invalid/fractional reference kinds are refused.
 Synthetic fixtures remain labelled `synthetic-test` in the stage report.
 
-This validates **steering analysis**, not the crash cue or wheel torque. Original
+The CSV `request` is the selected model's combined steering/damping preview.
+For Grip, `steering` and `damping` are that trial's own pre-clamp terms, not values
+copied from the original tape. In v5, changing Strength changes only steering;
+v4 intentionally retains its old coupled damping law. `model_version` identifies
+which law ran. The hub's `Compare-FfbToArt.ps1 -Component steering` selects the
+explicit steering term for comparison to Art. It refuses a Classic export that
+does not expose that term; it never labels the combined request tyre-only.
+
+This validates **software model analysis**, not the crash cue or wheel torque. Original
 `ffb.*` delivery and `crash.*` replay remain separate. A kinematic route playback
 cannot produce a replacement live-physics force baseline. Collect a new muted
 original drive with real friction curves before calibrating Grip. See the
