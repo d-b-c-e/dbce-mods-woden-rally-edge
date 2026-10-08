@@ -21,8 +21,11 @@ $rigPin = Get-Content (Join-Path (Split-Path $rigScript -Parent) 'rig-lease-prov
 if ($rigPin.schema -ne 'dbce.stage-rig-lease-pin@1' -or (Get-FileHash -LiteralPath $rigScript).Hash -ine $rigPin.sha256) { throw 'Rig lease source pin differs' }
 . $rigScript
 . (Join-Path $PSScriptRoot 'ReplayEnvironment.ps1')
-$Result = [IO.Path]::GetFullPath($Result)
-$GameDir = [IO.Path]::GetFullPath($GameDir)
+# PowerShell's location can differ from the process CWD (especially Start-Job).
+# Resolve caller paths here before passing them to .NET or the native inspector.
+$Result = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Result)
+$GameDir = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($GameDir)
+if ($Recording) { $Recording = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Recording) }
 $control = Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/woden'
 $data = Join-Path $env:USERPROFILE 'AppData/LocalLow/ViJuDa/Super Woden Rally Edge'
 $backup = Join-Path $Result 'owner-before'

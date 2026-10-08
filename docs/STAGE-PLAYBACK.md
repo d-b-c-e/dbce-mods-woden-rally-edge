@@ -32,6 +32,12 @@ From the canonical repository, after building TelemetryInspector:
 
 Choose a new result directory. Recording needs the owner to choose single-player Arcade practice and drive. Playback uses native menu controllers to select the recorded stage/car without manual setup. F12 or Stage-Session Stop terminates the request. Both modes retain original source signals while latching physical wheel/network output off, then save and close normally. Recover an interrupted run only after the game closes, using the same Result with `-RestoreOnly`.
 
+Relative Result, Recording and GameDir paths resolve against the caller's PowerShell
+location, including jobs where the process working directory differs. October 8
+fixed the previous process-CWD resolution; the three production assignments were
+checked with a repository PowerShell location and process CWD `C:\Windows`, then
+with absolute inputs. No game launch, device access or file mutation was needed.
+
 The optional span switch changes only `Triple.SpanSeparateMonitors` after the
 runner has acquired its lease and backed up the owner configuration. It does not
 change Windows display profiles, the saved resolution or the owner's Triple mode.
