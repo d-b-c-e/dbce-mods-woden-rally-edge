@@ -130,3 +130,17 @@ See docs/2026-10-10-profile-controls.md for the source fix and live evidence.
 Observer callbacks now retain state changes and fresh command baselines instead
 of repeating identical values every poll (108 lifecycle assertions). Car-input
 rows remain per-sample. There is no automatic navigation or post-binding input.
+
+Run06 (controls.6) traversed native startup, Arcade car selection/transmission
+and stage introduction to Spain SS1. Raw samples reached the input lease handed
+to native Controls; the camera action logged a cycle. Exact owner restoration
+passed. See the dated review for the tested subset and outstanding gaps.
+
+The `car-input` row means **requested action-table lease**, not independent
+native-car output. The next observer revision adds `native-car`, copied from
+the normal `GameSampler.Read` result after MainCar.FixedUpdate. It includes
+native Controls fields, MainCar fields, camera identity, wheel torque and body
+position, excluding desired `wheelInput.*`. Missing/non-finite values have named
+`Missing` entries rather than invented zeroes. This read-only extension passes
+125 actual-addon lifecycle assertions and 48 exact metadata seams. A failed
+observation ends injection through the existing deferred-stop path.

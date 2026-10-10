@@ -112,6 +112,7 @@ public sealed class ControlsProbe : BasePlugin
             Patch(Method(Hub,"TryAxis"),postfix:nameof(AfterAxis));
             Patch(Method(Wheel,"Button"),postfix:nameof(AfterButton));
             Patch(Method(Wheel,"Apply"),postfix:nameof(AfterApply));
+            Patch(Method(Type("GameSampler"),"Read"),postfix:nameof(AfterSample));
             double remaining=(Request.ExpiresUtc-DateTimeOffset.UtcNow).TotalSeconds;
             if(remaining<=0) throw new InvalidDataException("Cold request expired during admission.");
             Deadline=Clock.Elapsed.TotalSeconds+Math.Min(300,remaining); Armed=true;
@@ -245,6 +246,37 @@ public sealed class ControlsProbe : BasePlugin
             if(applied is not null) Row("car-input",JsonSerializer.Serialize(applied,applied.GetType()));
         }
         catch(Exception ex) { RequestStop("car observation failed: "+ex.Message); }
+    }
+    // Observe the independently sampled native Controls/MainCar fields after
+    // MainCar.FixedUpdate, not WheelInput._last or the desired action values.
+    // Missing/non-finite channels are explicit unknowns, never zero-filled.
+    static readonly string[] NativeChannels = {
+        "controls.steer","controls.throttle","controls.brake","game.handbrake",
+        "game.steer","game.throttle","game.brake","game.trueSpeed","game.gear",
+        "game.status","game.paused","game.locked","game.respawning","game.replay",
+        "camera.mode","camera.stockPreset","camera.mountedView","camera.changing",
+        "motion.position.world.x","motion.position.world.y","motion.position.world.z",
+        "wheel.fl.steerAngle","wheel.fr.steerAngle","wheel.fl.motorTorque","wheel.fr.motorTorque",
+        "wheel.rl.motorTorque","wheel.rr.motorTorque","wheel.fl.brakeTorque","wheel.fr.brakeTorque",
+        "wheel.rl.brakeTorque","wheel.rr.brakeTorque"
+    };
+    static void AfterSample(object __result)
+    {
+        if(!Observing) return;
+        try
+        {
+            var t=__result.GetType();
+            object Get(string name)=>t.GetProperty(name,All)?.GetValue(__result) ?? throw new MissingMemberException("Sample."+name);
+            var source=Get("Channels") as IDictionary<string,double> ?? throw new InvalidDataException("Sample channels changed type.");
+            var channels=new Dictionary<string,double>(StringComparer.Ordinal); var missing=new List<string>();
+            foreach(string name in NativeChannels)
+                if(source.TryGetValue(name,out double v) && double.IsFinite(v)) channels.Add(name,v); else missing.Add(name);
+            Row("native-car",JsonSerializer.Serialize(new {
+                Car=Get("CarInstanceId"),Sequence=Get("Sequence"),At=Get("ElapsedSeconds"),
+                Simulation=Get("SimulationSeconds"),State=Get("State"),Phase=Get("Phase"),Channels=channels,Missing=missing
+            }));
+        }
+        catch(Exception ex) { RequestStop("native car observation failed: "+ex.Message); }
     }
     static void Row(string kind,string data)
     {

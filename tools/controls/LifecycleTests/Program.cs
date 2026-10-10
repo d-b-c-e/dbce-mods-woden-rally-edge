@@ -83,8 +83,32 @@ static class Test
         Check(!Get<bool>("Armed") && !Get<bool>("Closed"),"observation keys bounded with deferred close");Tick();Stopped("key limit");
         Reset("observation");WodenRallyEdge.Runtime.Devices.Devices=new[]{new WodenRallyEdge.DeviceHub.Device()};Call("AfterPoll",WodenRallyEdge.Runtime.Devices);Call("AfterAxis",null,.5f,true);Call("AfterApply",new WodenRallyEdge.WheelInput{_last=new(){Steer=-.5f,Throttle=.5f}});Call("AfterTick");
         Call("Close","done");var trace=File.ReadAllText(Path.Combine(Dir,"observations.tsv"));Check(trace.Contains("injected=True") && trace.Contains("value=0.5") && trace.Contains("\"Steer\":-0.5") && trace.Contains("\"Throttle\":0.5"),"raw normalized and actual applied observations retained");Check(Submitted==0,"observer never submits input");Stopped("normal observation");
+        Reset("native-sample");
+        var sample=new NativeSample();
+        sample.Channels["controls.throttle"]=.125; sample.Channels["game.throttle"]=.1;
+        sample.Channels["wheelInput.throttle"]=1; // Deliberately different desired input: never borrowed as native evidence.
+        sample.Channels["game.brake"]=double.NaN;
+        Call("AfterSample",sample);Call("Close","done");
+        var nativeLine=File.ReadAllLines(Path.Combine(Dir,"observations.tsv")).Single(l=>l.Contains("\tnative-car\t"));
+        using(var doc=JsonDocument.Parse(nativeLine.Split('\t',4)[3])) {
+            var row=doc.RootElement;var ch=row.GetProperty("Channels");
+            Check(ch.GetProperty("controls.throttle").GetDouble()==.125 && ch.GetProperty("game.throttle").GetDouble()==.1,"native values independent of intended input");
+            Check(!ch.TryGetProperty("wheelInput.throttle",out _) && !ch.TryGetProperty("game.brake",out _),"desired and non-finite values never become native observations");
+            var missing=row.GetProperty("Missing").EnumerateArray().Select(x=>x.GetString()).ToArray();
+            Check(missing.Contains("game.brake") && missing.Contains("controls.steer"),"missing and invalid native values explicitly unknown");
+            Check(row.GetProperty("Car").GetInt32()==42 && row.GetProperty("Sequence").GetInt64()==7 && row.GetProperty("Phase").GetString()=="native-postfix","native identity and phase retained");
+        }
+        Check(sample.Channels.Count==4 && sample.Channels["wheelInput.throttle"]==1 && double.IsNaN(sample.Channels["game.brake"]),"read-only observer preserves source sample");
+        Check(Submitted==0,"native observer never submits input");Stopped("native observation");
+        Reset("native-fault");Call("AfterSample",new object());
+        Check(!Get<bool>("Armed") && !Get<bool>("Closed") && WodenRallyEdge.Runtime.Devices.Closes==0,"native observer failure defers closure safely");
+        Tick();Stopped("native observation fault");
         Console.WriteLine($"PASS: {Checks} production-addon lifecycle assertions; private fixture {Base}");
     }
     sealed class BadText {public override string ToString()=>throw new InvalidOperationException("format failed");}
     sealed class ThrowingEnumeration:IEnumerable {public IEnumerator GetEnumerator()=>throw new InvalidOperationException("reader enumeration failed");}
+    sealed class NativeSample {
+        public int CarInstanceId=>42;public long Sequence=>7;public double ElapsedSeconds=>1;public double SimulationSeconds=>.5;
+        public string State=>"driving";public string Phase=>"native-postfix";public Dictionary<string,double> Channels{get;}=new();
+    }
 }

@@ -4,7 +4,7 @@ Installed private candidate **0.2.14-controls.6**, runtime `ac308a6`, thirteen
 payload hashes verified and owner settings preserved. Production Wheelkit Apply
 (frozen `8c7243e`) repairs deliberately wrong steering/Confirm with fixture/live
 parity. Run06 reached Spain SS1 from cold launch through native menus; game-side
-observations matched steering +/-0.5, throttle 0.5/1, brake and handbrake 0.5.
+input leases matched steering +/-0.5, throttle 0.5/1, brake and handbrake 0.5; independent native-car observation follows next.
 No physical output. Exact owner files/preferences restored at 12:07:48Z.
 Camera action logged, rendered camera/aux shifts/full interruption matrix remain
 open. Public release and owner FFB tune unchanged. See

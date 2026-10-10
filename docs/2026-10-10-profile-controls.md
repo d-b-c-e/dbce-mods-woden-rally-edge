@@ -265,7 +265,7 @@ raw commands: those derive independently from the original owner profile.
 - Confirm opens transmission selection and stays there after the held sample;
   a fresh Confirm selects automatic and reaches round information. Confirm
   enters Spain SS1's introduction; a fresh Confirm reaches the real start line.
-- Real car-consumer observations record steering `-0.49998474` / `0.5`, throttle
+- The input lease handed to native Controls records steering `-0.49998474` / `0.5`, throttle
   `0.5` / `1`, brake `0.5` and handbrake `0.5000076`. The half-value plateaus
   each last 29-31 observer rows; values return to their physical baselines.
   Camera button 32 logs a stock-preset cycle, but the timed close precedes its
@@ -280,7 +280,18 @@ defaults; applied bindings stayed byte-exact. The temporary native/probe files
 were restored. The strict byte check still rejects BepInEx's formatting rewrite;
 the separately recorded semantic check plus strict binding check pass.
 
-This proves the tested profile path through menus and sampled driving inputs,
+This proves the tested profile path through menus and the sampled native-input lease,
 not every screen/action/device. Back, vertical car choices, interruption matrix,
 auxiliary sequential/H-pattern shifts, rendered camera and physical owner feel
 remain open. The run did not finish a stage, send wheel forces or tune FFB.
+
+Evidence boundary clarified after review: `car-input` is the existing
+`WheelInput._last` lease, sampled before native Controls consumes it. It cannot
+by itself rule out a later native override. A developer-only observer follow-up
+now records `GameSampler.Read`'s independent `controls.*`, `game.*`, camera,
+wheel-torque and position fields after MainCar.FixedUpdate. It never borrows
+`wheelInput.*`, fills missing channels with zero or mutates the sample.
+125 production-addon lifecycle assertions and 48 exact metadata seams pass,
+including deliberately different desired/native values and unknown channels.
+Native-result qualification awaits the next bounded run; controls.6 player
+payloads are unchanged by this observation extension.

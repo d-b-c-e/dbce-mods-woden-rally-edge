@@ -25,6 +25,14 @@ public static class HookContract
         foreach(var n in new[]{"BeginAxis","BeginButton","FinishAxis","TryCommit","RetrySave"}) Require(T("WheelInput").GetMethod(n,All)!=null,"WheelInput."+n);
         foreach(var n in new[]{"Steer","Throttle","Brake","Handbrake","Car","At"}) Require(T("AppliedInput").GetProperty(n,All)!=null,"AppliedInput."+n);
         Require(T("WheelInput").GetField("_last",All)?.FieldType==T("AppliedInput"),"WheelInput._last");
+        var sampler=T("GameSampler").GetMethod("Read",All);
+        Require(sampler?.ReturnType.FullName=="WodenRallyEdge.Core.TelemetrySample" &&
+            sampler.GetParameters().Select(p=>p.ParameterType.Name).SequenceEqual(new[]{"MainCar","AppliedInput"}),"GameSampler.Read");
+        var sample=sampler!.ReturnType;
+        Require(typeof(IDictionary<string,double>).IsAssignableFrom(sample.GetProperty("Channels")?.PropertyType),"sample.Channels");
+        foreach(var (name,type) in new[]{("CarInstanceId",typeof(int)),("Sequence",typeof(long)),("ElapsedSeconds",typeof(double)),
+            ("SimulationSeconds",typeof(double)),("State",typeof(string)),("Phase",typeof(string))})
+            Require(sample.GetProperty(name)?.PropertyType==type,"sample."+name);
         foreach(var n in new[]{"Settings","Devices","DiagnosticNoForce","_recordLaunch"}) Require(T("Runtime").GetField(n,All)!=null,"Runtime."+n);
         Require(T("Runtime").GetProperty("Focused",All)?.PropertyType==typeof(bool),"Runtime.Focused");
         foreach(var n in new[]{"FfbEnabled","TelemetryEnabled","Record"}) Require(T("Settings").GetField(n,All)?.FieldType==typeof(bool),"Settings."+n);
