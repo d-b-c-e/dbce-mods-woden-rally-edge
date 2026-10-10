@@ -177,4 +177,40 @@ The ordinary Unity dispatcher blocks startup Confirm until release, so a press
 cannot carry into the next menu. 762 production UI assertions cover native
 callback execution, preserved exceptions/state, scoped flag restoration,
 started/imminent demo refusal and held Confirm -> release -> new-menu submit.
-The plugin builds without warnings. Live menu verification remains pending.
+The plugin builds without warnings.
+
+### Installed controls.5 and native menu checks, 06:35–06:43 CT
+
+`c5e8aed` was packaged as `0.2.14-controls.5`, with 52 Core suites / 39,138
+assertions, 762 production UI assertions, 3,896 DeviceHub checks and 114
+PS5.1 exact-package installer checks. All 13 installed payloads match; all
+five owner configuration files were retained byte-exact. controls.3 and
+controls.4 were validated but never installed. Install evidence:
+`results/install-controls.5-20261010`; package evidence:
+`components/wheel/dist/WodenRallyEdge-0.2.14-controls.5.zip.json`.
+
+Both `results/raw-controls-20261010-04` and `-05` ran the production Apply
+chain on frozen Wheelkit `8c7243e`, including deliberately wrong steering
+and Confirm, fixture/live preview and applied-byte parity, and original-profile
+raw commands. The loaded configuration retains every applied value; only the
+four previously documented defaults are added. Bindings remain byte-exact.
+
+- Saved Confirm 31 dismisses DailyMessage; Start 35 advances Title to MapScreen.
+  Both native callbacks log restoration of `ButtonStart=False` afterward.
+- The 500 ms right-hat sample moves the game's selected object from Garage
+  through Workshop to Arcade (native UI repeat). A fresh Confirm opens Arcade
+  route selection; another fresh Confirm opens car selection.
+- **Car selection remains a gap:** its selected EventSystem object is the
+  now-inactive route button. Another Confirm reaches the real wheel consumer
+  but cannot submit this custom screen. No guessed menu presses or driving
+  inputs follow. MenuOwnership's normal `Waiting for stock input producer`
+  status describes F6 masking, not a failed ordinary navigation dispatch;
+  the probe's MenuNavigation status and selected-object trace are the evidence.
+
+Run04: three raw commands / 259 injected reads; normal close and exact owner
+files/preferences restoration at `2026-10-10T11:39:48.1050596Z`.
+Run05: six raw commands / 508 injected reads; normal close and exact restoration
+at `2026-10-10T11:43:24.8276831Z`. Native force is fenced for each whole process,
+with independent FFB/telemetry mute. No physical output or owner acceptance.
+Startup and ordinary menu input are observed; car selection and driving input
+qualification remain open. The temporary probe/native candidate were restored.
