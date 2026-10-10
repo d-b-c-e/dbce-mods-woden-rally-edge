@@ -240,5 +240,47 @@ held Confirm cannot submit the new screen. Postfix and finalizer restore the
 borrowed field; an unacknowledged restore blocks subsequent custom-menu
 callbacks until exact restoration succeeds. 807 production UI assertions cover
 these boundaries, six input fields, native exception preservation, restored
-pre-existing true values, and failed-restoration retry. This candidate is not
-yet installed or live-qualified.
+pre-existing true values, and failed-restoration retry. The following run
+subsequently qualified the stated subset.
+
+### controls.6 production Apply and native input run, 07:02-07:07 CT
+
+Source `ac308a6`, package `0.2.14-controls.6` (ZIP SHA256
+`4C4A806F22E2094DEB0C84E98B44466551EA50466B9290B15A6BF2E535108555`)
+passed the same 52 Core suites / 39,138 assertions, 3,896 DeviceHub checks,
+807 production UI assertions and 114 PS5.1 installer checks. Claude's source
+review (hcom 4661) cleared the callback scope/restoration for a muted live run.
+All 13 installed payloads matched; five owner configuration files were unchanged.
+Install receipt: `results/install-controls.6-20261010`.
+
+`results/raw-controls-20261010-06` again freezes the production Wheelkit writer
+at `8c7243e`, repairs deliberately wrong steering/Confirm, and proves isolated
+fixture/live preview and applied-byte parity. No adapter output supplies the
+raw commands: those derive independently from the original owner profile.
+
+- Confirm 31 -> DailyMessage dismissed; Start 35 -> title to map; hat right ->
+  Arcade; fresh Confirm -> route B -> car selection.
+- One right press changes Aalia Strx to Raven Duckson; one left returns to
+  Aalia Strx. Each native callback logs exact borrowed-field restoration.
+- Confirm opens transmission selection and stays there after the held sample;
+  a fresh Confirm selects automatic and reaches round information. Confirm
+  enters Spain SS1's introduction; a fresh Confirm reaches the real start line.
+- Real car-consumer observations record steering `-0.49998474` / `0.5`, throttle
+  `0.5` / `1`, brake `0.5` and handbrake `0.5000076`. The half-value plateaus
+  each last 29-31 observer rows; values return to their physical baselines.
+  Camera button 32 logs a stock-preset cycle, but the timed close precedes its
+  screenshot, so rendered camera behavior remains unqualified by this run.
+
+Eighteen raw commands and 1,518 injected reads were observed. The native force
+fence and independent FFB/telemetry mute remain active throughout; zero force
+writes and no physical output. Normal bounded exit, exact owner files and raw
+registry restoration completed `2026-10-10T12:07:48.0620520Z`; lease released.
+Applied config values survived BepInEx loading with only the four allowed new
+defaults; applied bindings stayed byte-exact. The temporary native/probe files
+were restored. The strict byte check still rejects BepInEx's formatting rewrite;
+the separately recorded semantic check plus strict binding check pass.
+
+This proves the tested profile path through menus and sampled driving inputs,
+not every screen/action/device. Back, vertical car choices, interruption matrix,
+auxiliary sequential/H-pattern shifts, rendered camera and physical owner feel
+remain open. The run did not finish a stage, send wheel forces or tune FFB.

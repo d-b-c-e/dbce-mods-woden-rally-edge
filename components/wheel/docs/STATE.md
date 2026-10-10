@@ -1,4 +1,16 @@
-# Current recording/playback checkpoint — 2026-10-05
+# Current controls checkpoint â€” 2026-10-10
+
+Installed private candidate **0.2.14-controls.6**, runtime `ac308a6`, thirteen
+payload hashes verified and owner settings preserved. Production Wheelkit Apply
+(frozen `8c7243e`) repairs deliberately wrong steering/Confirm with fixture/live
+parity. Run06 reached Spain SS1 from cold launch through native menus; game-side
+observations matched steering +/-0.5, throttle 0.5/1, brake and handbrake 0.5.
+No physical output. Exact owner files/preferences restored at 12:07:48Z.
+Camera action logged, rendered camera/aux shifts/full interruption matrix remain
+open. Public release and owner FFB tune unchanged. See
+[profile-controls evidence](../../../docs/2026-10-10-profile-controls.md).
+Historical installed-build statements below retain their dates.
+# Current recording/playback checkpoint ï¿½ 2026-10-05
 
 Installed `0.2.14+a628e04c2101866a2a22335004f4f536aa565d93`; package `native-startup-2-dev`, SHA-256 `F74D6B443D91F5AF683915788CC6012ADC73D4C47D2DBA58158E632AC51422F0`. Installation retained owner settings. First native cold playback verified 3,601 poses, recorded cameras, normal exit and exact restoration at 05:20:00 UTC. Owner confirmed playback, but reported single-screen presentation. Ordinary triple launch is still open. No normalization retune or physical force test occurred. See root docs/PUBLIC-RELEASE.md and docs/STAGE-PLAYBACK.md. Historical states below retain their dates.
 
