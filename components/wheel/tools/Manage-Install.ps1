@@ -248,7 +248,14 @@ try {
     $version = if ($Mode -eq 'Install') { (Get-Item -LiteralPath (Join-Path $destination 'WodenRallyEdgeWheel.dll')).VersionInfo.ProductVersion } else { $receipt.version }
     foreach ($entry in $owned) { $expected = if ($Mode -eq 'Install') { $entry.sha256 } else { $null }; Assert-Unchanged (Join-Path $game $entry.path) $expected }
     $stagedReceipt = Join-Path $backup 'new-receipt.json'
-    [ordered]@{ version=$version; installerRevision=3; mode=$Mode; gameDirectory=$game; utc=[DateTime]::UtcNow.ToString('o'); backup=$backup; files=$owned; configurationPreserved=($Mode -ne 'Uninstall' -or -not $RemoveUserData); sharedLoaderRetained=$true; gameLaunched=$false } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $stagedReceipt -Encoding utf8
+    $nextReceipt = [ordered]@{ version=$version; installerRevision=3; mode=$Mode; gameDirectory=$game; utc=[DateTime]::UtcNow.ToString('o'); backup=$backup; files=$owned; configurationPreserved=($Mode -ne 'Uninstall' -or -not $RemoveUserData); sharedLoaderRetained=$true; gameLaunched=$false }
+    if ($Mode -eq 'Install') {
+        # This package consumes the same v1 JSON bindings as F6. Wheelkit must
+        # verify the receipt's core/plugin hashes before trusting this capability.
+        $nextReceipt.controlsProfileSchema = 1
+        $nextReceipt.adapter = 'woden-bindings-1'
+    }
+    $nextReceipt | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $stagedReceipt -Encoding utf8
     Write-Owned $stagedReceipt $receiptPath (File-Hash $stagedReceipt)
 } catch {
     $failure = $_.Exception.Message

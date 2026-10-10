@@ -48,6 +48,7 @@ try {
 $first = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
 Check ($first.files.Count -eq 13 -and $first.mode -eq 'Install' -and -not $first.gameLaunched) 'Install receipt includes playback library, provenance, license and command'
 Check ($first.installerRevision -eq 3) 'Default-root player installer revision'
+Check ($first.controlsProfileSchema -eq 1 -and $first.adapter -eq 'woden-bindings-1') 'Installed controls capability'
 Check ((Hash (Join-Path $plugin 'WodenRallyEdgeWheel.dll')) -eq (Hash (Join-Path $PackageRoot 'BepInEx\plugins\WodenRallyEdgeWheel\WodenRallyEdgeWheel.dll'))) 'Default-root selected wrong package'
 foreach ($entry in $first.files) { Check ((Hash (Join-Path $fixture $entry.path)) -eq $entry.sha256) ('Payload ' + $entry.path) }
 Check ((Get-Content -LiteralPath (Join-Path $config 'BepInEx.cfg') -Raw) -match '(?m)^UnityBaseLibrariesSource\s*=\s*\r?$') 'Loader config'
@@ -188,6 +189,8 @@ try {
 } finally { [IO.File]::WriteAllBytes($packageFile,$packageBytes) }
 
 & $installer -Mode Uninstall -GameDir $fixture
+$removedReceipt = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
+Check (-not $removedReceipt.PSObject.Properties['controlsProfileSchema'] -and -not $removedReceipt.PSObject.Properties['adapter']) 'Uninstall must not advertise installed controls'
 foreach ($entry in $first.files) { Check (-not (Test-Path -LiteralPath (Join-Path $fixture $entry.path))) ('Uninstall retained owned payload: ' + $entry.path) }
 foreach ($file in $retained.Keys) { Check ((Hash $file) -eq $retained[$file]) ('Uninstall changed retained file: ' + $file) }
 Install
