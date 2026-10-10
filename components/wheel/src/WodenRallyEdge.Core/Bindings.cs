@@ -10,7 +10,9 @@ public sealed record AxisBinding(Guid DeviceGuid, int Axis, AxisCalibration Cali
 }
 public sealed record ButtonBinding(Guid DeviceGuid, int Button)
 {
-    public bool Valid => DeviceGuid != Guid.Empty && Dbce.Wheel.Ffb.DigitalInput.Valid(Button);
+    // Explicit profile semantics. Existing F6 eight-way bindings remain exact.
+    public bool HatNeighbours { get; init; }
+    public bool Valid => DeviceGuid != Guid.Empty && Dbce.Wheel.Ffb.DigitalInput.Valid(Button) && (!HatNeighbours || Button >= 128);
 }
 public sealed class Bindings
 {

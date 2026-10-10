@@ -254,6 +254,7 @@ try {
         # verify the receipt's core/plugin hashes before trusting this capability.
         $nextReceipt.controlsProfileSchema = 1
         $nextReceipt.adapter = 'woden-bindings-1'
+        $nextReceipt.controlsProfileHatNeighbours = $true
     }
     $nextReceipt | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $stagedReceipt -Encoding utf8
     Write-Owned $stagedReceipt $receiptPath (File-Hash $stagedReceipt)

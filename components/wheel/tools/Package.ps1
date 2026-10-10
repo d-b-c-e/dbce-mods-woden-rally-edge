@@ -9,6 +9,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
 if ($LASTEXITCODE -ne 0) { throw 'Regression failed' }
 & dotnet run --project (Join-Path $root 'tests\WodenRallyEdge.UiTests') -c Release --no-build
 if ($LASTEXITCODE -ne 0) { throw 'UI fixture failed' }
+& dotnet run --project (Join-Path $root 'tests\WodenRallyEdge.InputTests') -c Release
+if ($LASTEXITCODE -ne 0) { throw 'Coherent input/profile-hat fixture failed' }
 $stage = Join-Path $root ('dist\stage-' + [guid]::NewGuid().ToString('N'))
 $plugin = Join-Path $stage 'BepInEx\plugins\WodenRallyEdgeWheel'
 New-Item -ItemType Directory -Force $plugin | Out-Null

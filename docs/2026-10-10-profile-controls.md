@@ -35,3 +35,33 @@ Private logs: `results/prepare-controls.1.log` and
 
 Installation and a post-Apply muted game/input check are pending. This is a
 local candidate, not a new public release. No owner settings or forces changed.
+# Circular profile hats follow-up
+
+The first writer's index-only hat check missed a semantic difference: the pinned
+legacy native reader emits one exact eight-way bit, whereas STD-033 includes
+both cardinal neighbours of a diagonal. Source now adds an explicit
+`HatNeighbours` binding flag, default false for all existing F6 bindings. Only
+profile-written hats opt in. The installer advertises
+`controlsProfileHatNeighbours=true`; Wheelkit also verifies native/Core/plugin
+receipt hashes. The controls.1 package predates this correction and is not a
+qualified profile-hat candidate.
+
+DeviceHub binds `ReadDeviceStateWithPov` from the exact module already loaded and
+pinned by its existing wrapper. It never loads a second library or opens a new
+force device. One coherent read supplies axes, physical buttons and four raw
+POVs. Legacy exact buttons and circular profile buttons have separate edge
+queues; north-to-diagonal remains held instead of retriggering. Failed reads
+clear both routes and do not fall back to a second read. Missing raw capability
+leaves existing F6 controls available and profile hats inactive.
+
+Toolkit `83b3f93` supplies the shared circular predicate (all 36,000 angles for
+each of eight binding directions checked), and `58651c0` supplies the optional
+reader. Existing native and managed binary pins remain unchanged. Actual
+DeviceHub with a fake coherent delegate passes 3,896 checks, without loading
+the native library, opening hardware or launching a game. The new test is a
+package gate. Runtime raw-POV delivery and owner acceptance still need a run.
+
+Woden's integer calibration stores the steering midpoint rounded down to 32767
+for 0..65535, less than 0.004% from the shared half-unit midpoint. Pedal rest/end
+normalization is preserved. Native transmission instructions now correctly say
+manual for both sequential and H-pattern profiles.
