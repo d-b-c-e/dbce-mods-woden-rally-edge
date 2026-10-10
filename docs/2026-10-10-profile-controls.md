@@ -37,6 +37,15 @@ Installation and a post-Apply muted game/input check are pending. This is a
 local candidate, not a new public release. No owner settings or forces changed.
 # Circular profile hats follow-up
 
+Reviewed by Claude (hcom 3586); clean **0.2.14-controls.2** from `cc17cad`
+is prepared, not installed. Core 52 suites / 39,138 assertions, UI 705,
+production DeviceHub 3,896, and **114 PS5.1 exact-package installer checks** pass.
+Archive `components/wheel/dist/WodenRallyEdge-0.2.14-controls.2.zip`, SHA-256
+`08487AE6350DB7F22DB01EE77929337E7EAFD67F11FC0FB3EF262D390387346E`.
+Logs: `results/prepare-controls.2.log`, `results/test-installer-controls.2.log`.
+Wheelkit writer/consumer bridge is `60549e9` (501 tests). No live profile Apply
+or physical wheel qualification is claimed by this package.
+
 The first writer's index-only hat check missed a semantic difference: the pinned
 legacy native reader emits one exact eight-way bit, whereas STD-033 includes
 both cardinal neighbours of a diagonal. Source now adds an explicit
