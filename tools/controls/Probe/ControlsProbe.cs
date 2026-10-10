@@ -76,7 +76,10 @@ public sealed class ControlsProbe : BasePlugin
             Match(Mod.Location,Request.PluginSha256);
             var core=AppDomain.CurrentDomain.GetAssemblies().Single(a=>a.GetName().Name=="WodenRallyEdge.Core");
             Match(core.Location,Request.CoreSha256);
-            Match(Path.Combine(Paths.ConfigPath,"dbce.wodenrallyedgewheel.cfg"),Request.ConfigSha256);
+            string configSnapshot=Path.Combine(Path.GetDirectoryName(Request.OutputDirectory)!,"applied.cfg");
+            Plain(configSnapshot);
+            var addedDefaults=ConfigContract.Verify(ReadBounded(configSnapshot,1024*1024),
+                ReadBounded(Path.Combine(Paths.ConfigPath,"dbce.wodenrallyedgewheel.cfg"),1024*1024),Request.ConfigSha256);
             Match(Path.Combine(Paths.ConfigPath,"wheel-bindings.json"),Request.BindingsSha256);
             var settings=Field(Runtime,"Settings")!;
             foreach(var flag in new[]{"FfbEnabled","TelemetryEnabled","Record"})
@@ -100,7 +103,7 @@ public sealed class ControlsProbe : BasePlugin
             Trace=new(new FileStream(Path.Combine(output,"observations.tsv"),FileMode.CreateNew,FileAccess.Write,FileShare.Read),new UTF8Encoding(false));
             Trace.WriteLine("time_s\tframe\tkind\tdata");
             File.WriteAllText(Path.Combine(output,"identity.json"),JsonSerializer.Serialize(new{request=Request,process=Environment.ProcessId,processStart=ProcessStart,
-                probeSha256=Hash(typeof(ControlsProbe).Assembly.Location),nativePath=NativePath,physicalOutput=false,kind="native-raw-before-binding"},Protocol.Json));
+                probeSha256=Hash(typeof(ControlsProbe).Assembly.Location),nativePath=NativePath,physicalOutput=false,kind="native-raw-before-binding",configAddedDefaults=addedDefaults},Protocol.Json));
             Patch(Method(Runtime,"Update"),nameof(BeforeTick),nameof(AfterTick));
             Patch(Method(Runtime,"Stop"),nameof(OnStop));
             Patch(Method(Hub,"Poll"),postfix:nameof(AfterPoll));

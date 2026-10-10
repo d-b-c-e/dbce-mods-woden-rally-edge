@@ -3,6 +3,7 @@
   <ItemGroup>
     <Compile Include="../Probe/ControlsProbe.cs" Link="Production/ControlsProbe.cs" />
     <Compile Include="../Probe/Protocol.cs" Link="Production/Protocol.cs" />
+    <Compile Include="../Probe/ConfigContract.cs" Link="Production/ConfigContract.cs" />
     <Compile Include="../Probe/HookContract.cs" Link="Production/HookContract.cs" />
     <Compile Include="../Probe/NativeTestInjectionClient.cs" Link="Production/NativeTestInjectionClient.cs" />
   </ItemGroup>

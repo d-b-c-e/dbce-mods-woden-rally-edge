@@ -53,3 +53,9 @@ and live previews/applied bytes and independently checks their repair. Its
 synthetic production Apply check, 28 file-recovery and 50 production recovery
 assertions pass. Claude's runner review prompted these additions. Live input
 and owner acceptance remain separate and pending.
+
+First raw-addon run refused on BepInEx's startup config rewrite before any raw
+command; normal close/exact restoration passed. Schema 2 now checks unchanged
+original values plus four explicitly allowed missing defaults, using one shared
+addon/offline verifier; 13 negative/positive cases and the actual rewritten
+config pass. This remains input qualification pending, not observed controls.

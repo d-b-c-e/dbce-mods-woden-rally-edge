@@ -29,7 +29,7 @@ public static class Protocol
     public static ColdRequest Admit(byte[] bytes, DateTimeOffset now, string marker)
     {
         var r = Decode<ColdRequest>(bytes, 8192);
-        if (r.Schema != 1 || !ValidNonce(r.Nonce) || marker != r.Nonce || r.ExpiresUtc <= now || r.ExpiresUtc > now.AddMinutes(5))
+        if (r.Schema != 2 || !ValidNonce(r.Nonce) || marker != r.Nonce || r.ExpiresUtc <= now || r.ExpiresUtc > now.AddMinutes(5))
             throw new InvalidDataException("Cold request identity or expiry refused.");
         foreach (var value in new[] { r.PluginSha256, r.CoreSha256, r.ConfigSha256, r.BindingsSha256, r.NativeSha256 })
             if (value is null || !Hash.IsMatch(value)) throw new InvalidDataException("Missing artifact hash.");

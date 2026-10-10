@@ -55,14 +55,19 @@ lost native latch, callback faults, deferred reader closure and retained mutes.
 28 file-restoration and 50 production recovery checks pass in isolated trees.
 The recovery fixture stubs only the registry boundary, never touches owner data,
 and covers partial restore, corrupt backups and changed lease/request ownership.
-No addon installed or launched; actual Harmony callbacks and raw input in Woden
-remain unqualified. Woden's existing InputPolling already samples once per frame.
+The first live run refused admission before raw input: main-plugin startup
+rewrote config comments/order and added four missing defaults. No force or raw
+commands occurred; normal close and exact restoration completed at
+2026-10-10 10:56:13 UTC (`results/raw-controls-20261010-01`). Actual admitted
+Harmony callbacks and raw input remain unqualified. Woden's existing
+InputPolling already samples once per frame.
 
 ```
 dotnet run --project tools/controls/ProtocolTests -c Release
 dotnet run --project tools/controls/LifecycleTests -c Release
 dotnet run --project tools/controls/VerifyHooks -c Release -- .
 dotnet build tools/controls/Probe/Woden.ControlsProbe.csproj -c Release
+dotnet build tools/controls/VerifyConfig -c Release
 pwsh -NoProfile -File tools/controls/Test-OwnerFiles.ps1
 pwsh -NoProfile -File tools/controls/Test-Recovery.ps1
 pwsh -NoProfile -File tools/controls/Test-ApplyCheck.ps1
@@ -105,3 +110,15 @@ identity admission. Later command identity failures remain terminal. Recovery
 recreates deleted owner directories and removes only newly created empty ones.
 This input-only run does not switch display profiles or reuse the older display
 watchdog that kills processes by name and switches the global topology.
+
+Cold request schema 2 hashes the immutable `applied.cfg` beside the trace
+directory. The addon and frozen offline verifier use the same ConfigContract:
+every original section/key/value must survive; duplicate keys/sections,
+unexpected additions and changed values fail. Only the four observed defaults
+from installed controls.2 are permitted when originally absent: Display
+ShowFrameRate=false and ForceFeedback CrashEnabled=true, GripLoadRatio=2,
+GripSmoothing=0.2. Thirteen admission cases and the actual first-run files pass.
+This does not alter any game setting or silently normalize mismatched values.
+Post-run strict byte verification is retained separately; a semantic pass also
+requires binding JSON to remain byte-identical to production Apply. Restoration
+always uses the original byte snapshots, including their comments/order.

@@ -30,6 +30,7 @@ $roots=[ordered]@{config=(Join-Path $GameDir 'BepInEx/config');save=(Join-Path $
 $files=[ordered]@{native=(Join-Path $plugin 'WheelFfb.dll');probe=(Join-Path $GameDir 'BepInEx/plugins/DbceControlsTest/Woden.ControlsProbe.dll');log=(Join-Path $GameDir 'BepInEx/LogOutput.log')}
 $blocked=@($request,$marker,(Join-Path $roots.config 'woden-record-next-launch.json'),(Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/woden/request.txt'))
 $probe=Join-Path $PSScriptRoot 'Probe/bin/Release/net6.0/Woden.ControlsProbe.dll'
+$configVerifier=Join-Path $PSScriptRoot 'VerifyConfig/bin/Release/net8.0/VerifyConfig.dll'
 $ready=$false; $lease=$null; $game=$null; $ownedGame=$false; $nonce=$null; $restored=$false; $applied=$false; $verificationError=$null
 function Closed {if(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue){throw 'Woden is running; no preparation or restoration.'}}
 function Set-IniFalse([string]$Section,[string]$Key) {
@@ -69,7 +70,7 @@ if($Recover) {
     if(Test-Path -LiteralPath $Result){throw 'Choose a new result directory.'}
     foreach($p in $blocked){if(Test-Path -LiteralPath $p){throw "Existing request needs resolution: $p"}}
     $NativeCandidate=Full $NativeCandidate
-    if((Get-ControlHash $NativeCandidate) -ne $NativeSha256 -or !(Test-Path -LiteralPath $probe)){throw 'Build/hash preflight failed.'}
+    if((Get-ControlHash $NativeCandidate) -ne $NativeSha256 -or !(Test-Path -LiteralPath $probe) -or !(Test-Path -LiteralPath $configVerifier)){throw 'Build/hash preflight failed.'}
     if([double](& "$HubRepo/tools/Owner-Input.ps1" -IdleSeconds) -lt 300){throw 'Owner input is recent.'}
 }
 if(!$lease){$lease=Enter-StageRigLease -Path $slot -Owner hula-woden-controls -Purpose 'Production Apply and native raw test; no force; exact restoration'}
@@ -80,6 +81,9 @@ try {
     [IO.Directory]::CreateDirectory($Result) | Out-Null
     $writer=& "$PSScriptRoot/Freeze-Wheelkit.ps1" -Result $Result -Repo $WheelkitRepo
     $harness=$writer.harness
+    Copy-Item -LiteralPath (Split-Path -Parent $configVerifier) -Destination "$Result/config-verifier" -Recurse
+    $configVerifier=Join-Path $Result 'config-verifier/VerifyConfig.dll'
+    Get-ChildItem "$Result/config-verifier" -File | Sort-Object Name | ForEach-Object {@{name=$_.Name;sha256=(Get-ControlHash $_.FullName)}} | ConvertTo-Json | Set-Content "$Result/config-verifier-hashes.json"
     Save-ControlFiles "$Result/owner-before" $roots $files
     Registry-Snapshot "$Result/preferences.json"
     $nonce=[guid]::NewGuid().ToString('N')
@@ -92,11 +96,12 @@ try {
     # Verify again after production Apply and before launch. The addon also
     # checks the settings as loaded by the game before it arms raw input.
     Assert-OutputMute
+    Copy-ControlExact $cfg "$Result/applied.cfg" (Get-ControlHash $cfg)
     & dotnet $harness raw-workload "$live/profile.json" "$Result/raw-workload.json"
     if($LASTEXITCODE){throw 'Independent raw workload failed.'}
     Copy-ControlExact $NativeCandidate $files.native $NativeSha256
     Copy-ControlExact $probe $files.probe (Get-ControlHash $probe)
-    $cold=[ordered]@{schema=1;nonce=$nonce;expiresUtc=[DateTime]::UtcNow.AddMinutes(5).ToString('o');pluginSha256=(Get-ControlHash "$plugin/WodenRallyEdgeWheel.dll");coreSha256=(Get-ControlHash "$plugin/WodenRallyEdge.Core.dll");configSha256=(Get-ControlHash $cfg);bindingsSha256=(Get-ControlHash "$($roots.config)/wheel-bindings.json");nativeSha256=$NativeSha256;outputDirectory=(Join-Path $Result 'trace')}
+    $cold=[ordered]@{schema=2;nonce=$nonce;expiresUtc=[DateTime]::UtcNow.AddMinutes(5).ToString('o');pluginSha256=(Get-ControlHash "$plugin/WodenRallyEdgeWheel.dll");coreSha256=(Get-ControlHash "$plugin/WodenRallyEdge.Core.dll");configSha256=(Get-ControlHash "$Result/applied.cfg");bindingsSha256=(Get-ControlHash "$($roots.config)/wheel-bindings.json");nativeSha256=$NativeSha256;outputDirectory=(Join-Path $Result 'trace')}
     [IO.Directory]::CreateDirectory($control) | Out-Null
     [IO.File]::WriteAllText($marker,$nonce); $cold | ConvertTo-Json | Set-Content -LiteralPath $request
     Copy-Item -LiteralPath $request -Destination "$Result/request.json"
@@ -142,7 +147,18 @@ try {
         [IO.Directory]::CreateDirectory($after) | Out-Null
         foreach($p in @($request,$marker)) {Attempt {if(Test-Path -LiteralPath $p){if(!(Get-Content -LiteralPath $p -Raw).Contains($nonce)){throw 'Different request; not removed.'};Copy-Item -LiteralPath $p -Destination $after;Remove-Item -LiteralPath $p}}}
         foreach($taken in Get-ChildItem -LiteralPath $control -Filter 'controls-request.json.*.taken' -ErrorAction SilentlyContinue){Attempt {if((Get-Content -LiteralPath $taken.FullName -Raw).Contains($nonce)){Copy-Item -LiteralPath $taken.FullName -Destination $after;Remove-Item -LiteralPath $taken.FullName}}}
-        if($applied){try{& dotnet $harness verify-live $live;"exit=$LASTEXITCODE" | Set-Content "$Result/verify.txt";if($LASTEXITCODE){throw 'Runtime changed applied files; inspect separately.'}}catch{$verificationError=$_.Exception.Message;$verificationError | Set-Content "$Result/verification-error.txt"}}
+        if($applied){try{
+            & dotnet $harness verify-live $live *> "$Result/verify-live.log"
+            $strict=$LASTEXITCODE;"exit=$strict" | Set-Content "$Result/verify.txt"
+            # BepInEx can rewrite comments/order and append a short, explicit
+            # list of missing defaults during Load. Every original value must
+            # survive, and bindings still require exact production-Apply bytes.
+            Copy-ControlExact $cfg "$Result/loaded.cfg" (Get-ControlHash $cfg)
+            & dotnet $configVerifier "$Result/applied.cfg" "$Result/loaded.cfg" $cold.configSha256 > "$Result/config-verification.json"
+            if($LASTEXITCODE){throw 'Loaded configuration changed semantics.'}
+            if((Get-ControlHash "$($roots.config)/wheel-bindings.json") -ne $cold.bindingsSha256){throw 'Runtime changed applied binding bytes.'}
+            [ordered]@{status='passed';strictByteCheckExit=$strict;config='values retained; only known defaults allowed';bindings='exact applied bytes'} | ConvertTo-Json | Set-Content "$Result/runtime-verification.json"
+        }catch{$verificationError=$_.Exception.Message;$verificationError | Set-Content "$Result/verification-error.txt"}}
         if(Test-Path "$live/apply.json"){Attempt {& dotnet $harness restore-live $live;if($LASTEXITCODE){throw 'Production transaction restoration failed.'}}}
         Attempt {Restore-ControlFiles "$Result/owner-before" $after $roots $files}
         Attempt {if((Get-ControlHash "$Result/preferences.json") -ne $state.prefsHash){throw 'Preference backup changed.'};Registry-Restore "$Result/preferences.json"}
