@@ -74,3 +74,18 @@ Woden's integer calibration stores the steering midpoint rounded down to 32767
 for 0..65535, less than 0.004% from the shared half-unit midpoint. Pedal rest/end
 normalization is preserved. Native transmission instructions now correctly say
 manual for both sequential and H-pattern profiles.
+
+## Installed 02:06 CT, October 10
+
+The exact controls.2 package above is now installed through its own
+`Manage-Install.ps1` under Windows PowerShell 5.1, with the game closed and the
+shared rig lease held. All 13 owned payload hashes match the receipt. All five
+owner configuration files are byte-identical before/after; no profile was
+applied and no game or device was opened. Lease released afterward.
+
+Backup: `WodenWheelBackups/before-install-20261010-020616-286a88aa` in the Steam
+game folder. Private evidence: `results/install-controls.2-20261010-0210`
+(directory label is approximate; install receipt time is authoritative).
+The receipt advertises schema 1, `woden-bindings-1` and profile hat neighbours.
+Public beta artifacts are unchanged. Muted replay regression and raw input
+observation after production Apply remain separate pending checks.
