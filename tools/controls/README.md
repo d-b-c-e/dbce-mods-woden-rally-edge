@@ -144,3 +144,15 @@ position, excluding desired `wheelInput.*`. Missing/non-finite values have named
 `Missing` entries rather than invented zeroes. This read-only extension passes
 125 actual-addon lifecycle assertions and 48 exact metadata seams. A failed
 observation ends injection through the existing deferred-stop path.
+
+Run07 qualifies that observer against controls.6: 5,346 independent native-car
+rows, including 5,056 driving rows, with six scalar samples observed and zero
+mismatches. `py -3 tools/controls/native_verdict.py <result>` reads the original
+raw workload and correlated sent/archive/reply sequence, requires successful
+config verification and owner restoration, and checks both Controls and MainCar
+over a sustained plateau. It never reads desired `car-input` rows as proof.
+Absent/invalid/inactive samples remain unknown; menu/camera actions need their
+separate frame/identity evidence. Ten adversarial tests run with
+`py -3 tools/controls/test_native_verdict.py` (including a downstream MainCar
+override despite a correct Controls value). This is a bounded input-observation
+verdict, not a complete physical-controls or force qualification.

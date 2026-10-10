@@ -1,5 +1,49 @@
 # Wheelkit binding capability
 
+## October 10, run07: independent native input observation
+
+Installed controls.6 (`ac308a6`) unchanged; developer-only observer `45772f8`,
+peer-reviewed in hcom 4731. Result `results/raw-controls-20261010-07`, normal
+close and byte-exact owner files/raw registry restoration at 12:25:40.4977698Z.
+The frozen production writer remains `8c7243e`; deliberately wrong steering and
+Confirm were repaired with fixture/live preview and byte parity. Runtime retained
+all original config values plus four previously qualified BepInEx defaults;
+bindings remained exact. Strict config-byte failure is retained separately.
+
+Sixteen raw commands, 1,386 injected reads, no physical force. The trace contains
+5,346 `native-car` rows (5,056 driving). Native Controls and MainCar both read
+steering -0.49998474/+0.5, throttle 0.50000763/1 and brake 0.5 over 23–24 consecutive
+physics samples per injected plateau. Handbrake's native Boolean became 1 for
+25 samples. Front steering angles changed sign; throttle increased native speed
+from 1 to 5 and 1 to 11. That does not qualify proportional handbrake torque or
+braking dynamics: these short brake samples were taken near standstill.
+Camera button 32 changed native stockPreset 0 to 1. Frames 02–19 separately show
+daily message, title, hub, Arcade selection/transmission, intro and Spain SS1.
+No result/progression or online action was exercised.
+
+**Observation provenance:** `GameSampler.Read`'s controls group reads
+`car.MyControls.Steering_float/Pedal_Acc/Pedal_Bra/B_HandBrake`; its game group
+reads `car.Steering_Wheel_Pos/Pedal_Acc_Value/Pedal_Brake_Value/TrueSpeed`.
+The `AppliedInput` parameter is used only for `wheelInput.*`, which the observer
+does not copy. The CarHook invokes this sampler after MainCar.FixedUpdate even
+with recording and telemetry disabled. The phase is pre-physics-solve; wheel
+torque is context, not proof of force delivery. The observer fixture deliberately
+uses different requested and native values; a future sampler refactor still
+needs this provenance reviewed against its compiled payload.
+
+`tools/controls/native_verdict.py` verifies the original workload/profile identity,
+ordered sent/archive/reply correlation, runtime config verification and completed
+restoration. It requires a sustained native plateau in an unlocked driving state.
+Run07 reports **6 observed, 0 mismatches, 10 unknown** (menu/camera commands need
+their separate evidence); it does not promote every profile action. Ten adversarial
+tests include correct requested Controls with a discarded MainCar input, missing
+rows/channels, NaN, locked state, a replaced car and an out-of-window response.
+The sealed trace is unchanged; `native-verdict.json` pins its input hashes.
+
+Owner acceptance, auxiliary-device shifts, clutch, full navigation/interruption
+coverage and physical FFB remain separate. Owner configuration was restored,
+not left with the temporary profile application.
+
 The packaged installer now declares `controlsProfileSchema: 1` and
 `adapter: woden-bindings-1` on successful installation. Uninstall omits both.
 Wheelkit checks the receipt and hashes of the Core and plugin payloads before
