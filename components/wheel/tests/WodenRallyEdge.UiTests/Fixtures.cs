@@ -75,22 +75,24 @@ namespace WodenRallyEdge
     {
         private static int Next; private readonly int _id=++Next;internal int GetInstanceID()=>_id;
         internal bool field_Private_Boolean_0 {get=>Ready;set=>Ready=value;}
+        internal MenuControls? MyControls=new();
         internal bool Ready=true,Confirm,Start;internal int Loads;
-        public void Update(){if(Ready&&(Confirm||Start||UnityEngine.Input.anyKey)){Ready=false;Loads++;}}
+        public void Update(){if(Ready&&(Confirm||Start||MyControls?.ButtonStart==true||UnityEngine.Input.anyKey)){Ready=false;Loads++;MenuCameraScript.LoadScene("Title Screen",false,false);}}
     }
     internal sealed class TitleScreenScript
     {
         private static int Next=1000;private readonly int _id=++Next;internal int GetInstanceID()=>_id;
         internal MenuControls? MyControls=new();internal string SceneToLoad="MapScreen";
         internal int FrameCount,FramesToDemo=3,DemoLoads,StartLoads;internal bool DemoStarted,Starting,Start,Back;
+        internal bool field_Private_Boolean_0 {get=>DemoStarted;set=>DemoStarted=value;}
         public void FixedUpdate()
         {
             if(!DemoStarted)FrameCount++;
             if(FrameCount>FramesToDemo){FrameCount=0;DemoStarted=true;DemoLoads++;}
-            if((Start||UnityEngine.Input.GetKey(UnityEngine.KeyCode.Return))&&!UnityEngine.Input.GetKey(UnityEngine.KeyCode.Escape)&&!Back&&!Starting){Starting=true;StartLoads++;}
+            if((Start||MyControls?.ButtonStart==true||UnityEngine.Input.GetKey(UnityEngine.KeyCode.Return))&&!UnityEngine.Input.GetKey(UnityEngine.KeyCode.Escape)&&!Back&&MyControls?.ButtonB!=true&&!Starting){Starting=true;StartLoads++;MenuCameraScript.LoadScene(SceneToLoad,true,false);}
         }
     }
-    internal sealed class MenuControls { internal bool ButtonB; }
+    internal sealed class MenuControls { internal bool ButtonB,ButtonStart; }
     internal sealed class MenuCameraScript
     {
         internal static bool Exiting,Available=true,FailLoad,ExitBeforeFailure;

@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
 using WodenRallyEdge;
 using WodenRallyEdge.Core;
 
@@ -17,8 +18,16 @@ internal static class StartupMenuChecks
             hub.Pressed.Clear(); hub.OnPoll = null; Time.frameCount++;
             Event.current = new() { type = EventType.KeyUp, keyCode = KeyCode.F6 }; Panel.Draw();
         }
-        void Daily(DailyMessage message) { if (DailyMessageInputHook.Prefix(message)) message.Update(); }
-        void Title(TitleScreenScript title) { if (TitleScreenInputHook.Prefix(title)) title.FixedUpdate(); }
+        void Daily(DailyMessage message) {
+            bool run=DailyMessageInputHook.Prefix(message,out var state);
+            try {if(run)message.Update();DailyMessageInputHook.Postfix(state);}
+            finally {DailyMessageInputHook.Finalizer(state);}
+        }
+        void Title(TitleScreenScript title) {
+            bool run=TitleScreenInputHook.Prefix(title,out var state);
+            try {if(run)title.FixedUpdate();TitleScreenInputHook.Postfix(state);}
+            finally {TitleScreenInputHook.Finalizer(state);}
+        }
         void Release()
         {
             Input.Keys.Clear(); Input.Down.Clear(); Keyboard.current!.Clear(); hub.Pressed.Clear();
@@ -80,16 +89,16 @@ internal static class StartupMenuChecks
         check(!Panel.Open, "unfocused startup callback does not open settings");
         Reset();
         Input.FailRead = true;
-        check(!DailyMessageInputHook.Prefix(new DailyMessage()) && !Panel.Open, "unknown opening input holds direct consumer instead of treating failure as no key");
+        check(!DailyMessageInputHook.Prefix(new DailyMessage(),out _) && !Panel.Open, "unknown opening input holds direct consumer instead of treating failure as no key");
         Input.FailRead = false;
-        check(DailyMessageInputHook.Prefix(new DailyMessage()), "healthy opening read restores ordinary native dispatch");
+        check(DailyMessageInputHook.Prefix(new DailyMessage(),out _), "healthy opening read restores ordinary native dispatch");
         Reset();
         hub.OnPoll = () => throw new InvalidOperationException("fixture early poll failure");
         int failedPolls = hub.Polls;
-        check(!DailyMessageInputHook.Prefix(new DailyMessage()) && !TitleScreenInputHook.Prefix(new TitleScreenScript()) && hub.Polls == failedPolls + 1,
+        check(!DailyMessageInputHook.Prefix(new DailyMessage(),out _) && !TitleScreenInputHook.Prefix(new TitleScreenScript(),out _) && hub.Polls == failedPolls + 1,
             "failed shared poll remains unknown for every consumer in that frame without repeated reads");
         hub.OnPoll = null; Time.frameCount++;
-        check(TitleScreenInputHook.Prefix(new TitleScreenScript()), "fresh healthy frame recovers from failed early poll");
+        check(TitleScreenInputHook.Prefix(new TitleScreenScript(),out _), "fresh healthy frame recovers from failed early poll");
         check(Runtime.Log.Infos.Any(s => s.Contains("Startup input guard active: DailyMessage.Update")) &&
             Runtime.Log.Infos.Any(s => s.Contains("Startup input guard active: TitleScreenScript.FixedUpdate")),
             "actual consumer guards produce bounded runtime diagnostics");
@@ -111,7 +120,7 @@ internal static class StartupMenuChecks
         check(MenuCameraScript.Loads.Count==1&&!next.Starting,"notice press cannot skip the title");
         ReadyTitle(next);hub.Pressed.Add(new(device,35));TickTitle(next);
         check(MenuCameraScript.Loads.Count==2&&MenuCameraScript.Loads[1]==("MapScreen",true,false)&&next.Starting,"fresh mapped Start advances title through native fade");
-        foreach(string block in new[]{"focus","reader","duplicate","back","escape","camera","destination","native-back","starting","unready","capture","poll","panel"})
+        foreach(string block in new[]{"focus","reader","duplicate","back","escape","camera","destination","native-back","starting","unready","capture","poll","panel","demo","demo-due"})
         {
             Reset();reader.Ok=true;var t=new TitleScreenScript{FramesToDemo=int.MaxValue};ReadyTitle(t);
             var extra=new DeviceHub.Device{Info=new(){InstanceGuid=device}};
@@ -129,13 +138,15 @@ internal static class StartupMenuChecks
                 case "capture":Runtime.Wheel.BeginButton("Confirm");break;
                 case "poll":hub.OnPoll=()=>throw new InvalidOperationException("fixture bound poll failure");break;
                 case "panel":Input.Down.Add(KeyCode.F6);break;
+                case "demo":t.DemoStarted=true;break;
+                case "demo-due":t.FrameCount=t.FramesToDemo;break;
             }
             hub.Pressed.Add(new(device,31));TickTitle(t);
             check(MenuCameraScript.Loads.Count==0,"bound startup refuses "+block);
             hub.Devices.Remove(extra);reader.Ok=true;
             Runtime.Wheel.Cancel();hub.OnPoll=null;Input.Down.Clear();Panel.Close(false);
             Runtime.Focused=true;Input.Keys.Clear();hub.Pressed.Remove(new(device,18));MenuCameraScript.Available=true;
-            t.SceneToLoad="MapScreen";t.MyControls=new();t.Starting=false;TickTitle(t);
+            t.SceneToLoad="MapScreen";t.MyControls=new();t.Starting=false;t.DemoStarted=false;t.FrameCount=0;TickTitle(t);
             check(MenuCameraScript.Loads.Count==0,"held press after "+block+" must be released again");
             ReadyTitle(t);hub.Pressed.Add(new(device,31));TickTitle(t);
             check(MenuCameraScript.Loads.Count==1,"fresh press recovers after "+block);
@@ -143,18 +154,24 @@ internal static class StartupMenuChecks
         Reset();var premature=new DailyMessage{Ready=false};ReadyDaily(premature);hub.Pressed.Add(new(device,31));TickDaily(premature);
         premature.Ready=true;TickDaily(premature);check(MenuCameraScript.Loads.Count==0,"notice readiness cannot turn a held press into confirmation");
         ReadyDaily(premature);hub.Pressed.Add(new(device,31));TickDaily(premature);check(MenuCameraScript.Loads.Count==1,"ready notice accepts a later fresh press");
-        foreach(bool partial in new[]{false,true}) {
-            Reset();var d=new DailyMessage();ReadyDaily(d);MenuCameraScript.FailLoad=true;MenuCameraScript.ExitBeforeFailure=partial;
-            hub.Pressed.Add(new(device,31));TickDaily(d);
-            check(d.Ready==!partial && MenuCameraScript.Loads.Count==0,"notice failure restores eligibility only before native transition begins");
-            Reset();var t=new TitleScreenScript{FramesToDemo=int.MaxValue};ReadyTitle(t);MenuCameraScript.FailLoad=true;MenuCameraScript.ExitBeforeFailure=partial;
-            hub.Pressed.Add(new(device,31));TickTitle(t);
-            check(t.Starting==partial && MenuCameraScript.Loads.Count==0,"title failure restores eligibility only before native transition begins");
-            MenuCameraScript.FailLoad=false;MenuCameraScript.Exiting=false;t.Starting=false;TickTitle(t);
-            check(MenuCameraScript.Loads.Count==0,"failed transition consumes held input");
-            ReadyTitle(t);hub.Pressed.Add(new(device,31));TickTitle(t);
-            check(MenuCameraScript.Loads.Count==1,"fresh press recovers after load failure");
-        }
+        Reset();var failed=new DailyMessage();ReadyDaily(failed);MenuCameraScript.FailLoad=true;
+        hub.Pressed.Add(new(device,31));bool failedNative=false;
+        try {TickDaily(failed);}catch(InvalidOperationException){failedNative=true;}
+        check(failedNative&&!failed.MyControls!.ButtonStart&&!failed.Ready,"native exception is retained, scoped Start restored, native state never rolled back by the bridge");
+        Reset();var failedTitle=new TitleScreenScript{FramesToDemo=int.MaxValue};ReadyTitle(failedTitle);MenuCameraScript.FailLoad=true;
+        hub.Pressed.Add(new(device,31));failedNative=false;
+        try {TickTitle(failedTitle);}catch(InvalidOperationException){failedNative=true;}
+        check(failedNative&&!failedTitle.MyControls!.ButtonStart&&failedTitle.Starting,"title native exception also restores its scoped field without changing native transition state");
+        var alreadyPressed=new MenuControls{ButtonStart=true};var lease=new StartupButtonLease(alreadyPressed);lease.Restore();lease.Restore();
+        check(alreadyPressed.ButtonStart,"restoration is idempotent and preserves prior native Start");
+        Reset();var handback=new TitleScreenScript{FramesToDemo=int.MaxValue};ReadyTitle(handback);hub.Pressed.Add(new(device,31));TickTitle(handback);
+        var savedEvents=EventSystem.current;var savedCar=Runtime.Local;Runtime.Local=null;
+        EventSystem.current=new(){currentSelectedGameObject=new()};ExecuteEvents.Delivered.Clear();
+        MenuNavigation.Update();Runtime.Clock.Advance(.5);MenuNavigation.Update();
+        check(ExecuteEvents.Delivered.Count==0&&!handback.MyControls!.ButtonStart,"held startup Confirm cannot submit to the newly loaded Unity menu or retain native Start");
+        hub.Pressed.Clear();MenuNavigation.Update();hub.Pressed.Add(new(device,31));MenuNavigation.Update();
+        check(ExecuteEvents.Delivered.SequenceEqual(new[]{"ISubmitHandler"}),"fresh Confirm after startup release reaches the regular Unity menu");
+        EventSystem.current=savedEvents;Runtime.Local=savedCar;
         Runtime.Wheel.Bindings.Buttons=savedButtons;
         Reset();
     }

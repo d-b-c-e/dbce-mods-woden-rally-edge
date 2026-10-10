@@ -147,3 +147,34 @@ and a fresh baseline for each command, rather than repeating identical values
 every poll. Actual car input rows and heartbeat remain per-sample/periodic.
 108 production callback assertions cover deduplication, press/release retention,
 new-command baseline and bounded keys as well as prior lifecycle failures.
+
+### Native callback correction after cross-review
+
+Claude's review (hcom 4525) identified side effects omitted by the first bridge.
+`controls.3` was built and passed 114 PS5.1 installer checks, but was **not
+installed**. It is superseded by the callback-scoped bridge.
+
+Re-reading the guarded game's private disassembly at
+`artifacts/opening-edge-audit` confirms DailyMessage.Update RVA 0x456090 tests
+its ready flag and MenuControls A/Start or legacy anyKey. The accepted branch
+clears readiness, updates animation/text, plays StartSfx and calls LoadScene
+with the title and both boolean arguments false. TitleScreenScript.FixedUpdate
+RVA 0xAFB560 separately increments the attract timer, then checks MenuControls
+Start or Return, excludes Escape/Back, and checks Starting. It sets Starting,
+hides the prompt, plays StartSfx, may choose another destination from native
+state, calls LoadScene with loading=true/third=false, then may start Steam's
+public-IP coroutine. These are native side effects, not replicated mod logic.
+
+The revised bridge temporarily sets **only** the existing MenuControls.ButtonStart
+for one original callback after a valid saved wheel press. Postfix and finalizer
+restore the prior value, including after an original exception. The mod no
+longer writes readiness, Starting or a scene. The native demo-start flag at
+instance offset 0x58 (generated field_Private_Boolean_0) and the imminent timer
+boundary also exclude a wheel press. Keyboard/attract behavior remains native.
+
+Saved controls are read directly through DeviceHub, avoiding camera-key fallback.
+The ordinary Unity dispatcher blocks startup Confirm until release, so a press
+cannot carry into the next menu. 762 production UI assertions cover native
+callback execution, preserved exceptions/state, scoped flag restoration,
+started/imminent demo refusal and held Confirm -> release -> new-menu submit.
+The plugin builds without warnings. Live menu verification remains pending.

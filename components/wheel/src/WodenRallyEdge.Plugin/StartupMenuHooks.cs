@@ -9,25 +9,52 @@ namespace WodenRallyEdge;
 [HarmonyPatch(typeof(DailyMessage), nameof(DailyMessage.Update))]
 internal static class DailyMessageInputHook
 {
-    internal static bool Prefix(DailyMessage __instance)
+    internal static bool Prefix(DailyMessage __instance, out StartupButtonLease? __state)
     {
+        __state = null;
         if (!StartupMenuGuard.Before(false)) { StartupWheelControls.Reset(); return false; }
-        return !StartupWheelControls.Daily(__instance);
+        __state = StartupWheelControls.Daily(__instance); return true;
     }
+    internal static void Postfix(StartupButtonLease? __state) => __state?.Restore();
+    internal static void Finalizer(StartupButtonLease? __state) => __state?.Restore();
 }
 [HarmonyPatch(typeof(TitleScreenScript), nameof(TitleScreenScript.FixedUpdate))]
 internal static class TitleScreenInputHook
 {
-    internal static bool Prefix(TitleScreenScript __instance)
+    internal static bool Prefix(TitleScreenScript __instance, out StartupButtonLease? __state)
     {
+        __state = null;
         if (!StartupMenuGuard.Before(true)) { StartupWheelControls.Reset(); return false; }
-        return !StartupWheelControls.Title(__instance);
+        __state = StartupWheelControls.Title(__instance); return true;
+    }
+    internal static void Postfix(StartupButtonLease? __state) => __state?.Restore();
+    internal static void Finalizer(StartupButtonLease? __state) => __state?.Restore();
+}
+
+// One original native callback owns the temporary Start value. Its animation,
+// sound, scene policy and other side effects remain the game's own. Restore even
+// when the native callback throws; do not carry a synthetic held flag to MapScreen.
+internal sealed class StartupButtonLease
+{
+    private MenuControls? _controls;
+    private readonly bool _previous;
+    internal StartupButtonLease(MenuControls controls)
+    {
+        _previous = controls.ButtonStart; _controls = controls;
+        try { controls.ButtonStart = true; }
+        catch { Restore(); throw; }
+    }
+    internal void Restore()
+    {
+        if (_controls is not { } controls) return;
+        try { controls.ButtonStart = _previous; _controls = null; }
+        catch (Exception ex) { Runtime.Log.LogWarning("Startup button restore failed: " + ex.Message); }
     }
 }
 
 // The startup notice/title bypass EventSystem, so the ordinary menu dispatcher
 // has nowhere to send bound Confirm/Start. Use those same saved wheel bindings
-// and the verified native menu transition. A fresh neutral interval is required
+// in a scoped native menu field. A fresh neutral interval is required
 // per screen and after focus/capture/reader loss; a held press never skips both.
 internal static class StartupWheelControls
 {
@@ -48,39 +75,45 @@ internal static class StartupWheelControls
             if (!b.Valid || matches.Length != 1 || !matches[0].Ok) { Release.Reset(); return false; }
             if (action != "Back") bound = true;
         }
-        if (!bound || wheel.Button("Back", false) || Input.GetKey(KeyCode.Escape)) { Release.Reset(); return false; }
-        bool held = wheel.Button("Confirm", false) || wheel.Button("Pause", false);
+        bool Down(string action) => wheel.Bindings.Buttons.TryGetValue(action,out var b) && hub.Button(b,false,action);
+        if (!bound || Down("Back") || Input.GetKey(KeyCode.Escape)) { Release.Reset(); return false; }
+        bool held = Down("Confirm") || Down("Pause");
         if (!held) { Release.Observe(true, false, Runtime.Clock.Elapsed.TotalSeconds); return false; }
         bool ready = Release.Ready; Release.Reset(); return ready;
     }
-    internal static bool Daily(DailyMessage message)
+    private static StartupButtonLease Begin(MenuControls controls, string screen)
     {
-        try
-        {
-            if (!Press(message.GetInstanceID(), message.field_Private_Boolean_0 && !MenuCameraScript.Exiting)) return false;
-            if (UnityEngine.Object.FindObjectOfType<MenuCameraScript>() == null) return false;
-            message.field_Private_Boolean_0 = false;
-            try { MenuCameraScript.LoadScene("Title Screen", false, false); }
-            catch { if (!MenuCameraScript.Exiting) message.field_Private_Boolean_0 = true; throw; }
-            Runtime.Log.LogInfo("Bound wheel Confirm/Start: native daily-message transition");
-            return true;
-        }
-        catch (Exception ex) { Reset(); Runtime.Log.LogWarning("Startup wheel input unavailable: " + ex.Message); return false; }
+        var lease = new StartupButtonLease(controls);
+        try {
+            MenuNavigation.SuppressStartupConfirm();
+            Runtime.Log.LogInfo("Bound wheel Confirm/Start: native " + screen + " input");
+            return lease;
+        } catch { lease.Restore(); throw; }
     }
-    internal static bool Title(TitleScreenScript title)
+    internal static StartupButtonLease? Daily(DailyMessage message)
     {
         try
         {
-            bool eligible = !title.Starting && title.MyControls != null && !title.MyControls.ButtonB && title.SceneToLoad == "MapScreen" && !MenuCameraScript.Exiting;
-            if (!Press(title.GetInstanceID(), eligible)) return false;
-            if (UnityEngine.Object.FindObjectOfType<MenuCameraScript>() == null) return false;
-            title.Starting = true;
-            try { MenuCameraScript.LoadScene(title.SceneToLoad, true, false); }
-            catch { if (!MenuCameraScript.Exiting) title.Starting = false; throw; }
-            Runtime.Log.LogInfo("Bound wheel Confirm/Start: native title transition");
-            return true;
+            var controls=message.MyControls;
+            if (!Press(message.GetInstanceID(), controls != null && message.field_Private_Boolean_0 && !MenuCameraScript.Exiting)) return null;
+            if (controls == null) return null;
+            if (UnityEngine.Object.FindObjectOfType<MenuCameraScript>() == null) return null;
+            return Begin(controls, "daily-message");
         }
-        catch (Exception ex) { Reset(); Runtime.Log.LogWarning("Startup wheel input unavailable: " + ex.Message); return false; }
+        catch (Exception ex) { Reset(); Runtime.Log.LogWarning("Startup wheel input unavailable: " + ex.Message); return null; }
+    }
+    internal static StartupButtonLease? Title(TitleScreenScript title)
+    {
+        try
+        {
+            var controls=title.MyControls;
+            bool eligible = !title.Starting && !title.field_Private_Boolean_0 && title.FrameCount < title.FramesToDemo && controls != null && !controls.ButtonB && title.SceneToLoad == "MapScreen" && !MenuCameraScript.Exiting;
+            if (!Press(title.GetInstanceID(), eligible)) return null;
+            if (controls == null) return null;
+            if (UnityEngine.Object.FindObjectOfType<MenuCameraScript>() == null) return null;
+            return Begin(controls, "title");
+        }
+        catch (Exception ex) { Reset(); Runtime.Log.LogWarning("Startup wheel input unavailable: " + ex.Message); return null; }
     }
 }
 
