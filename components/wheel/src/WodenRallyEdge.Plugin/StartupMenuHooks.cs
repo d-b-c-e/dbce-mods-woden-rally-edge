@@ -47,7 +47,13 @@ internal sealed class StartupButtonLease
     internal void Restore()
     {
         if (_controls is not { } controls) return;
-        try { controls.ButtonStart = _previous; _controls = null; }
+        try {
+            controls.ButtonStart = _previous;
+            bool readback = controls.ButtonStart;
+            if (readback != _previous) throw new InvalidOperationException("Native Start readback differs");
+            _controls = null;
+            Runtime.Log.LogInfo("Bound wheel startup input restored: Start=" + readback);
+        }
         catch (Exception ex) { Runtime.Log.LogWarning("Startup button restore failed: " + ex.Message); }
     }
 }
