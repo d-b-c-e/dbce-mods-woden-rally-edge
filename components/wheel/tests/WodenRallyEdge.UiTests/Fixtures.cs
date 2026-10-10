@@ -6,6 +6,7 @@ using WodenRallyEdge.Core;
 // No game, IL2CPP, hardware DLL, device enumeration or output adapter is loaded.
 namespace UnityEngine
 {
+    public static class Object { public static T? FindObjectOfType<T>() where T:class => WodenRallyEdge.MenuCameraScript.Available ? new WodenRallyEdge.MenuCameraScript() as T : null; }
     public sealed class GameObject { public bool activeInHierarchy=true; }
     public record struct Color(float r,float g,float b,float a=1) { public static Color white => new(1,1,1); }
     public record struct Rect(float x,float y,float width,float height);
@@ -72,17 +73,31 @@ namespace WodenRallyEdge
     // (autonomous frame timeout, Start/legacy Return with Escape exclusion).
     internal sealed class DailyMessage
     {
+        private static int Next; private readonly int _id=++Next;internal int GetInstanceID()=>_id;
+        internal bool field_Private_Boolean_0 {get=>Ready;set=>Ready=value;}
         internal bool Ready=true,Confirm,Start;internal int Loads;
         public void Update(){if(Ready&&(Confirm||Start||UnityEngine.Input.anyKey)){Ready=false;Loads++;}}
     }
     internal sealed class TitleScreenScript
     {
+        private static int Next=1000;private readonly int _id=++Next;internal int GetInstanceID()=>_id;
+        internal MenuControls? MyControls=new();internal string SceneToLoad="MapScreen";
         internal int FrameCount,FramesToDemo=3,DemoLoads,StartLoads;internal bool DemoStarted,Starting,Start,Back;
         public void FixedUpdate()
         {
             if(!DemoStarted)FrameCount++;
             if(FrameCount>FramesToDemo){FrameCount=0;DemoStarted=true;DemoLoads++;}
             if((Start||UnityEngine.Input.GetKey(UnityEngine.KeyCode.Return))&&!UnityEngine.Input.GetKey(UnityEngine.KeyCode.Escape)&&!Back&&!Starting){Starting=true;StartLoads++;}
+        }
+    }
+    internal sealed class MenuControls { internal bool ButtonB; }
+    internal sealed class MenuCameraScript
+    {
+        internal static bool Exiting,Available=true,FailLoad,ExitBeforeFailure;
+        internal static readonly List<(string Scene,bool Loading,bool Third)> Loads=new();
+        internal static void LoadScene(string scene,bool loading,bool third) {
+            if(FailLoad) {Exiting=ExitBeforeFailure;throw new InvalidOperationException("fixture native load failure");}
+            Loads.Add((scene,loading,third));
         }
     }
     internal sealed class GamePadSystem

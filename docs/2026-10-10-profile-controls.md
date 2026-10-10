@@ -112,3 +112,38 @@ This is an installed-runtime regression, **not a post-Apply controls test**:
 the runner used the sealed reference configuration. Production Apply followed
 by independent raw-device/menu/pedal observations remains pending. The lease
 was released and Claude notified when the run completed.
+
+## Production Apply and raw startup check, 06:01 CT
+
+`results/raw-controls-20261010-03` freezes Wheelkit `8c7243e` and the original
+profile, stages wrong steering/Confirm indexes, then repairs them through
+production Apply. Fixture/live previews and applied bytes match; independent
+binding checks pass. The addon admits the loaded configuration with schema 2,
+while native force and motion/progression output stay muted. The allowed new
+CrashEnabled default does not enable force: Enabled remains false and the native
+process latch independently refuses output.
+
+The original profile's button 31 produces 84 injected device reads and a real
+`WheelInput.Button("Confirm", false)` press/release. The daily notice remains
+visible: it bypasses EventSystem, leaving the ordinary menu dispatcher nowhere
+to send this binding. This is a runtime control defect, not an Apply failure.
+The run closes normally and restores original files/preferences exactly at
+`2026-10-10T11:03:00.0207300Z`. Driving remains unqualified. The earlier run02
+ended before input because supervision compared local DateTime ticks with UTC;
+`4cf7eaa` fixes that conversion without extending the cold expiry.
+
+The source follow-up uses the existing, verified native DailyMessage/title
+transition with the normal saved Confirm/Start bindings. Each screen requires
+100 ms neutral and a new press; held input cannot skip the next screen. Focus,
+panel/capture ownership, failed/ambiguous readers, Back/Escape, native readiness
+and unexpected title destinations prevent a wheel transition. Native keyboard
+and attract handling continue normally. A failed load restores readiness only
+if the native transition has not begun. 759 production UI assertions pass,
+including native keyboard retention, ownership, held-input handback and failures.
+This is a source candidate pending packaging, cross-review and live check.
+
+The developer observer now records changed raw/normalized/button/menu states
+and a fresh baseline for each command, rather than repeating identical values
+every poll. Actual car input rows and heartbeat remain per-sample/periodic.
+108 production callback assertions cover deduplication, press/release retention,
+new-command baseline and bounded keys as well as prior lifecycle failures.

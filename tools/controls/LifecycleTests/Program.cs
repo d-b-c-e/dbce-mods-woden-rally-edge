@@ -29,6 +29,7 @@ static class Test
         Set("Runtime",typeof(WodenRallyEdge.Runtime));Set("Hub",typeof(WodenRallyEdge.DeviceHub));Set("Wheel",typeof(WodenRallyEdge.WheelInput));Set("Mod",typeof(WodenRallyEdge.Runtime).Assembly);
         WodenRallyEdge.Runtime.Devices=new();WodenRallyEdge.Runtime.DiagnosticNoForce=true;WodenRallyEdge.StagePlayback.Target.Muted=false;Call("Mute");
         foreach(var f in new[]{"Sequence","RawCommands","Rows"})Set(f,0);
+        Get<Dictionary<string,string>>("Observed").Clear();
         Set("Deadline",Now+300);Set("NextIdentity",double.PositiveInfinity);Set("ObserveUntil",Now+300);Set("NextStatus",0d);
         Set("OwnedEvidence",Dir);Set("ProcessStart",DateTimeOffset.UtcNow.AddMinutes(-1));
         Set("Request",new ColdRequest(1,new string('a',32),DateTimeOffset.UtcNow.AddMinutes(5),"", "", "", "", "",Dir));
@@ -71,6 +72,15 @@ static class Test
         Reset("axis-deferred");Call("AfterAxis",new BadText(),.5f,true);Check(WodenRallyEdge.Runtime.Devices.Closes==0 && !Get<bool>("Armed"),"formatting fault deferred");Tick();Stopped("deferred axis");
         Reset("rows");Set("Rows",200000);Call("AfterButton","Confirm",true,true);Check(!Get<bool>("Armed") && !Get<bool>("Closed"),"row bound defers close");Tick();Stopped("row bound");
         Reset("write-failure");Get<StreamWriter>("Trace").Dispose();Call("AfterButton","Confirm",true,true);Check(!Get<bool>("Armed") && !Get<bool>("Closed"),"trace error defers close");Tick();Stopped("trace error");
+        Reset("changed");Call("AfterButton","Confirm",false,false);int first=Get<int>("Rows");
+        for(int i=0;i<100;i++)Call("AfterButton","Confirm",false,false);
+        Check(Get<int>("Rows")==first,"identical observed states are not repeated");
+        Call("AfterButton","Confirm",false,true);Call("AfterButton","Confirm",false,false);
+        Check(Get<int>("Rows")==first+2,"press and release transitions both retained");
+        Command();Tick();int commandRows=Get<int>("Rows");Call("AfterButton","Confirm",false,false);
+        Check(Get<int>("Rows")==commandRows+1,"new raw command records fresh state even if unchanged");
+        Reset("observation-key-limit");for(int i=0;i<=512;i++)Call("AfterButton","unrelated"+i,false,false);
+        Check(!Get<bool>("Armed") && !Get<bool>("Closed"),"observation keys bounded with deferred close");Tick();Stopped("key limit");
         Reset("observation");WodenRallyEdge.Runtime.Devices.Devices=new[]{new WodenRallyEdge.DeviceHub.Device()};Call("AfterPoll",WodenRallyEdge.Runtime.Devices);Call("AfterAxis",null,.5f,true);Call("AfterApply",new WodenRallyEdge.WheelInput{_last=new(){Steer=-.5f,Throttle=.5f}});Call("AfterTick");
         Call("Close","done");var trace=File.ReadAllText(Path.Combine(Dir,"observations.tsv"));Check(trace.Contains("injected=True") && trace.Contains("value=0.5") && trace.Contains("\"Steer\":-0.5") && trace.Contains("\"Throttle\":0.5"),"raw normalized and actual applied observations retained");Check(Submitted==0,"observer never submits input");Stopped("normal observation");
         Console.WriteLine($"PASS: {Checks} production-addon lifecycle assertions; private fixture {Base}");

@@ -59,7 +59,7 @@ The first live run refused admission before raw input: main-plugin startup
 rewrote config comments/order and added four missing defaults. No force or raw
 commands occurred; normal close and exact restoration completed at
 2026-10-10 10:56:13 UTC (`results/raw-controls-20261010-01`). Actual admitted
-Harmony callbacks and raw input remain unqualified. Woden's existing
+Harmony callbacks and raw input remain unqualified in that first run. Woden's existing
 InputPolling already samples once per frame.
 
 ```
@@ -122,3 +122,11 @@ This does not alter any game setting or silently normalize mismatched values.
 Post-run strict byte verification is retained separately; a semantic pass also
 requires binding JSON to remain byte-identical to production Apply. Restoration
 always uses the original byte snapshots, including their comments/order.
+
+Run03 admitted schema 2 and observed the original Confirm binding from the raw
+R12 reader through WheelInput.Button. It found an ordinary startup menu gap;
+no driving qualification is claimed. Normal close and exact restoration passed.
+See docs/2026-10-10-profile-controls.md for the source fix and live evidence.
+Observer callbacks now retain state changes and fresh command baselines instead
+of repeating identical values every poll (108 lifecycle assertions). Car-input
+rows remain per-sample. There is no automatic navigation or post-binding input.

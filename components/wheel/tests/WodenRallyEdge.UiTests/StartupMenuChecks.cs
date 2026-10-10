@@ -10,13 +10,15 @@ internal static class StartupMenuChecks
         var hub = Runtime.Devices!;
         void Reset()
         {
+            StartupWheelControls.Reset(); MenuCameraScript.Loads.Clear(); MenuCameraScript.Available=true; MenuCameraScript.Exiting=false;
+            MenuCameraScript.FailLoad=false;MenuCameraScript.ExitBeforeFailure=false;
             Panel.Close(false); Runtime.Focused = true;
             Keyboard.current = new(); Input.FailRead = false; Input.Held = false; Input.Keys.Clear(); Input.Down.Clear();
             hub.Pressed.Clear(); hub.OnPoll = null; Time.frameCount++;
             Event.current = new() { type = EventType.KeyUp, keyCode = KeyCode.F6 }; Panel.Draw();
         }
-        void Daily(DailyMessage message) { if (DailyMessageInputHook.Prefix()) message.Update(); }
-        void Title(TitleScreenScript title) { if (TitleScreenInputHook.Prefix()) title.FixedUpdate(); }
+        void Daily(DailyMessage message) { if (DailyMessageInputHook.Prefix(message)) message.Update(); }
+        void Title(TitleScreenScript title) { if (TitleScreenInputHook.Prefix(title)) title.FixedUpdate(); }
         void Release()
         {
             Input.Keys.Clear(); Input.Down.Clear(); Keyboard.current!.Clear(); hub.Pressed.Clear();
@@ -78,19 +80,82 @@ internal static class StartupMenuChecks
         check(!Panel.Open, "unfocused startup callback does not open settings");
         Reset();
         Input.FailRead = true;
-        check(!DailyMessageInputHook.Prefix() && !Panel.Open, "unknown opening input holds direct consumer instead of treating failure as no key");
+        check(!DailyMessageInputHook.Prefix(new DailyMessage()) && !Panel.Open, "unknown opening input holds direct consumer instead of treating failure as no key");
         Input.FailRead = false;
-        check(DailyMessageInputHook.Prefix(), "healthy opening read restores ordinary native dispatch");
+        check(DailyMessageInputHook.Prefix(new DailyMessage()), "healthy opening read restores ordinary native dispatch");
         Reset();
         hub.OnPoll = () => throw new InvalidOperationException("fixture early poll failure");
         int failedPolls = hub.Polls;
-        check(!DailyMessageInputHook.Prefix() && !TitleScreenInputHook.Prefix() && hub.Polls == failedPolls + 1,
+        check(!DailyMessageInputHook.Prefix(new DailyMessage()) && !TitleScreenInputHook.Prefix(new TitleScreenScript()) && hub.Polls == failedPolls + 1,
             "failed shared poll remains unknown for every consumer in that frame without repeated reads");
         hub.OnPoll = null; Time.frameCount++;
-        check(TitleScreenInputHook.Prefix(), "fresh healthy frame recovers from failed early poll");
+        check(TitleScreenInputHook.Prefix(new TitleScreenScript()), "fresh healthy frame recovers from failed early poll");
         check(Runtime.Log.Infos.Any(s => s.Contains("Startup input guard active: DailyMessage.Update")) &&
             Runtime.Log.Infos.Any(s => s.Contains("Startup input guard active: TitleScreenScript.FixedUpdate")),
             "actual consumer guards produce bounded runtime diagnostics");
+        // Real saved-binding lookup and production transition code, without
+        // issuing a fake game action from the test or opening any real device.
+        var savedButtons = Runtime.Wheel!.Bindings.Buttons;
+        Runtime.Wheel.Bindings.Buttons = new() { ["Confirm"]=new(device,31), ["Pause"]=new(device,35), ["Back"]=new(device,18) };
+        var reader=hub.Devices.Single(d=>d.Info.InstanceGuid==device);
+        void TickDaily(DailyMessage d) {Time.frameCount++;Daily(d);}
+        void TickTitle(TitleScreenScript t) {Time.frameCount++;Title(t);}
+        void ReadyDaily(DailyMessage d) {hub.Pressed.Clear();TickDaily(d);Runtime.Clock.Advance(.11);TickDaily(d);}
+        void ReadyTitle(TitleScreenScript t) {hub.Pressed.Clear();TickTitle(t);Runtime.Clock.Advance(.11);TickTitle(t);}
+        Reset();var notice=new DailyMessage();hub.Pressed.Add(new(device,31));TickDaily(notice);
+        check(MenuCameraScript.Loads.Count==0,"held Confirm at first screen never skips startup");
+        ReadyDaily(notice);hub.Pressed.Add(new(device,31));TickDaily(notice);
+        check(MenuCameraScript.Loads.SequenceEqual(new[]{("Title Screen",false,false)}) && !notice.Ready,"fresh mapped Confirm advances notice via native menu once");
+        TickDaily(notice);check(MenuCameraScript.Loads.Count==1,"held Confirm cannot repeat notice transition");
+        var next=new TitleScreenScript{FramesToDemo=int.MaxValue};TickTitle(next);
+        check(MenuCameraScript.Loads.Count==1&&!next.Starting,"notice press cannot skip the title");
+        ReadyTitle(next);hub.Pressed.Add(new(device,35));TickTitle(next);
+        check(MenuCameraScript.Loads.Count==2&&MenuCameraScript.Loads[1]==("MapScreen",true,false)&&next.Starting,"fresh mapped Start advances title through native fade");
+        foreach(string block in new[]{"focus","reader","duplicate","back","escape","camera","destination","native-back","starting","unready","capture","poll","panel"})
+        {
+            Reset();reader.Ok=true;var t=new TitleScreenScript{FramesToDemo=int.MaxValue};ReadyTitle(t);
+            var extra=new DeviceHub.Device{Info=new(){InstanceGuid=device}};
+            switch(block) {
+                case "focus":Runtime.Focused=false;break;
+                case "reader":reader.Ok=false;break;
+                case "duplicate":hub.Devices.Add(extra);break;
+                case "back":hub.Pressed.Add(new(device,18));break;
+                case "escape":Input.Keys.Add(KeyCode.Escape);break;
+                case "camera":MenuCameraScript.Available=false;break;
+                case "destination":t.SceneToLoad="Unexpected";break;
+                case "native-back":t.MyControls!.ButtonB=true;break;
+                case "starting":t.Starting=true;break;
+                case "unready":t.MyControls=null;break;
+                case "capture":Runtime.Wheel.BeginButton("Confirm");break;
+                case "poll":hub.OnPoll=()=>throw new InvalidOperationException("fixture bound poll failure");break;
+                case "panel":Input.Down.Add(KeyCode.F6);break;
+            }
+            hub.Pressed.Add(new(device,31));TickTitle(t);
+            check(MenuCameraScript.Loads.Count==0,"bound startup refuses "+block);
+            hub.Devices.Remove(extra);reader.Ok=true;
+            Runtime.Wheel.Cancel();hub.OnPoll=null;Input.Down.Clear();Panel.Close(false);
+            Runtime.Focused=true;Input.Keys.Clear();hub.Pressed.Remove(new(device,18));MenuCameraScript.Available=true;
+            t.SceneToLoad="MapScreen";t.MyControls=new();t.Starting=false;TickTitle(t);
+            check(MenuCameraScript.Loads.Count==0,"held press after "+block+" must be released again");
+            ReadyTitle(t);hub.Pressed.Add(new(device,31));TickTitle(t);
+            check(MenuCameraScript.Loads.Count==1,"fresh press recovers after "+block);
+        }
+        Reset();var premature=new DailyMessage{Ready=false};ReadyDaily(premature);hub.Pressed.Add(new(device,31));TickDaily(premature);
+        premature.Ready=true;TickDaily(premature);check(MenuCameraScript.Loads.Count==0,"notice readiness cannot turn a held press into confirmation");
+        ReadyDaily(premature);hub.Pressed.Add(new(device,31));TickDaily(premature);check(MenuCameraScript.Loads.Count==1,"ready notice accepts a later fresh press");
+        foreach(bool partial in new[]{false,true}) {
+            Reset();var d=new DailyMessage();ReadyDaily(d);MenuCameraScript.FailLoad=true;MenuCameraScript.ExitBeforeFailure=partial;
+            hub.Pressed.Add(new(device,31));TickDaily(d);
+            check(d.Ready==!partial && MenuCameraScript.Loads.Count==0,"notice failure restores eligibility only before native transition begins");
+            Reset();var t=new TitleScreenScript{FramesToDemo=int.MaxValue};ReadyTitle(t);MenuCameraScript.FailLoad=true;MenuCameraScript.ExitBeforeFailure=partial;
+            hub.Pressed.Add(new(device,31));TickTitle(t);
+            check(t.Starting==partial && MenuCameraScript.Loads.Count==0,"title failure restores eligibility only before native transition begins");
+            MenuCameraScript.FailLoad=false;MenuCameraScript.Exiting=false;t.Starting=false;TickTitle(t);
+            check(MenuCameraScript.Loads.Count==0,"failed transition consumes held input");
+            ReadyTitle(t);hub.Pressed.Add(new(device,31));TickTitle(t);
+            check(MenuCameraScript.Loads.Count==1,"fresh press recovers after load failure");
+        }
+        Runtime.Wheel.Bindings.Buttons=savedButtons;
         Reset();
     }
 }

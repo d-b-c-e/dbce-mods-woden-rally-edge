@@ -32,6 +32,7 @@ public sealed class ControlsProbe : BasePlugin
     static Harmony? Patches;
     static ColdRequest? Request;
     static StreamWriter? Trace;
+    static readonly Dictionary<string,string> Observed = new(StringComparer.Ordinal);
     static bool Requested, Armed, Closed;
     static int Sequence, RawCommands, Rows;
     static double Deadline, ObserveUntil, NextStatus, NextIdentity;
@@ -100,6 +101,7 @@ public sealed class ControlsProbe : BasePlugin
                 throw new InvalidDataException("Evidence must be outside the game folder.");
             if(Directory.Exists(output) || File.Exists(output)) throw new InvalidDataException("Evidence directory must be new.");
             Plain(output); Directory.CreateDirectory(output); OwnedEvidence=output;
+            Observed.Clear();
             Trace=new(new FileStream(Path.Combine(output,"observations.tsv"),FileMode.CreateNew,FileAccess.Write,FileShare.Read),new UTF8Encoding(false));
             Trace.WriteLine("time_s\tframe\tkind\tdata");
             File.WriteAllText(Path.Combine(output,"identity.json"),JsonSerializer.Serialize(new{request=Request,process=Environment.ProcessId,processStart=ProcessStart,
@@ -172,6 +174,7 @@ public sealed class ControlsProbe : BasePlugin
             if(r.Operation=="raw")
             {
                 if(++RawCommands>256) throw new InvalidDataException("Raw command limit.");
+                Observed.Clear();
                 ok=Native.SubmitRaw(r.Raw!,out reply); ObserveUntil=now+16;
                 Row(ok?"request-accepted":"request-refused",r.Raw!+"; "+reply);
                 if(!Native.Armed) throw new InvalidDataException("Native fence confirmation lost.");
@@ -193,7 +196,7 @@ public sealed class ControlsProbe : BasePlugin
             if(Clock.Elapsed.TotalSeconds<=ObserveUntil)
             {
                 var selected=EventSystem.current?.currentSelectedGameObject;
-                Row("menu-selection",selected==null?"none":ObjectPath(selected.transform));
+                Changed("menu-selection","selected",selected==null?"none":ObjectPath(selected.transform));
             }
             Row("native-status",Native!.Status); Trace!.Flush();
         }
@@ -211,7 +214,7 @@ public sealed class ControlsProbe : BasePlugin
                 var t=d.GetType(); int slot=(int)Field(t,"Slot",d)!; var info=Field(t,"Info",d)!;
                 var guid=info.GetType().GetField("InstanceGuid")!.GetValue(info);
                 bool injected=Native!.LastReadInjected(slot); if(!Native.Armed) throw new InvalidDataException(Native.Status);
-                Row("raw-read","slot="+slot+" guid="+guid+" valid="+Field(t,"Ok",d)+" injected="+injected+
+                Changed("raw-read",slot.ToString(CultureInfo.InvariantCulture),"slot="+slot+" guid="+guid+" valid="+Field(t,"Ok",d)+" injected="+injected+
                     " axes="+string.Join(",",(int[])Field(t,"Axes",d)!)+" hats="+string.Join(",",(int[])Field(t,"Pov",d)!)+
                     " buttons="+string.Join(",",((byte[])Field(t,"Physical",d)!).Select((v,i)=>(v,i)).Where(x=>x.v!=0).Select(x=>x.i)));
             }
@@ -221,11 +224,18 @@ public sealed class ControlsProbe : BasePlugin
     static void AfterAxis(object? __0,float __1,bool __result)
     {
         if(!Observing) return;
-        try { Row("normalized-axis","binding="+__0+" valid="+__result+" value="+__1.ToString("R",CultureInfo.InvariantCulture)); }
+        try { Changed("normalized-axis",__0?.ToString()??"none","binding="+__0+" valid="+__result+" value="+__1.ToString("R",CultureInfo.InvariantCulture)); }
         catch(Exception ex) { RequestStop("axis observation failed: "+ex.Message); }
     }
     static void AfterButton(string __0,bool __1,bool __result)
-    { if(Observing) Row("game-button",__0+" edge="+__1+" value="+(__result?1:0)); }
+    { if(Observing) Changed("game-button",__0+"/"+__1,__0+" edge="+__1+" value="+(__result?1:0)); }
+    static void Changed(string kind,string key,string data)
+    {
+        string id=kind+"/"+key;
+        if(Observed.TryGetValue(id,out var previous) && previous==data) return;
+        if(Observed.Count>=512 && !Observed.ContainsKey(id)) { RequestStop("observation key limit"); return; }
+        Observed[id]=data; Row(kind,data);
+    }
     static void AfterApply(object __instance)
     {
         if(!Observing) return;

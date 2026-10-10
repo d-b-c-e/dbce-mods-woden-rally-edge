@@ -59,3 +59,10 @@ command; normal close/exact restoration passed. Schema 2 now checks unchanged
 original values plus four explicitly allowed missing defaults, using one shared
 addon/offline verifier; 13 negative/positive cases and the actual rewritten
 config pass. This remains input qualification pending, not observed controls.
+
+Run03 subsequently admitted and observed raw Confirm through the actual saved
+binding after fixture/live production Apply repaired deliberately wrong indexes.
+It exposed a native startup screen which bypasses the wheel menu dispatcher.
+The startup bridge source passes 759 production UI checks; its runtime and the
+remaining driving controls remain pending. Exact run03 restoration passed.
+The bounded developer observer passes 108 callback lifecycle assertions.
