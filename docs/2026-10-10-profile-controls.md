@@ -34,8 +34,15 @@ needs this provenance reviewed against its compiled payload.
 `tools/controls/native_verdict.py` verifies the original workload/profile identity,
 ordered sent/archive/reply correlation, runtime config verification and completed
 restoration. It requires a sustained native plateau in an unlocked driving state.
-Run07 reports **6 observed, 0 mismatches, 10 unknown** (menu/camera commands need
-their separate evidence); it does not promote every profile action. Ten adversarial
+After peer review 4782, the verdict parses each actual command duration, requires
+coverage throughout that hold, and records the preceding 0.3-second same-car
+baseline. A target already present is `unchanged`, not a proven response.
+Run07 now reports **5 observed, 0 mismatches, 11 unknown, 0 unchanged**. The first
+half-throttle plateau still matches both native fields, but no preceding native
+baseline was captured, so its response is unknown under the stronger rule.
+The other five samples changed from recorded baseline values. The original
+six-plateau report is retained; `native-verdict-reviewed.json` is the revised
+verdict. Menu/camera commands need their separate evidence. Eighteen adversarial
 tests include correct requested Controls with a discarded MainCar input, missing
 rows/channels, NaN, locked state, a replaced car and an out-of-window response.
 The sealed trace is unchanged; `native-verdict.json` pins its input hashes.

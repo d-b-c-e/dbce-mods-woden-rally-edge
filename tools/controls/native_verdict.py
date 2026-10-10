@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 import math
+import re
 from pathlib import Path
 
 
@@ -20,21 +21,34 @@ def require(ok, reason):
         raise ValueError(reason)
 
 
+def command_duration(raw):
+    matches = re.findall(r"(?:^|\s)ms=(\d+)(?=\s|$)", raw)
+    require(len(matches) == 1 and 0 < int(matches[0]) <= 4000, "Missing or invalid raw duration.")
+    return int(matches[0]) / 1000
+
+
 def scalar_case(action, expected, start, native, duration=.5):
     keys = {"steer": ("controls.steer", "game.steer"),
             "throttle": ("controls.throttle", "game.throttle"),
             "brake": ("controls.brake", "game.brake"),
             "handbrake": ("game.handbrake",)}
-    result = dict(action=action, expected=expected, at=start, result="unknown")
+    require(math.isfinite(duration) and 0 < duration <= 4, "Invalid duration.")
+    result = dict(action=action, expected=expected, at=start, duration=duration, result="unknown")
     if action not in keys:
         result["reason"] = "No scalar verdict for this action; inspect separate menu/camera evidence."
         return result
     # Leave two physics ticks for acquisition; require a sustained plateau,
     # not one matching value somewhere in a multi-second window.
-    rows = [row for t, row in native if start+.08 <= t <= start+duration-.02]
+    samples = [(t, row) for t, row in native if start+.08 <= t <= start+duration-.02]
+    rows = [r for t, r in samples]
     result["rows"] = len(rows)
     if len(rows) < 5:
         result["reason"] = "Insufficient independent native-car observations."
+        return result
+    times = [t for t, r in samples]
+    if (times[0] > start+.18 or times[-1] < start+duration-.12 or
+            any(b-a <= 0 or b-a > .1 for a, b in zip(times, times[1:]))):
+        result["reason"] = "Native observations do not cover the commanded hold."
         return result
     required = (*keys[action], "game.status", "game.paused", "game.locked",
                 "game.respawning", "game.replay")
@@ -55,6 +69,23 @@ def scalar_case(action, expected, start, native, duration=.5):
                                   max=max(r["Channels"][k] for r in rows)) for k in keys[action]}
     result["result"] = "observed" if all(abs(r["Channels"][k]-target) <= .001
                                         for r in rows for k in keys[action]) else "mismatch"
+    # A target already present before injection is not evidence of a response.
+    before = [r for t, r in native if start-.3 <= t <= start-.02]
+    baseline_ok = len(before) >= 5 and all(
+        r["Car"] == rows[0]["Car"] and r["State"] == "driving" and
+        all(k not in r.get("Missing", []) and k in r["Channels"] and
+            math.isfinite(r["Channels"][k]) for k in required) and
+        r["Channels"]["game.status"] == 1 and
+        all(r["Channels"][k] == 0 for k in required[-4:]) for r in before)
+    result["baselineRows"] = len(before)
+    result["before"] = {k: dict(min=min(r["Channels"][k] for r in before),
+                               max=max(r["Channels"][k] for r in before))
+                        for k in keys[action]} if baseline_ok else {}
+    if result["result"] == "observed":
+        if not baseline_ok:
+            result.update(result="unknown", reason="No valid same-car driving baseline before command.")
+        elif any(all(abs(r["Channels"][k]-target) <= .001 for r in before) for k in keys[action]):
+            result.update(result="unchanged", reason="At least one required native channel already matched the target before command.")
     # Release back to physical input is observed separately. No assumed neutral
     # value: an owner wheel can be slightly off centre while at rest.
     after = [r for t, r in native if start+duration+.08 <= t <= start+duration+.5]
@@ -110,13 +141,14 @@ def analyze(root):
                    if s["Command"] == raw}
         require(len(matches) == 1, "Raw command has no unique original-profile expectation.")
         action, expected = matches.pop()
-        cases.append(scalar_case(action, expected, t, native))
+        cases.append(scalar_case(action, expected, t, native, command_duration(raw)))
     files = ["trace/observations.tsv", "trace/identity.json", "raw-workload.json", "apply/apply.json",
              "runtime-verification.json", "restored.txt", "trace/result.json", "apply/profile.json"]
     return dict(schema=1, scope="Submitted native scalar samples only; not full profile qualification or owner acceptance",
                 sourceHashes={p: hashlib.sha256((root / p).read_bytes()).hexdigest() for p in files},
                 observed=sum(c["result"] == "observed" for c in cases),
                 mismatches=sum(c["result"] == "mismatch" for c in cases),
+                unchanged=sum(c["result"] == "unchanged" for c in cases),
                 unknown=sum(c["result"] == "unknown" for c in cases), nativeRows=len(native), cases=cases)
 
 

@@ -6,7 +6,9 @@ payload hashes verified and owner settings preserved. Production Wheelkit Apply
 parity. Run07 reached Spain SS1 from cold launch through native menus. Six scalar
 samples matched independent native Controls/MainCar fields: steering +/-0.5,
 throttle 0.5/1, brake 0.5 and handbrake pressed. Camera preset changed 0 to 1.
-No physical output. Exact owner files/preferences restored at 12:25:40Z.
+The stricter peer-reviewed response verdict confirms five changes from baseline;
+half throttle has a matching plateau but no pre-command native baseline and stays
+unknown as a response. No physical output. Exact owner files/preferences restored at 12:25:40Z.
 Physical controls, proportional handbrake braking, auxiliary shifts and the full interruption matrix remain
 open. Public release and owner FFB tune unchanged. See
 [profile-controls evidence](../../../docs/2026-10-10-profile-controls.md).
