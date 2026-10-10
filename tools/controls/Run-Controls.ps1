@@ -130,7 +130,8 @@ try {
     & "$PSScriptRoot/Send-Command.ps1" -Result $Result -Operation status
     Write-Output "Armed; inspect state before every raw sample. Evidence $Result"
     $deadline=[DateTime]::UtcNow.AddSeconds($Seconds)
-    if($deadline -gt ([DateTime]$cold.expiresUtc)){$deadline=([DateTime]$cold.expiresUtc)}
+    $coldDeadline=([DateTimeOffset]$cold.expiresUtc).UtcDateTime
+    if($deadline -gt $coldDeadline){$deadline=$coldDeadline}
     while(!$game.HasExited -and !(Test-Path "$Result/trace/result.json") -and [DateTime]::UtcNow -lt $deadline) {
         Assert-StageRigLease -Path $slot -Token $lease.token
         if([double](& "$HubRepo/tools/Owner-Input.ps1" -IdleSeconds) -lt 5){'Owner returned' | Set-Content "$Result/interrupted.txt";break}
