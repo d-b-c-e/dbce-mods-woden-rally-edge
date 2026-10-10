@@ -66,3 +66,24 @@ It exposed a native startup screen which bypasses the wheel menu dispatcher.
 The startup bridge source passes 759 production UI checks; its runtime and the
 remaining driving controls remain pending. Exact run03 restoration passed.
 The bounded developer observer passes 108 callback lifecycle assertions.
+
+October 10 run07 supersedes those pending runtime notes for its bounded scope:
+installed controls.6/ac308a6, frozen Wheelkit 8c7243e, production fixture/live
+preview and byte parity after staged wrong steering/Confirm bindings. Cold
+native menus reached Spain SS1. Observer 45772f8 reads actual Controls/MainCar
+fields rather than desired wheelInput values. Revised verdict f86b79e requires
+a preceding eligible baseline and full sustained sampling: five changed scalar
+responses observed, zero mismatches, eleven unknown (including first half-throttle
+with no prior baseline). The older six matching plateaus remain in evidence.
+Normal exit, exact owner files and raw registry restoration at 07:25:40 CT.
+No physical force or output telemetry was delivered. Native Boolean handbrake
+does not establish proportional braking; clutch, auxiliary gearbox, full menu
+navigation and interruption/hardware acceptance remain open.
+
+STD-035 adoption is partial: writer capability/identity and original-profile
+fixture/live checks are in place; the developer addon has no-force request and
+runtime lifecycle guards and production callback tests. This is not a claim that
+every fleet injection mechanism matches the standard. The exact-restore Woden
+runner is authorized; per-game cloud convergence and full lifecycle matrix remain
+explicit separate checks. See docs/2026-10-10-profile-controls.md and
+tools/controls/README.md for scope and receipts.
