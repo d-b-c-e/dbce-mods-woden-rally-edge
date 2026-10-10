@@ -25,5 +25,13 @@ Candidate verification uses the production Wheelkit Apply/backup/restore path,
 independent expected JSON, and this repository's actual `Bindings.Load` and
 normalization methods. A wrong camera index and a retained old gear gate must
 fail the file contract. See Wheelkit `docs/CONFIGURATION-TESTING.md` for commands.
-At this source checkpoint, exact-package installer checks, installation and a
-post-Apply muted game/input check are pending. No settings or forces were changed.
+The clean `94ebfeb` candidate `0.2.14-controls.1` passed 52 suites / 39,138
+assertions, 705 UI assertions and 113 exact-package installer checks under
+Windows PowerShell 5.1. ZIP SHA-256:
+`C3743796C57B17897AF86F5561483C8BB30F1AE75C5DC0C320FDBC087CAAEB8B`.
+Private logs: `results/prepare-controls.1.log` and
+`results/test-installer-controls.1.log`; player stage under
+`components/wheel/dist/player-0.2.14-controls.1`.
+
+Installation and a post-Apply muted game/input check are pending. This is a
+local candidate, not a new public release. No owner settings or forces changed.
