@@ -89,3 +89,26 @@ game folder. Private evidence: `results/install-controls.2-20261010-0210`
 The receipt advertises schema 1, `woden-bindings-1` and profile hat neighbours.
 Public beta artifacts are unchanged. Muted replay regression and raw input
 observation after production Apply remain separate pending checks.
+
+## Cold playback regression, October 10, 02:50-02:51 CT
+
+Installed controls.2 passed the existing Kenya reference via
+`tools/game/Run-StageSession.ps1`, after the 300-second owner-idle gate and under
+the shared rig lease. No resolution override was supplied. The runner reached
+the stage unattended, played 3,601 poses (maximum position error
+`6.103515625E-05` metres and rotation error `1.690385577616028E-05` degrees),
+closed the game and restored owner files/preferences. Restore completion:
+`2026-10-10T07:51:50.4080391Z`.
+
+Private evidence: `results/controls2-cold-regression-20261010/`, including the
+game log, playback result, owner-before/after copies and five game captures.
+Frame 03 shows the driving scene across a 7680x1440 window with centre HUD and
+the muted-playback banner. Its metadata reports triples On and focused false.
+The log confirms the separate-monitor span at (-2560,0). Wheel and motion
+outputs stayed muted. No new seam-quality or physical-input acceptance is
+inferred from these images.
+
+This is an installed-runtime regression, **not a post-Apply controls test**:
+the runner used the sealed reference configuration. Production Apply followed
+by independent raw-device/menu/pedal observations remains pending. The lease
+was released and Claude notified when the run completed.
