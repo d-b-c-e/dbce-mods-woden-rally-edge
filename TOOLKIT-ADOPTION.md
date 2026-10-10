@@ -43,3 +43,5 @@ binding and the installer declares its capability. Vendored input source
 existing read slot; native/managed binary pins are unchanged. Production
 DeviceHub passes 3,896 fake-reader checks; actual post-Apply raw input remains
 unqualified. See docs/2026-10-10-profile-controls.md.
+
+October 10: the developer-only raw qualification addon is a source candidate, not a player/native pin update. 31 protocol checks and 40 compiled metadata seams pass; lifecycle review, recovery runner and live input remain open. See tools/controls/README.md.

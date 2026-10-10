@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net6.0</TargetFramework><AssemblyName>Woden.ControlsProbe</AssemblyName><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><LangVersion>latest</LangVersion><TreatWarningsAsErrors>true</TreatWarningsAsErrors><CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies></PropertyGroup>
+  <ItemGroup>
+    <Reference Include="BepInEx.Core"><HintPath>../../../components/wheel/lib/core/BepInEx.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="BepInEx.Unity.IL2CPP"><HintPath>../../../components/wheel/lib/core/BepInEx.Unity.IL2CPP.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>../../../components/wheel/lib/core/0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppInterop.Runtime"><HintPath>../../../components/wheel/lib/core/Il2CppInterop.Runtime.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="../../../components/wheel/lib/interop/*.dll" Private="false" />
+  </ItemGroup>
+</Project>
