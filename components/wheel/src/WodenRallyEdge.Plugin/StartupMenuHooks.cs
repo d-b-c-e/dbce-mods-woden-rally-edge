@@ -130,6 +130,13 @@ internal static class StartupMenuGuard
     internal static bool Before(bool title)
     {
         if (title) _titleCalls++; else _dailyCalls++;
+        if (AllowNativeMenu()) return true;
+        long blocked = title ? ++_titleBlocked : ++_dailyBlocked;
+        if (blocked == 1) Runtime.Log.LogInfo($"Startup input guard active: {(title ? "TitleScreenScript.FixedUpdate" : "DailyMessage.Update")}; settingsOpen={Panel.Open}");
+        return false;
+    }
+    internal static bool AllowNativeMenu()
+    {
         bool known = true;
         try
         {
@@ -140,9 +147,6 @@ internal static class StartupMenuGuard
             }
         }
         catch (Exception ex) { known = false; MenuOwnership.Failed("Startup settings read", ex); }
-        if (known && !MenuOwnership.Blocking) return true;
-        long blocked = title ? ++_titleBlocked : ++_dailyBlocked;
-        if (blocked == 1) Runtime.Log.LogInfo($"Startup input guard active: {(title ? "TitleScreenScript.FixedUpdate" : "DailyMessage.Update")}; settingsOpen={Panel.Open}, inputKnown={known}");
-        return false;
+        return known && !MenuOwnership.Blocking;
     }
 }

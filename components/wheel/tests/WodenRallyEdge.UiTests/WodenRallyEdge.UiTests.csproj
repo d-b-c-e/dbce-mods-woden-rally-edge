@@ -4,6 +4,7 @@
     <Reference Include="Dbce.Wheel.Ffb" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Ffb.dll" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/InputPolling.cs" Link="Consumer/InputPolling.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/StartupMenuHooks.cs" Link="Consumer/StartupMenuHooks.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/CustomMenuHooks.cs" Link="Consumer/CustomMenuHooks.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/StageRunLifecycle.cs" Link="Consumer/StageRunLifecycle.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/StageReplayPolicy.cs" Link="Consumer/StageReplayPolicy.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/MenuOwnership.cs" Link="Consumer/MenuOwnership.cs" />

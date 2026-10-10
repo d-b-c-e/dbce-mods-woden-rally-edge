@@ -12,7 +12,8 @@ internal static class MenuNavigation
     private static readonly Dictionary<string, ShortcutRepeat> Repeats = Actions.ToDictionary(a => a, _ => new ShortcutRepeat());
     internal static string Status { get; private set; } = "Bind menu buttons below; keyboard and controller still work.";
     internal static long Delivered { get; private set; }
-    internal static void SuppressStartupConfirm() => Repeats["Confirm"].Tick(true, false, Runtime.Clock.Elapsed.TotalSeconds, false);
+    internal static void SuppressStartupConfirm() => SuppressNativeAction("Confirm");
+    internal static void SuppressNativeAction(string action) => Repeats[action].Tick(true, false, Runtime.Clock.Elapsed.TotalSeconds, false);
     internal static void Update()
     {
         if (Runtime.Wheel == null) return;
@@ -21,7 +22,7 @@ internal static class MenuNavigation
         foreach (string action in Actions)
         {
             bool held = Runtime.Wheel.Button(action, false);
-            if (!Repeats[action].Tick(held, allowed && menu, Runtime.Clock.Elapsed.TotalSeconds, action.StartsWith("Menu "))) continue;
+            if (!Repeats[action].Tick(held, allowed && menu && (Panel.Open || !CustomWheelMenu.OwnsUnityDispatch), Runtime.Clock.Elapsed.TotalSeconds, action.StartsWith("Menu "))) continue;
             if (Panel.Open) { Panel.MenuAction(action); continue; }
             try
             {

@@ -92,7 +92,37 @@ namespace WodenRallyEdge
             if((Start||MyControls?.ButtonStart==true||UnityEngine.Input.GetKey(UnityEngine.KeyCode.Return))&&!UnityEngine.Input.GetKey(UnityEngine.KeyCode.Escape)&&!Back&&MyControls?.ButtonB!=true&&!Starting){Starting=true;StartLoads++;MenuCameraScript.LoadScene(SceneToLoad,true,false);}
         }
     }
-    internal sealed class MenuControls { internal bool ButtonB,ButtonStart; }
+    internal sealed class MenuControls {
+        private bool _a;
+        internal bool FailRestore;
+        internal bool ButtonA { get=>_a; set { if(FailRestore&&!value) throw new IOException("fixture native restore failed"); _a=value; } }
+        internal bool ButtonB,ButtonStart,ButtonBack,DPadLeft,DPadRight,DPadUp,DpadDown,LSLeft,LSRight,LSUp,LSDown;
+    }
+    internal static class GameMaster { internal static bool Demo; internal static int NrOfPlayers=1; }
+    internal sealed class ArcadeCarSelect {
+        private static int Next=2000; private readonly int _id=++Next; internal int GetInstanceID()=>_id;
+        internal bool isActiveAndEnabled=true,field_Private_Boolean_0=true,field_Private_Boolean_1,ThrowOriginal;
+        internal int PlayerIndex,Selections,Backs,Directions,Calls;
+        internal MenuControls? field_Private_MenuControls_0=new();
+        // Native phase branch at RVA 761A60; A opens transmission selection,
+        // directions respect debounce; B exits car selection. No copied game code.
+        public void FixedUpdate() {
+            Calls++; var c=field_Private_MenuControls_0!;
+            if(field_Private_Boolean_0&&!MenuCameraScript.Exiting) {
+                if(!field_Private_Boolean_1&&(c.DPadLeft||c.DPadRight||c.DPadUp||c.DpadDown)) {Directions++;field_Private_Boolean_1=true;}
+                if(c.ButtonA) {Selections++;field_Private_Boolean_0=false;}
+            }
+            if(c.ButtonB) {Backs++;isActiveAndEnabled=false;}
+            if(!(c.DPadLeft||c.DPadRight||c.DPadUp||c.DpadDown||c.ButtonB))field_Private_Boolean_1=false;
+            if(ThrowOriginal)throw new InvalidOperationException("fixture original car-select failure");
+        }
+    }
+    internal sealed class StagePresentation {
+        private static int Next=3000;private readonly int _id=++Next;internal int GetInstanceID()=>_id;
+        internal bool isActiveAndEnabled=true,field_Private_Boolean_0=true,field_Private_Boolean_1;
+        internal MenuControls? MyControls=new();internal int Starts,Results;
+        public void Update(){if(MyControls?.ButtonA==true&&field_Private_Boolean_0&&!MenuCameraScript.Exiting){if(field_Private_Boolean_1)Results++;else Starts++;field_Private_Boolean_0=false;}}
+    }
     internal sealed class MenuCameraScript
     {
         internal static bool Exiting,Available=true,FailLoad,ExitBeforeFailure;

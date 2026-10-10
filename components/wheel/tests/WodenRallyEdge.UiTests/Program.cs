@@ -184,6 +184,7 @@ Keyboard.current=keyboard;Keyboard.current![Key.F6].wasPressedThisFrame=true;Pan
 var staleCar=new MainCar{MyControls=new()};typeof(WheelInput).GetField("_last",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(Runtime.Wheel,new AppliedInput(staleCar.GetInstanceID(),Runtime.Clock.Elapsed.TotalSeconds,.7f,.5f,0,.8f));Runtime.Wheel.HandbrakeCar=staleCar;Runtime.Wheel.HandbrakeAmount=.8f;device.Ok=false;
 Check(Runtime.Wheel.Apply(new Controls{field_Private_MainCar_0=staleCar})==null&&Runtime.Wheel.LastFor(staleCar)==null&&Runtime.Wheel.HandbrakeCar==null&&Runtime.Wheel.HandbrakeAmount==0,"shared primary device failure clears previous effective handbrake/input sample");device.Ok=true;
 StartupMenuChecks.Run(Check,StockFrame,id);
+CustomMenuChecks.Run(Check,id);
 var saved=new Settings(new ConfigFile(Path.Combine(dir,"settings.cfg"),false));Check(saved.UiView=="Advanced"&&!saved.FfbEnabled&&saved.FfbSmoothing==61,"reopen/restart retains explicit view and tune");
 Runtime.Devices.Pressed.Clear();Keyboard.current ??= new();Keyboard.current.Clear();
 Panel.Close(false);Panel.Toggle();

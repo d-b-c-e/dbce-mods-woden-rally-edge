@@ -214,3 +214,31 @@ at `2026-10-10T11:43:24.8276831Z`. Native force is fenced for each whole process
 with independent FFB/telemetry mute. No physical output or owner acceptance.
 Startup and ordinary menu input are observed; car selection and driving input
 qualification remain open. The temporary probe/native candidate were restored.
+
+### Custom-screen candidate after run05
+
+`CustomMenuHooks.cs` extends the callback-scoped input lease to two verified
+consumers, with the original native callback and its side effects retained:
+
+| Consumer | Private native evidence | Inputs and scope |
+|---|---|---|
+| ArcadeCarSelect.FixedUpdate | RVA `0x761A60`, MenuControls at `+0x40`; ready `+0x24`; debounce `+0x50`; A `+0x42`, B `+0x44`, dpad `+0x34..37` | Confirm, Back, four directions; single-player/player zero, active ready car-selection phase, not transitioning. One fresh press per action, no frame-rate repeats. |
+| StagePresentation.Update | RVA `0xA93CB0`; MyControls `+0x98`, ready `+0xA0`, result flag `+0xF0` | Confirm only, ready single-player introduction; results/leaderboard branch excluded. |
+
+Private disassembly and field inventory: `artifacts/menu-consumer-audit`.
+No game code or generated assemblies are committed. No global MenuControls
+producer hook, synthetic pad, scene jump or native selection setter is used.
+An inactive/ambiguous/missing reader, focus or panel/capture loss, active native
+input, multiplayer/demo, transition or native debounce resets the 100 ms
+neutral gate. A press during debounce is discarded and needs release/repress.
+Original keyboard/controller input still goes through the original callback.
+No native wheel tune, calibration, physics or saved settings change.
+
+The ordinary Unity dispatcher is suppressed only during the verified native
+car-selection phase. It resumes immediately for transmission selection, but a
+held Confirm cannot submit the new screen. Postfix and finalizer restore the
+borrowed field; an unacknowledged restore blocks subsequent custom-menu
+callbacks until exact restoration succeeds. 807 production UI assertions cover
+these boundaries, six input fields, native exception preservation, restored
+pre-existing true values, and failed-restoration retry. This candidate is not
+yet installed or live-qualified.
