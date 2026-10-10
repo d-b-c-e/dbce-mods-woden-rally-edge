@@ -53,17 +53,20 @@ public sealed class ControlsProbe : BasePlugin
         Requested=true;
         try
         {
-            Mod=AppDomain.CurrentDomain.GetAssemblies().Single(a=>a.GetName().Name=="WodenRallyEdgeWheel");
-            Runtime=Type("Runtime"); Hub=Type("DeviceHub"); Wheel=Type("WheelInput");
             Patches=new Harmony(Id);
             var force=AppDomain.CurrentDomain.GetAssemblies().Single(a=>a.GetName().Name=="Dbce.Wheel.Ffb").GetType("Dbce.Wheel.Ffb.WheelFfbNative",true)!;
             var opens=force.GetMethods().Where(m=>m.Name=="Initialise").ToArray();
             if(opens.Length==0) throw new MissingMethodException("Native force-open guard seam missing.");
             foreach(var m in opens) Patch(m,nameof(Refuse));
+            // Guard force opening independently of game-specific reflection.
+            // A stale mod seam must never prevent this managed refusal patch.
+            Mod=AppDomain.CurrentDomain.GetAssemblies().Single(a=>a.GetName().Name=="WodenRallyEdgeWheel");
+            Runtime=Type("Runtime"); Hub=Type("DeviceHub"); Wheel=Type("WheelInput");
             HookContract.Verify(Mod,force.Assembly);
             foreach(var name in new[]{"BeginAxis","BeginButton","FinishAxis","TryCommit","RetrySave"}) Patch(Method(Wheel,name),nameof(Refuse));
             // Safety stays latched even when subsequent request validation fails.
             Runtime.GetField("DiagnosticNoForce",All)!.SetValue(null,true);
+            Plain(RequestPath); Plain(MarkerPath);
             if(!File.Exists(RequestPath) || !File.Exists(MarkerPath) || new FileInfo(MarkerPath).Length>64) throw new InvalidDataException("Both cold switches required.");
             ProcessStart=Process.GetCurrentProcess().StartTime.ToUniversalTime();
             if(File.GetLastWriteTimeUtc(MarkerPath)>=ProcessStart.UtcDateTime || File.GetLastWriteTimeUtc(RequestPath)>=ProcessStart.UtcDateTime)
@@ -104,7 +107,9 @@ public sealed class ControlsProbe : BasePlugin
             Patch(Method(Hub,"TryAxis"),postfix:nameof(AfterAxis));
             Patch(Method(Wheel,"Button"),postfix:nameof(AfterButton));
             Patch(Method(Wheel,"Apply"),postfix:nameof(AfterApply));
-            Deadline=Clock.Elapsed.TotalSeconds+300; Armed=true;
+            double remaining=(Request.ExpiresUtc-DateTimeOffset.UtcNow).TotalSeconds;
+            if(remaining<=0) throw new InvalidDataException("Cold request expired during admission.");
+            Deadline=Clock.Elapsed.TotalSeconds+Math.Min(300,remaining); Armed=true;
             Row("armed",Native.Status); Trace.Flush();
             Log.LogInfo("Raw controls test armed; native force fence and progression/network mute latched. Focus guards unchanged.");
         }
@@ -154,8 +159,12 @@ public sealed class ControlsProbe : BasePlugin
             string command=Path.Combine(Request!.OutputDirectory,"command.json");
             if(!File.Exists(command)) return;
             Plain(command);
-            var r=Protocol.Command(ReadBounded(command,2048),Request.Nonce,Sequence,File.GetLastWriteTimeUtc(command),ProcessStart);
-            Sequence=r.Sequence; File.Move(command,Path.Combine(Request.OutputDirectory,"command-"+Sequence+".json"));
+            // Claim the exact file before parsing. A subsequent writer cannot
+            // replace bytes between our validation and archival/submission.
+            string claimed=Path.Combine(Request.OutputDirectory,"command-claimed.json");
+            File.Move(command,claimed);
+            var r=Protocol.Command(ReadBounded(claimed,2048),Request.Nonce,Sequence,File.GetLastWriteTimeUtc(claimed),ProcessStart);
+            Sequence=r.Sequence; File.Move(claimed,Path.Combine(Request.OutputDirectory,"command-"+Sequence+".json"));
             bool ok=true; string reply=Native!.Status;
             if(r.Operation=="raw")
             {
@@ -164,7 +173,9 @@ public sealed class ControlsProbe : BasePlugin
                 Row(ok?"request-accepted":"request-refused",r.Raw!+"; "+reply);
                 if(!Native.Armed) throw new InvalidDataException("Native fence confirmation lost.");
             }
-            File.WriteAllText(Path.Combine(Request.OutputDirectory,"reply.json"),JsonSerializer.Serialize(new{r.Sequence,r.Nonce,ok,reply,physicalOutput=false},Protocol.Json));
+            string nextReply=Path.Combine(Request.OutputDirectory,"reply.next.json");
+            File.WriteAllText(nextReply,JsonSerializer.Serialize(new{r.Sequence,r.Nonce,ok,reply,physicalOutput=false},Protocol.Json));
+            File.Move(nextReply,Path.Combine(Request.OutputDirectory,"reply.json"),true);
             if(r.Operation=="stop") Close("stopped by command");
         }
         catch(Exception ex) { Close("command failed: "+ex.Message); }
@@ -205,7 +216,11 @@ public sealed class ControlsProbe : BasePlugin
         catch(Exception ex) { RequestStop("raw observation failed: "+ex.Message); }
     }
     static void AfterAxis(object? __0,float __1,bool __result)
-    { if(Observing) Row("normalized-axis","binding="+__0+" valid="+__result+" value="+__1.ToString("R",CultureInfo.InvariantCulture)); }
+    {
+        if(!Observing) return;
+        try { Row("normalized-axis","binding="+__0+" valid="+__result+" value="+__1.ToString("R",CultureInfo.InvariantCulture)); }
+        catch(Exception ex) { RequestStop("axis observation failed: "+ex.Message); }
+    }
     static void AfterButton(string __0,bool __1,bool __result)
     { if(Observing) Row("game-button",__0+" edge="+__1+" value="+(__result?1:0)); }
     static void AfterApply(object __instance)

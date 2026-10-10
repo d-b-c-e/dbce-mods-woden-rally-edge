@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Probe/ControlsProbe.cs" Link="Production/ControlsProbe.cs" />
+    <Compile Include="../Probe/Protocol.cs" Link="Production/Protocol.cs" />
+    <Compile Include="../Probe/HookContract.cs" Link="Production/HookContract.cs" />
+    <Compile Include="../Probe/NativeTestInjectionClient.cs" Link="Production/NativeTestInjectionClient.cs" />
+  </ItemGroup>
+</Project>

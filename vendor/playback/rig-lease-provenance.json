@@ -1,6 +1,6 @@
 {
   "schema": "dbce.stage-rig-lease-pin@1",
   "repository": "https://github.com/d-b-c-e/dbce-wheel-mod-toolkit",
-  "sourceRevision": "059da735ac9ce555f6488255bd5c82c760297bc2",
-  "sha256": "c229dff9cf452d3420f8f58367a292c2c9cda494dc4650fea98ca8981c51fc28"
+  "sourceRevision": "a484cb63a73e68e9704d9c631fc15677f36e5b91",
+  "sha256": "f3ef21a3fe13503b3a0798c3938bf54af090542e59bafa7928ad02c6151e89e0"
 }

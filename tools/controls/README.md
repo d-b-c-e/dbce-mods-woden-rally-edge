@@ -47,16 +47,24 @@ configs, payloads, saves, raw Unity registry state and original logs exactly.
 Unexpected process identity or incomplete restoration retains a recovery record
 and fails the run. Input results and restoration results remain separate.
 
-Status: source candidate builds with zero warnings; 31 device-free protocol
-checks and 40 exact compiled metadata seams pass. No addon installed or launched;
-no Woden raw-input qualification claimed. Review, fake lifecycle checks, the
-supervised recovery runner and actual runtime hooks are still owed. Woden's
-existing InputPolling already samples once per frame at early consumers.
+Status (October 10): source candidate builds with zero warnings. 31 protocol
+checks, 40 exact compiled metadata seams and 97 assertions against the actual
+addon callbacks pass. The latter use fake engine/native boundaries and real
+mailbox files, covering unknown completion, malformed/stale commands, expiry,
+lost native latch, callback faults, deferred reader closure and retained mutes.
+26 file-restoration and 50 production recovery checks pass in isolated trees.
+The recovery fixture stubs only the registry boundary, never touches owner data,
+and covers partial restore, corrupt backups and changed lease/request ownership.
+No addon installed or launched; actual Harmony callbacks and raw input in Woden
+remain unqualified. Woden's existing InputPolling already samples once per frame.
 
 ```
 dotnet run --project tools/controls/ProtocolTests -c Release
+dotnet run --project tools/controls/LifecycleTests -c Release
 dotnet run --project tools/controls/VerifyHooks -c Release -- .
 dotnet build tools/controls/Probe/Woden.ControlsProbe.csproj -c Release
+pwsh -NoProfile -File tools/controls/Test-OwnerFiles.ps1
+pwsh -NoProfile -File tools/controls/Test-Recovery.ps1
 ```
 
 The cold files are under `%LOCALAPPDATA%/dbce/super-woden-rally-edge/`.
@@ -65,3 +73,20 @@ nonce/sequence-correlated `reply.json`. The native client is vendored with an
 exact source/hash in `Probe/VENDOR.md`. It has no external/private dependency at
 runtime. A command is archived before submission; a missing reply means unknown
 completion, never permission to retry it.
+
+`Run-Controls.ps1 -Result <new-path> -NativeCandidate <dll> -NativeSha256 <sha>`
+freezes Wheelkit's built production qualification harness, applies the selected
+original profile and writes an independent raw workload. It checks output mute
+again after Apply and before the plain Steam launch. It never sends controls
+automatically. Inspect a current game-window frame before each `Send-Command.ps1`
+call. A missing reply is terminal for the sender; do not clear pending-command
+or retry. `-Recover -Result <same-path>` is for a closed game only, validates
+the recovery scope/hashes and retains the lease on incomplete restoration.
+
+Main plugin load calls Runtime.Start (output construction and nonexclusive
+DeviceHub reads), not Force.Prepare; force opening is in the later Runtime.Update
+path and checks the independently disabled setting. The addon patches Initialise
+before reflecting game-specific seams. Native Arm still refuses if any force
+attempt occurred first. DeviceHub.CloseReaders calls native CloseRead and clears
+its lists; it is safe when Runtime.Stop subsequently closes the same empty hub.
+No real force is used to validate these source properties.
