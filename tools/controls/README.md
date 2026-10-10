@@ -52,7 +52,7 @@ checks, 40 exact compiled metadata seams and 97 assertions against the actual
 addon callbacks pass. The latter use fake engine/native boundaries and real
 mailbox files, covering unknown completion, malformed/stale commands, expiry,
 lost native latch, callback faults, deferred reader closure and retained mutes.
-26 file-restoration and 50 production recovery checks pass in isolated trees.
+28 file-restoration and 50 production recovery checks pass in isolated trees.
 The recovery fixture stubs only the registry boundary, never touches owner data,
 and covers partial restore, corrupt backups and changed lease/request ownership.
 No addon installed or launched; actual Harmony callbacks and raw input in Woden
@@ -65,6 +65,7 @@ dotnet run --project tools/controls/VerifyHooks -c Release -- .
 dotnet build tools/controls/Probe/Woden.ControlsProbe.csproj -c Release
 pwsh -NoProfile -File tools/controls/Test-OwnerFiles.ps1
 pwsh -NoProfile -File tools/controls/Test-Recovery.ps1
+pwsh -NoProfile -File tools/controls/Test-ApplyCheck.ps1
 ```
 
 The cold files are under `%LOCALAPPDATA%/dbce/super-woden-rally-edge/`.
@@ -75,8 +76,15 @@ runtime. A command is archived before submission; a missing reply means unknown
 completion, never permission to retry it.
 
 `Run-Controls.ps1 -Result <new-path> -NativeCandidate <dll> -NativeSha256 <sha>`
-freezes Wheelkit's built production qualification harness, applies the selected
-original profile and writes an independent raw workload. It checks output mute
+builds Wheelkit's production qualification harness from the reviewed full commit
+`8c7243ec4c7d11d992b99ba8009bc6d790679595` in a new git archive. `writer.json`
+pins the source archive, catalog and built files. It deliberately stages wrong
+steering and Confirm indexes after saving owner state, applies the original
+selected profile to an isolated fixture and the live files, and compares both
+previews and resulting bytes. Independent assertions require those two original
+profile bindings to be repaired. It then writes the independent raw workload.
+`Test-ApplyCheck.ps1` executes this production path on synthetic files only.
+The runner checks output mute
 again after Apply and before the plain Steam launch. It never sends controls
 automatically. Inspect a current game-window frame before each `Send-Command.ps1`
 call. A missing reply is terminal for the sender; do not clear pending-command
@@ -90,3 +98,10 @@ before reflecting game-specific seams. Native Arm still refuses if any force
 attempt occurred first. DeviceHub.CloseReaders calls native CloseRead and clears
 its lists; it is safe when Runtime.Stop subsequently closes the same empty hub.
 No real force is used to validate these source properties.
+
+The cold five-minute expiry also bounds supervision; load time does not extend
+the session. Initial Windows process metadata error 299 is retried only before
+identity admission. Later command identity failures remain terminal. Recovery
+recreates deleted owner directories and removes only newly created empty ones.
+This input-only run does not switch display profiles or reuse the older display
+watchdog that kills processes by name and switches the global topology.

@@ -18,6 +18,7 @@ function Full([string]$p){$ExecutionContext.SessionState.Path.GetUnresolvedProvi
 $Result=Full $Result; $GameDir=Full $GameDir
 . "$PSScriptRoot/OwnerFiles.ps1"
 . "$PSScriptRoot/Environment.ps1"
+. "$PSScriptRoot/Apply-Check.ps1"
 . "$PSScriptRoot/../../vendor/playback/Stage-RigLease.ps1"
 $slot=Join-Path $env:LOCALAPPDATA 'dbce/test-slot.txt'
 $prefsKey='HKCU:\Software\ViJuDa\Super Woden Rally Edge'
@@ -77,19 +78,17 @@ try {
     Closed
     if($Recover){$state.lease=$lease;$state | ConvertTo-Json -Depth 5 | Set-Content "$Result/recovery.json";return}
     [IO.Directory]::CreateDirectory($Result) | Out-Null
+    $writer=& "$PSScriptRoot/Freeze-Wheelkit.ps1" -Result $Result -Repo $WheelkitRepo
+    $harness=$writer.harness
     Save-ControlFiles "$Result/owner-before" $roots $files
     Registry-Snapshot "$Result/preferences.json"
     $nonce=[guid]::NewGuid().ToString('N')
-    $state=[ordered]@{schema=1;gameDir=$GameDir;lease=$lease;nonce=$nonce;filesHash=(Get-ControlHash "$Result/owner-before/manifest.json");prefsHash=(Get-ControlHash "$Result/preferences.json")}
+    $state=[ordered]@{schema=1;gameDir=$GameDir;lease=$lease;nonce=$nonce;filesHash=(Get-ControlHash "$Result/owner-before/manifest.json");prefsHash=(Get-ControlHash "$Result/preferences.json");writerReceiptHash=$writer.receiptHash}
     $state | ConvertTo-Json -Depth 5 | Set-Content "$Result/recovery.json"
     $ready=$true
     foreach($pair in @(@('ForceFeedback','Enabled'),@('Telemetry','Enabled'),@('Diagnostics','RecordSession'),@('Dev','InputCommandFile'))){Set-IniFalse $pair[0] $pair[1]}
-    [IO.Directory]::CreateDirectory("$Result/harness") | Out-Null
-    Copy-Item "$WheelkitRepo/tools/ConfigurationQualification/bin/Release/net10.0-windows/*" "$Result/harness/" -Recurse
-    & dotnet $harness prepare-live super-woden-rally-edge $GameDir "$WheelkitRepo/src/Wheelkit.App/Data/catalog-seed.json" $Profiles $live
-    if($LASTEXITCODE){throw 'Prepare failed.'}
-    & dotnet $harness apply-live $live
-    if($LASTEXITCODE){throw 'Production Apply failed.'}; $applied=$true
+    Invoke-ControlApplyCheck $GameDir $Result $harness $writer.catalog $Profiles
+    $applied=$true
     # Verify again after production Apply and before launch. The addon also
     # checks the settings as loaded by the game before it arms raw input.
     Assert-OutputMute
@@ -107,7 +106,13 @@ try {
     $deadline=[DateTime]::UtcNow.AddSeconds(90)
     while(!$game -and [DateTime]::UtcNow -lt $deadline) {
         $games=@(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue)
-        if($games.Count -gt 1){throw 'Multiple Woden processes.'}; if($games.Count -eq 1){$game=$games[0]}
+        if($games.Count -gt 1){throw 'Multiple Woden processes.'}
+        if($games.Count -eq 1){
+            try {
+                if(!$games[0].MainModule.FileName){throw [ComponentModel.Win32Exception]::new(299)}
+                $game=$games[0]
+            } catch [ComponentModel.Win32Exception] {if($_.Exception.NativeErrorCode -ne 299){throw};$games[0].Dispose()}
+        }
         Start-Sleep -Milliseconds 500
     }
     if(!$game){throw 'No game launched; leave Steam session prompts untouched.'}
@@ -120,6 +125,7 @@ try {
     & "$PSScriptRoot/Send-Command.ps1" -Result $Result -Operation status
     Write-Output "Armed; inspect state before every raw sample. Evidence $Result"
     $deadline=[DateTime]::UtcNow.AddSeconds($Seconds)
+    if($deadline -gt ([DateTime]$cold.expiresUtc)){$deadline=([DateTime]$cold.expiresUtc)}
     while(!$game.HasExited -and !(Test-Path "$Result/trace/result.json") -and [DateTime]::UtcNow -lt $deadline) {
         Assert-StageRigLease -Path $slot -Token $lease.token
         if([double](& "$HubRepo/tools/Owner-Input.ps1" -IdleSeconds) -lt 5){'Owner returned' | Set-Content "$Result/interrupted.txt";break}

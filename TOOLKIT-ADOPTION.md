@@ -46,3 +46,10 @@ DeviceHub passes 3,896 fake-reader checks; actual post-Apply raw input remains
 unqualified. See docs/2026-10-10-profile-controls.md.
 
 October 10: the developer-only raw qualification addon is a source candidate, not a player/native pin update. 31 protocol checks, 40 compiled metadata seams, 97 actual-addon callback assertions, 26 file-recovery and 50 production runner recovery checks pass. Claude reviewed the callback lifecycle; force-open guarding now precedes game-specific reflection. Runner review and live input remain open. See tools/controls/README.md. Shared rig-lease helper advances to a484cb6 for borrowed-token validation; 059da7 Enter/Exit behavior is unchanged.
+
+October 10 follow-up: STD-034 runner now freezes reviewed Wheelkit 8c7243e
+from a git archive, stages wrong steering/Confirm bindings, compares fixture
+and live previews/applied bytes and independently checks their repair. Its
+synthetic production Apply check, 28 file-recovery and 50 production recovery
+assertions pass. Claude's runner review prompted these additions. Live input
+and owner acceptance remain separate and pending.

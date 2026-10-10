@@ -11,7 +11,7 @@ foreach($case in @('restore','expired','already-restored','bad-backup','bad-meta
     $dir=Join-Path $base $case; $game=Join-Path $dir 'game'; $result=Join-Path $dir 'result'
     $user=Join-Path $dir 'user';$app=Join-Path $dir 'app';$copy=Join-Path $dir 'tools/controls'
     [IO.Directory]::CreateDirectory($copy)|Out-Null
-    Copy-Item "$PSScriptRoot/Run-Controls.ps1","$PSScriptRoot/OwnerFiles.ps1" $copy
+    Copy-Item "$PSScriptRoot/Run-Controls.ps1","$PSScriptRoot/OwnerFiles.ps1","$PSScriptRoot/Apply-Check.ps1" $copy
     Text "$copy/Environment.ps1" @'
 function Registry-Restore([string]$Path) {
     if(Test-Path "$Result/fail-registry"){throw 'simulated registry failure'}

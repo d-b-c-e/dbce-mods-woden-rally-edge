@@ -42,6 +42,21 @@ function Resolve-ControlEntry([string]$Key,$Roots,$Files) {
     if($parts.Count -eq 3 -and $parts[0] -eq 'tree' -and $Roots.Contains($parts[1])) { return Get-ControlChild $Roots[$parts[1]] $parts[2] }
     throw 'Unknown recovery scope.'
 }
+function Get-ControlDirectories($Roots,$Files) {
+    $result=@{}
+    foreach($key in $Roots.Keys) {
+        $path=[IO.Path]::GetFullPath($Roots[$key]); Assert-ControlPlain $path
+        if(Test-Path -LiteralPath $path -PathType Container) {
+            $result[$path]=$true
+            foreach($d in Get-ChildItem -LiteralPath $path -Directory -Recurse -Force){Assert-ControlPlain $d.FullName;$result[$d.FullName]=$true}
+        }
+    }
+    foreach($key in $Files.Keys) {
+        $path=Split-Path -Parent ([IO.Path]::GetFullPath($Files[$key]));Assert-ControlPlain $path
+        if(Test-Path -LiteralPath $path -PathType Container){$result[$path]=$true}
+    }
+    @($result.Keys | Sort-Object)
+}
 function Copy-ControlExact([string]$From,[string]$To,[string]$Expected) {
     if((Get-ControlHash $From) -ne $Expected){throw 'Source changed before copy.'}
     Assert-ControlPlain $To
@@ -60,7 +75,7 @@ function Save-ControlFiles([string]$Directory,$Roots,$Files) {
         if($hash -ne 'absent'){Copy-ControlExact $entry.path (Get-ControlChild $Directory $entry.key) $hash}
         [ordered]@{key=$entry.key;hash=$hash}
     })
-    [ordered]@{schema=1;roots=$Roots;files=$Files;entries=$saved} | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath "$Directory/manifest.json"
+    [ordered]@{schema=1;roots=$Roots;files=$Files;entries=$saved;directories=@(Get-ControlDirectories $Roots $Files)} | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath "$Directory/manifest.json"
 }
 function Restore-ControlFiles([string]$Directory,[string]$After,$Roots,$Files) {
     Assert-ControlPlain $Directory; Assert-ControlPlain $After
@@ -81,8 +96,20 @@ function Restore-ControlFiles([string]$Directory,[string]$After,$Roots,$Files) {
         $destinations[$entry.key]=$target; $paths[$target]=$true
     }
     foreach($key in $Files.Keys){if(!$destinations.ContainsKey('file/'+$key)){throw 'Fixed recovery file omitted.'}}
+    if(!$manifest.ContainsKey('directories')){throw 'Missing directory inventory.'}
+    foreach($d in $manifest.directories) {
+        $path=[IO.Path]::GetFullPath($d);Assert-ControlPlain $path
+        $allowed=$false
+        foreach($root in $Roots.Values){$root=[IO.Path]::GetFullPath($root).TrimEnd('\','/');if($path -eq $root -or $path.StartsWith($root+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){$allowed=$true}}
+        foreach($file in $Files.Values){if($path -eq (Split-Path -Parent ([IO.Path]::GetFullPath($file)))){$allowed=$true}}
+        if(!$allowed){throw 'Directory inventory escapes recovery scope.'}
+    }
     $current=@(Get-ControlInventory $Roots $Files) # Validate every current path before any mutation.
     $errors=[Collections.Generic.List[string]]::new()
+    foreach($d in $manifest.directories) {
+        try {Assert-ControlPlain $d; [IO.Directory]::CreateDirectory($d) | Out-Null}
+        catch {$errors.Add($_.Exception.Message)}
+    }
     foreach($entry in $current) {
         try {
             $hash=Get-ControlHash $entry.path
@@ -98,6 +125,16 @@ function Restore-ControlFiles([string]$Directory,[string]$After,$Roots,$Files) {
             if($entry.hash -eq 'absent') {if(Test-Path -LiteralPath $target){Remove-Item -LiteralPath $target}}
             else {Copy-ControlExact (Get-ControlChild $Directory $entry.key) $target $entry.hash}
             if((Get-ControlHash $target) -ne $entry.hash){throw 'Restoration readback failed.'}
+        } catch {$errors.Add($_.Exception.Message)}
+    }
+    # Delete only newly created, empty directories under the adapter's known
+    # roots (or exact fixed-file parents). No recursive directory deletion.
+    foreach($d in (Get-ControlDirectories $Roots $Files | Sort-Object Length -Descending)) {
+        try {
+            if($d -notin $manifest.directories) {
+                Assert-ControlPlain $d
+                if(@(Get-ChildItem -LiteralPath $d -Force).Count -eq 0){[IO.Directory]::Delete($d,$false)}
+            }
         } catch {$errors.Add($_.Exception.Message)}
     }
     if($errors.Count){throw ('Independent restores attempted; recovery incomplete: '+($errors -join '; '))}
