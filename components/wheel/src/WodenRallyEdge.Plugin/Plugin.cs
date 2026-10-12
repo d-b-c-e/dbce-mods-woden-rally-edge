@@ -109,6 +109,7 @@ internal static class Runtime
         Wheel = new(Path.Combine(Paths.ConfigPath, "wheel-bindings.json"));
         try { Devices = new(directory); }
         catch (Exception ex) { Log.LogError("Wheel route unavailable; telemetry remains enabled: " + ex.Message); }
+        ShimInput.Start(directory, Paths.ConfigPath, Path.Combine(Paths.BepInExRootPath, "WodenShim"));
         Activity.BeginRuntime(); // Publish callback availability only after initialization.
     }
     internal static void ApplyOutputs()
@@ -233,6 +234,7 @@ internal static class Runtime
     {
         TripleView.Stop("plugin stopping");
         Force.Shutdown();
+        ShimInput.Stop("plugin stopping");
         Panel.Close(false);
         Wheel?.Cancel();
         Devices?.Dispose();

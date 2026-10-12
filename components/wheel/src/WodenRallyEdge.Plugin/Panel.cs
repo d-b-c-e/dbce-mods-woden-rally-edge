@@ -298,10 +298,11 @@ internal static class Panel
     private static void Refresh() { Runtime.Force?.Reconnect("Device refresh");Runtime.Devices?.Refresh(); }
     private static void SetupPage()
     {
+        if(ShimInput.Owns) { ShimPage(); return; }
         var cfg=Runtime.Settings; bool before=cfg.WheelEnabled;
         Toggle(250,152,390,"Wheel controls",ref cfg.WheelEnabled); if(before!=cfg.WheelEnabled)Runtime.Force?.Suspend("Wheel controls changed");
         if(Button(700,152,244,"Refresh devices"))Refresh();
-        Label(250,202,690,"Connect your controls, check the bars, then drive.",true,36);
+        Label(250,202,690,Runtime.Settings.InputBackend=="Shim"?ShimInput.Status:"Connect your controls, check the bars, then drive.",true,36);
         string? next=null; int row=0;
         foreach(string name in new[]{"Steer","Throttle","Brake"})
         {
@@ -357,6 +358,7 @@ internal static class Panel
     }
     private static void ControlsPage()
     {
+        if(ShimInput.Owns) { ShimPage(); return; }
         if(CapturePage())return; var input=Runtime.Wheel!; float y=152;
         foreach(string name in new[]{"Steer","Throttle","Brake","Handbrake"})
         {
@@ -388,13 +390,33 @@ internal static class Panel
         End(y);
     }
 
+    private static void ShimPage()
+    {
+        var cfg=Runtime.Settings; bool before=cfg.WheelEnabled;
+        Toggle(250,152,690,"Wheel controls",ref cfg.WheelEnabled);
+        if(before!=cfg.WheelEnabled)Runtime.Force?.Suspend("Wheel controls changed");
+        Label(250,202,690,ShimInput.Status,true,48);
+        Label(250,254,690,"Controls use dbce-controls.ini from launch. Close the game to change the profile or backend. Standalone bindings are preserved.",true,64);
+        float y=330;
+        foreach(string id in new[]{"steer","throttle","brake","handbrake"})
+        {
+            var action=ShimInput.Action(id);
+            Label(250,y,160,char.ToUpperInvariant(id[0])+id[1..]);
+            Bar(420,y+8,310,action.Applied,id=="steer");
+            Label(742,y,202,action.Status.ToString(),true);y+=54;
+        }
+        Label(250,y,690,"Wheel-only pilot: Unity gamepads must be disconnected before launch. Native keyboard controls remain available.",true,54);y+=64;
+        Label(250,y,690,"Sequential shifting only. Clutch, neutral, reverse, select and H-pattern gears are unsupported. Lights, Records and Next song retain native keyboard controls.",true,72);y+=84;
+        End(y);
+    }
+
     private static void ForcePage()
     {
         var cfg=Runtime.Settings;var force=Runtime.Force!;
         Label(250,156,160,"FFB:");
         if(Button(430,152,90,"Off",!cfg.FfbEnabled)) {try{force.SetEnabled(false);}catch(Exception ex){Message="Save failed: "+ex.Message;}}
         if(Button(532,152,90,"On",cfg.FfbEnabled)) {try{force.SetEnabled(true);}catch(Exception ex){Message="Save failed: "+ex.Message;}}
-        var target=Runtime.Devices!.ResolveForceTarget(cfg.FfbFollowSteering,cfg.FfbGuid,Runtime.Wheel!.Bindings.Steer?.DeviceGuid);
+        var target=Runtime.Devices!.ResolveForceTarget(cfg.FfbFollowSteering,cfg.FfbGuid,Runtime.Wheel!.SteeringGuid);
         Label(250,208,690,"FFB device:",true);
         string chosen=cfg.FfbFollowSteering?"Use steering wheel":Guid.TryParse(cfg.FfbGuid,out var id)?Runtime.Devices.Describe(id):"Choose a wheel";
         if(chosen.Length>65)chosen=chosen[..62]+"…";

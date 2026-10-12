@@ -105,10 +105,14 @@ internal static class CustomWheelMenu
         { Release.Reset(); return null; }
         string? held=null;
         foreach(string action in Actions) {
-            if(!wheel.Bindings.Buttons.TryGetValue(action,out var b)) continue;
-            var devices=hub.Devices.Where(d=>d.Info.InstanceGuid==b.DeviceGuid).ToArray();
-            if(!b.Valid || devices.Length!=1 || !devices[0].Ok) { Release.Reset(); return null; }
-            if(hub.Button(b,false,action)) {
+            if(ShimInput.Owns) {
+                if(!ShimInput.Ready) { Release.Reset(); return null; }
+            } else {
+                if(!wheel.Bindings.Buttons.TryGetValue(action,out var b)) continue;
+                var devices=hub.Devices.Where(d=>d.Info.InstanceGuid==b.DeviceGuid).ToArray();
+                if(!b.Valid || devices.Length!=1 || !devices[0].Ok) { Release.Reset(); return null; }
+            }
+            if(wheel.Button(action,false)) {
                 // Ambiguous simultaneous directions/actions never choose a menu for the user.
                 if(held!=null) { Release.Reset(); return null; }
                 held=action;

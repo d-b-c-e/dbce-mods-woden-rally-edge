@@ -25,6 +25,7 @@ public sealed class Settings
     public bool FfbFollowSteering = true, TelemetryEnabled = true;
     private int _selectionVersion;
     public string UiView = "Simple", UiPage = "Setup";
+    public string InputBackend = "Native";
     public float UiScale = 100;
     public bool CustomFfb => FfbModel != "Grip" || FfbLoadRatio != 2 || FfbGripSmoothing != .2f || FfbPeak != 25 || FfbLoadReference != 6000 || FfbSlipScale != .35f || FfbSmoothing != 35 || FfbDamping != .05f || FfbInvert;
     public void SetPresentation(string view, string page)
@@ -99,6 +100,7 @@ public sealed class Settings
         var steps = CameraSteps; CameraMoveStep = steps.Move; CameraTiltStep = steps.Tilt; CameraFovStep = steps.Fov;
         UiView = SettingsPresentation.View(UiView); UiPage = SettingsPresentation.Page(UiPage, UiView);
         UiScale = Bound(UiScale, 85, 150, 100);
+        InputBackend = InputBackend == "Shim" ? "Shim" : "Native";
     }
     private void Sync(bool read)
     {
@@ -107,6 +109,7 @@ public sealed class Settings
         Item("Interface", "View", ref UiView, "Simple or Advanced; presentation only.");
         Item("Interface", "Page", ref UiPage, "Last settings page.");
         Item("Interface", "ScalePercent", ref UiScale, "Settings text and target scale, 85..150%.");
+        Item("Input", "Backend", ref InputBackend, "Native (standalone bindings) or opt-in Shim wheel-only pilot. Requires dbce-controls.ini and no Unity gamepads; restart to change. H-pattern/clutch unsupported in this pilot.");
         Item("Telemetry", "Enabled", ref TelemetryEnabled, "Send dashboard UDP; does not start or stop diagnostic recording.");
         Item("ForceFeedback", "FollowSteering", ref FfbFollowSteering, "Use the saved Steering device GUID. An explicit selection remains independent.");
         Item("ForceFeedback", "SelectionVersion", ref _selectionVersion, "Preserve legacy explicit selections during migration.");

@@ -459,6 +459,7 @@ Test("countdown wheel/camera eligibility preserves every existing driving and FF
     Check(cycle.View == MountedView.Bonnet && !cycle.Reconcile(0, true, true), "preselected bonnet survives normal countdown-to-race without preset change");
 });
 Test("actual action-table lease supplies countdown-capable controls and restores boxed native values", () => WodenRallyEdge.InputLeaseChecks.Run(Check));
+Test("shim steering identity preserves force lifecycle and tune", () => WodenRallyEdge.ShimForceChecks.Run(Check));
 Test("active countdown camera cannot enable physical force", () => {
     var (controller, device) = WodenRallyEdge.ForceControllerChecks.Create(); controller.Prepare();
     for (int i = 1; i <= 30; i++) controller.Tick(Contact(i * .02, state: "countdown"));

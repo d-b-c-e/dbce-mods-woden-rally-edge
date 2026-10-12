@@ -3,6 +3,11 @@
   <ItemGroup>
     <Reference Include="Dbce.Wheel.Ffb" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Ffb.dll" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/InputPolling.cs" Link="Consumer/InputPolling.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/ShimInput.cs" Link="Consumer/ShimInput.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/ShimNative.cs" Link="Consumer/ShimNative.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/InputLease.cs" Link="Consumer/InputLease.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/ControlActions.cs" Link="Consumer/ControlActions.cs" />
+    <None Include="../../../../vendor/dbce-shim/dbce_shim.dll" CopyToOutputDirectory="PreserveNewest" Link="dbce_shim.dll" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/StartupMenuHooks.cs" Link="Consumer/StartupMenuHooks.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CustomMenuHooks.cs" Link="Consumer/CustomMenuHooks.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/StageRunLifecycle.cs" Link="Consumer/StageRunLifecycle.cs" />

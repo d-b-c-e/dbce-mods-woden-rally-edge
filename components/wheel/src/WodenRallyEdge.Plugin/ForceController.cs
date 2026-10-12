@@ -136,7 +136,8 @@ internal sealed class ForceController
         if (ObserveGuard("diagnostic", Runtime.DiagnosticNoForce)) { if (_native) Release("Diagnostic launch: force disabled"); Status = "Diagnostic launch: force disabled"; return; }
         if (!ObserveGuard("enabled", Runtime.Settings.FfbEnabled)) { if (_native) Release("FFB off"); Status = "FFB off"; return; }
         if (ObserveGuard("faulted", _faulted) || !ObserveGuard("focused", Runtime.Focused) || !ObserveGuard("stock-ready", StockWheelOwner.Ready) || !ObserveGuard("hub-present", Runtime.Devices != null)) return;
-        var selection = Runtime.Devices!.ResolveForceTarget(Runtime.Settings.FfbFollowSteering, Runtime.Settings.FfbGuid, Runtime.Wheel?.Bindings.Steer?.DeviceGuid);
+        if (ShimInput.Owns && !ShimInput.Ready) { if (_native) Release("Shim stopped"); Status = ShimInput.Status; return; }
+        var selection = Runtime.Devices!.ResolveForceTarget(Runtime.Settings.FfbFollowSteering, Runtime.Settings.FfbGuid, Runtime.Wheel?.SteeringGuid);
         _capture?.Selection(selection.Guid, _openedGuid, CommandProvenanceCapture.TargetCode(selection), selection.Ready);
         if (!selection.Ready) { if (_native) Release(selection.Reason); Status = selection.Reason; return; }
         var guid = selection.Guid!.Value;

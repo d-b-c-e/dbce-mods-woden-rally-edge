@@ -58,6 +58,7 @@ namespace UnityEngine.EventSystems
 }
 namespace UnityEngine.InputSystem
 {
+    public sealed class Gamepad { public static readonly List<Gamepad> all=new(); }
     public enum Key {None,F6,F8,Escape,A,B,C,U,J,LeftShift,RightShift,LeftCtrl,RightCtrl,LeftAlt,RightAlt,LeftMeta,RightMeta,Numpad8,Numpad2,Numpad9,Numpad7,Numpad4,Numpad6,Numpad1,Numpad3,NumpadPlus,NumpadMinus,Numpad0,Numpad5}
     public sealed class KeyControl { public bool wasPressedThisFrame,isPressed; }
     public sealed class Keyboard
@@ -67,7 +68,8 @@ namespace UnityEngine.InputSystem
 namespace WodenRallyEdge
 {
     internal static class Plugin {internal const string Version="0.2.12";}
-    internal static class TimingDiagnostics {internal static double PollMs;}
+    internal static class TimingDiagnostics {internal static double PollMs,ControlsMs;}
+    internal static class GameWindow {internal static int Window=123; internal static int Capture()=>Window;}
     // Native-behavior fixtures from guarded GameAssembly: DailyMessage.Update
     // RVA 0x456090 (ready + flags/legacy anyKey), title FixedUpdate 0xAFB560
     // (autonomous frame timeout, Start/legacy Return with Escape exclusion).
@@ -137,10 +139,11 @@ namespace WodenRallyEdge
         internal readonly List<Game_Pad> Game_Pads=new();
         internal sealed class Game_Pad
         {
+            internal UnityEngine.InputSystem.Gamepad? Controller;
             internal bool AnyKey,A,B,X,Y,Back,Start,LB,RB,L3,R3,Dpad_Up,Dpad_Down,Dpad_Left,Dpad_Right;
             internal UnityEngine.Vector2 LS,RS;internal float LT,RT;
             internal float[]? InputFloats;
-            internal Actions[]? PadActions;
+            internal Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray<Actions>? PadActions;
         }
         internal record struct Actions(string name,float value,bool Pressed,int AssignedFloat=0,UnityEngine.KeyCode KeyBoard_Key=UnityEngine.KeyCode.None,bool Available=true);
     }
@@ -152,10 +155,7 @@ namespace WodenRallyEdge
     {internal enum CarStatus {WARMING,RACE,END,DESTROYED} internal CarStatus Status=CarStatus.RACE;internal Controls? MyControls;internal int GetInstanceID()=>1;internal int MyGear=1,Gears=5;internal DriveAssists? Aids=new();internal TransmissionSys? TransmissionSystem=new();}
 internal sealed class DriveAssists {internal bool Automatic;}
 internal sealed class TransmissionSys {internal bool Changing;}
-    internal sealed class Controls {internal MainCar? field_Private_MainCar_0;internal Pause? PauseScript;}
-    internal sealed class InputLease {internal float Handbrake;internal static bool LastUp,LastDown;internal static float LastThrottle,LastBrake;internal InputLease(GameAction[] a,float s,float t,float b,WheelInput i,MainCar car,bool up=false,bool down=false){i.HandbrakeCar=null;i.HandbrakeAmount=0;LastUp=up;LastDown=down;LastThrottle=t;LastBrake=b;} }
-    internal sealed class GameAction {internal string name="fixture";}
-    internal static class ControlActions {internal static GameAction[]? For(Controls c)=>null;}
+    internal sealed class Controls {internal MainCar? field_Private_MainCar_0;internal Pause? PauseScript;internal GamePadSystem? field_Private_GamePadSystem_0;internal GamePadSystem.Game_Pad? field_Private_Game_Pad_0;internal int Controller_Int;}
     internal static class CountdownTimerAssist {internal static string Status=>"Fixture: assist waiting for gameplay";}
     internal static class LeaderboardGuard {internal static string Status=>"Online times: uploaded as normal";}
 internal static class FrameRate {internal static string Summary=>"52 fps average, 1% low 31 fps, worst frame 40 ms";}
