@@ -2,11 +2,11 @@
 
 October 12: the schema 4 fixed shared-Core menu route passed; see
 [native evidence](../../docs/SHIM-MENU-TRIAL.md). Separate schema 5
-`-ShimCarTrial` reached native Kenya/Manual, passed 17 axis/neutral plateaus and
-observed native shift-up before respawn interrupted the run. Shift-down and
-complete six-action delivery remain unqualified. It uses the sealed Kenya
-identity and original raw workload while retaining the ordinary diagnostic
-force producer; exact owner restoration passed. See
+`-ShimCarTrial` trial02 passed all six raw shared-Core actions through native
+Kenya/Manual, including sequential +1/-1 and final neutral/Core completion.
+It uses the sealed Kenya identity and original raw workload while retaining the
+ordinary diagnostic force producer; exact owner restoration passed. Force
+preview validity, physical controls and HUD jitter remain separate gaps. See
 [car evidence, limits and command](../../docs/SHIM-CAR-TRIAL.md). Schema 4 remains
 menu-only; it cannot enter a car. Only schema 5 permits its exact cold recorder.
 

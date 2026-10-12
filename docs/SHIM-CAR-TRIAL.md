@@ -1,9 +1,10 @@
 # Bounded shared-Core original car trial
 
-The first private run on October 12 was **incomplete**: 17 native plateaus passed,
-then native respawn interrupted the shift-up batch after gear 1 → 2. Shift-down
-and complete six-action delivery remain unqualified. Owner state was restored
-exactly; no permanent install or physical force test occurred. Schema 5
+The second private run on October 12 **passed** all six raw shared-Core actions
+through the native car, including Manual gear +1/-1, all 23 native plateaus and
+final neutral/Core completion. The earlier incomplete run remains documented
+below. Both runs restored owner state exactly. Physical controls, force quality,
+pressure and HUD jitter remain unqualified; no permanent install occurred. Schema 5
 `shim-car-trial` / `-ShimCarTrial` is a separate original input qualification.
 The completed schema 4 [menu trial](SHIM-MENU-TRIAL.md) retains its menu-only scope.
 The sealed Kenya reference stays immutable and is not replayed or replaced.
@@ -143,9 +144,9 @@ compare HUD motion against the native camera/world motion and triple HUD
 anchoring before changing input, timing or camera code. No HUD fix or visual
 acceptance is claimed here.
 
-## Reordered follow-up candidate — source only
+## Reordered candidate and second private run
 
-The next candidate moves both sequential shifts ahead of handbrake, steering,
+The follow-up candidate moves both sequential shifts ahead of handbrake, steering,
 throttle and brake. This isolates the remaining shift checks while the car is
 still at its native starting position. The original hashed samples, 700 ms
 pulses, six raw records per batch, neutral intervals, 23 native plateaus/24-batch
@@ -160,7 +161,53 @@ protocol 88 and config 13 cases. The lifecycle fixture verifies the early native
 gear +1/-1 sequence, neutral between shifts, native-state refusal, missing final
 native-neutral refusal and separate Core Completed requirement. Private evidence:
 `artifacts/core-car-fixture-5e4e660953534f1da8b234916a4dff96`,
-`artifacts/shim-car-reorder-{tests,lifecycle}.log`. No follow-up game run yet.
+`artifacts/shim-car-reorder-{tests,lifecycle}.log`. Plugin/addon builds passed
+with zero warnings/errors; compiled metadata checks passed 48 plus 39 seams.
+
+Reviewed source `7d98ca406d8b524a40d7137abdb805b680e11caa`, frozen in
+`artifacts/shim-car-reorder-candidate.json`, ran as PID 63208, created
+`2026-10-12T11:40:41.8123505Z`. The nonce was
+`1db5c3066bf744f3a43b65fce98ae0ac`; evidence is private under
+`results/shim-car-trial-02`. Native startup again verified Kenya SS1 / car 8 /
+single player / Manual and completed countdown, with no pose writes. Both exact
+profile devices reported live/open at epoch 1; the accepted Controls revision
+and whole-file hash remained unchanged.
+
+All 23 native plateaus passed with 22–25 samples each. The two production native
+shift queries and gearbox readbacks passed: upshift 1 → 2 accepted at probe
+31.4791234 s and downshift 2 → 1 at 33.4446653 s. The final native zero-input
+plateau passed at 52.2158439 s, batch 24 submitted `end`, and Core reached
+Completed (4) before the PASS verdict at 52.6422053 s. There were 1,696 native
+car observations and zero legacy raw-injector commands. This qualifies the fixed
+latched raw-profile workload through the actual consumer, not physical device
+operation, arbitrary driving or a trajectory replay.
+
+The original diagnostic recorder completed 1,895 samples / 11 markers with zero
+drops/errors/invalid records. Its force-preview gap remains real: **0 of 1,696
+observed samples valid**, including 1,151 `friction curve unavailable`, 230
+`reverse: signal not validated` and 315 `recorded-discontinuity`. All 7,481 shim
+observations had zero force connections/attempts/failures and Forza packets;
+the original producer had only the diagnostic-force-disabled gate and zero
+force writes/attempts. Handbrake remains a native boolean response; pressure,
+proportional torque, physical force and exclusive reader/FFB coexistence remain
+open. No normalization claim follows from this input PASS.
+
+Normal exit/restoration completed at `11:41:53.8380131Z`. Host shutdown resolved,
+released two devices, held zero, joined both workers and reported input release.
+Independent readback at `11:42:43.2328675Z` matched all 83 file entries and all
+25 raw registry names/types/bytes, with no extras and the unchanged owner receipt
+recorded above. The game was absent and the lease released before EXIT. This
+functional run did not measure frame performance or resolve the separate owner
+HUD jitter observation; unrelated offline builds were allowed during it.
+
+Evidence: `trace/{observations.tsv,result.json,shim-ProfileInfo.txt,
+shim-DeviceReports-latest.txt}`, `offline-readback.json`,
+`independent-readback.json`, `restored.txt`, and
+`after-d081a427509c4cd0996c2df23aeca218/tree/{recording,shimReports}`.
+Original source SHA-256:
+`932e1d4dbd9da5da043963e1c5c3c9668eba85d0e1da7faa6efbdb22ea43ce4e`.
+Observation TSV SHA-256:
+`5096ed40fda85af190f42b3c5d1824c8db687aeb7e15f8b598d12af2c111da6a`.
 
 ### Native brake/reverse and respawn evidence
 

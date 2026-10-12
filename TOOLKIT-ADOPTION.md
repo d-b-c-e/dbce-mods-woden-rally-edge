@@ -3,11 +3,11 @@
 October 12 car follow-up (STD-033/034/036): distinct schema 5 source candidate
 retains the exact accepted profile and provisional Core pin. Actual pure Core
 raw values feed production car consumers in device-free fixtures, including
-DS-8X sequential queries. Private trial01 reached native Kenya/Manual and passed
-17 axis/neutral plateaus; native gear 1 → 2 was observed before respawn stopped
-the shift-up batch. Shift-down and complete six-action delivery remain open.
+DS-8X sequential queries. Private trial02 passed native Kenya/Manual delivery of
+all six raw shared-Core actions, DS-8X +1/-1, 23 native plateaus and final neutral /
+Core Completed. Trial01's native-respawn interruption remains documented.
 Both devices reported epoch 1. The original producer completed with zero drops
-but no valid force-preview samples. Exact 83-file/25-registry restoration passed,
+but no valid force-preview samples (0/1,696 observed). Exact 83-file/25-registry restoration passed,
 with zero force/network delivery. The schema 4 native menu PASS is unchanged.
 See docs/SHIM-CAR-TRIAL.md, including the separate owner HUD jitter observation.
 Existing STD-016/017/020 audit gaps,
@@ -54,7 +54,7 @@ Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 | STD-031 | Updated Art reference level | pending | Owner-accepted Classic/Grip gains and saved tune deliberately preserved by the shim task. No normalization or physical acceptance claim. |
 | STD-032 | Wheelkit and portfolio records agree | pending | No Wheelkit or hub writes in this isolated source task; installed capability stays unchanged. |
 | STD-033 | Rig-profile controls contract | partial | Installer still declares woden-bindings-1. October 12 private shim pilot consumes exact Controls bytes through pinned shared Core, with a wheel-only native-source admission restriction. No new writer/installed capability advertised. H-pattern/clutch/neutral/reverse/select unsupported. See docs/SHIM-PILOT.md and docs/2026-10-10-profile-controls.md. |
-| STD-036 | Every binding from its own device | partial private pilot | Shared provider owns each bound device identity. Trial01 observed R12 and DS-8X epoch 1, 17 native axis/neutral plateaus and DS-8X gear 1 → 2 before respawn. Shift-down, completed six-action trial, physical response and H-pattern remain unqualified. Steering GUID joins existing FFB selection; no Unity gamepads may coexist yet. |
+| STD-036 | Every binding from its own device | partial private pilot | Shared provider owns each bound device identity. Trial02 observed R12/DS-8X epoch 1 and passed all six raw shared-Core actions, native gear +1/-1 and terminal neutral/Completed. Physical device response, H-pattern and exclusive FFB coexistence remain unqualified. Steering GUID joins existing FFB selection; no Unity gamepads may coexist yet. |
 | STD-034 | Closed-loop Apply qualification | partial | controls.6 / raw-controls-20261010-06: production Apply repairs staged wrong indexes with fixture/live parity; raw profile inputs navigate from cold launch to Spain SS1 and reach the real car consumer (steer +/-0.5, throttle 0.5/1, brake/handbrake 0.5). Exact owner restoration passed. Aux shifters, complete menu/interruption matrix and physical feel remain open. See docs/2026-10-10-profile-controls.md. |
 
 October 12 shared-shim menu follow-up (STD-033/034/036): schema 4 developer-only

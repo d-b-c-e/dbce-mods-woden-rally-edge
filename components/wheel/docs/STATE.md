@@ -2,12 +2,12 @@
 
 Follow-up: schema 4 passed the focused native Garage → Workshop → Garage route
 and exact restoration ([evidence](../../../docs/SHIM-MENU-TRIAL.md)). Schema 5
-original car trial01 reached native Kenya/Manual and passed 17 axis/neutral
-plateaus. DS-8X shift-up reached native gear 2, then native respawn interrupted
-the batch; shift-down and full six-action completion remain unqualified.
-The original producer completed without drops but had no valid force-preview
-samples. All 83 files/25 raw registry values were restored, with zero force or
-network delivery. The owner separately reported speedometer/other HUD jitter;
+original car trial02 passed all six raw shared-Core actions in native Kenya/Manual,
+including DS-8X +1/-1, all 23 plateaus and final native neutral/Core Completed.
+The original producer completed 1,895 samples without drops but had no valid
+force-preview samples (0/1,696 observed). All 83 files/25 raw registry values
+were restored, with zero force or network delivery. Trial01's native-respawn
+interruption remains documented. The owner separately reported speedometer/other HUD jitter;
 investigate its rendering cause without assigning it to the input verdict.
 No permanent install or physical acceptance. See
 [evidence and limits](../../../docs/SHIM-CAR-TRIAL.md).
