@@ -83,12 +83,21 @@ dotnet run --project components/wheel/tests/WodenRallyEdge.UiTests -c Release
 dotnet run --project components/wheel/tests/WodenRallyEdge.InputTests -c Release
 ```
 
-Results: clean build; 53 core/controller suites, 39,143 assertions; 859 UI assertions
-including 48 production shim/lease checks and four F6 status checks; 3,896 production
+Results: clean build; 53 core/controller suites, 39,143 assertions; 865 UI assertions
+including 54 production shim/lease checks and four F6 status checks; 3,896 production
 DeviceHub checks. The shim fixture calls only real DLL ABI exports, then replaces
 handle delegates with bounded fake calls. It exercises real decode, backend,
 WheelInput, ControlActions, InputLease and menu source. Force tests use the real controller with a
 fake device. This is not proof of in-game response or physical torque.
+
+The keyboard fixture now also uses the observed producer's exact action table:
+native `AnyKey` and keyboard actions survive admission, opposite keyboard steering
+and brake coexist with shared throttle, keyboard handbrake/horn and shifts remain
+available even when shared gears are unsupported, and terminal shared transport
+failure leaves native keyboard values intact while blocking legacy wheel fallback.
+These source checks do not qualify live key delivery. The first ordinary menu
+pilot refused in its developer addon and restored exactly; the reviewed retry is
+still bounded to at-rest admission (see `SHIM-ADMISSION-TEST.md`).
 
 Private native audit output is ignored under `artifacts/shim-source-audit` (REA
 interop evidence plus bounded native disassembly); no proprietary dump is committed.

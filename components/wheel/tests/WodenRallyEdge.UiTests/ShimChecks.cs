@@ -140,6 +140,26 @@ internal static class ShimChecks
             Check(ShimInput.Action("shiftUp").Status==ShimStatus.Unsupported&&ShimInput.TransmissionStatus.Contains(mode),"unsupported transmission is visible: "+mode);
             ShimInput.Stop("mode fixture complete");
         }
+        // The observed producer's keyboard overlay is independent of its raw
+        // pad cache. Exercise that exact source, not only Controls' fallback.
+        Reset(dir);_mode="Automatic";Runtime.Local=car;
+        var keyboardValues=Enumerable.Range(0,18).Select(i=>new GamePadSystem.Actions("keyboard"+i,0,false)).ToArray();
+        foreach(int i in new[]{0,3,6,11,17})keyboardValues[i]=keyboardValues[i] with{value=1,Pressed=true};
+        var keyboardSaved=keyboardValues.ToArray();pad.AnyKey=true;pad.PadActions=keyboardValues;
+        controls.field_Private_GamePadSystem_0=producer;controls.Controller_Int=0;
+        ShimInput.BeforeStock(producer);Frame("steer",.4f);Frame("throttle",.7f);Frame("brake",.2f);Frame("handbrake",.35f);Frame("shiftUp",1);Next();
+        Check(ShimInput.Ready&&_opens==1&&pad.AnyKey&&keyboardValues.SequenceEqual(keyboardSaved),"native AnyKey/PadActions keyboard overlay admits unchanged when raw gamepad fields are neutral");
+        lease=Runtime.Wheel!.Apply(controls);
+        Check(lease!=null&&keyboardValues[17].value==1&&keyboardValues[16].value==0&&keyboardValues[6].value==1&&keyboardValues[7].value==.7f,
+            "observed native keyboard left/brake coexist with opposite shared steer and shared throttle");
+        Check(lease!.Handbrake==1&&keyboardValues[0].Pressed&&keyboardValues[11].Pressed,"keyboard handbrake/horn pass through the production lease");
+        Check(ShimInput.Action("shiftUp").Status==ShimStatus.Unsupported&&keyboardValues[3].value==1,
+            "unsupported shared transmission does not erase the native keyboard shift action");
+        lease.Restore();Check(keyboardValues.SequenceEqual(keyboardSaved)&&pad.AnyKey,"observed producer keyboard values and AnyKey restore unchanged");
+        _tickResult=-4;Next();
+        Check(ShimInput.Owns&&!ShimInput.Ready&&Runtime.Wheel.Apply(controls)==null&&keyboardValues.SequenceEqual(keyboardSaved)&&pad.AnyKey,
+            "terminal shared transport leaves native keyboard table intact while blocking legacy wheel fallback");
+        controls.field_Private_GamePadSystem_0=null;pad.AnyKey=false;pad.PadActions=null;
         Reset(dir);Runtime.Settings.InputBackend="Native";ShimInput.Start(AppContext.BaseDirectory,dir,dir);Next();
         Check(!ShimInput.Owns&&_opens==0,"default standalone route never loads/opens an input host");
         Runtime.Log.Errors.Clear();Runtime.Log.Warnings.Clear();
