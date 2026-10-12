@@ -1,6 +1,9 @@
 # Bounded shared-Core original car trial
 
-Source candidate only; no game run or installation is qualified here. Schema 5
+The first private run on October 12 was **incomplete**: 17 native plateaus passed,
+then native respawn interrupted the shift-up batch after gear 1 → 2. Shift-down
+and complete six-action delivery remain unqualified. Owner state was restored
+exactly; no permanent install or physical force test occurred. Schema 5
 `shim-car-trial` / `-ShimCarTrial` is a separate original input qualification.
 The completed schema 4 [menu trial](SHIM-MENU-TRIAL.md) retains its menu-only scope.
 The sealed Kenya reference stays immutable and is not replayed or replaced.
@@ -71,10 +74,80 @@ pwsh -NoProfile -File tools/controls/Test-Recovery.ps1
 dotnet run --project tools/controls/VerifyHooks -c Release -- .
 ```
 
-## Proposed coordinated command
+## First private run — 2026-10-12
+
+Reviewed runtime source `ecc6a61ac2c8bfed3c9b85feea1eeb0674553dce`, frozen in
+`artifacts/shim-car-trial-candidate.json`, ran as PID 67224, created
+`2026-10-12T11:07:20.8125086Z`. The run nonce was
+`9952d38208b6471e83a85ed7437732dd`; evidence is private under
+`results/shim-car-trial-01`. Native startup reached Kenya SS1 / car 8, player zero,
+Manual, completed countdown and stable car instance 390318. No pose writes or
+reference replay were used. Both exact R12 and DS-8X devices reported live/open
+at epoch 1 with stable instance/product/HID identities.
+
+The actual native Controls/MainCar consumer passed 17 bounded plateaus: initial
+neutral; steering -0.5/+0.5; throttle, brake and handbrake 0.5/1; and neutral
+between each. Each accepted plateau retained 21–25 native samples. Handbrake
+readback proves its native boolean response, not proportional pressure/torque.
+Batch 18 offered DS-8X shift-up. The production Gear up query became true at
+probe 45.6998397 s, native gear changed 1 → 2 at 45.7002744 s, and native
+`Changing` cleared at 45.9173943 s. The trial then stopped with
+`Native racing state/countdown/focus changed.` It did not accept this batch,
+deliver shift-down, reach the final brake/neutral pair or submit Core `end`.
+
+Offline sequence correlation identifies the native state transition at the
+stop boundary. All 1,340 addon native samples match the original recorder on
+gear, changing, respawn and all three position fields. The last addon sample is
+sequence 1541 (gear 2, changing 0, respawning 0). The next original sample, 1542,
+has `sample.driving=0`, `game.respawning=1` and the `respawning` marker.
+`Runtime.Driving` explicitly rejects that state. This explains the refused
+continuation; the cause of the native respawn is not established. The preceding
+sample contains negative local forward velocity; it is not evidence that the
+shift mapping failed. Probe and recorder elapsed clocks differ, so this
+correlation uses the shared sample sequence, not equal timestamps.
+
+The ordinary diagnostic producer completed with 1,609 samples, 18 markers and
+zero drops/errors/invalid records. Its 1,407 force-observed samples all report
+`ffb.modelValid=0` and preview zero: 677 `friction curve unavailable`, 357
+`reverse: signal not validated`, and 373 `recorded-discontinuity`. This run
+preserves the actual producer but provides **no valid force-preview comparison**.
+All observed physical force connections/attempts/delivery and Forza sends were
+zero. No native pressure channel is qualified. Native wheel torque fields and
+missing-channel lists remain in the original source without a physical claim.
+
+Normal process exit completed at `11:08:23.6172573Z`. Host shutdown released two
+devices, held zero, joined the control worker and resolved input release. That
+cleanup is distinct from normal Core test completion: the last observed Core
+run state was 3, not Completed (4). Independent readback at `11:09:18.1195466Z`
+matched all 83 file entries and all 25 raw registry names/types/bytes with no
+extras. The installed receipt remained
+`8ff3fb09569eb69f109755de7221efbff82f39463bd92546559a3653104c2ab1`;
+the game process was gone and the lease absent before EXIT was reported.
+
+Evidence: `trace/observations.tsv`, `trace/result.json`, refreshed device reports,
+`independent-readback.json`, `offline-readback.json`,
+`shift-transition-readback.json`, and
+`after-aa8426d1a61146deb7f789101187f50f/tree/{recording,shimReports}`.
+Original `source.jsonl` SHA-256:
+`d64cf8799ab43b1c4bbc40a08f26c82213f585d7c3f491ae103b3ffeecbdfe7a`.
+Observation TSV SHA-256:
+`8419d4a92e8bbfaf146425c5e0ffe6350932700239219e4ab6fb39b043e6db04`.
+
+### Separate owner observation: HUD jitter
+
+During this run the owner reported that the speedometer and other UI appeared
+to shake or jitter. Keep this open for investigation. This is owner-observed
+rendering behavior, not a captured-frame measurement, and is not assigned as
+the cause of the input trial's interruption. A coordinated follow-up should
+compare HUD motion against the native camera/world motion and triple HUD
+anchoring before changing input, timing or camera code. No HUD fix or visual
+acceptance is claimed here.
+
+## Command used for the first coordinated run
 
 Root source review, frozen hash readback and an explicit free rig slot precede
-this command. Existing idle/lease checks still apply. No schema 5 launch yet.
+each run. Existing idle/lease checks still apply. Preserve this result directory;
+any reviewed follow-up requires a fresh result path.
 
 ```powershell
 pwsh -NoProfile -File tools/controls/Run-Controls.ps1 `
