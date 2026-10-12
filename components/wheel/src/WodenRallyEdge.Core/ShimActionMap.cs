@@ -38,12 +38,13 @@ public sealed class ShimButtonGate
     private readonly bool[] _armed = new bool[ShimActionMap.Count], _held = new bool[ShimActionMap.Count], _pressed = new bool[ShimActionMap.Count];
     private readonly HashSet<string> _consumed = new();
     private int _context = int.MinValue;
-    public void Observe(IReadOnlyList<ShimAction> actions,int context,bool allowed)
+    public void Observe(IReadOnlyList<ShimAction> actions,int context,bool allowed,ulong knownNeutralMask=0)
     {
         bool changed=context!=_context; _context=context; _consumed.Clear();
         for(int i=0;i<_held.Length;i++) {
             bool down=actions[i].Applied>.5f;
-            bool live=actions[i].Status==ShimStatus.Live;
+            bool live=actions[i].Status==ShimStatus.Live || (knownNeutralMask&(1UL<<i))!=0 &&
+                actions[i] is { Status:ShimStatus.TestNeutral, Value:0, Injected:false };
             if(changed || !allowed || !live) _armed[i]=false;
             if(!down && allowed && live) _armed[i]=true;
             bool held=allowed&&_armed[i]&&down;

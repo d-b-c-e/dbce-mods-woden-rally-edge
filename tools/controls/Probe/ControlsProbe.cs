@@ -106,7 +106,8 @@ public sealed partial class ControlsProbe : BasePlugin
             Trace=new(new FileStream(Path.Combine(output,"observations.tsv"),FileMode.CreateNew,FileAccess.Write,FileShare.Read),new UTF8Encoding(false));
             Trace.WriteLine("time_s\tframe\tkind\tdata");
             File.WriteAllText(Path.Combine(output,"identity.json"),JsonSerializer.Serialize(new{request=Request,process=Environment.ProcessId,processStart=ProcessStart,
-                probeSha256=Hash(typeof(ControlsProbe).Assembly.Location),nativePath=NativePath,physicalOutput=false,kind=Protocol.ShimAdmission(Request)?"ordinary-shim-menu-admission":"native-raw-before-binding",configAddedDefaults=addedDefaults},Protocol.Json));
+                probeSha256=Hash(typeof(ControlsProbe).Assembly.Location),nativePath=NativePath,physicalOutput=false,
+                kind=Protocol.MenuTrial(Request)?"shared-core-latched-menu-trial":Protocol.ShimAdmission(Request)?"ordinary-shim-menu-admission":"native-raw-before-binding",configAddedDefaults=addedDefaults},Protocol.Json));
             Patch(Method(Runtime,"Update"),nameof(BeforeTick),nameof(AfterTick));
             Patch(Method(Runtime,"Stop"),nameof(OnStop));
             Patch(Method(Hub,"Poll"),postfix:nameof(AfterPoll));
@@ -117,6 +118,7 @@ public sealed partial class ControlsProbe : BasePlugin
             double remaining=(Request.ExpiresUtc-DateTimeOffset.UtcNow).TotalSeconds;
             if(remaining<=0) throw new InvalidDataException("Cold request expired during admission.");
             Deadline=Clock.Elapsed.TotalSeconds+Math.Min(300,remaining); Armed=true;
+            if(Protocol.MenuTrial(Request))StartMenuTrial();
             Row("armed",Native.Status); Trace.Flush();
             Log.LogInfo("Raw controls test armed; native force fence and progression/network mute latched. Focus guards unchanged.");
         }
@@ -170,7 +172,7 @@ public sealed partial class ControlsProbe : BasePlugin
             // replace bytes between our validation and archival/submission.
             string claimed=Path.Combine(Request.OutputDirectory,"command-claimed.json");
             File.Move(command,claimed);
-            var r=Protocol.Command(ReadBounded(claimed,2048),Request.Nonce,Sequence,File.GetLastWriteTimeUtc(claimed),ProcessStart,Protocol.ShimAdmission(Request));
+            var r=Protocol.Command(ReadBounded(claimed,2048),Request.Nonce,Sequence,File.GetLastWriteTimeUtc(claimed),ProcessStart,Protocol.ShimAdmission(Request),Protocol.MenuTrial(Request));
             Sequence=r.Sequence; File.Move(claimed,Path.Combine(Request.OutputDirectory,"command-"+Sequence+".json"));
             bool ok=true; string reply=Native!.Status;
             if(r.Operation=="raw")
@@ -191,9 +193,11 @@ public sealed partial class ControlsProbe : BasePlugin
     }
     static void AfterTick()
     {
-        if(!Armed || Clock.Elapsed.TotalSeconds<NextStatus) return;
+        if(!Armed) return;
         try
         {
+            TickMenuTrial();
+            if(!Armed || Clock.Elapsed.TotalSeconds<NextStatus)return;
             NextStatus=Clock.Elapsed.TotalSeconds+.1;
             if(Protocol.ShimAdmission(Request)) ObserveShim();
             Row("state","focused="+Runtime.GetProperty("Focused",All)!.GetValue(null)+" menu="+Type("MenuNavigation").GetProperty("Status",All)!.GetValue(null));
@@ -300,6 +304,8 @@ public sealed partial class ControlsProbe : BasePlugin
         // cannot neutralize it at timeout/failure; ownership remains sticky.
         if(Protocol.ShimAdmission(Request))
         {
+            try { RestoreTrialModules(); }
+            catch(Exception ex) { reason+="; native module restore failed: "+ex.Message; }
             try { RestoreShimPresentation(); }
             catch(Exception ex) { reason+="; presentation restore failed: "+ex.Message; }
             try { Method(Type("ShimInput"),"Stop").Invoke(null,new object[]{"admission test ended: "+reason}); }
@@ -308,7 +314,7 @@ public sealed partial class ControlsProbe : BasePlugin
         try { var hub=Runtime?.GetField("Devices",All)?.GetValue(null); if(hub is not null) Method(Hub,"CloseReaders").Invoke(hub,null); }
         catch(Exception ex) { reason+="; reader close failed: "+ex.Message; }
         try { Trace?.Dispose(); } catch(Exception ex) { reason+="; trace close failed: "+ex.Message; } finally { Trace=null; }
-        try { if(OwnedEvidence is not null) File.WriteAllText(Path.Combine(OwnedEvidence,"result.json"),JsonSerializer.Serialize(new{reason,rows=Rows,commands=RawCommands,inputVerdict="unclassified",physicalOutput=false},Protocol.Json)); }
+        try { if(OwnedEvidence is not null) File.WriteAllText(Path.Combine(OwnedEvidence,"result.json"),JsonSerializer.Serialize(new{reason,rows=Rows,commands=RawCommands,inputVerdict=Protocol.MenuTrial(Request)?TrialVerdict:"unclassified",physicalOutput=false},Protocol.Json)); }
         catch(Exception ex) { Instance?.Log.LogError("Controls result write failed: "+ex.Message); }
         Instance?.Log.LogInfo("Raw controls ended: "+reason+"; process force/progression mute retained");
     }

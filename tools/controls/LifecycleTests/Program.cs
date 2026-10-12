@@ -8,7 +8,8 @@ using Woden.ControlsTesting;
 
 // Drive the actual private Harmony callbacks against files/fake native exports.
 // Admission metadata is checked separately against the installed interop build.
-// No Load(), Unity runtime, P/Invoke or force export is called in this fixture.
+// No Load(), Unity runtime, device or force export is called. The production
+// atomic batch writer is exercised against private temporary files on Windows.
 static class Test
 {
     static readonly Type Probe=typeof(ControlsProbe);
@@ -33,7 +34,9 @@ static class Test
         Set("Deadline",Now+300);Set("NextIdentity",double.PositiveInfinity);Set("ObserveUntil",Now+300);Set("NextStatus",0d);
         Set("OwnedEvidence",Dir);Set("ProcessStart",DateTimeOffset.UtcNow.AddMinutes(-1));
         Set("Request",new ColdRequest(1,new string('a',32),DateTimeOffset.UtcNow.AddMinutes(5),"", "", "", "", "",Dir));
-        Set("ShimIdentityWritten",false);Set("ShimOriginalPage",null);WodenRallyEdge.Runtime.Local=null;WodenRallyEdge.Runtime.Force=new();WodenRallyEdge.Runtime.Output=new();WodenRallyEdge.Runtime.Settings=new();
+        Set("ShimIdentityWritten",false);Set("ShimDevices",null);Set("ShimOriginalPage",null);WodenRallyEdge.Runtime.Local=null;WodenRallyEdge.Runtime.Force=new();WodenRallyEdge.Runtime.Output=new();WodenRallyEdge.Runtime.Settings=new();
+        UnityEngine.Object.Instances.Clear();UnityEngine.EventSystems.EventSystem.current=null;
+        WodenRallyEdge.ShimInput.Run=2;WodenRallyEdge.ShimInput.NativeAllowed=WodenRallyEdge.ShimInput.Neutral=true;WodenRallyEdge.ShimInput.Injected=false;
         WodenRallyEdge.ShimInput.Stops=0;WodenRallyEdge.ShimInput.Ready=true;WodenRallyEdge.ShimInput.Owns=true;
         WodenRallyEdge.ShimInput._producer=new(){Game_Pads=new(){new(){AnyKey=true}}};WodenRallyEdge.ShimInput._frame=21;
         WodenRallyEdge.Panel.Open=false;UnityEngine.ScreenCapture.LastPath=null;
@@ -132,7 +135,49 @@ static class Test
             Check(Submitted==0,"shim mode never submits raw input");
             Check(WodenRallyEdge.ShimInput.Stops==1 && !WodenRallyEdge.ShimInput.Ready && WodenRallyEdge.ShimInput.Owns,"separate shim stops once with sticky ownership");
         }
+        MenuTrialChecks();
         Console.WriteLine($"PASS: {Checks} production-addon lifecycle assertions; private fixture {Base}");
+    }
+    static void MenuTrialChecks()
+    {
+        const string garage="Menus/MenuTree/World_Map_Screen/Map_Buttons/Garage_button",workshop="Menus/MenuTree/World_Map_Screen/Map_Buttons/WorkShop_button";
+        UnityEngine.Transform PathOf(string path){UnityEngine.Transform t=null!;foreach(string part in path.Split('/'))t=new(){name=part,parent=t};return t;}
+        void Begin(string name){Reset(name);Set("Request",Get<ColdRequest>("Request") with{Schema=4,Mode="shim-menu-trial"});Call("StartMenuTrial");}
+        void TrialTick()=>Call("AfterTick");
+        void ReadyPulse(){TrialTick();Set("TrialNeutral",Now-1);TrialTick();}
+        void ReleasePulse(){WodenRallyEdge.ShimInput.Run=3;WodenRallyEdge.ShimInput.Injected=true;WodenRallyEdge.ShimInput.Neutral=false;TrialTick();
+            WodenRallyEdge.ShimInput.Injected=false;WodenRallyEdge.ShimInput.Neutral=true;TrialTick();Set("TrialNeutral",Now-1);TrialTick();}
+        string Step()=>Probe.GetField("Trial",Flags)!.GetValue(null)!.ToString()!;
+        Begin("menu-trial-complete");UnityEngine.Object.Instances[typeof(DailyMessage)]=new DailyMessage();
+        ReadyPulse();Check(Get<int>("TrialBatch")==1&&Step()=="DailyRelease","fixed first Core Confirm batch");
+        ReleasePulse();Check(WodenRallyEdge.ShimInput.Scope==2,"observed injected then neutral narrows to title");
+        UnityEngine.Object.Instances[typeof(TitleScreenScript)]=new TitleScreenScript();
+        ReadyPulse();Check(Get<int>("TrialBatch")==2&&Step()=="TitleRelease","Core Running accepts bounded second Start batch");
+        ReleasePulse();Check(WodenRallyEdge.ShimInput.Scope==3,"title release removes all submit/start delivery");
+        var a=new UnityEngine.UI.Selectable{transform=PathOf(garage)};var b=new UnityEngine.UI.Selectable{transform=PathOf(workshop)};a.Right=b;b.Left=a;
+        var ga=new UnityEngine.GameObject{transform=a.transform,Selectable=a};var gb=new UnityEngine.GameObject{transform=b.transform,Selectable=b};
+        var module=new UnityEngine.EventSystems.BaseInputModule();var events=new UnityEngine.EventSystems.EventSystem{currentSelectedGameObject=ga,Modules=new[]{module}};
+        UnityEngine.EventSystems.EventSystem.current=events;
+        ReadyPulse();Check(Get<int>("TrialBatch")==3&&!module.enabled,"reciprocal native neighbor verified; competing native module suppressed");
+        events.currentSelectedGameObject=gb;ReleasePulse();Check(Step()=="LeftReady","native Workshop selection must follow released right pulse");
+        ReadyPulse();Check(Get<int>("TrialBatch")==4,"one bounded reverse batch");
+        events.currentSelectedGameObject=ga;ReleasePulse();Check(Get<int>("TrialBatch")==5&&WodenRallyEdge.ShimInput.Scope==4,"return selection read back before end; no more actions");
+        WodenRallyEdge.ShimInput.Run=4;TrialTick();Set("TrialNeutral",Now-1);TrialTick();Stopped("fixed menu trial");
+        Check(module.enabled&&Get<string>("TrialVerdict").StartsWith("passed:"),"native module restored and actual route verdict retained");
+        Check(Submitted==0,"Core action batches never enter old raw injection channel");
+        var text=File.ReadAllText(Path.Combine(Dir,"shim-batch.txt"));Check(text.EndsWith("end\n")&&text.Contains("batch=5"),"immutable monotonic five-batch limit ends session");
+        foreach(string fault in new[]{"focus","timeout","car","raw","panel"})
+        {
+            Begin("trial-fault-"+fault);
+            if(fault=="focus")WodenRallyEdge.ShimInput.NativeAllowed=false;
+            if(fault=="timeout")Set("TrialChanged",Now-40);
+            if(fault=="car")WodenRallyEdge.Runtime.Local=new();
+            if(fault is "raw" or "panel"){Command(operation:fault);Tick();}else TrialTick();
+            Stopped("trial "+fault);Check(Get<int>("TrialBatch")==0&&Submitted==0,"fault cannot inject or launch");
+        }
+        string target=Path.Combine(Base,"batch-atomic.txt");TrialBatchWriter.Replace(target,"old");
+        using(var held=new FileStream(target,FileMode.Open,FileAccess.Read,FileShare.Read|FileShare.Delete))
+        {TrialBatchWriter.Replace(target,"new");using var reader=new StreamReader(held);Check(reader.ReadToEnd()=="old"&&File.ReadAllText(target)=="new","atomic batch generation survives concurrent Core-style held reader");}
     }
     sealed class BadText {public override string ToString()=>throw new InvalidOperationException("format failed");}
     sealed class ThrowingEnumeration:IEnumerable {public IEnumerator GetEnumerator()=>throw new InvalidOperationException("reader enumeration failed");}

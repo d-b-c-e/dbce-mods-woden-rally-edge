@@ -80,7 +80,7 @@ internal static class StartupWheelControls
             {
                 if (!ShimInput.Ready) { Release.Reset(); return false; }
                 var state = ShimInput.Action(ShimActionMap.Buttons[action]).Status;
-                if (action != "Back" && state == ShimStatus.Live) bound = true;
+                if (action != "Back" && (state == ShimStatus.Live || ShimInput.KnownNeutral(ShimActionMap.Buttons[action]))) bound = true;
                 continue;
             }
             if (!wheel.Bindings.Buttons.TryGetValue(action, out var b)) continue;
@@ -144,6 +144,7 @@ internal static class StartupMenuGuard
     }
     internal static bool AllowNativeMenu()
     {
+        if(!ShimInput.TrialNativeMenuAllowed()) return false;
         bool known = true;
         try
         {

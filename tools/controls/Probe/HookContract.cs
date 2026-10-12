@@ -17,6 +17,11 @@ public static class HookContract
         Require(T("Settings").GetField("UiPage",All)?.FieldType==typeof(string),"Settings.UiPage");
         Require(T("Settings").GetField("InputBackend",All)?.FieldType==typeof(string),"Settings.InputBackend");
         foreach(var name in new[]{"Owns","Ready"})Require(T("ShimInput").GetProperty(name,All)?.PropertyType==typeof(bool),"ShimInput."+name);
+        Require(T("ShimInput").GetProperty("Sequence",All)?.PropertyType==typeof(ulong),"ShimInput.Sequence");
+        Require(T("ShimInput").GetProperty("Run",All)?.PropertyType==typeof(byte),"ShimInput.Run");
+        Require(T("ShimInput").GetMethod("ConfigureMenuTrial",All,null,new[]{typeof(string),typeof(string),typeof(string),typeof(DateTimeOffset),typeof(bool)},null)?.ReturnType==typeof(void),"ShimInput.ConfigureMenuTrial");
+        Require(T("ShimInput").GetMethod("MenuTrialScope",All,null,new[]{typeof(int)},null)?.ReturnType==typeof(void),"ShimInput.MenuTrialScope");
+        foreach(var name in new[]{"KnownNeutral","TrialNativeMenuAllowed"})Require(T("ShimInput").GetMethod(name,All)?.ReturnType==typeof(bool),"ShimInput."+name);
         foreach(var name in new[]{"Status","TransmissionStatus"})Require(T("ShimInput").GetProperty(name,All)?.PropertyType==typeof(string),"ShimInput."+name);
         Require(T("ShimInput").GetProperty("SteeringGuid",All)?.PropertyType==typeof(Guid?),"ShimInput.SteeringGuid");
         Require(T("ShimInput").GetField("_frame",All)?.FieldType==typeof(int),"ShimInput._frame");

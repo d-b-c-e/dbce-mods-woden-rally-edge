@@ -8,6 +8,7 @@ param(
     [Parameter(Mandatory,ParameterSetName='Run')][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$NativeSha256,
     [Parameter(Mandatory,ParameterSetName='Recover')][switch]$Recover,
     [Parameter(ParameterSetName='Run')][switch]$ShimAdmission,
+    [Parameter(ParameterSetName='Run')][switch]$ShimMenuTrial,
     [Parameter(ParameterSetName='Run')][string]$CandidateDirectory,
     [Parameter(ParameterSetName='Run')][string]$ControlsSource,
     [Parameter(ParameterSetName='Run')][string]$ControlsSha256,
@@ -32,28 +33,32 @@ $plugin=Join-Path $GameDir 'BepInEx/plugins/WodenRallyEdgeWheel'
 $cfg=Join-Path $GameDir 'BepInEx/config/dbce.wodenrallyedgewheel.cfg'
 $roots=[ordered]@{config=(Join-Path $GameDir 'BepInEx/config');save=(Join-Path $env:USERPROFILE 'AppData/LocalLow/ViJuDa/Super Woden Rally Edge');dev=(Join-Path $plugin 'dev')}
 $files=[ordered]@{native=(Join-Path $plugin 'WheelFfb.dll');probe=(Join-Path $GameDir 'BepInEx/plugins/DbceControlsTest/Woden.ControlsProbe.dll');log=(Join-Path $GameDir 'BepInEx/LogOutput.log')}
-if($Recover -and (Test-Path "$Result/recovery.json")){$ShimAdmission=(Get-Content "$Result/recovery.json" -Raw | ConvertFrom-Json).mode -eq 'shim-admission'}
+if($Recover -and (Test-Path "$Result/recovery.json")){
+    $savedMode=(Get-Content "$Result/recovery.json" -Raw | ConvertFrom-Json).mode
+    $ShimAdmission=$savedMode -in @('shim-admission','shim-menu-trial');$ShimMenuTrial=$savedMode -eq 'shim-menu-trial'
+}
+if($ShimMenuTrial){$ShimAdmission=$true}
 if($ShimAdmission) {
     $files.plugin=Join-Path $plugin 'WodenRallyEdgeWheel.dll'
     $files.core=Join-Path $plugin 'WodenRallyEdge.Core.dll'
     $files.shim=Join-Path $plugin 'dbce_shim.dll'
     $roots.shimReports=Join-Path $GameDir 'BepInEx/WodenShim'
 }
-$mode=if($ShimAdmission){'shim-admission'}else{'raw'}
+$mode=if($ShimMenuTrial){'shim-menu-trial'}elseif($ShimAdmission){'shim-admission'}else{'raw'}
 $blocked=@($request,$marker,(Join-Path $roots.config 'woden-record-next-launch.json'),(Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/woden/request.txt'))
 $probe=Join-Path $PSScriptRoot 'Probe/bin/Release/net6.0/Woden.ControlsProbe.dll'
 $configVerifier=Join-Path $PSScriptRoot 'VerifyConfig/bin/Release/net8.0/VerifyConfig.dll'
 $ready=$false; $lease=$null; $game=$null; $ownedGame=$false; $nonce=$null; $restored=$false; $applied=$false; $verificationError=$null
 function Closed {if(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue){throw 'Woden is running; no preparation or restoration.'}}
-function Set-IniFalse([string]$Section,[string]$Key) {
-    $text=[IO.File]::ReadAllText($cfg)
+function Set-IniFalse([string]$Section,[string]$Key,[string]$Path=$cfg) {
+    $text=[IO.File]::ReadAllText($Path)
     $sections=[regex]::Matches($text,'(?ms)^\['+[regex]::Escape($Section)+'\][ \t]*\r?\n.*?(?=^\[|\z)')
     if($sections.Count -ne 1){throw "Expected exactly one $Section section."}
     $sectionText=$sections[0].Value
     $keyPattern='(?m)^[ \t]*'+[regex]::Escape($Key)+'[ \t]*=[^\r\n]*'
     if([regex]::Matches($sectionText,$keyPattern).Count -ne 1){throw "Expected exactly one $Section/$Key key."}
     $updated=[regex]::Replace($sectionText,$keyPattern,$Key+' = false')
-    [IO.File]::WriteAllText($cfg,$text.Substring(0,$sections[0].Index)+$updated+$text.Substring($sections[0].Index+$sectionText.Length))
+    [IO.File]::WriteAllText($Path,$text.Substring(0,$sections[0].Index)+$updated+$text.Substring($sections[0].Index+$sectionText.Length))
 }
 function Assert-OutputMute {
     $text=[IO.File]::ReadAllText($cfg)
@@ -136,6 +141,10 @@ try {
         Copy-ControlExact $ControlsSource "$Result/accepted-controls.ini" $ControlsSha256
         Copy-ControlExact "$Result/accepted-controls.ini" "$($roots.config)/dbce-controls.ini" $ControlsSha256
         Set-ShimBackend
+        # The console previously kept actual Unity focus false. This temporary
+        # launch setting is part of the exact config-tree backup/restoration;
+        # it does not move focus or bypass the production focus gate.
+        if($ShimMenuTrial){Set-IniFalse 'Logging.Console' 'Enabled' (Join-Path $roots.config 'BepInEx.cfg')}
     } else {Invoke-ControlApplyCheck $GameDir $Result $harness $writer.catalog $Profiles}
     $applied=$true
     # Verify again after production Apply and before launch. The addon also
@@ -146,7 +155,7 @@ try {
     Copy-ControlExact $NativeCandidate $files.native $NativeSha256
     Copy-ControlExact $probe $files.probe (Get-ControlHash $probe)
     $cold=[ordered]@{schema=2;nonce=$nonce;expiresUtc=[DateTime]::UtcNow.AddMinutes(5).ToString('o');pluginSha256=(Get-ControlHash "$plugin/WodenRallyEdgeWheel.dll");coreSha256=(Get-ControlHash "$plugin/WodenRallyEdge.Core.dll");configSha256=(Get-ControlHash "$Result/applied.cfg");bindingsSha256=(Get-ControlHash "$($roots.config)/wheel-bindings.json");nativeSha256=$NativeSha256;outputDirectory=(Join-Path $Result 'trace')}
-    if($ShimAdmission){$cold.schema=3;$cold.mode=$mode;$cold.controlsSha256=$ControlsSha256;$cold.shimSha256=$shimHash}
+    if($ShimAdmission){$cold.schema=if($ShimMenuTrial){4}else{3};$cold.mode=$mode;$cold.controlsSha256=$ControlsSha256;$cold.shimSha256=$shimHash}
     [IO.Directory]::CreateDirectory($control) | Out-Null
     [IO.File]::WriteAllText($marker,$nonce); $cold | ConvertTo-Json | Set-Content -LiteralPath $request
     Copy-Item -LiteralPath $request -Destination "$Result/request.json"

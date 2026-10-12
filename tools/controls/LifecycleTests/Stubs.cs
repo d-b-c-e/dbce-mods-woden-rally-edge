@@ -15,18 +15,32 @@ namespace HarmonyLib {
     public static class Priority {public const int First=800, Last=0;}
 }
 namespace UnityEngine {
+    public class Object {public static readonly Dictionary<Type,object> Instances=new();public static T? FindObjectOfType<T>() where T:class=>Instances.TryGetValue(typeof(T),out var o)?(T)o:null;}
     public struct Vector2 {public float x,y;}
     public static class ScreenCapture {public static string? LastPath;public static void CaptureScreenshot(string path,int size){LastPath=path;}}
     public static class Time {public static int frameCount=1;}
     public class Transform {public string name="node"; public Transform parent=null!;}
-    public class GameObject {public Transform transform=new();}
+    public class GameObject {public Transform transform=new();public UnityEngine.UI.Selectable? Selectable;public T? GetComponent<T>() where T:class=>Selectable as T;}
 }
+namespace UnityEngine.UI {public class Selectable {
+    static int Next;int Id=++Next;public bool isActiveAndEnabled=true,Interactable=true;public UnityEngine.Transform transform=new();
+    public Selectable? Left,Right;public bool IsInteractable()=>Interactable;public int GetInstanceID()=>Id;
+    public Selectable? FindSelectableOnRight()=>Right;public Selectable? FindSelectableOnLeft()=>Left;
+}}
+public class DailyMessage {public bool field_Private_Boolean_0=true;public MenuControls? MyControls=new();}
+public class TitleScreenScript {public bool Starting,field_Private_Boolean_0;public int FrameCount,FramesToDemo=100000;public string SceneToLoad="MapScreen";public MenuControls? MyControls=new();}
+public class MenuControls {public bool ButtonB;}
+public static class MenuCameraScript {public static bool Exiting;}
 namespace UnityEngine.InputSystem {public static class Gamepad {public static List<object> all=new();}}
 public class GamePadSystem {public List<Game_Pad> Game_Pads=new();public class Game_Pad {
     public object? Controller;public UnityEngine.Vector2 LS,RS;public float LT,RT;
     public bool A,B,X,Y,Back,Start,LB,RB,L3,R3,Dpad_Up,Dpad_Down,Dpad_Left,Dpad_Right,AnyKey;
 }}
-namespace UnityEngine.EventSystems {public class EventSystem {public static EventSystem? current; public UnityEngine.GameObject? currentSelectedGameObject;}}
+namespace UnityEngine.EventSystems {
+    public class BaseInputModule {static int Next;int Id=++Next;public bool enabled=true;public int GetInstanceID()=>Id;}
+    public class EventSystem {public static EventSystem? current;public bool enabled=true,isFocused=true; public UnityEngine.GameObject? currentSelectedGameObject;
+        public BaseInputModule[] Modules=Array.Empty<BaseInputModule>();public T[] GetComponents<T>()=>Modules.Cast<T>().ToArray();}
+}
 namespace WodenRallyEdge {
     public static class Runtime {public static DeviceHub Devices=new(); public static bool DiagnosticNoForce; public static bool Focused=>true;
         public static object? Local;public static Force Force=new();public static Output Output=new();public static Settings Settings=new();}
@@ -39,8 +53,12 @@ namespace WodenRallyEdge {
         public static GamePadSystem? _producer;public static int _frame;public static IntPtr _handle=new(7);public static int Stops;
         public static bool Owns{get;set;} public static bool Ready{get;set;} public static string Status=>Ready?"active":"refused";
         public static Guid? SteeringGuid=>null;public static string TransmissionStatus=>"Sequential";
+        public static ulong Sequence=>42;public static byte Run{get;set;}=2;public static bool NativeAllowed=true,Neutral=true,Injected;public static int Scope;
+        public static void ConfigureMenuTrial(string nonce,string session,string batch,DateTimeOffset expires,bool verified){Scope=0;}
+        public static void MenuTrialScope(int scope){if(scope!=Scope+1)throw new Exception("scope");Scope=scope;}
+        public static bool KnownNeutral(string id)=>Neutral;public static bool TrialNativeMenuAllowed()=>NativeAllowed;
         public static void Stop(string reason){Stops++;Ready=false;}
-        public static object Action(string id)=>new ActionValue(0,"Live",false);
+        public static object Action(string id)=>new ActionValue(Injected?1:0,Injected?"Live":"TestNeutral",Injected);
         public record ActionValue(float Value,string Status,bool Injected);
     }
     public static class ShimNative {public static string ProfileInfo(IntPtr h)=>"ok=1";public static string StartReport(IntPtr h)=>"ordinary";public static string DeviceReports(IntPtr h)=>"physical";}

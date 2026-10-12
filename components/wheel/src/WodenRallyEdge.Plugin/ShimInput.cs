@@ -7,7 +7,7 @@ namespace WodenRallyEdge;
 // Deliberately restricted pilot. Unity cannot currently join a Gamepad to the
 // shim's exact DirectInput/HID identity. Refuse coexistence instead of disabling
 // a guessed device. ReadInputs keeps its separate native keyboard overlay.
-internal static class ShimInput
+internal static partial class ShimInput
 {
     private static readonly ShimAction[] Actions = new ShimAction[ShimActionMap.Count];
     private static readonly byte[] Frame = new byte[ShimNative.FrameSize];
@@ -89,10 +89,14 @@ internal static class ShimInput
                 if (window == 0) { Status = "Shim pilot: waiting for a live, visible Woden Unity window; Native retained"; return; }
                 var bytes = ShimProfile.Section(File.ReadAllBytes(Path.Combine(_config, "dbce-controls.ini")));
                 reason = ShimNative.Load(_directory); if (reason != null) { RefuseOrStop(reason); return; }
-                string nonce = Guid.NewGuid().ToString("N");
+                string nonce = _trialNonce ?? Guid.NewGuid().ToString("N");
                 string folder = Path.Combine(_reports, "run-" + nonce); Directory.CreateDirectory(folder);
                 if (!GameWindow.IsOwned(window)) { Status = "Shim pilot: Unity window changed before open; Native retained"; return; }
-                int result = ShimNative.Open(folder, nonce, bytes, ShimActionMap.Unsupported, new IntPtr(window), out _handle, out string why);
+                if (_trialNonce != null && (!TrialFences || !Runtime.Focused || !GameWindow.IsFocused(window)))
+                { Status="Shim menu trial: waiting for actual Unity focus and muted menu fences; Native retained"; return; }
+                string why;
+                int result = _trialNonce == null ? ShimNative.Open(folder, nonce, bytes, ShimActionMap.Unsupported, new IntPtr(window), out _handle, out why) :
+                    ShimNative.OpenLatched(folder, nonce, bytes, TrialUnsupported, new IntPtr(window), _trialSession!, _trialBatch!, out _handle, out why);
                 if (result != 0) { RefuseOrStop("Open " + result + ": " + why); return; }
                 Owns = true; // Sticky: no legacy binding fallback after native ownership.
                 _window = window;
@@ -106,9 +110,10 @@ internal static class ShimInput
                 _frame = Time.frameCount;
                 int result = ShimNative.Tick(_handle, Frame);
                 if (result != 0) { RefuseOrStop("Tick " + result); return; }
-                ShimNative.Decode(Frame, Actions, out _, out _, out _, out _);
+                ShimNative.Decode(Frame, Actions, out ulong sequence, out _, out _, out byte run);
+                if (!AcceptFrame(sequence,run)) return;
                 _context = Context;
-                _buttons.Observe(Actions, _context, Allowed);
+                _buttons.Observe(Actions, _context, Allowed, KnownNeutralMask);
                 Status = InputFocused ? "Shim pilot active · wheel-only · native keyboard retained" :
                     "Shim pilot active · Unity window unfocused; wheel actions neutral";
             }
@@ -116,14 +121,14 @@ internal static class ShimInput
         catch (Exception e) { RefuseOrStop(e.Message); }
     }
     private static bool InputFocused => Runtime.Focused && GameWindow.IsFocused(_window);
-    private static bool Allowed => Ready && InputFocused && Runtime.Wheel?.Capturing != true;
+    private static bool Allowed => Ready && InputFocused && Runtime.Wheel?.Capturing != true && (_trialNonce == null || TrialFences);
     private static int Context => !InputFocused ? -1 : Panel.Open ? 3 : Pause.Paused ? 2 : Runtime.Local == null ? 0 : 1;
     internal static bool Button(string action, bool edge, MainCar? car = null)
     {
         Poll();
-        if (_context != Context) { _context = Context; _buttons.Observe(Actions, _context, Allowed); }
+        if (_context != Context) { _context = Context; _buttons.Observe(Actions, _context, Allowed, KnownNeutralMask); }
         bool shift = action is "Gear up" or "Gear down";
-        return _buttons.Read(action, edge, Allowed && (!shift || ShiftReady(car ?? Runtime.Local)));
+        return _buttons.Read(action, edge, Allowed && TrialDelivers(action) && (!shift || ShiftReady(car ?? Runtime.Local)));
     }
     internal static ShimAction Action(string id) => !Ready ? default : id is "shiftUp" or "shiftDown" && _transmission != "Sequential" ?
         new(0, ShimStatus.Unsupported) : Actions[ShimActionMap.Index(id)];

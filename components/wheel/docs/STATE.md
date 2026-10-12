@@ -354,3 +354,14 @@ Independent remote binding cleared exact capture6908443/treef382db for ordered f
 ## 2026-10-02 isolated asset-free hosted CI proposal
 
 Private main's reviewed CLI boundary fix340e677 is the base for an isolated, unpushed workflow proposal at .github/workflows/asset-free-checks.yml. It uses contents:read only, immutable official action pins, SDK10.0.401, cleared NuGet feeds, no secrets/artifact publication/deployment and original managed source plus fake context. Local asset-free checks passed36,804 managed assertions,22 geometry,18 handled fixed-CLI subprocess exit/preservation checks and17 synthetic metadata/ZIP/setup-refusal checks; zero-warning builds. No native compiler, game references/assets or old crashing executable was used. This intentionally excludes full solution/UI/private interop, native output adapter, shipped-package integrity and successful install/rollback. See tools/ci/README.md for exact coverage/security/limits. No hosted workflow was pushed or dispatched; independent review remains the gate.
+# 2026-10-12 shared Core menu trial source candidate
+
+After ordinary shim admission03, isolated source now supports a cold schema4
+developer trial through exact pinned Core Open2 and the existing production
+startup/menu consumers. One Confirm, one Start, Garage-right/Workshop-left, then
+neutral end; no later submit/start/car/online path. Actual Core 500-frame fixture,
+production query tests and bounded-addon lifecycle checks pass offline. Positive
+device epochs will be read from refreshed host snapshots. Runtime selection
+delivery is not yet qualified; pending source review and shared rig slot. No
+permanent install, force/tune/triples changes or Wheelkit promotion. See
+../../../docs/SHIM-MENU-TRIAL.md for exact scope, command, pins and limitations.

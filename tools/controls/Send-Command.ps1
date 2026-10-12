@@ -8,7 +8,8 @@ $Result=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath(
 Assert-ControlPlain $Result
 $c=Get-Content -LiteralPath "$Result/context.json" -Raw | ConvertFrom-Json
 if($c.schema -ne 1 -or $c.nonce -notmatch '^[a-f0-9]{32}$' -or $c.nonce -eq ('0'*32)){throw 'Invalid command context.'}
-if(($c.mode -eq 'shim-admission' -and $Operation -eq 'raw') -or ($c.mode -ne 'shim-admission' -and $Operation -in @('panel','shot'))){throw 'Operation unavailable in this test mode.'}
+if(($c.mode -eq 'shim-admission' -and $Operation -eq 'raw') -or ($c.mode -ne 'shim-admission' -and $Operation -in @('panel','shot')) -or
+   ($c.mode -eq 'shim-menu-trial' -and $Operation -notin @('status','stop'))){throw 'Operation unavailable in this test mode.'}
 if($Operation -eq 'raw') {
     if(!$Raw -or !$Raw.StartsWith('inject raw ') -or $Raw.Length -gt 512 -or $Raw -match '[^\x20-\x7e]'){throw 'Only bounded raw commands are supported.'}
 } elseif($Raw){throw 'Unexpected raw command.'}

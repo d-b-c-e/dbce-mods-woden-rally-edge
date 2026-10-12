@@ -43,6 +43,14 @@ foreach(var op in new[]{"status","stop","panel","shot"}) {
     if(op is "panel" or "shot") Refuse(()=>Protocol.Command(Bytes(c),nonce,0,now.AddSeconds(1),now));
 }
 Console.WriteLine($"PASS: {count} total protocol checks including isolated shim admission and raw refusal.");
+var trial=shim with{Schema=4,Mode="shim-menu-trial"};
+Check(Protocol.Admit(Bytes(trial),now,nonce)==trial);
+foreach(var r in new[]{trial with{Schema=3},trial with{Schema=2},trial with{Mode="shim-admission"},trial with{ShimSha256=null}})
+    Refuse(()=>Protocol.Admit(Bytes(r),now,nonce));
+foreach(var op in new[]{"raw","panel","shot","action","start"})
+    Refuse(()=>Protocol.Command(Bytes(command with{Operation=op,Raw=null}),nonce,0,now.AddSeconds(1),now,true,true));
+foreach(var op in new[]{"status","stop"})Check(Protocol.Command(Bytes(command with{Operation=op,Raw=null}),nonce,0,now.AddSeconds(1),now,true,true).Operation==op);
+Console.WriteLine($"PASS: {count} controls protocol checks including fixed-route schema 4 and operator-injection refusal.");
 
 int configs=0;
 byte[] Ini(string text)=>Encoding.UTF8.GetBytes(text);

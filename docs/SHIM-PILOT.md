@@ -121,3 +121,10 @@ input/force checks. Exact Unity HID identity joining, controller coexistence,
 H-pattern semantics, profile writer/receipt capability, public package integration
 and full-session recording remain separate work. Do not claim full multi-device
 parity or enable Wheelkit Apply for this protocol before those contracts are agreed.
+# Next slice: bounded Core menu trial (October 12)
+
+Source groundwork is in [SHIM-MENU-TRIAL.md](SHIM-MENU-TRIAL.md): distinct schema 4,
+latched-only Open2, exact owner profile, known-neutral release admission and a
+fixed startup/one-pair menu route through production consumers. Offline actual
+Core frames and query/lifecycle fixtures pass; live selection delivery remains
+unqualified. No force, tune, triple, native pin or installed capability change.

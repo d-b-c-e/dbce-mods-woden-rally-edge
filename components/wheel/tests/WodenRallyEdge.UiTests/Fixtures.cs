@@ -7,7 +7,7 @@ using WodenRallyEdge.Core;
 namespace UnityEngine
 {
     public static class Object { public static T? FindObjectOfType<T>() where T:class => WodenRallyEdge.MenuCameraScript.Available ? new WodenRallyEdge.MenuCameraScript() as T : null; }
-    public sealed class GameObject { public bool activeInHierarchy=true; }
+    public sealed class GameObject { public bool activeInHierarchy=true; public GameObject? Left,Right; }
     public record struct Color(float r,float g,float b,float a=1) { public static Color white => new(1,1,1); }
     public record struct Rect(float x,float y,float width,float height);
     public record struct Vector2(float x,float y);
@@ -53,7 +53,10 @@ namespace UnityEngine.EventSystems
     public static class ExecuteEvents
     {
         public static readonly object submitHandler=new(),cancelHandler=new(),moveHandler=new();public static readonly List<string> Delivered=new();
-        public static UnityEngine.GameObject ExecuteHierarchy<T>(UnityEngine.GameObject g,BaseEventData data,object handler){Delivered.Add(typeof(T).Name);return g;}
+        public static UnityEngine.GameObject ExecuteHierarchy<T>(UnityEngine.GameObject g,BaseEventData data,object handler){Delivered.Add(typeof(T).Name);
+            if(data is AxisEventData axis && (axis.moveDir==MoveDirection.Right?g.Right:axis.moveDir==MoveDirection.Left?g.Left:null) is {} next)
+                data.Events.SetSelectedGameObject(next);
+            return g;}
     }
 }
 namespace UnityEngine.InputSystem
@@ -208,7 +211,7 @@ internal static class FrameRate {internal static string Summary=>"52 fps average
     internal static class Runtime
     {
         internal static Settings Settings=null!;internal static WheelInput? Wheel;internal static DeviceHub? Devices=new();internal static ForceController? Force=new();internal static TelemetryOutput? Output;
-        internal static bool Focused=true;internal static MainCar? Local;internal static readonly TestClock Clock=new();internal static Log Log=new();
+        internal static bool Focused=true,DiagnosticNoForce;internal static MainCar? Local;internal static readonly TestClock Clock=new();internal static Log Log=new();
         internal static PlayerControlState ControlState(MainCar c)=>new(PlayerPhase.Racing,true,Focused,Panel.Open,Pause.Paused,false,false,false,false);
         internal static bool CameraAvailable(MainCar c)=>true;
     }

@@ -86,6 +86,27 @@ internal static class ShimNative
         return r;
     }
 
+    // Developer trial only. The caller has independently armed the resident
+    // no-force fence and progression/network mutes before admitting this path.
+    internal static int OpenLatched(string folder, string nonce, byte[] profile, string unsupported, IntPtr hwnd,
+        string sessionFile, string batchFile, out IntPtr handle, out string why)
+    {
+        var pointers = new List<IntPtr>();
+        IntPtr String(string text) { var p=Marshal.StringToCoTaskMemUTF8(text); pointers.Add(p); return p; }
+        // Both allocation families are released explicitly below.
+        IntPtr data=Marshal.AllocHGlobal(profile.Length), folderPtr=Marshal.StringToHGlobalUni(folder),
+            sessionPtr=Marshal.StringToHGlobalUni(sessionFile), batchPtr=Marshal.StringToHGlobalUni(batchFile);
+        try
+        {
+            Marshal.Copy(profile,0,data,profile.Length);
+            var args=new OpenArgs { StructSize=ArgsSize,Flags=Latched,ProfileLength=profile.Length,FencesVerified=1,ForceAbsent=1,
+                Folder=folderPtr,Nonce=String(nonce),Profile=data,Unsupported=String(unsupported),Hwnd=hwnd,
+                SessionFile=sessionPtr,BatchFile=batchPtr,AdapterVersion=String("woden-menu-trial@1") };
+            var buffer=new byte[512]; int r=_open2!(ref args,out handle,buffer,buffer.Length);why=Text(buffer);return r;
+        }
+        finally { foreach(var p in pointers) Marshal.FreeCoTaskMem(p);Marshal.FreeHGlobal(data);Marshal.FreeHGlobal(folderPtr);Marshal.FreeHGlobal(sessionPtr);Marshal.FreeHGlobal(batchPtr); }
+    }
+
     /// <summary>One frame into <paramref name="frame"/> (296 bytes, struct_size set here).</summary>
     internal static int Tick(IntPtr handle, byte[] frame)
     {

@@ -43,6 +43,15 @@ Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 | STD-033 | Rig-profile controls contract | partial | Installer still declares woden-bindings-1. October 12 private shim pilot consumes exact Controls bytes through pinned shared Core, with a wheel-only native-source admission restriction. No new writer/installed capability advertised. H-pattern/clutch/neutral/reverse/select unsupported. See docs/SHIM-PILOT.md and docs/2026-10-10-profile-controls.md. |
 | STD-036 | Every binding from its own device | partial source pilot | Shared provider owns each bound device identity. Woden forwards supported actions and joins steering GUID to existing FFB selection; no Unity gamepads may coexist yet. Device-free checks only; rig response/auxiliary devices and H-pattern remain unqualified. |
 | STD-034 | Closed-loop Apply qualification | partial | controls.6 / raw-controls-20261010-06: production Apply repairs staged wrong indexes with fixture/live parity; raw profile inputs navigate from cold launch to Spain SS1 and reach the real car consumer (steer +/-0.5, throttle 0.5/1, brake/handbrake 0.5). Exact owner restoration passed. Aux shifters, complete menu/interruption matrix and physical feel remain open. See docs/2026-10-10-profile-controls.md. |
+
+October 12 shared-shim menu follow-up (STD-033/034/036): schema 4 developer-only
+latched trial preserves the exact profile and provisional ABI2 pin. Actual pure
+Core frames reach source-linked production startup/menu queries in device-free
+fixtures. The fixed Garage/Workshop/return native route remains live-unqualified;
+no driving, keyboard response, FFB coexistence or installed capability promotion.
+See docs/SHIM-MENU-TRIAL.md. Existing STD-016/017/020 audit gaps, STD-031 force
+reference and STD-032 portfolio alignment remain outside this bounded task.
+
 October 10 STD-033 correction: profile hats explicitly use the shared circular
 4500-unit rule; old F6 eight-way bindings stay exact. `HatNeighbours` is per
 binding and the installer declares its capability. Vendored input source
