@@ -23,6 +23,15 @@ public sealed class TelemetryOutput : IDisposable
     public OutputOptions ActiveOptions { get { lock (_networkGate) return _options; } }
     public bool RecordingActive => RecordingStatus == "Recording";
     public void StopRecording() => _recorder?.Stop(TimeSpan.FromMilliseconds(500));
+    private string? _recordingFailure;
+    public void FailRecording(double elapsedSeconds, string reason)
+    {
+        _recordingFailure = reason;
+        // This semantic failure is part of the source, even if a complete prefix/footer can be saved.
+        // A rejected marker is also refused by the existing dropped/invalid-counter checks.
+        _recorder?.TryMark(Math.Max(0, elapsedSeconds - (_recordOrigin ?? elapsedSeconds)), "capture-failed", reason.Length > 4096 ? reason[..4096] : reason);
+        _recorder?.Stop(TimeSpan.FromMilliseconds(500));
+    }
     private static void Validate(OutputOptions options)
     {
         if (options.ForzaPort is < 0 or > 65535 || options.DetailPort is < 0 or > 65535 || options.DetailHz is < 1 or > 60 ||
@@ -70,8 +79,8 @@ public sealed class TelemetryOutput : IDisposable
     public long SendErrors => Interlocked.Read(ref _errors);
     public string? LastError { get; private set; }
     public bool Stopped => !_worker.IsAlive;
-    public string? RecordingError => _recorder?.LastError;
-    public string RecordingStatus => _recorder?.Status.ToString() ?? "Disabled";
+    public string? RecordingError => _recordingFailure ?? _recorder?.LastError;
+    public string RecordingStatus => _recordingFailure != null ? "Faulted" : _recorder?.Status.ToString() ?? "Disabled";
     public long RecordingDrops => _recorder?.DroppedSamples ?? 0;
 
     public TelemetryOutput(OutputOptions options, string sessionId, string recordingSource, string pluginVersion = "unknown",

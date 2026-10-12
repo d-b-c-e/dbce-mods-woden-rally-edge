@@ -1,5 +1,15 @@
 # Toolkit standards adoption
 
+October 12 force-analysis follow-up (STD-003/025/027): ordinary requested and
+stage captures now share a capture-local history helper with separate instances,
+the production load reference, explicit `woden.force-analysis@1` provenance and
+an offline exporter. Actual force gates/tunes, old actual replay and legacy stage
+history remain separate. The linked muted fixture proves zero native opens/writes
+alongside nonzero qualified software analysis. Fresh original normalization and
+attended force acceptance remain open; no install. See
+docs/2026-10-12-independent-force-analysis.md. Ledger review found no missing IDs;
+STD-016/017/020 remain unchecked and STD-031/032 remain pending.
+
 October 12 force follow-up (STD-025/027): additive Grip 6/config 4 accepts only
 finite positive coincident slip knots with exactly equal nonnegative values.
 Production controller, ordinary/stage replay and private original checks pass;

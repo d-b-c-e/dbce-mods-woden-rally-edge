@@ -110,6 +110,13 @@ public static class RecordedForceReplay
     /// Verifies the original model, crash contract, manifest and baseline before a counterfactual trial.
     /// No source artifacts or device state are changed.</summary>
     public static IReadOnlyList<RecordedForceTrialSample> ExportTrial(string caseDirectory, float strength, float peak, float? gripRatio)
+        => ExportRows(caseDirectory, strength, peak, gripRatio, analysis: false);
+
+    /// <summary>Explicit capture-local analysis export. Never substitutes analysis for an old actual-force observation.</summary>
+    public static IReadOnlyList<RecordedForceTrialSample> ExportAnalysis(string caseDirectory, float strength, float peak, float? gripRatio)
+        => ExportRows(caseDirectory, strength, peak, gripRatio, analysis: true);
+
+    private static IReadOnlyList<RecordedForceTrialSample> ExportRows(string caseDirectory, float strength, float peak, float? gripRatio, bool analysis)
     {
         string directory = RequireDirectory(caseDirectory);
         string manifestPath = Path.Combine(directory, "case.json"), baselinePath = Path.Combine(directory, "force-observation.jsonl");
@@ -125,6 +132,13 @@ public static class RecordedForceReplay
         if (gripRatio.HasValue)
             options = options with { Model = capture.OriginalOptions.Grip ? capture.OriginalOptions.Model : GripSignal.ModelVersion,
                 LoadRatio = gripRatio.Value, GripSmoothing = capture.OriginalOptions.Grip ? capture.OriginalOptions.GripSmoothing : .2f };
+        ValidateForceOptions(options);
+        if (analysis)
+        {
+            var independent = ForceAnalysisHistory.Replay(SessionReader.Read(capture.SourcePath).ToArray(), capture.OriginalOptions, options);
+            EnsureProtectedHashes(capture, manifestPath, manifestHash, baselinePath, baselineHash);
+            return independent;
+        }
         var rows = new List<RecordedForceTrialSample>();
         RunSource(capture, options, verifyRecordedOutputs: false, trialRows: rows);
         EnsureProtectedHashes(capture, manifestPath, manifestHash, baselinePath, baselineHash);

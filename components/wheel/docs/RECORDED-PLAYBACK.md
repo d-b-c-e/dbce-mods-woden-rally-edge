@@ -95,3 +95,10 @@ dotnet run --project tools\TelemetryInspector -c Release -- compare '<baseline.j
 `trial` first verifies all manifest hashes and independently reruns the original config against the baseline. It then hashes the separate candidate config, reruns actual `ForceSignal` without requiring candidate preview values to equal the recording, writes a new observation with the original `caseSha256`, and compares it. It never rewrites the source, case, baseline, original config or profile. Count or timeline changes make comparison unavailable rather than producing a magnitude summary by index.
 
 The shared reference validator may independently validate the manifest and compare observations. Woden retains its C# adapter because sampling, model/reset interpretation and source readiness are consumer-owned. Toolkit commit `87b47d53121c0b3fc8479e622ae8a79c8ca3fa58` defines the adopted source-only contract; the native toolkit and unpublished Recording binary pins are unchanged.
+
+New requested captures may additionally declare `woden.force-analysis@1`.
+`ffb-analysis-export <case-or-stage> <new.csv> <strength> <peak> [grip <ratio>]`
+verifies and exports that separate steering/damping history, which is independent
+of physical mute. It refuses old ordinary captures without this contract.
+Existing actual-force commands above keep their gated recurrence. See the
+[analysis contract, evidence and limits](../../../docs/2026-10-12-independent-force-analysis.md).

@@ -85,6 +85,7 @@ internal static class Runtime
     private static DiagnosticLaunch? _recordLaunch;
     private static string? _recordingPath;
     private static Dictionary<string, string>? _recordingProperties;
+    private static ForceAnalysisHistory? _recordingAnalysis;
     private static double _nextReport, _lastIdle;
     private static bool _stopped = true;
     private static string _provenance = "";
@@ -152,8 +153,10 @@ internal static class Runtime
             ["requestId"] = request.Id.ToString(), ["caseId"] = request.EffectiveCaseId,
             ["disableForces"] = request.DisableForces.ToString().ToLowerInvariant(), ["gameAssemblySha256"] = GameAssemblyHash,
             ["pluginSha256"] = pluginHash, ["pluginProductVersion"] = productVersion, ["runtimeSource"] = sourceRevision,
-            ["forceConfigSha256"] = configHash, ["captureProfileSha256"] = profileHash
+            ["forceConfigSha256"] = configHash, ["captureProfileSha256"] = profileHash,
+            ["analysisForceContract"] = ForceAnalysisHistory.Contract, ["analysisForce"] = ForceAnalysisHistory.Scope
         };
+        _recordingAnalysis = new ForceAnalysisHistory();
         Log.LogInfo($"Recording request {request.Id} maps to {_recordingPath}; case={request.EffectiveCaseId}, capability=signal-reprocess");
     }
 
@@ -161,6 +164,17 @@ internal static class Runtime
     {
         if (File.Exists(path)) return RecordingArtifacts.Sha256(path);
         return Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("missing:" + Path.GetFileName(path)))).ToLowerInvariant();
+    }
+    internal static void ObserveForceAnalysis(TelemetrySample sample)
+    {
+        if (_recordingAnalysis == null || Output?.RecordingActive != true) return;
+        try { _recordingAnalysis.Record(sample, Settings.ForceOptions); }
+        catch (Exception ex)
+        {
+            // Analysis failure invalidates this recording, never the actual output lifecycle.
+            _recordingAnalysis = null; Output.FailRecording(sample.ElapsedSeconds, "force analysis: " + ex.Message);
+            Log.LogError("Independent force analysis stopped recording: " + ex.Message);
+        }
     }
     internal static bool Select(MainCar car)
     {
@@ -241,6 +255,7 @@ internal static class Runtime
         StockWheelOwner.Release(false);
         MountedCamera.Restore();
         Output?.Dispose();
+        _recordingAnalysis = null;
         Log.LogInfo($"Stopped; outputWorkerStopped={Output?.Stopped}, recording={Output?.RecordingStatus}, drops={Output?.RecordingDrops}");
     }
 }
@@ -265,6 +280,7 @@ internal static class CarHook
             TimingDiagnostics.SampleMs = Runtime.Clock.Elapsed.TotalMilliseconds - started;
             started = Runtime.Clock.Elapsed.TotalMilliseconds;
             Runtime.Force.Tick(sample);
+            Runtime.ObserveForceAnalysis(sample);
             StagePlayback.Observe(sample);
             TimingDiagnostics.ForceMs = Runtime.Clock.Elapsed.TotalMilliseconds - started;
             TimingDiagnostics.Record(sample);

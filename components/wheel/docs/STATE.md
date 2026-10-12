@@ -1,5 +1,13 @@
 # Private shim admission checkpoint — 2026-10-12
 
+Source-only follow-up adds independent capture-local steering/damping history to
+requested ordinary and stage recordings, with explicit metadata/CLI provenance.
+The production-linked muted fixture records nonzero analysis while native
+opens/writes and actual preview remain zero. Old recordings are not reinterpreted;
+fresh muted forward-drive/reference coverage, normalization and physical acceptance
+remain open. Exact contract, validation and limits:
+[independent force history](../../../docs/2026-10-12-independent-force-analysis.md).
+
 Offline follow-up: Grip 6 / force-config 4 admits the actual equal-positive-knot,
 equal-value curve. Model 5 replays every original row exactly; the explicit
 model 6 counterfactual accepts 1,151 curve-rejected rows while retaining the

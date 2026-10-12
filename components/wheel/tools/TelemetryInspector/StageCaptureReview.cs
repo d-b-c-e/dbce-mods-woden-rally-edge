@@ -48,6 +48,9 @@ internal static class StageCaptureReview
         ArtifactSeal.Verify(directory, "source.jsonl", "force-config.json", "stage-context.json", "channels.json");
         if (tape.Metadata["physicalOutput"] != "false") throw new IOException("Capture was not physically muted");
         var options = ReadOptions(directory);
+        var records = SessionReader.Read(Path.Combine(directory, "source.jsonl")).ToArray();
+        bool independent = ForceAnalysisHistory.Declared(records);
+        var analysis = independent ? ForceAnalysisHistory.Replay(records, options) : null;
         var signal = new ForceSignal(); signal.Reset();
         var grip = new GripSignal(); grip.NewCar();
         int count = 0, valid = 0, nonzero = 0; double? origin = null;
@@ -55,7 +58,7 @@ internal static class StageCaptureReview
         int qualified = 0;
         double maxError = 0, minForce = 0, maxForce = 0, maxSpeed = 0;
         SessionFooter? footer = null;
-        foreach (var record in SessionReader.Read(Path.Combine(directory, "source.jsonl")))
+        foreach (var record in records)
         {
             if (record.Kind == SessionRecordKind.Metadata)
             {
@@ -101,14 +104,15 @@ internal static class StageCaptureReview
             var sample = new TelemetrySample { Sequence = row.Sequence, ElapsedSeconds = row.ElapsedSeconds,
                 SimulationSeconds = time, State = "driving", Discontinuity = Get("sample.discontinuity") == 1 ? "recorded" : null };
             foreach (var pair in channels) sample.Channels[pair.Key] = pair.Value;
-            var result = options.Grip ? grip.Evaluate(sample, options, reference) : signal.Evaluate(sample, options);
-            if ((result.Valid ? 1 : 0) != Get("analysis.force.valid") || (options.Grip ? grip.ResetCount : signal.ResetCount) != Get("analysis.force.reset"))
+            var result = independent ? new ForceResult(analysis![count].Valid, "independent analysis", 0, 0, 0, analysis[count].Request) :
+                options.Grip ? grip.Evaluate(sample, options, reference) : signal.Evaluate(sample, options);
+            if (!independent && ((result.Valid ? 1 : 0) != Get("analysis.force.valid") || (options.Grip ? grip.ResetCount : signal.ResetCount) != Get("analysis.force.reset")))
                 throw new IOException($"Model validity/reset differs at sample {count}");
             var error = Math.Abs(result.Preview - Get("analysis.force.preview"));
             maxError = Math.Max(maxError, error);
             if (error > .000002) throw new IOException($"Model preview differs at sample {count}: {error:R}");
             // Grip v5/v6 captures carry the two pre-clamp terms; older grip captures are checked only if they have them.
-            if (options.Grip && (options.Model is GripSignal.IndependentDampingVersion or GripSignal.ModelVersion || channels.ContainsKey("analysis.force.steering")))
+            if (!independent && options.Grip && (options.Model is GripSignal.IndependentDampingVersion or GripSignal.ModelVersion || channels.ContainsKey("analysis.force.steering")))
                 foreach (var (key, value) in new[] { ("analysis.force.steering", grip.LastSteering), ("analysis.force.dampingTerm", grip.LastDamping) })
                     if (Math.Abs(value - Get(key)) > .000002) throw new IOException($"Model {key} differs at sample {count}");
             if (result.Valid) valid++;
@@ -128,7 +132,7 @@ internal static class StageCaptureReview
             samples = count, seconds = tape.Frames[^1].Time - tape.Frames[0].Time, validForceSamples = valid,
             nonzeroForceSamples = nonzero, minimumPreview = minForce, maximumPreview = maxForce,
             maximumForceReprocessError = maxError, maximumPhysicsSpeedMps = maxSpeed,
-            model = options.Grip ? ForceObservationSemantics.GripModel : ForceObservationSemantics.Model,
+            model = ForceObservationSemantics.ModelId(options.Model), analysisContract = independent ? ForceAnalysisHistory.Contract : "legacy-stage-history",
             qualifiedForceSamples = qualified, forceScope = "steering analysis only; crash cues and physical delivery are separate",
             physicalDeliveryAttempts = 0, source = tape.Metadata["captureSource"], normalization = "software signal only; no measured wheel torque" };
     }

@@ -885,6 +885,8 @@ Test("versioned production FFB reference envelopes, cadence and terminal zero", 
 Test("concurrent summary creation preserves the other creator's exact bytes", () => WodenRallyEdge.FfbRegressionChecks.ConcurrentCreation(Check));
 Test("bounded canonical command capture uses actual controller and pure fake replay", () => WodenRallyEdge.CommandCaptureChecks.Run(Check, t => Contact(t)));
 Test("summary CLI bounds ordinary failures and malformed requests without running fixtures", () => WodenRallyEdge.FfbSummaryCommandChecks.Run(Check));
+Test("independent analysis history ignores hardware gates and owns capture/car/tune/time boundaries", () => ForceAnalysisChecks.Boundaries(Check));
+Test("muted production controller keeps actual zero while independent history records and replays nonzero", () => ForceAnalysisChecks.ProducerReplay(Check));
 Test("grip v6 admits only finite continuous equal-knot curves; legacy arithmetic and admission stay exact", () => GripV6Checks.Curves(Check));
 if (Environment.GetEnvironmentVariable("WODEN_GRIP_CAPTURE") is { Length: > 0 } gripCapture)
     Test("private native Grip5 capture: exact old replay and isolated Grip6 trial", () => GripV6Checks.NativeCapture(Check, gripCapture));
