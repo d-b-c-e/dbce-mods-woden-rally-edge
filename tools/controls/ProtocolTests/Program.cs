@@ -51,6 +51,40 @@ foreach(var op in new[]{"raw","panel","shot","action","start"})
     Refuse(()=>Protocol.Command(Bytes(command with{Operation=op,Raw=null}),nonce,0,now.AddSeconds(1),now,true,true));
 foreach(var op in new[]{"status","stop"})Check(Protocol.Command(Bytes(command with{Operation=op,Raw=null}),nonce,0,now.AddSeconds(1),now,true,true).Operation==op);
 Console.WriteLine($"PASS: {count} controls protocol checks including fixed-route schema 4 and operator-injection refusal.");
+var car=shim with{Schema=5,Mode="shim-car-trial",StageReference=Path.GetFullPath("sealed-reference"),WorkloadDirectory=Path.GetFullPath("original-workload")};
+Check(Protocol.Admit(Bytes(car),now,nonce)==car);
+foreach(var r in new[]{car with{Schema=4},car with{Mode="shim-menu-trial"},car with{StageReference=null},car with{WorkloadDirectory="relative"},trial with{StageReference=car.StageReference}})
+    Refuse(()=>Protocol.Admit(Bytes(r),now,nonce));
+Check(Protocol.LatchedTrial(car)&&Protocol.ShimAdmission(car)&&!Protocol.MenuTrial(car));
+Console.WriteLine($"PASS: {count} protocol checks including isolated schema 5 car trial.");
+
+Dictionary<string,double> NativeValues(string action="neutral",double expected=0)=>new(){
+    ["game.automatic"]=0,["game.locked"]=0,["game.paused"]=0,["game.respawning"]=0,["game.replay"]=0,
+    ["controls.steer"]=action=="steer"?expected:0,["game.steer"]=action=="steer"?expected:0,
+    ["controls.throttle"]=action=="throttle"?expected:0,["game.throttle"]=action=="throttle"?expected:0,
+    ["controls.brake"]=action=="brake"?expected:0,["game.brake"]=action=="brake"?expected:0,
+    ["game.handbrake"]=action=="handbrake"&&expected>0?1:0};
+CarPlateau Observe(string id,double expected,Action<Dictionary<string,double>>? mutate=null,double gap=.025,int rows=8){var p=new CarPlateau();for(int i=0;i<rows;i++){var values=NativeValues(id,expected);mutate?.Invoke(values);p.Add(i*gap,id,expected,values);}return p;}
+foreach(string id in new[]{"steer","throttle","brake","handbrake"})Check(Observe(id,.5).Passed);
+foreach(string key in new[]{"controls.brake","game.brake","game.automatic","game.locked","game.paused","game.respawning","game.replay"})
+    Check(!Observe("brake",.5,v=>v.Remove(key)).Passed);
+Check(!Observe("brake",.5,v=>v["game.brake"]=0).Passed);
+Check(!Observe("throttle",.5,v=>v["game.throttle"]=double.NaN).Passed);
+Check(!Observe("steer",.5,gap:.15).Passed);
+Check(!Observe("steer",.5,rows:4).Passed);
+Check(!Observe("steer",.5,v=>v["game.automatic"]=1).Passed);
+Console.WriteLine($"PASS: {count} total protocol/native plateau checks; requested action values alone cannot pass.");
+if(args.Length==4) {
+    var controls=File.ReadAllBytes(args[0]);var profile=File.ReadAllBytes(args[1]);var workload=File.ReadAllBytes(args[2]);
+    var plan=CarWorkload.Read(controls,profile,workload);
+    Check(plan.Pulses.Length==10 && plan.Neutral.Command.Split('\n').Length==6 && plan.Neutral.Command.Contains("value=1743"));
+    foreach(int which in new[]{0,1,2}) {var all=new[]{controls.ToArray(),profile.ToArray(),workload.ToArray()};all[which][10]^=1;Refuse(()=>CarWorkload.Read(all[0],all[1],all[2]));}
+    using var output=new StreamWriter(new FileStream(args[3],FileMode.CreateNew,FileAccess.Write));
+    foreach(var p in new[]{plan.Neutral}.Concat(plan.Pulses.SelectMany(p=>new[]{p,plan.Neutral}))) {
+        output.WriteLine(p.Action+" "+p.Expected.ToString("R",System.Globalization.CultureInfo.InvariantCulture));output.WriteLine(p.Command);output.WriteLine("---");
+    }
+    Console.WriteLine($"PASS: immutable independent sources and six-action raw batch fixture exported; {count} checks.");
+}
 
 int configs=0;
 byte[] Ini(string text)=>Encoding.UTF8.GetBytes(text);

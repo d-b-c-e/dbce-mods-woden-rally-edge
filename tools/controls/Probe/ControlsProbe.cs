@@ -88,7 +88,9 @@ public sealed partial class ControlsProbe : BasePlugin
                 if((bool)Field(settings.GetType(),flag,settings)!) throw new InvalidDataException("Independent output mute missing: "+flag);
             var dev=Field(Type("DevInput"),"_enabled")!;
             if((bool)dev.GetType().GetProperty("Value")!.GetValue(dev)!) throw new InvalidDataException("Normal DevInput must stay disabled.");
-            if(Runtime.GetField("_recordLaunch",All)!.GetValue(null) is not null) throw new InvalidDataException("Diagnostic launch already requested.");
+            var recordLaunch=Runtime.GetField("_recordLaunch",All)!.GetValue(null);
+            if(Protocol.CarTrial(Request))VerifyCarRecordingRequest(recordLaunch);
+            else if(recordLaunch is not null) throw new InvalidDataException("Diagnostic launch already requested.");
             var stage=Type("StagePlayback");
             var session=Field(stage,"Session")!;
             if((bool)session.GetType().GetProperty("Active")!.GetValue(session)!) throw new InvalidDataException("Stage session already active.");
@@ -107,7 +109,7 @@ public sealed partial class ControlsProbe : BasePlugin
             Trace.WriteLine("time_s\tframe\tkind\tdata");
             File.WriteAllText(Path.Combine(output,"identity.json"),JsonSerializer.Serialize(new{request=Request,process=Environment.ProcessId,processStart=ProcessStart,
                 probeSha256=Hash(typeof(ControlsProbe).Assembly.Location),nativePath=NativePath,physicalOutput=false,
-                kind=Protocol.MenuTrial(Request)?"shared-core-latched-menu-trial":Protocol.ShimAdmission(Request)?"ordinary-shim-menu-admission":"native-raw-before-binding",configAddedDefaults=addedDefaults},Protocol.Json));
+                kind=Protocol.CarTrial(Request)?"shared-core-latched-original-car-trial":Protocol.MenuTrial(Request)?"shared-core-latched-menu-trial":Protocol.ShimAdmission(Request)?"ordinary-shim-menu-admission":"native-raw-before-binding",configAddedDefaults=addedDefaults},Protocol.Json));
             Patch(Method(Runtime,"Update"),nameof(BeforeTick),nameof(AfterTick));
             Patch(Method(Runtime,"Stop"),nameof(OnStop));
             Patch(Method(Hub,"Poll"),postfix:nameof(AfterPoll));
@@ -119,6 +121,7 @@ public sealed partial class ControlsProbe : BasePlugin
             if(remaining<=0) throw new InvalidDataException("Cold request expired during admission.");
             Deadline=Clock.Elapsed.TotalSeconds+Math.Min(300,remaining); Armed=true;
             if(Protocol.MenuTrial(Request))StartMenuTrial();
+            if(Protocol.CarTrial(Request))StartCarTrial();
             Row("armed",Native.Status); Trace.Flush();
             Log.LogInfo("Raw controls test armed; native force fence and progression/network mute latched. Focus guards unchanged.");
         }
@@ -172,7 +175,7 @@ public sealed partial class ControlsProbe : BasePlugin
             // replace bytes between our validation and archival/submission.
             string claimed=Path.Combine(Request.OutputDirectory,"command-claimed.json");
             File.Move(command,claimed);
-            var r=Protocol.Command(ReadBounded(claimed,2048),Request.Nonce,Sequence,File.GetLastWriteTimeUtc(claimed),ProcessStart,Protocol.ShimAdmission(Request),Protocol.MenuTrial(Request));
+            var r=Protocol.Command(ReadBounded(claimed,2048),Request.Nonce,Sequence,File.GetLastWriteTimeUtc(claimed),ProcessStart,Protocol.ShimAdmission(Request),Protocol.LatchedTrial(Request));
             Sequence=r.Sequence; File.Move(claimed,Path.Combine(Request.OutputDirectory,"command-"+Sequence+".json"));
             bool ok=true; string reply=Native!.Status;
             if(r.Operation=="raw")
@@ -197,6 +200,7 @@ public sealed partial class ControlsProbe : BasePlugin
         try
         {
             TickMenuTrial();
+            TickCarTrial();
             if(!Armed || Clock.Elapsed.TotalSeconds<NextStatus)return;
             NextStatus=Clock.Elapsed.TotalSeconds+.1;
             if(Protocol.ShimAdmission(Request)) ObserveShim();
@@ -236,7 +240,9 @@ public sealed partial class ControlsProbe : BasePlugin
         catch(Exception ex) { RequestStop("axis observation failed: "+ex.Message); }
     }
     static void AfterButton(string __0,bool __1,bool __result)
-    { if(Observing) Changed("game-button",__0+"/"+__1,__0+" edge="+__1+" value="+(__result?1:0)); }
+    { if(Observing) {
+        if(Protocol.CarTrial(Request) && __result && (CarPulse?.Action=="shiftUp" && __0=="Gear up" || CarPulse?.Action=="shiftDown" && __0=="Gear down"))CarGearQuery=true;
+        Changed("game-button",__0+"/"+__1,__0+" edge="+__1+" value="+(__result?1:0)); } }
     static void Changed(string kind,string key,string data)
     {
         string id=kind+"/"+key;
@@ -260,7 +266,7 @@ public sealed partial class ControlsProbe : BasePlugin
     static readonly string[] NativeChannels = {
         "controls.steer","controls.throttle","controls.brake","game.handbrake",
         "game.steer","game.throttle","game.brake","game.trueSpeed","game.gear",
-        "game.status","game.paused","game.locked","game.respawning","game.replay",
+        "game.status","game.paused","game.locked","game.respawning","game.replay","game.automatic","game.shifting",
         "camera.mode","camera.stockPreset","camera.mountedView","camera.changing",
         "motion.position.world.x","motion.position.world.y","motion.position.world.z",
         "wheel.fl.steerAngle","wheel.fr.steerAngle","wheel.fl.motorTorque","wheel.fr.motorTorque",
@@ -278,6 +284,7 @@ public sealed partial class ControlsProbe : BasePlugin
             var channels=new Dictionary<string,double>(StringComparer.Ordinal); var missing=new List<string>();
             foreach(string name in NativeChannels)
                 if(source.TryGetValue(name,out double v) && double.IsFinite(v)) channels.Add(name,v); else missing.Add(name);
+            ObserveCarPulse(Get("CarInstanceId"),Get("State").ToString()!,channels);
             Row("native-car",JsonSerializer.Serialize(new {
                 Car=Get("CarInstanceId"),Sequence=Get("Sequence"),At=Get("ElapsedSeconds"),
                 Simulation=Get("SimulationSeconds"),State=Get("State"),Phase=Get("Phase"),Channels=channels,Missing=missing
@@ -304,6 +311,8 @@ public sealed partial class ControlsProbe : BasePlugin
         // cannot neutralize it at timeout/failure; ownership remains sticky.
         if(Protocol.ShimAdmission(Request))
         {
+            try { StopCarTrial(); }
+            catch(Exception ex) { reason+="; car trial stop failed: "+ex.Message; }
             try { RestoreTrialModules(); }
             catch(Exception ex) { reason+="; native module restore failed: "+ex.Message; }
             try { RestoreShimPresentation(); }
@@ -314,7 +323,10 @@ public sealed partial class ControlsProbe : BasePlugin
         try { var hub=Runtime?.GetField("Devices",All)?.GetValue(null); if(hub is not null) Method(Hub,"CloseReaders").Invoke(hub,null); }
         catch(Exception ex) { reason+="; reader close failed: "+ex.Message; }
         try { Trace?.Dispose(); } catch(Exception ex) { reason+="; trace close failed: "+ex.Message; } finally { Trace=null; }
-        try { if(OwnedEvidence is not null) File.WriteAllText(Path.Combine(OwnedEvidence,"result.json"),JsonSerializer.Serialize(new{reason,rows=Rows,commands=RawCommands,inputVerdict=Protocol.MenuTrial(Request)?TrialVerdict:"unclassified",physicalOutput=false},Protocol.Json)); }
+        try { if(OwnedEvidence is not null) File.WriteAllText(Path.Combine(OwnedEvidence,"result.json"),JsonSerializer.Serialize(new{reason,rows=Rows,commands=RawCommands,inputVerdict=Protocol.CarTrial(Request)?CarVerdict:Protocol.MenuTrial(Request)?TrialVerdict:"unclassified",physicalOutput=false,
+            carEvidence=Protocol.CarTrial(Request)?new{recording=CarRecording,kind="new-original-not-reference-replay",nativePlateaus=CarPulseCount,
+                forceProducer="existing diagnostic source.jsonl; inspect actual ffb validity/gates",pressure="unavailable: no native pressure channel qualified",
+                torque="native wheel torque channels/missing list retained; proportional handbrake and physical torque not qualified",opponents="none",temporaryTransmission="player0 Manual"}:null},Protocol.Json)); }
         catch(Exception ex) { Instance?.Log.LogError("Controls result write failed: "+ex.Message); }
         Instance?.Log.LogInfo("Raw controls ended: "+reason+"; process force/progression mute retained");
     }

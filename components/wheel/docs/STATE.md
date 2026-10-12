@@ -1,5 +1,12 @@
 # Private shim admission checkpoint — 2026-10-12
 
+Follow-up: schema 4 passed the focused native Garage → Workshop → Garage route
+and exact restoration ([evidence](../../../docs/SHIM-MENU-TRIAL.md)). Schema 5
+original car qualification is now a separate source-tested candidate using
+native Kenya startup, explicit temporary Manual, raw R12/DS-8X actions and the
+ordinary diagnostic producer. No car-trial launch, permanent install or force
+acceptance yet. See [scope](../../../docs/SHIM-CAR-TRIAL.md).
+
 Three reviewed no-force at-rest runs restored the installed owner state exactly.
 Run03 parsed the exact owner profile and admitted the ordinary shim with 507
 ready observations, native producer isolation and a rendered active panel. The

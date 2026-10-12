@@ -1,14 +1,21 @@
 # Production Apply and raw controls qualification
 
+October 12: the schema 4 fixed shared-Core menu route passed; see
+[native evidence](../../docs/SHIM-MENU-TRIAL.md). Separate schema 5
+`-ShimCarTrial` is source-tested and awaits review/runtime qualification. It uses
+the exact sealed Kenya identity with temporary Manual and original raw six-action
+workload, while retaining the ordinary diagnostic force producer. See
+[car scope and proposed command](../../docs/SHIM-CAR-TRIAL.md). Schema 4 remains
+menu-only; it cannot enter a car. Only schema 5 permits its exact cold recorder.
+
 October 12: the same runner has a separate `-ShimAdmission` at-rest ordinary
 shim pilot. It skips Apply/raw workloads, copies accepted Controls bytes exactly,
 stages a reviewed production plugin/Core plus the pinned shim, and retains the
 existing native force fence and exact owner restoration. Its schema 3 mode
 allows only status/panel/shot/stop and stops the shim's separate reader on exit.
-See [the exact private recipe](../../docs/SHIM-ADMISSION-TEST.md). This mode has
-run once and refused before arming because of an ambiguous panel overload; exact
-owner restoration passed. The exact-signature follow-up is source-tested; existing
-raw-controls results and this refused run do not qualify the shim.
+See [the exact private recipe and admission03 evidence](../../docs/SHIM-ADMISSION-TEST.md).
+Admission03 qualified ordinary host open/ticks at rest. Its naturally unfocused
+state did not establish action delivery; the later focused menu trial did.
 
 This developer harness is separate from the player package. Its intended proof
 is Wheelkit production Apply -> the installed consumer reads those files -> an
@@ -30,7 +37,8 @@ is allowed, including on invalid request, timeout, or stopped injection.
 - Arm the native irreversible no-force fence before any force call. Refusal is
   terminal. Retain managed force-open refusal and latch Woden's existing
   `StagePlayback.Target.MuteOutputs()` for force/network/progression protection.
-  Keep stage replay/diagnostic driving and the normal DevInput channel inactive.
+  Keep stage replay and the normal DevInput channel inactive. Only schema 5
+  permits its exact ordinary diagnostic recorder and bounded original car route.
 - Patch observation only at `DeviceHub.Poll`, `DeviceHub.TryAxis`,
   `WheelInput.Button`, `WheelInput.Apply`, and the normal runtime tick. The first
   two show raw delivery and normalized values; `Apply` shows the actual input

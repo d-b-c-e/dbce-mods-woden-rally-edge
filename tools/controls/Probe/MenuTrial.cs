@@ -153,8 +153,8 @@ public sealed partial class ControlsProbe
     }
     static void RestoreTrialModules()
     {
-        if(!Protocol.MenuTrial(Request))return;
-        if(Trial!=TrialStep.Passed)TrialVerdict="incomplete: "+Trial;
+        if(!Protocol.LatchedTrial(Request))return;
+        if(Protocol.MenuTrial(Request) && Trial!=TrialStep.Passed)TrialVerdict="incomplete: "+Trial;
         foreach(var item in TrialModules.Values)
             if(item.module!=null){item.module.enabled=item.enabled;if(item.module.enabled!=item.enabled)throw new InvalidOperationException("Native input-module restoration differs.");}
         TrialModules.Clear();

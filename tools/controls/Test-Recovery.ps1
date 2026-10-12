@@ -7,7 +7,7 @@ $base=Join-Path ([IO.Path]::GetTempPath()) ('woden-controls-recovery-'+[guid]::N
 $checks=0
 function Check([bool]$Ok,[string]$Why){$script:checks++;if(!$Ok){throw $Why}}
 function Text([string]$Path,[string]$Value){[IO.Directory]::CreateDirectory((Split-Path -Parent $Path))|Out-Null;[IO.File]::WriteAllText($Path,$Value)}
-foreach($case in @('restore','expired','already-restored','bad-backup','bad-metadata','other-lease','other-request','environment-failure','shim-restore')) {
+foreach($case in @('restore','expired','already-restored','bad-backup','bad-metadata','other-lease','other-request','environment-failure','shim-restore','car-restore')) {
     $dir=Join-Path $base $case; $game=Join-Path $dir 'game'; $result=Join-Path $dir 'result'
     $user=Join-Path $dir 'user';$app=Join-Path $dir 'app';$copy=Join-Path $dir 'tools/controls'
     [IO.Directory]::CreateDirectory($copy)|Out-Null
@@ -23,21 +23,29 @@ function Registry-Restore([string]$Path) {
     $plugin=Join-Path $game 'BepInEx/plugins/WodenRallyEdgeWheel'
     $roots=[ordered]@{config=(Join-Path $game 'BepInEx/config');save=(Join-Path $user 'AppData/LocalLow/ViJuDa/Super Woden Rally Edge');dev=(Join-Path $plugin 'dev')}
     $files=[ordered]@{native=(Join-Path $plugin 'WheelFfb.dll');probe=(Join-Path $game 'BepInEx/plugins/DbceControlsTest/Woden.ControlsProbe.dll');log=(Join-Path $game 'BepInEx/LogOutput.log')}
-    if($case -eq 'shim-restore') {
+    if($case -in @('shim-restore','car-restore')) {
         $files.plugin=Join-Path $plugin 'WodenRallyEdgeWheel.dll';$files.core=Join-Path $plugin 'WodenRallyEdge.Core.dll';$files.shim=Join-Path $plugin 'dbce_shim.dll'
         $roots.shimReports=Join-Path $game 'BepInEx/WodenShim'
         Text $files.plugin 'original plugin';Text $files.core 'original core';Text "$($roots.shimReports)/old/receipt.txt" 'original evidence'
+    }
+    if($case -eq 'car-restore') {
+        $roots.recording=Join-Path $game ('BepInEx/WodenRecordings/request-'+('b'*32))
+        Text "$game/BepInEx/WodenRecordings/owner/source.jsonl" 'immutable owner recording outside trial scope'
     }
     Text $files.native 'original native';Text "$($roots.config)/owner.cfg" 'owner config'; Text "$($roots.save)/Save/owner.sav" 'owner save'
     Save-ControlFiles "$result/owner-before" $roots $files
     Text "$result/preferences.json" '[]'
     $slot=Join-Path $app 'dbce/test-slot.txt';$nonce='b'*32;Text $slot 'fixture lease'
     $lease=@{path=$slot;token='fixture lease';previous=''}
-    @{schema=1;mode=$(if($case -eq 'shim-restore'){'shim-admission'}else{'raw'});gameDir=$game;lease=$lease;nonce=$nonce;filesHash=(Get-ControlHash "$result/owner-before/manifest.json");prefsHash=(Get-ControlHash "$result/preferences.json")} | ConvertTo-Json -Depth 5 | Set-Content "$result/recovery.json"
+    @{schema=1;mode=$(if($case -eq 'car-restore'){'shim-car-trial'}elseif($case -eq 'shim-restore'){'shim-admission'}else{'raw'});gameDir=$game;lease=$lease;nonce=$nonce;filesHash=(Get-ControlHash "$result/owner-before/manifest.json");prefsHash=(Get-ControlHash "$result/preferences.json")} | ConvertTo-Json -Depth 5 | Set-Content "$result/recovery.json"
     Text $files.native 'temporary native';Text $files.probe 'temporary addon';Text "$($roots.config)/owner.cfg" 'temporary config';Text "$($roots.save)/new.log" 'new log'
-    if($case -eq 'shim-restore') {
+    if($case -in @('shim-restore','car-restore')) {
         Text $files.plugin 'candidate plugin';Text $files.core 'candidate core';Text $files.shim 'candidate shim'
         Text "$($roots.config)/dbce-controls.ini" 'accepted owner bytes';Text "$($roots.shimReports)/new/receipt.txt" 'new evidence'
+    }
+    if($case -eq 'car-restore') {
+        Text "$($roots.recording)/source.jsonl" 'new original actual producer';Text "$($roots.recording)/force-config.json" 'original tune snapshot'
+        Text "$($roots.config)/woden-record-next-launch.json.consumed-abc" 'consumed diagnostic request'
     }
     Text "$app/dbce/super-woden-rally-edge/inject.on" $nonce
     switch($case) {
@@ -56,7 +64,7 @@ function Registry-Restore([string]$Path) {
     $p=[Diagnostics.Process]::Start($start);$stdout=$p.StandardOutput.ReadToEndAsync();$stderr=$p.StandardError.ReadToEndAsync()
     if(!$p.WaitForExit(30000)){$p.Kill();throw 'Recovery fixture timed out'}
     $log=$stdout.GetAwaiter().GetResult()+$stderr.GetAwaiter().GetResult();Text "$dir/output.txt" $log
-    $success=$case -in @('restore','expired','shim-restore');$recoverFiles=$success -or $case -eq 'environment-failure'
+    $success=$case -in @('restore','expired','shim-restore','car-restore');$recoverFiles=$success -or $case -eq 'environment-failure'
     Check (($p.ExitCode -eq 0) -eq $success) "Wrong exit ($case): $log"
     Check (([IO.File]::ReadAllText($files.native) -ceq 'original native') -eq $recoverFiles) "Wrong native restoration ($case)"
     Check (([IO.File]::ReadAllText("$($roots.config)/owner.cfg") -ceq 'owner config') -eq $recoverFiles) "Wrong config restoration ($case)"
@@ -64,7 +72,7 @@ function Registry-Restore([string]$Path) {
     Check ((Test-Path $slot) -ne $success) "Wrong lease release ($case)"
     Check ((Test-Path "$result/restored.txt") -eq ($success -or $case -eq 'already-restored')) "Wrong restoration receipt ($case)"
     if($success){Check ((Test-Path "$game/prefs-restored.txt") -and !(Test-Path "$($roots.save)/new.log")) 'Preferences/new logs not restored'}
-    if($case -eq 'shim-restore') {
+    if($case -in @('shim-restore','car-restore')) {
         Check (([IO.File]::ReadAllText($files.plugin)) -ceq 'original plugin') 'Original production plugin restored'
         Check (([IO.File]::ReadAllText($files.core)) -ceq 'original core') 'Original Core restored'
         Check (!(Test-Path $files.shim) -and !(Test-Path "$($roots.config)/dbce-controls.ini")) 'Added shim/profile removed'
@@ -72,6 +80,11 @@ function Registry-Restore([string]$Path) {
         Check (!(Test-Path "$($roots.shimReports)/new")) 'New shim reports archived and removed'
         $after=@(Get-ChildItem $result -Directory -Filter 'after-*')
         Check ($after.Count -eq 1 -and (Test-Path "$($after[0].FullName)/tree/shimReports/new/receipt.txt")) 'New shim report evidence retained outside owner tree'
+    }
+    if($case -eq 'car-restore') {
+        Check (!(Test-Path $roots.recording) -and !(Test-Path "$($roots.config)/woden-record-next-launch.json.consumed-abc")) 'Only trial recorder/request files removed after archive'
+        Check ((Get-Content "$game/BepInEx/WodenRecordings/owner/source.jsonl" -Raw) -ceq 'immutable owner recording outside trial scope') 'Existing recordings preserved outside nonce scope'
+        Check ((Get-Content "$($after[0].FullName)/tree/recording/source.jsonl" -Raw) -ceq 'new original actual producer') 'Actual original producer archived before restoration'
     }
     $p.Dispose()
 }

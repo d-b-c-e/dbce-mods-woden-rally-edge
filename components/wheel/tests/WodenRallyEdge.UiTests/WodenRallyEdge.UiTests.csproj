@@ -5,6 +5,7 @@
     <Compile Include="../../src/WodenRallyEdge.Plugin/InputPolling.cs" Link="Consumer/InputPolling.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ShimInput.cs" Link="Consumer/ShimInput.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ShimInput.Trial.cs" Link="Consumer/ShimInput.Trial.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/ShimInput.CarTrial.cs" Link="Consumer/ShimInput.CarTrial.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ShimNative.cs" Link="Consumer/ShimNative.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/InputLease.cs" Link="Consumer/InputLease.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ControlActions.cs" Link="Consumer/ControlActions.cs" />

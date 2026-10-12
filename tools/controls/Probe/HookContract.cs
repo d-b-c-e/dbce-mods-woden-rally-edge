@@ -20,6 +20,13 @@ public static class HookContract
         Require(T("ShimInput").GetProperty("Sequence",All)?.PropertyType==typeof(ulong),"ShimInput.Sequence");
         Require(T("ShimInput").GetProperty("Run",All)?.PropertyType==typeof(byte),"ShimInput.Run");
         Require(T("ShimInput").GetMethod("ConfigureMenuTrial",All,null,new[]{typeof(string),typeof(string),typeof(string),typeof(DateTimeOffset),typeof(bool)},null)?.ReturnType==typeof(void),"ShimInput.ConfigureMenuTrial");
+        Require(T("ShimInput").GetMethod("ConfigureCarTrial",All,null,new[]{typeof(string),typeof(string),typeof(string),typeof(DateTimeOffset),typeof(bool)},null)?.ReturnType==typeof(void),"ShimInput.ConfigureCarTrial");
+        Require(T("ShimInput").GetMethod("CarTrialDelivery",All,null,new[]{typeof(bool)},null)?.ReturnType==typeof(void),"ShimInput.CarTrialDelivery");
+        foreach(var (name,args) in new[]{("InitializeInputTrial",new[]{typeof(string)}),("TickInputTrial",new[]{typeof(double)}),("StopInputTrial",System.Type.EmptyTypes)})
+            Require(T("StageStartup").GetMethod(name,All,null,args,null)?.ReturnType==typeof(void),"StageStartup."+name);
+        Require(T("StageStartup").GetMethod("ValidateRace",All)?.GetParameters().Single().ParameterType.FullName=="MainCar","StageStartup.ValidateRace");
+        foreach(var name in new[]{"RecordingStatus","RecordingDrops"})Require(T("Runtime").GetField("Output",All)?.FieldType.GetProperty(name,All)!=null,"Output."+name);
+        Require(T("Runtime").GetField("Output",All)?.FieldType.GetMethod("StopRecording",All)?.ReturnType==typeof(void),"Output.StopRecording");
         Require(T("ShimInput").GetMethod("MenuTrialScope",All,null,new[]{typeof(int)},null)?.ReturnType==typeof(void),"ShimInput.MenuTrialScope");
         foreach(var name in new[]{"KnownNeutral","TrialNativeMenuAllowed"})Require(T("ShimInput").GetMethod(name,All)?.ReturnType==typeof(bool),"ShimInput."+name);
         foreach(var name in new[]{"Status","TransmissionStatus"})Require(T("ShimInput").GetProperty(name,All)?.PropertyType==typeof(string),"ShimInput."+name);

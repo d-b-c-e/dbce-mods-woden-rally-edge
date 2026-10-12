@@ -96,7 +96,7 @@ internal static partial class ShimInput
                 { Status="Shim menu trial: waiting for actual Unity focus and muted menu fences; Native retained"; return; }
                 string why;
                 int result = _trialNonce == null ? ShimNative.Open(folder, nonce, bytes, ShimActionMap.Unsupported, new IntPtr(window), out _handle, out why) :
-                    ShimNative.OpenLatched(folder, nonce, bytes, TrialUnsupported, new IntPtr(window), _trialSession!, _trialBatch!, out _handle, out why);
+                    ShimNative.OpenLatched(folder, nonce, bytes, TrialUnsupported, new IntPtr(window), _trialSession!, _trialBatch!, out _handle, out why, _carTrial ? "woden-car-trial@1" : "woden-menu-trial@1");
                 if (result != 0) { RefuseOrStop("Open " + result + ": " + why); return; }
                 Owns = true; // Sticky: no legacy binding fallback after native ownership.
                 _window = window;
@@ -132,8 +132,8 @@ internal static partial class ShimInput
     }
     internal static ShimAction Action(string id) => !Ready ? default : id is "shiftUp" or "shiftDown" && _transmission != "Sequential" ?
         new(0, ShimStatus.Unsupported) : Actions[ShimActionMap.Index(id)];
-    internal static float Axis(string id) => Allowed ? Action(id).Applied : 0;
-    internal static bool AxesLive => Allowed && DrivingAxes.All(id => Action(id) is { Status: ShimStatus.Live } a && float.IsFinite(a.Value));
+    internal static float Axis(string id) => Allowed && (!_carTrial || _carTrialDelivery) ? Action(id).Applied : 0;
+    internal static bool AxesLive => Allowed && (!_carTrial || _carTrialDelivery) && DrivingAxes.All(id => Action(id) is { Status: ShimStatus.Live } a && float.IsFinite(a.Value));
     private static void RefuseOrStop(string reason)
     {
         if (Owns) Stop(reason);

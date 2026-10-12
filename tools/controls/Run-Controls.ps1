@@ -1,6 +1,6 @@
 #Requires -Version 7.0
-# Developer-only production Apply -> native raw reader qualification. No inputs
-# are sent automatically. Use Send-Command after inspecting each game state.
+# Developer-only, restored controls qualification. Raw mode is operator-driven;
+# explicit schema 4/5 trials run only their fixed shared-Core workloads.
 [CmdletBinding(DefaultParameterSetName='Run')]
 param(
     [Parameter(Mandatory)][string]$Result,
@@ -9,6 +9,9 @@ param(
     [Parameter(Mandatory,ParameterSetName='Recover')][switch]$Recover,
     [Parameter(ParameterSetName='Run')][switch]$ShimAdmission,
     [Parameter(ParameterSetName='Run')][switch]$ShimMenuTrial,
+    [Parameter(ParameterSetName='Run')][switch]$ShimCarTrial,
+    [Parameter(ParameterSetName='Run')][string]$StageReference=(Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/references/woden-kenya-20261005'),
+    [Parameter(ParameterSetName='Run')][string]$OriginalWorkload='E:/Source/games/dbce-mods-woden-rally-edge/results/raw-controls-20261010-07',
     [Parameter(ParameterSetName='Run')][string]$CandidateDirectory,
     [Parameter(ParameterSetName='Run')][string]$ControlsSource,
     [Parameter(ParameterSetName='Run')][string]$ControlsSha256,
@@ -35,16 +38,17 @@ $roots=[ordered]@{config=(Join-Path $GameDir 'BepInEx/config');save=(Join-Path $
 $files=[ordered]@{native=(Join-Path $plugin 'WheelFfb.dll');probe=(Join-Path $GameDir 'BepInEx/plugins/DbceControlsTest/Woden.ControlsProbe.dll');log=(Join-Path $GameDir 'BepInEx/LogOutput.log')}
 if($Recover -and (Test-Path "$Result/recovery.json")){
     $savedMode=(Get-Content "$Result/recovery.json" -Raw | ConvertFrom-Json).mode
-    $ShimAdmission=$savedMode -in @('shim-admission','shim-menu-trial');$ShimMenuTrial=$savedMode -eq 'shim-menu-trial'
+    $ShimAdmission=$savedMode -in @('shim-admission','shim-menu-trial','shim-car-trial');$ShimMenuTrial=$savedMode -eq 'shim-menu-trial';$ShimCarTrial=$savedMode -eq 'shim-car-trial'
 }
-if($ShimMenuTrial){$ShimAdmission=$true}
+if($ShimCarTrial -and $ShimMenuTrial){throw 'Choose one bounded trial mode.'}
+if($ShimMenuTrial -or $ShimCarTrial){$ShimAdmission=$true}
 if($ShimAdmission) {
     $files.plugin=Join-Path $plugin 'WodenRallyEdgeWheel.dll'
     $files.core=Join-Path $plugin 'WodenRallyEdge.Core.dll'
     $files.shim=Join-Path $plugin 'dbce_shim.dll'
     $roots.shimReports=Join-Path $GameDir 'BepInEx/WodenShim'
 }
-$mode=if($ShimMenuTrial){'shim-menu-trial'}elseif($ShimAdmission){'shim-admission'}else{'raw'}
+$mode=if($ShimCarTrial){'shim-car-trial'}elseif($ShimMenuTrial){'shim-menu-trial'}elseif($ShimAdmission){'shim-admission'}else{'raw'}
 $blocked=@($request,$marker,(Join-Path $roots.config 'woden-record-next-launch.json'),(Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/woden/request.txt'))
 $probe=Join-Path $PSScriptRoot 'Probe/bin/Release/net6.0/Woden.ControlsProbe.dll'
 $configVerifier=Join-Path $PSScriptRoot 'VerifyConfig/bin/Release/net8.0/VerifyConfig.dll'
@@ -88,6 +92,7 @@ if($Recover) {
     if($state.schema -ne 1 -or $state.gameDir -ne $GameDir -or $state.lease.path -ne $slot -or $state.nonce -notmatch '^[a-f0-9]{32}$'){throw 'Recovery scope differs.'}
     if((Get-ControlHash "$Result/owner-before/manifest.json") -ne $state.filesHash -or (Get-ControlHash "$Result/preferences.json") -ne $state.prefsHash){throw 'Recovery metadata changed.'}
     $nonce=$state.nonce
+    if($ShimCarTrial){$roots.recording=Join-Path $GameDir "BepInEx/WodenRecordings/request-$nonce"}
     foreach($p in @($request,$marker)) {if(Test-Path -LiteralPath $p){if(!(Get-Content -LiteralPath $p -Raw).Contains($nonce)){throw 'Another controls request exists.'}}}
     if(Test-Path -LiteralPath $slot) {
         $token=(Get-Content -LiteralPath $slot -Raw).TrimEnd("`r","`n")
@@ -111,6 +116,14 @@ if($Recover) {
         $candidateHashes=[ordered]@{plugin=(Get-ControlHash "$CandidateDirectory/WodenRallyEdgeWheel.dll");core=(Get-ControlHash "$CandidateDirectory/WodenRallyEdge.Core.dll");shim=$shimHash;controls=$ControlsSha256}
         if($candidateHashes.Values -contains 'absent'){throw 'Production candidate is incomplete.'}
         if((Get-ControlHash (Join-Path $GameDir 'GameAssembly.dll')) -ne 'f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c'){throw 'Supported game build differs.'}
+        if($ShimCarTrial) {
+            $StageReference=Full $StageReference;$OriginalWorkload=Full $OriginalWorkload
+            foreach($p in @($StageReference,$OriginalWorkload)){Assert-ControlPlain $p}
+            if($ControlsSha256 -ne '5206EDFBD1B400E5D6A41D91AE836485BBE27D63992AD6F7483B3BABB0E72B79' -or
+               (Get-ControlHash "$OriginalWorkload/raw-workload.json") -ne '4AB26FDA741482B8E229BF3097A2558B21C27E09D4CA45CF2B3E255A970BA03C' -or
+               (Get-ControlHash "$OriginalWorkload/apply/profile.json") -ne '9317FAE5C8B029E71713EB7DD665D650EA1452C0E1CFEDA4C5E1335E33452279' -or
+               (Get-ControlHash "$StageReference/stage-context.json") -ne '711747D3021A6E95B600E8386DC149C79102F837D10B981642210F2A634B813F'){throw 'Independent original profile/workload/Kenya context differs.'}
+        }
     }
     elseif($CandidateDirectory -or $ControlsSource -or $ControlsSha256){throw 'Shim parameters require ShimAdmission.'}
     if([double](& "$HubRepo/tools/Owner-Input.ps1" -IdleSeconds) -lt 300){throw 'Owner input is recent.'}
@@ -126,9 +139,16 @@ try {
     Copy-Item -LiteralPath (Split-Path -Parent $configVerifier) -Destination "$Result/config-verifier" -Recurse
     $configVerifier=Join-Path $Result 'config-verifier/VerifyConfig.dll'
     Get-ChildItem "$Result/config-verifier" -File | Sort-Object Name | ForEach-Object {@{name=$_.Name;sha256=(Get-ControlHash $_.FullName)}} | ConvertTo-Json | Set-Content "$Result/config-verifier-hashes.json"
+    $nonce=[guid]::NewGuid().ToString('N')
+    if($ShimCarTrial) {
+        $roots.recording=Join-Path $GameDir "BepInEx/WodenRecordings/request-$nonce"
+        Assert-ControlPlain $roots.recording
+        if(Test-Path -LiteralPath $roots.recording){throw 'Car trial recording directory must be new.'}
+        [IO.Directory]::CreateDirectory("$Result/workload")|Out-Null
+        foreach($pair in @(@("$OriginalWorkload/raw-workload.json","$Result/workload/raw-workload.json"),@("$OriginalWorkload/apply/profile.json","$Result/workload/profile.json"))){Copy-ControlExact $pair[0] $pair[1] (Get-ControlHash $pair[0])}
+    }
     Save-ControlFiles "$Result/owner-before" $roots $files
     Registry-Snapshot "$Result/preferences.json"
-    $nonce=[guid]::NewGuid().ToString('N')
     $state=[ordered]@{schema=1;mode=$mode;gameDir=$GameDir;lease=$lease;nonce=$nonce;filesHash=(Get-ControlHash "$Result/owner-before/manifest.json");prefsHash=(Get-ControlHash "$Result/preferences.json");writerReceiptHash=$writer.receiptHash}
     $state | ConvertTo-Json -Depth 5 | Set-Content "$Result/recovery.json"
     $ready=$true
@@ -144,7 +164,7 @@ try {
         # The console previously kept actual Unity focus false. This temporary
         # launch setting is part of the exact config-tree backup/restoration;
         # it does not move focus or bypass the production focus gate.
-        if($ShimMenuTrial){Set-IniFalse 'Logging.Console' 'Enabled' (Join-Path $roots.config 'BepInEx.cfg')}
+        if($ShimMenuTrial -or $ShimCarTrial){Set-IniFalse 'Logging.Console' 'Enabled' (Join-Path $roots.config 'BepInEx.cfg')}
     } else {Invoke-ControlApplyCheck $GameDir $Result $harness $writer.catalog $Profiles}
     $applied=$true
     # Verify again after production Apply and before launch. The addon also
@@ -155,7 +175,14 @@ try {
     Copy-ControlExact $NativeCandidate $files.native $NativeSha256
     Copy-ControlExact $probe $files.probe (Get-ControlHash $probe)
     $cold=[ordered]@{schema=2;nonce=$nonce;expiresUtc=[DateTime]::UtcNow.AddMinutes(5).ToString('o');pluginSha256=(Get-ControlHash "$plugin/WodenRallyEdgeWheel.dll");coreSha256=(Get-ControlHash "$plugin/WodenRallyEdge.Core.dll");configSha256=(Get-ControlHash "$Result/applied.cfg");bindingsSha256=(Get-ControlHash "$($roots.config)/wheel-bindings.json");nativeSha256=$NativeSha256;outputDirectory=(Join-Path $Result 'trace')}
-    if($ShimAdmission){$cold.schema=if($ShimMenuTrial){4}else{3};$cold.mode=$mode;$cold.controlsSha256=$ControlsSha256;$cold.shimSha256=$shimHash}
+    if($ShimAdmission){$cold.schema=if($ShimCarTrial){5}elseif($ShimMenuTrial){4}else{3};$cold.mode=$mode;$cold.controlsSha256=$ControlsSha256;$cold.shimSha256=$shimHash}
+    if($ShimCarTrial) {
+        $cold.stageReference=$StageReference;$cold.workloadDirectory=Join-Path $Result 'workload'
+        # Existing ordinary diagnostic producer; schema 5 explicitly permits
+        # this exact nonce/case/expiry. No stage replay or pose request is made.
+        [ordered]@{Version=2;Id=([guid]::ParseExact($nonce,'N').ToString());ExpiresUtc=$cold.expiresUtc;DisableForces=$true;CaseId="woden-shim-car-$nonce"} |
+            ConvertTo-Json | Set-Content (Join-Path $roots.config 'woden-record-next-launch.json')
+    }
     [IO.Directory]::CreateDirectory($control) | Out-Null
     [IO.File]::WriteAllText($marker,$nonce); $cold | ConvertTo-Json | Set-Content -LiteralPath $request
     Copy-Item -LiteralPath $request -Destination "$Result/request.json"

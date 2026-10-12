@@ -10,7 +10,7 @@ using Woden.ControlsTesting;
 // Admission metadata is checked separately against the installed interop build.
 // No Load(), Unity runtime, device or force export is called. The production
 // atomic batch writer is exercised against private temporary files on Windows.
-static class Test
+static partial class Test
 {
     static readonly Type Probe=typeof(ControlsProbe);
     const BindingFlags Flags=BindingFlags.Static|BindingFlags.NonPublic;
@@ -136,6 +136,7 @@ static class Test
             Check(WodenRallyEdge.ShimInput.Stops==1 && !WodenRallyEdge.ShimInput.Ready && WodenRallyEdge.ShimInput.Owns,"separate shim stops once with sticky ownership");
         }
         MenuTrialChecks();
+        CarTrialChecks();
         Console.WriteLine($"PASS: {Checks} production-addon lifecycle assertions; private fixture {Base}");
     }
     static void MenuTrialChecks()

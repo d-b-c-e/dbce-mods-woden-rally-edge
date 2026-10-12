@@ -15,10 +15,11 @@ internal static partial class ShimInput
     internal static byte Run { get; private set; }
     internal static ulong Sequence => _sequence;
     private static bool TrialFences => Runtime.DiagnosticNoForce && !Runtime.Settings.FfbEnabled &&
-        !Runtime.Settings.TelemetryEnabled && !Runtime.Settings.Record && Runtime.Local==null && !Panel.Open &&
+        !Runtime.Settings.TelemetryEnabled && !Runtime.Settings.Record && (_carTrial || Runtime.Local==null) && !Panel.Open &&
         DateTimeOffset.UtcNow < _trialExpiry;
-    private static string TrialUnsupported => string.Concat(ShimActionMap.Names.Where(id=>id is not ("confirm" or "start" or "navLeft" or "navRight"))
-        .Select(id=>id+"=outside bounded Woden menu trial\n"));
+    private static string TrialUnsupported => string.Concat(ShimActionMap.Names.Where(id=>_carTrial ?
+        id is not ("steer" or "throttle" or "brake" or "handbrake" or "shiftUp" or "shiftDown") : id is not ("confirm" or "start" or "navLeft" or "navRight"))
+        .Select(id=>id+"=outside bounded Woden control trial\n"));
     internal static void ConfigureMenuTrial(string nonce,string session,string batch,DateTimeOffset expires,bool fencesVerified)
     {
         if (Owns || _trialNonce!=null || !_requested || !fencesVerified || !Runtime.DiagnosticNoForce ||
@@ -31,11 +32,12 @@ internal static partial class ShimInput
     // Monotonic scope: none -> daily confirm -> title start -> map left/right -> none.
     internal static void MenuTrialScope(int scope)
     {
-        if(_trialNonce==null || scope!=_trialScope+1 || scope>4) throw new InvalidOperationException("Menu trial scope cannot widen or repeat.");
+        if(_carTrial || _trialNonce==null || scope!=_trialScope+1 || scope>4) throw new InvalidOperationException("Menu trial scope cannot widen or repeat.");
         _trialScope=scope;_buttons.Observe(Actions,-1,false);_context=-1;
     }
-    private static bool TrialDelivers(string label) => _trialNonce==null || _trialScope switch {
-        1=>label=="Confirm",2=>label=="Pause",3=>label is "Menu left" or "Menu right",_=>false };
+    private static bool TrialDelivers(string label) => _trialNonce==null || (_carTrial ?
+        _carTrialDelivery && label is "Gear up" or "Gear down" : _trialScope switch {
+        1=>label=="Confirm",2=>label=="Pause",3=>label is "Menu left" or "Menu right",_=>false });
     private static ulong KnownNeutralMask => _trialNonce!=null && Ready && Frame[41]==1 && Frame[42]==1 ?
         ShimActionMap.Buttons.Where(p=>TrialDelivers(p.Key)).Aggregate(0UL,(mask,p)=>mask|(1UL<<ShimActionMap.Index(p.Value))) : 0;
     internal static bool KnownNeutral(string id) => Ready && (KnownNeutralMask&(1UL<<ShimActionMap.Index(id)))!=0 &&

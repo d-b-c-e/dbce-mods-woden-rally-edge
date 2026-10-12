@@ -1,5 +1,13 @@
 # Toolkit standards adoption
 
+October 12 car follow-up (STD-033/034/036): distinct schema 5 source candidate
+retains the exact accepted profile and provisional Core pin. Actual pure Core
+raw values feed production car consumers in device-free fixtures, including
+DS-8X sequential queries. Original native Kenya/Manual delivery, producer trace
+and exact restoration await a reviewed live slot. The schema 4 native menu PASS
+is unchanged. See docs/SHIM-CAR-TRIAL.md. Existing STD-016/017/020 audit gaps,
+STD-031 force reference and STD-032 portfolio alignment are outside this slice.
+
 Which entries of the wheel toolkit's standards ledger
 (`E:\Source\toolkits\dbce-wheel-mod-toolkit\STANDARDS.md`) this mod has brought in.
 Update a row in the same commit that adopts it. Statuses: `adopted`, `partial`,

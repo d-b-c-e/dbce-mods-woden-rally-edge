@@ -4,6 +4,8 @@
     <Compile Include="../Probe/ControlsProbe.cs" Link="Production/ControlsProbe.cs" />
     <Compile Include="../Probe/ShimAdmission.cs" Link="Production/ShimAdmission.cs" />
     <Compile Include="../Probe/MenuTrial.cs" Link="Production/MenuTrial.cs" />
+    <Compile Include="../Probe/CarTrial.cs" Link="Production/CarTrial.cs" />
+    <Compile Include="../Probe/CarWorkload.cs" Link="Production/CarWorkload.cs" />
     <Compile Include="../Probe/TrialBatchWriter.cs" Link="Production/TrialBatchWriter.cs" />
     <Compile Include="../Probe/Protocol.cs" Link="Production/Protocol.cs" />
     <Compile Include="../Probe/ConfigContract.cs" Link="Production/ConfigContract.cs" />

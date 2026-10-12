@@ -35,7 +35,7 @@ public sealed partial class ControlsProbe
     }
     static void ObserveShim()
     {
-        if(Runtime.GetField("Local",All)!.GetValue(null) is not null) throw new InvalidOperationException("Menu-only test reached a player car.");
+        if(!Protocol.CarTrial(Request) && Runtime.GetField("Local",All)!.GetValue(null) is not null) throw new InvalidOperationException("Menu-only test reached a player car.");
         var force=Field(Runtime,"Force")!;
         foreach(var name in new[]{"Attempts","Opens","Failures"})
             if(Convert.ToInt64(Value(force,name))!=0) throw new InvalidOperationException("Force counter is nonzero: "+name);

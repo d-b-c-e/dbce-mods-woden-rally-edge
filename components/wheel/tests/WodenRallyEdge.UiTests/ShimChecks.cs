@@ -13,7 +13,7 @@ namespace WodenRallyEdge;
 // Source-linked production backend, ABI decoder, WheelInput and scoped native
 // action lease. Only native handle calls are replaced. No game, device open,
 // worker, OS input or force call occurs; the DLL is loaded for ABI checks only.
-internal static class ShimChecks
+internal static partial class ShimChecks
 {
     private static readonly ShimAction[] FrameActions = new ShimAction[ShimActionMap.Count];
     private static byte[] _profile = Array.Empty<byte>();
@@ -48,7 +48,7 @@ internal static class ShimChecks
         _opens++;_profile=new byte[args.ProfileLength];Marshal.Copy(args.Profile,_profile,0,_profile.Length);
         _latchedArgs=args.StructSize==128&&args.Flags==ShimNative.Latched&&args.FencesVerified==1&&args.ForceAbsent==1&&
             args.CaptureFolder==IntPtr.Zero&&args.GameId==IntPtr.Zero&&args.Hz==0&&args.Seconds==0&&
-            Marshal.PtrToStringUTF8(args.AdapterVersion)=="woden-menu-trial@1"&&File.Exists(Marshal.PtrToStringUni(args.SessionFile))&&
+            Marshal.PtrToStringUTF8(args.AdapterVersion)==(GetCarTrial()?"woden-car-trial@1":"woden-menu-trial@1")&&File.Exists(Marshal.PtrToStringUni(args.SessionFile))&&
             !File.Exists(Marshal.PtrToStringUni(args.BatchFile));
         handle=new IntPtr(77);return 0;
     }
@@ -64,6 +64,7 @@ internal static class ShimChecks
         Set("_requested",false);Set("_refused",false);Set("_terminal",false);Set("_producer",null!);Set("_handle",IntPtr.Zero);Set("_frame",-1);Set("_context",-1);
         Set("_window",0);
         Set("_sequence",0UL);Set("_trialNonce",null!);Set("_trialScope",0);
+        Set("_carTrial",false);Set("_carTrialDelivery",false);Set("_carTrialEnded",false);
         Set("<Owns>k__BackingField",false);Set("<SteeringGuid>k__BackingField",null!);
         _opens=_ticks=_stops=_tickResult=_openedWindow=0;_latched=_badHash=_invalidateAtOpen=false;_mode="Sequential";Gamepad.all.Clear();GameWindow.Window=123;GameWindow.Valid=GameWindow.UnityFocused=true;Runtime.Focused=true;Runtime.Local=null;Pause.Paused=false;Runtime.DiagnosticNoForce=false;
         for(int i=0;i<FrameActions.Length;i++)FrameActions[i]=new(0,ShimActionMap.UnsupportedNames.Contains(ShimActionMap.Names[i])?ShimStatus.Unsupported:ShimStatus.Live);
@@ -194,6 +195,7 @@ internal static class ShimChecks
             "terminal shared transport leaves native keyboard table intact while blocking legacy wheel fallback");
         controls.field_Private_GamePadSystem_0=null;pad.AnyKey=false;pad.PadActions=null;
         TrialCore(dir,Check);
+        TrialCarCore(dir,Check);
         Reset(dir);Runtime.Settings.InputBackend="Native";ShimInput.Start(AppContext.BaseDirectory,dir,dir);Next();
         Check(!ShimInput.Owns&&_opens==0,"default standalone route never loads/opens an input host");
         Runtime.Log.Errors.Clear();Runtime.Log.Warnings.Clear();
