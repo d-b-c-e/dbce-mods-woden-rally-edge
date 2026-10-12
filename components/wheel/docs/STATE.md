@@ -1,11 +1,20 @@
 # Private shim admission checkpoint — 2026-10-12
 
-Source-only follow-up adds independent capture-local steering/damping history to
+The first muted forward-analysis original has a completed, exact-replayed source:
+375 qualified Driving-reference rows / 369 nonzero independent-analysis rows,
+while all actual output remains zero. The full input trial is **incomplete**:
+native respawning began after the three passed plateaus and Core Completed but
+before its final 300 ms wait elapsed. All 83 files/25 raw registry values restored;
+no permanent install. The requested WGC burst missed the transient start event,
+so HUD jitter has no new visual evidence. See
+[run01 evidence and limits](../../../docs/SHIM-FORCE-CAPTURE.md).
+
+The reviewed follow-up adds independent capture-local steering/damping history to
 requested ordinary and stage recordings, with explicit metadata/CLI provenance.
 The production-linked muted fixture records nonzero analysis while native
 opens/writes and actual preview remain zero. Old recordings are not reinterpreted;
-fresh muted forward-drive/reference coverage, normalization and physical acceptance
-remain open. Exact contract, validation and limits:
+the first fresh reference evidence is above. Full trial completion, normalization
+and physical acceptance remain open. Exact contract, validation and limits:
 [independent force history](../../../docs/2026-10-12-independent-force-analysis.md).
 
 Offline follow-up: Grip 6 / force-config 4 admits the actual equal-positive-knot,

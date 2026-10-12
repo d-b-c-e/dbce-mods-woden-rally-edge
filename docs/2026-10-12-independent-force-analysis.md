@@ -1,11 +1,17 @@
-# Independent captured force history — source candidate
+# Independent captured force history
+
+Follow-up: the first muted original now validates both recorded histories and
+contains 375 eligible production Driving-reference rows, with native output zero.
+The separate input trial remained incomplete because of a final native respawn;
+normalization and physical acceptance remain open. See
+[run01 evidence](SHIM-FORCE-CAPTURE.md#run01-useful-analysis-evidence-trial-incomplete).
 
 The ordinary diagnostic recording previously preserved only the actual FFB
 lifecycle. While physical output was muted, that lifecycle reset shaping every
 tick, leaving `ffb.preview` zero even when useful tyre inputs were present.
 This source change records an additional steering/damping history that survives
 physical mute. It does not change force delivery, Classic/Grip arithmetic,
-owner gains or saved tuning. No install or live run qualifies this candidate.
+owner gains or saved tuning. No permanent install or physical acceptance is claimed.
 
 ## Contract and ownership
 
@@ -97,8 +103,8 @@ The private trial02 remains the original model 5 tape: 0/1,696 valid force rows.
 The earlier explicit model 6 counterfactual repairs 1,151 curve rows but none
 of those rows has a Driving reference. Its recorded reset history stays zero.
 This change does not fabricate analysis for it or qualify normalization.
-A fresh muted original with useful forward-driving/reference coverage is still
-needed, after review; physical FFB coexistence and owner feel remain separate.
+Run01 now supplies useful forward-driving/reference evidence, with its incomplete
+input-trial limit above. Physical FFB coexistence and owner feel remain separate.
 
 The owner's speedometer/other HUD jitter observation remains open. Existing
 trial02 PNGs are unchanged older owner files and do not show fresh motion.

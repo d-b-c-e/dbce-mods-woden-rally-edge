@@ -1,4 +1,66 @@
-# Bounded original forward-force capture — prepared, not run
+# Bounded original forward-force capture
+
+## Run01: useful analysis evidence; trial incomplete
+
+On October 12 the reviewed addon `3e300c0` ran once with the frozen production
+`1bff212`, using the exact recipe and pins below. The overall input verdict is
+**incomplete**, not a passed car trial: the native car entered respawning during
+the final completion wait. No retry, profile adjustment or physics change followed.
+
+The native neutral / 50% throttle / neutral plateaus all passed with 23 / 460 / 23
+observed rows and unchanged native gear 1. Shared Core reached Completed at trace
+42.465073 s; native respawning appeared at 42.688847 s, before the required 300 ms
+completion interval. The last focus observations remained true. This is the native
+respawn guard firing, not evidence that focus was lost or the guard can be removed.
+
+The separately reported force coverage passed: 8.1333 cumulative grounded forward
+seconds at at least 15 km/h, 375 qualified production Driving-reference rows,
+369 nonzero independent-analysis rows and peak absolute request 0.0638422072.
+The unchanged tune is strength 49.583332%, load ratio 2, Grip smoothing 0.2,
+damping 0.05 and saved peak 25%. This synthetic straight-throttle workload proves
+useful recorded history/reference plumbing. It does not qualify normalization,
+representative steering feel, physical torque or input/FFB-reader coexistence.
+
+The archived ordinary producer has a completed footer: 1,164 samples, 26 markers,
+zero drops, errors, contention or limits. `reprocess` accepted 964 model rows and
+630 driving rows over 10.484 s. A freshly built inspector from reviewed source
+validated the existing actual-force baseline and exact independent history through
+`ffb-analysis-export`: 964 analysis rows, 623 valid, 375 eligible. Its CSV is
+byte-identical to the first export. All 964 actual force rows retain diagnostic
+gate 1 and zero preview, sent/delivered values, connection attempts and delivery
+attempts. Shim observations independently report zero force opens/attempts/failures
+and Forza packets. No physical force or network delivery occurred.
+
+Private evidence root: `results/shim-force-capture-01`.
+The original recorder is under
+`after-6a6089b1ade04163a63323c0407eb44d/tree/recording`; keep its original bytes.
+
+| Evidence | SHA-256 / result |
+|---|---|
+| Original `source.jsonl` | `d8a3ee9d47675ba083e499fae32d7e8fec69b72eaed117c6e5c8cc12ce97987d` |
+| Actual `force-observation.jsonl` | `aed042ecd1861687498643b371b804d9d053dd7e405a704f845150616e45cb20` |
+| `analysis-reviewed-tune.csv` | `1ab3625d6d24194e15964bb4b300689997b92802733d48d57418d432ef86068e` |
+| Input verdict | `trace/result.json`: incomplete; 3 native plateaus |
+| Analysis, output, artifact hashes | `source-evidence.json`, `reprocess.log`, `analysis-export-reviewed.log` |
+| Restoration readback | `independent-restoration.json`: 83 files / 25 raw registry values exact |
+
+Owned process 47012 started at 13:12:42.0936259Z. Normal-close cleanup completed
+at 13:13:40.6727804Z; independent readback at 13:14:11.4108804Z confirmed no game
+process or lease and the original owner install/config/save state. Native DLL,
+addon and frozen production hashes matched admission. There is no permanent install.
+
+The owned Unity window identity was verified (HWND 29175336, 7680x1440). The
+external observer watched a trailing trace window and missed the short batch-start
+event, so the requested five-second WGC burst never started. There are **no fresh
+HUD frames** from this run and no new evidence about the owner's jitter report.
+An incremental trace cursor would avoid losing that event on a future separately
+approved useful run; no HUD-only retry was made.
+
+The first inspector binary had the prior working-tree build version `b66e440`
+with the analysis source present. The clean current-source build has zero warnings/
+errors and independently validates the same existing baseline and exact CSV.
+A second `reprocess` correctly refused to overwrite that baseline; its refusal
+is retained in `reprocess-reviewed.log`, not reported as a new replay failure.
 
 Production analysis source `1bff212bbc72c1058d776100790f221016ee20a4` passed
 parent Core review and independent wiring/export review. The unchanged
@@ -120,4 +182,5 @@ Core frames / 5,166 raw checks**, **15,857** production UI assertions (including
 
 Logs: `artifacts/force-forward-{core-consumer,legacy-regression,recovery,hooks,addon-build}.log`.
 The shared Core pin remains provisional `f49cfc559f065b778967a7c94068a75df538ec69`;
-this slice does not promote a toolkit pin. No live run or install is claimed.
+this slice does not promote a toolkit pin. Run01 evidence and limits are above;
+no permanent install or physical acceptance is claimed.
