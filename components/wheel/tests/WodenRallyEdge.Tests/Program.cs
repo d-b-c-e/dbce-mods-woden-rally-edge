@@ -223,11 +223,11 @@ Test("grip model v4: reference rules, measuring, missing friction curve and mode
     Check(new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(chosen, false)).FfbModel == "Grip", "a saved Grip choice is kept");
 });
 Test("grip model v5: Steering strength scales the tyre force only; v4 keeps its coupled damping for replay", () => {
-    Check(GripSignal.ModelVersion == 5 && GripSignal.IsGripModel(4) && GripSignal.IsGripModel(5) && !GripSignal.IsGripModel(3), "grip models are 4 and 5; 5 is the latest");
+    Check(GripSignal.ModelVersion == 6 && GripSignal.IsGripModel(4) && GripSignal.IsGripModel(5) && GripSignal.IsGripModel(6) && !GripSignal.IsGripModel(3), "grip models are 4, 5 and 6; 6 is the latest");
     Check(new ForceOptions(Model: 5).Grip && new ForceOptions(Model: 4).Grip && !new ForceOptions(Model: 3).Grip, "ForceOptions.Grip covers v4 and v5");
     Check(ForceObservationSemantics.ModelId(5) == "woden-grip-signal@5" && ForceObservationSemantics.ModelId(4) == "woden-grip-signal@4" &&
         ForceObservationSemantics.ConfigVersion(5) == 3 && ForceObservationSemantics.ModelForConfigVersion(2) == 4 && ForceObservationSemantics.ModelForConfigVersion(3) == 5, "v5 has its own identity and force-config version");
-    bool refused = false; try { ForceObservationSemantics.ModelId(6); } catch (IOException) { refused = true; } Check(refused, "an unknown model version is refused");
+    bool refused = false; try { ForceObservationSemantics.ModelId(7); } catch (IOException) { refused = true; } Check(refused, "an unknown model version is refused");
     // The same tyre inputs with the wheel moving every tick: at 50 the versions agree; at 100 only v4 doubles the damping.
     (float Preview, float Steering, float Damping) Run(int model, float strength)
     {
@@ -244,7 +244,7 @@ Test("grip model v5: Steering strength scales the tyre force only; v4 keeps its 
     Near(v4at100.Damping, 2 * v4at50.Damping, "v4: Strength still scales the damping (exact replay of v4 recordings)", 1e-6);
     Near(v5at100.Preview, Math.Clamp(v5at100.Steering + v5at100.Damping, -1, 1), "the preview is the clamped sum of the two recorded terms", 1e-5);
     var fresh = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(Path.Combine(Path.GetTempPath(), "woden-v5-" + Guid.NewGuid().ToString("N") + ".cfg"), false));
-    Check(fresh.ForceOptions.Model == 5 && fresh.FfbModel == "Grip", "a fresh config runs grip v5");
+    Check(fresh.ForceOptions.Model == 6 && fresh.FfbModel == "Grip", "a fresh config runs grip v6");
 });
 Test("H-pattern: a gate steps the game's own shift actions, one press at a time, never during a change", () => {
     var h = new HPatternShifter(); double now = 0; int gear = 1, presses = 0; bool held = false;
@@ -788,6 +788,59 @@ Test("force model v4 replays through RecordedForceReplay; v4 trials need frictio
         Check(termRefused, "a tampered v5 steering term is refused: " + termMessage); Directory.Delete(bent, true);
     }
     finally { Directory.Delete(v5, true); }
+    TelemetrySample NativeFlat(double time, double slip)
+    {
+        var s = Steered(time, slip);
+        foreach (string corner in new[] { "fl", "fr" }) {
+            string p = "wheel." + corner + ".sideFriction.";
+            s.Channels[p + "extremumSlip"] = s.Channels[p + "asymptoteSlip"] = 2;
+            s.Channels[p + "extremumValue"] = s.Channels[p + "asymptoteValue"] = 1;
+        }
+        return s;
+    }
+    foreach (int model in new[] { 4, 5, 6 })
+    {
+        var o = v5Options with { Model = model };
+        string captured = Capture("flat-v" + model, o, NativeFlat);
+        try
+        {
+            var rows = SessionReader.Read(Path.Combine(captured, "source.jsonl")).Where(r => r.Kind == SessionRecordKind.Sample).Select(r => r.Sample).ToArray();
+            Check(rows.All(r => r.Channels["ffb.tuning.modelVersion"] == model), "actual controller records explicit model identity");
+            var driving = rows.Where(r => r.Channels["sample.driving"] == 1).ToArray();
+            Check(driving.All(r => r.Channels["ffb.modelValid"] == (model == 6 ? 1 : 0)), "only model6 admits native flat curve in the production controller");
+            Check(model == 6 ? driving.Any(r => Math.Abs(r.Channels["ffb.preview"]) > .05) : driving.All(r => r.Channels["ffb.modelReason"] == 19),
+                "actual producer exercises nonzero v6 output and retained legacy refusals (fake device only)");
+            Check(StageCaptureReview.ReadOptions(captured) == o, "stage reader retains model/config identity and exact tune");
+            Check(RecordedForceReplay.Reprocess(captured).ModelSamples == rows.Length, "actual controller capture replays exactly for flat-curve model " + model);
+            var exported = RecordedForceReplay.ExportTrial(captured, o.Strength, o.PeakPercent, o.LoadRatio);
+            Check(exported.All(r => r.ModelVersion == model), "ordinary exporter never upgrades a recorded legacy model");
+            for (int i = 0; i < rows.Length; i++) Near(exported[i].Request, rows[i].Channels["ffb.preview"], "flat-curve export retains exact recorded preview", .000002);
+            if (model == 6)
+            {
+                using var config = JsonDocument.Parse(File.ReadAllText(Path.Combine(captured, "force-config.json")));
+                Check(config.RootElement.GetProperty("version").GetInt32() == 4 && config.RootElement.GetProperty("model").GetString() == "woden-grip-signal@6", "config4 declares only model6");
+                string candidate = Path.Combine(captured, "candidate-v5.json"); RecordingArtifacts.WriteForceConfig(candidate, o with { Model = 5 });
+                var legacy = RecordedForceReplay.Trial(captured, candidate, Path.Combine(captured, "trial-v5.jsonl"));
+                Check(!legacy.Comparison.Equal && legacy.Comparison.CandidateModel == "woden-grip-signal@5", "explicit legacy trial retains its own rejection domain");
+                string mismatch = Path.Combine(captured, "candidate-mismatch.json");
+                File.WriteAllText(mismatch, File.ReadAllText(Path.Combine(captured, "force-config.json")).Replace("\"version\": 4", "\"version\": 3"));
+                bool refused = false;
+                try { RecordedForceReplay.Trial(captured, mismatch, Path.Combine(captured, "invalid-trial.jsonl")); } catch (IOException ex) { refused = ex.Message.Contains("Unsupported force config"); }
+                Check(refused && !File.Exists(Path.Combine(captured, "invalid-trial.jsonl")), "model6 cannot masquerade as a legacy config");
+            }
+            if (model >= 5)
+            {
+                string missing = Path.Combine(captured, "missing-term"); Directory.CreateDirectory(missing);
+                foreach (string file in new[] { "source.jsonl", "force-config.json", "capture-profile.json" }) File.Copy(Path.Combine(captured, file), Path.Combine(missing, file));
+                string path = Path.Combine(missing, "source.jsonl");
+                // Same byte length: missing required term, not a broken footer, must refuse both old5 and new6.
+                File.WriteAllText(path, File.ReadAllText(path).Replace("ffb.grip.steering", "ffb.grip.steerinx"), new System.Text.UTF8Encoding(false));
+                bool refused = false; try { RecordedForceReplay.Reprocess(missing); } catch (IOException ex) { refused = ex.Message.Contains("ffb.grip.steering"); }
+                Check(refused, "required pre-clamp term remains mandatory for model " + model);
+            }
+        }
+        finally { Directory.Delete(captured, true); }
+    }
 });Test("crash stage replays from recorded contacts; tampered contact or cue is refused", () => {
     string directory = Path.Combine(Path.GetTempPath(), "woden-crash-replay-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
     var options = new ForceOptions(); string config = RecordingArtifacts.WriteForceConfig(Path.Combine(directory, "force-config.json"), options);
@@ -832,5 +885,8 @@ Test("versioned production FFB reference envelopes, cadence and terminal zero", 
 Test("concurrent summary creation preserves the other creator's exact bytes", () => WodenRallyEdge.FfbRegressionChecks.ConcurrentCreation(Check));
 Test("bounded canonical command capture uses actual controller and pure fake replay", () => WodenRallyEdge.CommandCaptureChecks.Run(Check, t => Contact(t)));
 Test("summary CLI bounds ordinary failures and malformed requests without running fixtures", () => WodenRallyEdge.FfbSummaryCommandChecks.Run(Check));
+Test("grip v6 admits only finite continuous equal-knot curves; legacy arithmetic and admission stay exact", () => GripV6Checks.Curves(Check));
+if (Environment.GetEnvironmentVariable("WODEN_GRIP_CAPTURE") is { Length: > 0 } gripCapture)
+    Test("private native Grip5 capture: exact old replay and isolated Grip6 trial", () => GripV6Checks.NativeCapture(Check, gripCapture));
 Console.WriteLine($"{passed} suites passed; {failed} failed; {checks} assertions.");
 return failed == 0 ? 0 : 1;

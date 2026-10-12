@@ -1,5 +1,13 @@
 # Private shim admission checkpoint — 2026-10-12
 
+Offline follow-up: Grip 6 / force-config 4 admits the actual equal-positive-knot,
+equal-value curve. Model 5 replays every original row exactly; the explicit
+model 6 counterfactual accepts 1,151 curve-rejected rows while retaining the
+230 reverse / 315 discontinuity refusals and zero preview under recorded mute
+resets. No gains/tunes/Classic, installed payload or force gates changed. This
+does not qualify physical force or resolve HUD jitter. See
+[source contract and checks](../../../docs/2026-10-12-grip-flat-knots.md).
+
 Follow-up: schema 4 passed the focused native Garage → Workshop → Garage route
 and exact restoration ([evidence](../../../docs/SHIM-MENU-TRIAL.md)). Schema 5
 original car trial02 passed all six raw shared-Core actions in native Kenya/Manual,

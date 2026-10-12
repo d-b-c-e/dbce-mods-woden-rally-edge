@@ -192,6 +192,13 @@ force writes/attempts. Handbrake remains a native boolean response; pressure,
 proportional torque, physical force and exclusive reader/FFB coexistence remain
 open. No normalization claim follows from this input PASS.
 
+Offline follow-up found complete native front friction fields with coincident
+positive slip knots and equal values in every friction-rejected row. Additive
+Grip 6/config 4 fixes that admission only; the original model 5 source still
+replays with its original invalid results. The counterfactual stays muted and
+does not settle physical force or HUD jitter. See
+[contract and checks](2026-10-12-grip-flat-knots.md).
+
 Normal exit/restoration completed at `11:41:53.8380131Z`. Host shutdown resolved,
 released two devices, held zero, joined both workers and reported input release.
 Independent readback at `11:42:43.2328675Z` matched all 83 file entries and all

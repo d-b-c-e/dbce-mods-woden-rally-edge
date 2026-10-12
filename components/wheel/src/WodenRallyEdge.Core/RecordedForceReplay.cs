@@ -22,7 +22,7 @@ public static class RecordedForceReplay
     private const int MaxObservationLineBytes = 16 * 1024;
     private const int MaxObservationRecords = 2_000_000;
     private static readonly string[] Tuning = { "strengthPercent", "peakPercent", "loadReference", "slipScale", "smoothingMs", "damping", "invert", "modelVersion" };
-    // Force model versions 4 and 5 (GripSignal) add these per-row inputs (force config v2 and v3).
+    // Force model versions 4 through 6 (GripSignal) add these per-row inputs (force config v2 through v4).
     private static readonly string[] GripTuning = { "loadRatio", "gripSmoothing" };
     private static readonly string[] FrictionFields = { "extremumSlip", "extremumValue", "asymptoteSlip", "asymptoteValue", "stiffness" };
     private static string ModelId(ForceOptions o) => ForceObservationSemantics.ModelId(o.Model);
@@ -175,7 +175,7 @@ public static class RecordedForceReplay
         CaptureIdentity current = ReadCapture(capture.Directory);
         if (current != capture) throw new IOException("Capture identity changed before model run");
         var records = SessionReader.Read(capture.SourcePath).ToArray();
-        // Dispatch by the run's model version: v3 classic ForceSignal, v4/v5 GripSignal against the recorded reference.
+        // Dispatch by the run's model version: v3 classic ForceSignal, v4/v5/v6 GripSignal against the recorded reference.
         bool useGrip = runOptions.Grip;
         // A trial of the other model reruns it on the same inputs; the recorded model's validity, reasons and reset
         // counts describe the recorded model only, so they are checked when the run uses it.
@@ -223,9 +223,9 @@ public static class RecordedForceReplay
                 CompareValue(result.Alignment, Required(c, "ffb.alignmentEstimate"), "alignment", row.Sequence);
                 CompareValue(result.Damping, Required(c, "ffb.dampingEstimate"), "damping", row.Sequence);
                 CompareValue(result.Preview, Required(c, "ffb.preview"), "preview", row.Sequence);
-                // The grip model's two pre-clamp terms: required on v5 rows, checked on older rows that carry them (Codex
+                // The grip model's two pre-clamp terms: required on v5/v6 rows, checked on older rows that carry them (Codex
                 // review of 2d5ab07: otherwise a tampered term would pass while the composed preview still matched).
-                if (useGrip && sameModel && (runOptions.Model == GripSignal.ModelVersion || c.ContainsKey("ffb.grip.steering")))
+                if (useGrip && sameModel && (runOptions.Model is GripSignal.IndependentDampingVersion or GripSignal.ModelVersion || c.ContainsKey("ffb.grip.steering")))
                 {
                     CompareValue(grip.LastSteering, Required(c, "ffb.grip.steering"), "grip steering term", row.Sequence);
                     CompareValue(grip.LastDamping, Required(c, "ffb.grip.dampingTerm"), "grip damping term", row.Sequence);
@@ -330,11 +330,11 @@ public static class RecordedForceReplay
     private static ForceOptions Options(IReadOnlyDictionary<string, double> c)
     {
         double version = Required(c, "ffb.tuning.modelVersion");
-        if (version is not (3 or GripSignal.CoupledDampingVersion or GripSignal.ModelVersion)) throw new IOException("Unsupported force model version");
+        if (version is not (3 or GripSignal.CoupledDampingVersion or GripSignal.IndependentDampingVersion or GripSignal.ModelVersion)) throw new IOException("Unsupported force model version");
         var options = new ForceOptions((float)Required(c, "ffb.tuning.strengthPercent"), (float)Required(c, "ffb.tuning.peakPercent"),
             (float)Required(c, "ffb.tuning.loadReference"), (float)Required(c, "ffb.tuning.slipScale"),
             (float)Required(c, "ffb.tuning.smoothingMs"), (float)Required(c, "ffb.tuning.damping"), Required(c, "ffb.tuning.invert") == 1);
-        // Each grip row keeps its recorded version: v4 rows replay v4 arithmetic, v5 rows v5.
+        // Each grip row keeps its recorded arithmetic and curve admission rules.
         return version == 3 ? options : options with { Model = (int)version, LoadRatio = (float)Required(c, "ffb.tuning.loadRatio"), GripSmoothing = (float)Required(c, "ffb.tuning.gripSmoothing") };
     }
 
@@ -343,7 +343,7 @@ public static class RecordedForceReplay
         using var doc = JsonDocument.Parse(File.ReadAllText(path)); var root = doc.RootElement;
         int version = root.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : 0;
         string[] common = { "schema", "version", "model", "strengthPercent", "peakPercent", "loadReference", "slipScale", "smoothingMs", "damping", "invert" };
-        if (version is not (1 or 2 or 3)) throw new IOException("Unsupported force config artifact");
+        if (version is not (1 or 2 or 3 or 4)) throw new IOException("Unsupported force config artifact");
         int model = ForceObservationSemantics.ModelForConfigVersion(version);
         if (version >= 2) Strict(root, common.Concat(GripTuning).ToArray()); else Strict(root, common);
         if (root.GetProperty("schema").GetString() != "woden.force-config" || root.GetProperty("model").GetString() != ForceObservationSemantics.ModelId(model))

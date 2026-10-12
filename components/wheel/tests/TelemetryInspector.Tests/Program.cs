@@ -17,10 +17,10 @@ void Refuses(Action action, string reason)
     throw new Exception("Expected refusal: " + reason);
 }
 
-string Capture(string name, bool gripModel, Action<int, Dictionary<string, double>>? change = null, bool legacy = false)
+string Capture(string name, bool gripModel, Action<int, Dictionary<string, double>>? change = null, bool legacy = false, int model = 4, bool flat = false)
 {
     string directory = Path.Combine(root, name);
-    var options = new ForceOptions(Model: gripModel ? 4 : 3);
+    var options = new ForceOptions(Model: gripModel ? model : 3);
     using var tape = new TrajectoryRecorder(directory, new Dictionary<string, string>
     {
         ["contract"] = "dbce.trajectory@1", ["game"] = "Super Woden Rally Edge", ["gameSha256"] = new string('0', 64),
@@ -63,6 +63,10 @@ string Capture(string name, bool gripModel, Action<int, Dictionary<string, doubl
                 c[p + "sideFriction.extremumSlip"] = .2; c[p + "sideFriction.extremumValue"] = 1;
                 c[p + "sideFriction.asymptoteSlip"] = .4; c[p + "sideFriction.asymptoteValue"] = .6;
                 c[p + "sideFriction.stiffness"] = i < 80 ? 1 : .8;
+                if (flat) {
+                    c[p + "sideFriction.extremumSlip"] = c[p + "sideFriction.asymptoteSlip"] = 2;
+                    c[p + "sideFriction.extremumValue"] = c[p + "sideFriction.asymptoteValue"] = 1;
+                }
             }
         }
         // Reference differs from the observed 10,000 N sum: it represents history before this tape.
@@ -78,6 +82,7 @@ string Capture(string name, bool gripModel, Action<int, Dictionary<string, doubl
         var result = gripModel ? grip.Evaluate(sample, options, reference) : classic.Evaluate(sample, options);
         c["analysis.force.preview"] = result.Preview; c["analysis.force.valid"] = result.Valid ? 1 : 0;
         c["analysis.force.reset"] = gripModel ? grip.ResetCount : classic.ResetCount;
+        if (gripModel && model >= 5) { c["analysis.force.steering"] = grip.LastSteering; c["analysis.force.dampingTerm"] = grip.LastDamping; }
         change?.Invoke(i, c);
         Check(recorder.TryRecord(i * .02, c), "Synthetic recorder dropped a row");
         var frame = new TrajectoryFrame { Time = i * .02 }; frame.Values[6] = 1; frame.Values[2] = i * .4f; frame.Values[9] = 20;
@@ -89,7 +94,8 @@ string Capture(string name, bool gripModel, Action<int, Dictionary<string, doubl
 }
 
 string classicPath = Capture("classic-legacy", false, legacy: true), gripPath = Capture("grip", true);
-foreach (string path in new[] { classicPath, gripPath })
+string grip5Path = Capture("grip5", true, model: 5), grip6Path = Capture("grip6-flat", true, model: 6, flat: true);
+foreach (string path in new[] { classicPath, gripPath, grip5Path, grip6Path })
 {
     var report = JsonSerializer.SerializeToElement(StageCaptureReview.Run(path));
     Check(report.GetProperty("passed").GetBoolean(), "Stage validation failed");
@@ -97,6 +103,17 @@ foreach (string path in new[] { classicPath, gripPath })
     Check(report.GetProperty("maximumForceReprocessError").GetDouble() == 0, "Reprocessing differed");
     Check(report.GetProperty("forceScope").GetString()!.StartsWith("steering analysis only"), "Claimed full force qualification");
     File.WriteAllText(Path.Combine(root, Path.GetFileName(path) + "-review.json"), report.ToString());
+}
+foreach (int model in new[] { 5, 6 })
+{
+    foreach (string term in new[] { "analysis.force.steering", "analysis.force.dampingTerm" })
+    {
+        string absent = Capture("v" + model + "-missing-" + term, true, (i, c) => { if (i == 55) c.Remove(term); }, model: model, flat: model == 6);
+        Refuses(() => StageCaptureReview.Run(absent), term);
+    }
+    string path = model == 5 ? grip5Path : grip6Path, exported = Path.Combine(root, "v" + model + "-export.csv");
+    ForceExport.Run(path, exported, 50, 25, 2);
+    Check(File.ReadLines(exported).Skip(1).All(line => line.Split(',')[10] == model.ToString(CultureInfo.InvariantCulture)), "stage export retains recorded grip version " + model);
 }
 var originalHashes = Directory.GetFiles(gripPath).ToDictionary(p => p, ArtifactSeal.Hash);
 string csvPath = Path.Combine(root, "grip.csv");

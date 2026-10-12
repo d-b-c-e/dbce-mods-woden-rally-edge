@@ -57,12 +57,12 @@ public static class TelemetrySchema
             Add(k + "intensity", "0..1", "derived", "Crash detector intensity for the contact (0 when rejected)");
             Add(k + "strength", "percent", "setting", "Crash strength in force when the contact arrived (scales the cue it starts)");
         }        Add("ffb.deliveredOutput", "normalized -1..1", "derived", "Force written to the wheel: ffb.preview plus the crash cue when delivered");
-        Add("analysis.force.preview", "normalized -1..1", "derived", "Developer stage capture only: independent history of the selected model (ForceSignal@3 or GripSignal@4/@5, see analysis.force.modelVersion) without device delivery gates; not physical output");
+        Add("analysis.force.preview", "normalized -1..1", "derived", "Developer stage capture only: independent history of the selected model (ForceSignal@3 or GripSignal@4/@5/@6, see analysis.force.modelVersion) without device delivery gates; not physical output");
         Add("analysis.force.valid", "boolean 0/1", "derived", "Independent analysis force model accepted the recorded inputs");
         Add("analysis.force.reset", "count", "derived", "Independent analysis force model reset epoch");
         Add("analysis.force.steering", "normalized", "derived", "Developer stage capture only, grip models: the tyre (steering) term of analysis.force.preview before the final clamp");
         Add("analysis.force.dampingTerm", "normalized", "derived", "Developer stage capture only, grip models: the damping term of analysis.force.preview before the final clamp");
-        Add("analysis.force.modelVersion", "integer", "setting", "3 = classic ForceSignal, 4 = GripSignal v4 (Strength also scales damping), 5 = GripSignal v5 (Strength scales the tyre force only)");
+        Add("analysis.force.modelVersion", "integer", "setting", "3 = classic ForceSignal, 4 = GripSignal v4 (Strength also scales damping), 5 = GripSignal v5 (Strength scales the tyre force only), 6 = GripSignal v6 (also accepts coincident positive slip knots with exactly equal nonnegative values)");
         Add("ffb.modelValid", "boolean 0/1", "derived", "Actual ForceSignal accepted the current recorded model inputs");
         Add("ffb.modelReason", "enum", "derived", "Stable ForceSignal reason code; see RECORDED-PLAYBACK.md");
         Add("ffb.modelResetBefore", "count", "measured", "ForceSignal reset epoch immediately before evaluating this sample");

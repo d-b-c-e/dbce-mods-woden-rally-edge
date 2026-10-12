@@ -17,7 +17,7 @@ internal interface IForceDevice
 internal sealed class ForceController
 {
     private readonly ForceSignal _signal = new();
-    // The grip model (v5, or v4 for its recordings): evaluated every tick so its front-load reference stays current; drives the wheel when selected.
+    // The grip model (v6, or v4/v5 for recordings): evaluated every tick so its front-load reference stays current; drives the wheel when selected.
     private readonly GripSignal _grip = new();
     private int _carId, _carEpoch;
     internal string GripStatus { get; private set; } = "waiting for driving";

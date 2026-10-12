@@ -41,7 +41,7 @@ public sealed class Settings
     {
         _config = config; _config.SaveOnConfigSet = false;
         // An existing install keeps the model it was tuned with (Classic v3, Strength / 100 with the peak cap); only a new
-        // config starts on Grip (v5). Never switch a saved owner model silently (Codex design review 2026-10-07; STD-026).
+        // config starts on Grip. Never switch a saved owner model silently (Codex design review 2026-10-07; STD-026).
         bool keepClassic = SavedFfbWithoutModel(_config.ConfigFilePath);
         Sync(true);
         if (keepClassic) FfbModel = "Classic";

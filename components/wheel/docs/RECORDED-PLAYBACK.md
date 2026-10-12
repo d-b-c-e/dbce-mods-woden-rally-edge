@@ -29,7 +29,7 @@ The first three files are created by the installed consumer. `case.json` and `fo
 
 ## Identity and evidence levels
 
-The source metadata contains the request/case identity, actual plugin version and hash, runtime source revision, supported GameAssembly hash, no-force/attended mode, force-config hash and capture-profile hash. `force-config.json` records model 3's effective tuning. `capture-profile.json` records game/plugin/config/binding identities and the effective saved wheel/FFB selection state without copying owner configuration files into the repository.
+The source metadata contains the request/case identity, actual plugin version and hash, runtime source revision, supported GameAssembly hash, no-force/attended mode, force-config hash and capture-profile hash. `force-config.json` records effective tuning and an explicit model: config versions 1/2/3/4 identify Classic 3 / Grip 4 / Grip 5 / Grip 6 respectively. `capture-profile.json` records game/plugin/config/binding identities and the effective saved wheel/FFB selection state without copying owner configuration files into the repository.
 
 The case manifest hashes the exact source/config/profile files. The observation header hashes the exact `case.json` bytes as `caseSha256`; changing the source or manifest therefore creates a different case identity even when the human case name is reused. Original recordings and owner data remain local and excluded from Git/packages. The verified baseline is also immutable: a tuning trial refuses changed source, case or baseline bytes and writes only to a new observation path.
 
@@ -44,7 +44,7 @@ Keep these claims separate:
 
 Every sampled model evaluation records `ffb.modelValid`, `ffb.modelReason`, `ffb.modelResetBefore`, `ffb.modelResetAfter` and `ffb.gate`. Ordered string markers retain the human-readable model reason and gate transition. `sample.discontinuity` identifies the current sample's reset before serialization.
 
-Model reason codes are: 0 estimated tyre signal, 1 low-speed fade, 10 inactive state, 11 discontinuity, 12 missing motion, 13 reverse, 14 invalid tuning, 15 missing front contact, 16 invalid front contact, 17 front wheels airborne, 18 force sample gap, and 99 unsupported/unknown. Gate codes are: 0 active, 1 diagnostic force suppression, 2 saved Off, 3 faulted, 4 settings open, 5 unfocused, 6 stock owner unresolved, 7 camera not owned, 8 wheel input unavailable, 9 invalid model, 10 wheel not connected, and 11 write failed.
+Model reason codes are: 0 estimated tyre signal, 1 low-speed fade, 2 grip model, 3 measuring front load, 10 inactive state, 11 discontinuity, 12 missing motion, 13 reverse, 14 invalid tuning, 15 missing front contact, 16 invalid front contact, 17 front wheels airborne, 18 force sample gap, 19 friction curve unavailable, and 99 unsupported/unknown. Gate codes are: 0 active, 1 diagnostic force suppression, 2 saved Off, 3 faulted, 4 settings open, 5 unfocused, 6 stock owner unresolved, 7 camera not owned, 8 wheel input unavailable, 9 invalid model, 10 wheel not connected, and 11 write failed.
 
 The offline adapter refuses unknown gate/model versions, missing required driving channels, tuning changes within one capture, non-monotonic clocks/reset epochs, mismatched recorded model results and inadequate driving coverage. It emits one `steering` / `constant` / `set` observation for each actual recorded model evaluation. Magnitude is the managed model's normalized preview before the native toolkit, output watchdog and wheel; it is not a delivered command or measured torque.
 
@@ -56,8 +56,11 @@ For normalization, `ffb-export` accepts either a sealed stage recording or an
 ordinary completed owner case from `Start-RecordedGame.ps1`. The ordinary path
 verifies the original source, config, profile, case and baseline observation,
 then replays the recorded gate/reset lifecycle before evaluating the trial.
-It preserves Grip v4/v5 selection, refuses unavailable friction curves, and
+It preserves Grip v4/v5/v6 selection, refuses unavailable friction curves, and
 never substitutes the continuously evaluated stage shadow for an attended drive.
+Grip 6 adds only the finite equal-positive-knot/equal-nonnegative-value case;
+models 4/5 retain their original rejection. Both 5 and 6 require the recorded
+pre-clamp terms. See [contract and offline evidence](../../../docs/2026-10-12-grip-flat-knots.md).
 
 ```powershell
 # From components/wheel; no game or device is opened.

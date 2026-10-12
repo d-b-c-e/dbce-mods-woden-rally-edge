@@ -13,11 +13,11 @@ internal static class StageCaptureReview
         var c = config.RootElement;
         int version = c.GetProperty("version").GetInt32();
         var keys = new HashSet<string>(new[] { "schema", "version", "model", "strengthPercent", "peakPercent", "loadReference", "slipScale", "smoothingMs", "damping", "invert" });
-        if (version is 2 or 3) { keys.Add("loadRatio"); keys.Add("gripSmoothing"); }
+        if (version is 2 or 3 or 4) { keys.Add("loadRatio"); keys.Add("gripSmoothing"); }
         foreach (var property in c.EnumerateObject())
             if (!keys.Remove(property.Name)) throw new IOException("Unknown/duplicate force config key: " + property.Name);
         if (keys.Count != 0) throw new IOException("Missing force config keys");
-        if (c.GetProperty("schema").GetString() != "woden.force-config" || version is not (1 or 2 or 3) ||
+        if (c.GetProperty("schema").GetString() != "woden.force-config" || version is not (1 or 2 or 3 or 4) ||
             c.GetProperty("model").GetString() != ForceObservationSemantics.ModelId(ForceObservationSemantics.ModelForConfigVersion(version)))
             throw new IOException("Unsupported force model");
         var options = new ForceOptions(c.GetProperty("strengthPercent").GetSingle(), c.GetProperty("peakPercent").GetSingle(),
@@ -107,8 +107,8 @@ internal static class StageCaptureReview
             var error = Math.Abs(result.Preview - Get("analysis.force.preview"));
             maxError = Math.Max(maxError, error);
             if (error > .000002) throw new IOException($"Model preview differs at sample {count}: {error:R}");
-            // Grip v5 captures carry the two pre-clamp terms; older grip captures are checked only if they have them.
-            if (options.Grip && (options.Model == GripSignal.ModelVersion || channels.ContainsKey("analysis.force.steering")))
+            // Grip v5/v6 captures carry the two pre-clamp terms; older grip captures are checked only if they have them.
+            if (options.Grip && (options.Model is GripSignal.IndependentDampingVersion or GripSignal.ModelVersion || channels.ContainsKey("analysis.force.steering")))
                 foreach (var (key, value) in new[] { ("analysis.force.steering", grip.LastSteering), ("analysis.force.dampingTerm", grip.LastDamping) })
                     if (Math.Abs(value - Get(key)) > .000002) throw new IOException($"Model {key} differs at sample {count}");
             if (result.Valid) valid++;

@@ -36,7 +36,7 @@ internal static class ForceExport
         if (gripRatio.HasValue)
         {
             if (!float.IsFinite(gripRatio.Value) || gripRatio.Value <= 0) throw new ArgumentOutOfRangeException(nameof(gripRatio));
-            // A grip capture keeps its recorded grip version (v4 or v5); a classic capture trials the latest grip model.
+            // A grip capture keeps its recorded grip version (v4/v5/v6); a classic capture trials the latest grip model.
             options = options with { Model = captured.Grip ? captured.Model : GripSignal.ModelVersion, LoadRatio = gripRatio.Value,
                 GripSmoothing = captured.Grip ? captured.GripSmoothing : .2f };
         }

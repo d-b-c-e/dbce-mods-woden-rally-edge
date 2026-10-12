@@ -80,7 +80,7 @@ internal static class StagePlayback
         {
             if (_signalCount != Session.Samples - 1) throw new IOException("Source sample does not match the next recorded pose");
             sample.Add("capture.trajectoryIndex", _signalCount);
-            // The selected model (classic v3 or grip v4/v5), independent of the muted output gate.
+            // The selected model (classic v3 or grip v4/v5/v6), independent of the muted output gate.
             var options = Runtime.Settings.ForceOptions;
             var analysis = options.Grip ? AnalysisGrip.Evaluate(sample, options, Runtime.Force?.GripReference) : AnalysisForce.Evaluate(sample, options);
             sample.Add("analysis.force.preview", analysis.Preview);

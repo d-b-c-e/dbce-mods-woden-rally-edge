@@ -1,5 +1,15 @@
 # Toolkit standards adoption
 
+October 12 force follow-up (STD-025/027): additive Grip 6/config 4 accepts only
+finite positive coincident slip knots with exactly equal nonnegative values.
+Production controller, ordinary/stage replay and private original checks pass;
+model 4/5 replay, Classic and gains/tunes remain unchanged. The original trial02
+force-validity gap remains historical fact; the explicit offline counterfactual
+repairs 1,151 curve rows but retains muted zero output, reverse/discontinuity
+refusals, and all physical/normalization gaps. No install/force acceptance.
+See docs/2026-10-12-grip-flat-knots.md. The unrelated STD-016/017/020 unchecked
+items and STD-031/032 pending work remain open.
+
 October 12 car follow-up (STD-033/034/036): distinct schema 5 source candidate
 retains the exact accepted profile and provisional Core pin. Actual pure Core
 raw values feed production car consumers in device-free fixtures, including

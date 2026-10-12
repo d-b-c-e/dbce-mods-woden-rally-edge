@@ -5,7 +5,7 @@ namespace WodenRallyEdge.Core;
 public sealed record ForceOptions(float Strength = 50, float PeakPercent = 25, float LoadReference = 6000, float SlipScale = .35f,
     float SmoothingMs = 35, float Damping = .05f, bool Invert = false, int Model = 3, float LoadRatio = 2, float GripSmoothing = .2f)
 {
-    /// <summary>Version 3 is the classic contact-weighted slip estimate (<see cref="ForceSignal"/>); versions 4 and 5 the grip model (<see cref="GripSignal"/>).</summary>
+    /// <summary>Version 3 is the classic contact-weighted slip estimate (<see cref="ForceSignal"/>); versions 4 through 6 the grip model (<see cref="GripSignal"/>).</summary>
     public bool Grip => GripSignal.IsGripModel(Model);
 }
 public sealed record ForceResult(bool Valid, string Reason, float FrontLoad, float Alignment, float Damping, float Preview);
