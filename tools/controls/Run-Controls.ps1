@@ -1,6 +1,6 @@
 #Requires -Version 7.0
 # Developer-only, restored controls qualification. Raw mode is operator-driven;
-# explicit schema 4/5 trials run only their fixed shared-Core workloads.
+# explicit schema 4/5/6 trials run only their fixed shared-Core workloads.
 [CmdletBinding(DefaultParameterSetName='Run')]
 param(
     [Parameter(Mandatory)][string]$Result,
@@ -10,6 +10,7 @@ param(
     [Parameter(ParameterSetName='Run')][switch]$ShimAdmission,
     [Parameter(ParameterSetName='Run')][switch]$ShimMenuTrial,
     [Parameter(ParameterSetName='Run')][switch]$ShimCarTrial,
+    [Parameter(ParameterSetName='Run')][switch]$ShimForceCapture,
     [Parameter(ParameterSetName='Run')][string]$StageReference=(Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/references/woden-kenya-20261005'),
     [Parameter(ParameterSetName='Run')][string]$OriginalWorkload='E:/Source/games/dbce-mods-woden-rally-edge/results/raw-controls-20261010-07',
     [Parameter(ParameterSetName='Run')][string]$CandidateDirectory,
@@ -38,8 +39,10 @@ $roots=[ordered]@{config=(Join-Path $GameDir 'BepInEx/config');save=(Join-Path $
 $files=[ordered]@{native=(Join-Path $plugin 'WheelFfb.dll');probe=(Join-Path $GameDir 'BepInEx/plugins/DbceControlsTest/Woden.ControlsProbe.dll');log=(Join-Path $GameDir 'BepInEx/LogOutput.log')}
 if($Recover -and (Test-Path "$Result/recovery.json")){
     $savedMode=(Get-Content "$Result/recovery.json" -Raw | ConvertFrom-Json).mode
-    $ShimAdmission=$savedMode -in @('shim-admission','shim-menu-trial','shim-car-trial');$ShimMenuTrial=$savedMode -eq 'shim-menu-trial';$ShimCarTrial=$savedMode -eq 'shim-car-trial'
+    $ShimAdmission=$savedMode -in @('shim-admission','shim-menu-trial','shim-car-trial','shim-force-capture');$ShimMenuTrial=$savedMode -eq 'shim-menu-trial';$ShimCarTrial=$savedMode -in @('shim-car-trial','shim-force-capture');$ShimForceCapture=$savedMode -eq 'shim-force-capture'
 }
+if($ShimForceCapture -and $ShimMenuTrial){throw 'Choose one bounded trial mode.'}
+if($ShimForceCapture){$ShimCarTrial=$true}
 if($ShimCarTrial -and $ShimMenuTrial){throw 'Choose one bounded trial mode.'}
 if($ShimMenuTrial -or $ShimCarTrial){$ShimAdmission=$true}
 if($ShimAdmission) {
@@ -48,7 +51,7 @@ if($ShimAdmission) {
     $files.shim=Join-Path $plugin 'dbce_shim.dll'
     $roots.shimReports=Join-Path $GameDir 'BepInEx/WodenShim'
 }
-$mode=if($ShimCarTrial){'shim-car-trial'}elseif($ShimMenuTrial){'shim-menu-trial'}elseif($ShimAdmission){'shim-admission'}else{'raw'}
+$mode=if($ShimForceCapture){'shim-force-capture'}elseif($ShimCarTrial){'shim-car-trial'}elseif($ShimMenuTrial){'shim-menu-trial'}elseif($ShimAdmission){'shim-admission'}else{'raw'}
 $blocked=@($request,$marker,(Join-Path $roots.config 'woden-record-next-launch.json'),(Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/woden/request.txt'))
 $probe=Join-Path $PSScriptRoot 'Probe/bin/Release/net6.0/Woden.ControlsProbe.dll'
 $configVerifier=Join-Path $PSScriptRoot 'VerifyConfig/bin/Release/net8.0/VerifyConfig.dll'
@@ -175,10 +178,10 @@ try {
     Copy-ControlExact $NativeCandidate $files.native $NativeSha256
     Copy-ControlExact $probe $files.probe (Get-ControlHash $probe)
     $cold=[ordered]@{schema=2;nonce=$nonce;expiresUtc=[DateTime]::UtcNow.AddMinutes(5).ToString('o');pluginSha256=(Get-ControlHash "$plugin/WodenRallyEdgeWheel.dll");coreSha256=(Get-ControlHash "$plugin/WodenRallyEdge.Core.dll");configSha256=(Get-ControlHash "$Result/applied.cfg");bindingsSha256=(Get-ControlHash "$($roots.config)/wheel-bindings.json");nativeSha256=$NativeSha256;outputDirectory=(Join-Path $Result 'trace')}
-    if($ShimAdmission){$cold.schema=if($ShimCarTrial){5}elseif($ShimMenuTrial){4}else{3};$cold.mode=$mode;$cold.controlsSha256=$ControlsSha256;$cold.shimSha256=$shimHash}
+    if($ShimAdmission){$cold.schema=if($ShimForceCapture){6}elseif($ShimCarTrial){5}elseif($ShimMenuTrial){4}else{3};$cold.mode=$mode;$cold.controlsSha256=$ControlsSha256;$cold.shimSha256=$shimHash}
     if($ShimCarTrial) {
         $cold.stageReference=$StageReference;$cold.workloadDirectory=Join-Path $Result 'workload'
-        # Existing ordinary diagnostic producer; schema 5 explicitly permits
+        # Existing ordinary diagnostic producer; schema 5/6 explicitly permits
         # this exact nonce/case/expiry. No stage replay or pose request is made.
         [ordered]@{Version=2;Id=([guid]::ParseExact($nonce,'N').ToString());ExpiresUtc=$cold.expiresUtc;DisableForces=$true;CaseId="woden-shim-car-$nonce"} |
             ConvertTo-Json | Set-Content (Join-Path $roots.config 'woden-record-next-launch.json')

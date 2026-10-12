@@ -111,6 +111,7 @@ public sealed partial class ControlsProbe : BasePlugin
                 probeSha256=Hash(typeof(ControlsProbe).Assembly.Location),nativePath=NativePath,physicalOutput=false,
                 kind=Protocol.CarTrial(Request)?"shared-core-latched-original-car-trial":Protocol.MenuTrial(Request)?"shared-core-latched-menu-trial":Protocol.ShimAdmission(Request)?"ordinary-shim-menu-admission":"native-raw-before-binding",configAddedDefaults=addedDefaults},Protocol.Json));
             Patch(Method(Runtime,"Update"),nameof(BeforeTick),nameof(AfterTick));
+            if(Protocol.ForceCapture(Request))Patch(Method(Runtime,"ObserveForceAnalysis"),postfix:nameof(AfterForceAnalysis));
             Patch(Method(Runtime,"Stop"),nameof(OnStop));
             Patch(Method(Hub,"Poll"),postfix:nameof(AfterPoll));
             Patch(Method(Hub,"TryAxis"),postfix:nameof(AfterAxis));
@@ -325,6 +326,7 @@ public sealed partial class ControlsProbe : BasePlugin
         try { Trace?.Dispose(); } catch(Exception ex) { reason+="; trace close failed: "+ex.Message; } finally { Trace=null; }
         try { if(OwnedEvidence is not null) File.WriteAllText(Path.Combine(OwnedEvidence,"result.json"),JsonSerializer.Serialize(new{reason,rows=Rows,commands=RawCommands,inputVerdict=Protocol.CarTrial(Request)?CarVerdict:Protocol.MenuTrial(Request)?TrialVerdict:"unclassified",physicalOutput=false,
             carEvidence=Protocol.CarTrial(Request)?new{recording=CarRecording,kind="new-original-not-reference-replay",nativePlateaus=CarPulseCount,
+                recipe=Protocol.ForceCapture(Request)?"forward-50pct-8s@1":"six-actions@1",forceCapture=Protocol.ForceCapture(Request)?ForceCoverage:null,
                 forceProducer="existing diagnostic source.jsonl; inspect actual ffb validity/gates",pressure="unavailable: no native pressure channel qualified",
                 torque="native wheel torque channels/missing list retained; proportional handbrake and physical torque not qualified",opponents="none",temporaryTransmission="player0 Manual"}:null},Protocol.Json)); }
         catch(Exception ex) { Instance?.Log.LogError("Controls result write failed: "+ex.Message); }

@@ -15,6 +15,7 @@ public sealed partial class ControlsProbe
     static double CarChanged,CarActivated,CarNeutral;
     static bool CarStarted,CarDelivery,CarEnding,CarGearQuery;
     static string CarVerdict="unclassified",CarEpochs="";
+    static ForceCaptureCoverage ForceCoverage=new();
     static string CarRecording => Path.Combine(Paths.GameRootPath,"BepInEx","WodenRecordings","request-"+Request!.Nonce,"source.jsonl");
     static CarWorkload ReadCarWorkload()
     {
@@ -32,7 +33,7 @@ public sealed partial class ControlsProbe
             (DateTimeOffset)Value(launch,"ExpiresUtc")! != Request.ExpiresUtc || !(bool)Value(launch,"DisableForces")! ||
             (string?)Value(launch,"CaseId")!="woden-shim-car-"+Request.Nonce ||
             !string.Equals(Runtime.GetField("_recordingPath",All)?.GetValue(null) as string,CarRecording,StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException("Schema 5 requires its exact one-shot, force-disabled diagnostic recorder.");
+            throw new InvalidDataException("Car capture requires its exact one-shot, force-disabled diagnostic recorder.");
         if(!File.Exists(CarRecording))throw new InvalidDataException("Original diagnostic recorder did not create source.jsonl.");
     }
     static void StartCarTrial()
@@ -42,13 +43,18 @@ public sealed partial class ControlsProbe
         File.WriteAllText(TrialSession,"nonce="+Request.Nonce+"\nexpires="+Request.ExpiresUtc.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)+"\n",new UTF8Encoding(false));
         Method(Type("ShimInput"),"ConfigureCarTrial").Invoke(null,new object[]{Request.Nonce,TrialSession,TrialBatchFile,Request.ExpiresUtc,true});
         Method(Type("StageStartup"),"InitializeInputTrial").Invoke(null,new object[]{Request.StageReference!});
-        CarPulses.Clear();CarPulses.Enqueue(CarWork.Neutral);
-        foreach(var pulse in CarWork.Pulses){CarPulses.Enqueue(pulse);CarPulses.Enqueue(CarWork.Neutral);}
-        CarPulses.Enqueue(CarWork.Settle);CarPulses.Enqueue(CarWork.Neutral);
+        CarPulses.Clear();ForceCoverage=new();
+        if(Protocol.ForceCapture(Request))foreach(var pulse in CarWork.Forward)CarPulses.Enqueue(pulse);
+        else {
+            CarPulses.Enqueue(CarWork.Neutral);
+            foreach(var pulse in CarWork.Pulses){CarPulses.Enqueue(pulse);CarPulses.Enqueue(CarWork.Neutral);}
+            CarPulses.Enqueue(CarWork.Settle);CarPulses.Enqueue(CarWork.Neutral);
+        }
         CarId=CarBatch=CarPulseCount=0;CarStarted=CarDelivery=CarEnding=false;CarPulse=null;CarEpochs="";
         CarChanged=Clock.Elapsed.TotalSeconds;CarActivated=CarNeutral=0;CarVerdict="pending";
         ObserveUntil=Deadline;TrialModules.Clear();
-        Row("car-trial","New original Kenya control qualification; temporary player0 Manual; no trajectory/body/background writes; six raw actions only");
+        Row("car-trial",Protocol.ForceCapture(Request)?"Synthetic original forward analysis capture: 8s accepted 50% throttle, neutral baseline/end, Manual gear1; no body/focus/force writes":
+            "New original Kenya control qualification; temporary player0 Manual; no trajectory/body/background writes; six raw actions only");
     }
     static void VerifyCarDevices()
     {
@@ -98,8 +104,9 @@ public sealed partial class ControlsProbe
         _=ReadCarWorkload();VerifyCarFences();VerifyCarDevices();
         var car=CarNow() ?? throw new InvalidOperationException("Native car disappeared.");
         if(!VerifyNativeCar(car) || car.TransmissionSystem!.Changing)throw new InvalidOperationException("Native car must be racing, unlocked, Manual and not changing before each batch.");
-        if(++CarBatch>24)throw new InvalidOperationException("Car batch limit.");
+        if(++CarBatch>(Protocol.ForceCapture(Request)?4:24))throw new InvalidOperationException("Car batch limit.");
         CarGear=car.MyGear;
+        if(Protocol.ForceCapture(Request)&&CarGear!=1)throw new InvalidOperationException("Forward capture requires unchanged native gear1.");
         if(pulse?.Action=="shiftUp" && (CarGear<1 || CarGear>=car.Gears))throw new InvalidOperationException("Native gear cannot increment exactly once.");
         CarPulse=pulse;CarActivated=CarNeutral=0;CarValues=new();CarGearQuery=false;CarChanged=now;
         TrialBatchWriter.Replace(TrialBatchFile!,"nonce="+Request!.Nonce+"\nbatch="+CarBatch+"\n"+(pulse?.Command??"end")+"\n");
@@ -109,7 +116,7 @@ public sealed partial class ControlsProbe
     {
         if(!Protocol.CarTrial(Request)||!Armed)return;
         double now=Clock.Elapsed.TotalSeconds;
-        if(now-CarChanged>(CarStarted?8:95))throw new InvalidOperationException("Car trial timed out waiting for "+(CarStarted?"bounded native consumption":"native startup/countdown"));
+        if(now-CarChanged>(CarStarted?Math.Max(8,(CarPulse?.DurationMs??700)/1000d+3):95))throw new InvalidOperationException("Car trial timed out waiting for "+(CarStarted?"bounded native consumption":"native startup/countdown"));
         if(!(bool)Static("ShimInput","Ready")!)
         {if((bool)Static("ShimInput","Owns")! || ((string)Static("ShimInput","Status")!).Contains("refused"))throw new InvalidOperationException("Shared host unavailable");return;}
         VerifyCarFences();
@@ -130,19 +137,21 @@ public sealed partial class ControlsProbe
             if(run!=4)return;
             if(CarNeutral==0)CarNeutral=now;
             if(now-CarNeutral<.3)return;
+            if(Protocol.ForceCapture(Request)&&!ForceCoverage.Passed)throw new InvalidOperationException("Forward capture lacks 2s measured grounded forward speed and qualified production analysis rows.");
             var output=Field(Runtime,"Output")!;Method(output.GetType(),"StopRecording").Invoke(output,null);
             if(Value(output,"RecordingStatus")?.ToString()!="Completed" || Convert.ToInt64(Value(output,"RecordingDrops"))!=0)
                 throw new InvalidOperationException("Original recorder did not complete without drops.");
-            CarVerdict="passed: six raw shared-Core actions consumed by native car; Manual gear +1/-1; original producer retained";
+            CarVerdict=Protocol.ForceCapture(Request)?"passed: bounded native forward capture; measured grounded speed/reference and valid independent analysis; no physical output":
+                "passed: six raw shared-Core actions consumed by native car; Manual gear +1/-1; original producer retained";
             Row("car-trial-verdict",CarVerdict);Close("bounded original car trial completed");return;
         }
         bool injected=CarWorkload.Actions.All(id=>{var a=TrialAction(id);return (bool)Value(a,"Injected")!&&Value(a,"Status")!.ToString()=="Live";});
         if(injected && CarActivated==0){CarActivated=now;Row("car-trial-active","batch="+CarBatch+" seq="+Static("ShimInput","Sequence"));}
         bool neutral=CarWorkload.Actions.All(id=>{var a=TrialAction(id);return !(bool)Value(a,"Injected")!&&Value(a,"Status")!.ToString()=="TestNeutral"&&Convert.ToSingle(Value(a,"Value"))==0;});
-        if(CarActivated==0 || !neutral || now-CarActivated<.6){CarNeutral=0;return;}
+        if(CarActivated==0 || !neutral || now-CarActivated<(CarPulse?.DurationMs??700)/1000d-.1){CarNeutral=0;return;}
         if(CarNeutral==0)CarNeutral=now;
         if(now-CarNeutral<.25 || car.TransmissionSystem!.Changing)return;
-        if(!CarValues.Passed)throw new InvalidOperationException("Native plateau unavailable/mismatched for "+CarPulse!.Action+"; rows="+CarValues.Samples);
+        if(!CarValues.PassedFor(CarPulse!))throw new InvalidOperationException("Native plateau unavailable/mismatched for "+CarPulse!.Action+"; rows="+CarValues.Samples);
         int expectedGear=CarGear+(CarPulse!.Action=="shiftUp"?1:CarPulse.Action=="shiftDown"?-1:0);
         if(car.MyGear!=expectedGear || CarPulse.Action is "shiftUp" or "shiftDown" && !CarGearQuery)
             throw new InvalidOperationException("Native sequential consumption/gear differs for "+CarPulse.Action);
@@ -155,7 +164,17 @@ public sealed partial class ControlsProbe
         if(!Protocol.CarTrial(Request)||!CarStarted||CarPulse==null||CarActivated==0)return;
         double now=Clock.Elapsed.TotalSeconds;
         if(Convert.ToInt32(carIdentity)!=CarId || state!="driving")throw new InvalidOperationException("Native sample identity/state changed.");
-        if(now>=CarActivated+.16 && now<=CarActivated+.55)CarValues.Add(now,CarPulse.Action,CarPulse.Expected,channels);
+        if(now>=CarActivated+.16 && now<=CarActivated+CarPulse.DurationMs/1000d-.15)CarValues.Add(now,CarPulse.Action,CarPulse.Expected,channels);
+    }
+    static void AfterForceAnalysis(object __0)
+    {
+        if(!Observing||!Protocol.ForceCapture(Request)||!CarStarted)return;
+        try {
+            if(Convert.ToInt32(Value(__0,"CarInstanceId"))!=CarId)throw new InvalidDataException("Force capture car changed.");
+            var discontinuity=__0.GetType().GetProperty("Discontinuity",All)??throw new MissingMemberException("Sample.Discontinuity");
+            ForceCoverage.Observe(Convert.ToDouble(Value(__0,"SimulationSeconds")),Value(__0,"State")?.ToString()=="driving",
+                discontinuity.GetValue(__0)!=null,(IDictionary<string,double>)Value(__0,"Channels")!);
+        }catch(Exception ex){RequestStop("force capture observation failed: "+ex.Message);}
     }
     static void StopCarTrial()
     {

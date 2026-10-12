@@ -6,7 +6,7 @@ namespace Woden.ControlsTesting;
 
 // Private qualification uses independently retained original profile/workload
 // bytes. These hashes identify evidence, not a new user profile or mapper.
-public sealed record CarPulse(string Action,double Expected,string Command);
+public sealed record CarPulse(string Action,double Expected,string Command,int DurationMs=700);
 public sealed class CarWorkload
 {
     public const string ControlsHash="5206EDFBD1B400E5D6A41D91AE836485BBE27D63992AD6F7483B3BABB0E72B79";
@@ -42,6 +42,10 @@ public sealed class CarWorkload
     public CarPulse[] Pulses => new[]{"shiftUp","shiftDown","handbrake","steer","throttle","brake"}
         .SelectMany(id=>Samples[id].Where(s=>s.Expected!=0).Select(s=>s with{Command=Batch(s)})).ToArray();
     public CarPulse Settle => new("settle",1,Batch(Samples["brake"].Single(s=>s.Expected==1)));
+    // Separate synthetic forward recipe; reuse the independently pinned 50% raw throttle,
+    // every other action neutral, and the same full six-action batch. No invented steering.
+    public CarPulse[] Forward => new[]{Neutral,new CarPulse("throttle",.5,
+        Batch(Samples["throttle"].Single(s=>s.Expected==.5)).Replace("ms=700","ms=8000"),8000),Neutral};
     string Batch(CarPulse? selected) => string.Join("\n",Actions.Select(id=>selected?.Action==id ? selected.Command : Samples[id].First(s=>s.Expected==0).Command));
 }
 
@@ -68,4 +72,33 @@ public sealed class CarPlateau
         Last=at;Samples++;Good &= ok;
     }
     public bool Passed=>Good&&Samples>=5&&Last-First>=.1;
+    public bool PassedFor(CarPulse pulse)=>Passed&&(pulse.DurationMs==700||Last-First>=pulse.DurationMs/1000d-.4);
+}
+
+// Independent passive evidence from the existing production analysis callback,
+// after Force.Tick and before the original sample is published. No control writes.
+public sealed class ForceCaptureCoverage
+{
+    double? previous;bool previousForward;
+    public double ForwardGroundedSeconds {get;private set;}
+    public int Rows {get;private set;}
+    public int QualifiedRows {get;private set;}
+    public int NonzeroRows {get;private set;}
+    public double Peak {get;private set;}
+    public void Observe(double time,bool driving,bool discontinuity,IDictionary<string,double> c)
+    {
+        double Get(string k)=>c.TryGetValue(k,out var n)&&double.IsFinite(n)?n:throw new InvalidDataException("Force-capture source unavailable: "+k);
+        if(!double.IsFinite(time)||Get("analysis.force.contractVersion")!=1||Get("analysis.force.modelVersion")!=6||
+            Get("ffb.gate")!=1||Get("ffb.sent")!=0||Get("ffb.deliveryAttempts")!=0||Get("ffb.connectionAttempts")!=0)
+            throw new InvalidDataException("Force-capture analysis/physical mute contract differs.");
+        bool Grounded(string p)=>c.TryGetValue("wheel."+p+".grounded",out double g)&&g==1&&
+            c.TryGetValue("wheel."+p+".contactForce",out double load)&&double.IsFinite(load)&&load>0;
+        bool forward=driving&&!discontinuity&&Get("motion.speed")*3.6>=15&&Get("motion.velocity.local.z")>0&&Grounded("fl")&&Grounded("fr");
+        double dt=previous.HasValue?time-previous.Value:0;
+        if(forward&&previousForward&&dt>0&&dt<=.1)ForwardGroundedSeconds+=dt;
+        previous=time;previousForward=forward;Rows++;
+        if(forward&&Get("analysis.force.valid")==1&&Get("ffb.grip.referenceKind")==2&&Get("ffb.grip.reference")>0)
+        {QualifiedRows++;double value=Math.Abs(Get("analysis.force.preview"));if(value>0)NonzeroRows++;Peak=Math.Max(Peak,value);}
+    }
+    public bool Passed=>ForwardGroundedSeconds>=2&&QualifiedRows>0;
 }

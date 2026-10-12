@@ -12,7 +12,8 @@
 #include <stdexcept>
 using namespace dbce::shim;
 int main(int argc,char** argv)try{
-    if(argc!=4)throw std::runtime_error("profile, batches and fresh frames required");
+    if(argc!=4&&argc!=5)throw std::runtime_error("profile, batches and fresh frames required");
+    const bool forward=argc==5&&std::string(argv[4])=="forward";
     std::ifstream input(argv[1],std::ios::binary);std::string bytes((std::istreambuf_iterator<char>(input)),{});
     auto profile=read_profile(bytes);if(!profile.ok||!profile.section.error.empty())throw std::runtime_error("profile refused");
     fake::Provider provider;std::map<std::string,std::size_t> devices;
@@ -32,10 +33,10 @@ int main(int argc,char** argv)try{
         std::string cmd;while(std::getline(batches,line)&&line!="---")cmd+=line+"\n";
         actions.push_back(id);expected.push_back(value);commands.push_back(cmd);
     }
-    if(commands.size()!=21)throw std::runtime_error("bounded 21-batch workload differs");
+    if(commands.size()!=(forward?3:21))throw std::runtime_error("bounded workload count differs");
     commands.push_back("end\n");actions.push_back("end");expected.push_back(0);
     std::ofstream output(argv[3],std::ios::binary|std::ios::trunc);int live=0,frames=0;std::set<std::string> covered;
-    for(int phase=0;phase<int(commands.size());++phase)for(int tick=0;tick<120;++tick){
+    for(int phase=0;phase<int(commands.size());++phase)for(int tick=0;tick<(forward&&phase==1?900:120);++tick){
         if(tick==30){auto result=core.offer_batch("nonce="+nonce+"\nbatch="+std::to_string(phase+1)+"\n"+commands[phase]);if(result.verdict==BatchVerdict::Refused)throw std::runtime_error(result.why);}
         core.service_devices();provider.advance(10000);const auto& f=core.tick();
         if(f.run==Run::Failed||f.run==Run::Expired||f.run==Run::Inert)throw std::runtime_error("Core run failed");
@@ -43,7 +44,7 @@ int main(int argc,char** argv)try{
         wire.run=std::uint8_t(f.run);wire.latched=f.latched;wire.suppress_native=f.suppress_native;wire.sample_count=std::uint32_t(f.samples.size());
         for(int i=0;i<ActionCount;++i){const auto& a=f.action[i];wire.action[i].value=a.value;wire.action[i].status=std::uint8_t(a.status);wire.action[i].injected=a.injected;
             if(a.status==Status::TestNeutral&&a.value!=0)throw std::runtime_error("physical data escaped latched neutral");
-            if(tick>=45&&tick<=85&&actions[phase]!="end"&&allowed.count(action_name(i))){
+            if(tick>=45&&tick<=(forward&&phase==1?810:85)&&actions[phase]!="end"&&allowed.count(action_name(i))){
                 const double want=actions[phase]==action_name(i)?expected[phase]:0;
                 if(a.status!=Status::Live||!a.injected||std::abs(a.value-want)>.0001)throw std::runtime_error("raw normalization/provenance differs: "+std::string(action_name(i)));
                 ++live;if(std::abs(want)>.1)covered.insert(action_name(i));
@@ -51,6 +52,6 @@ int main(int argc,char** argv)try{
         }
         output.write(reinterpret_cast<const char*>(&phase),4);output.write(reinterpret_cast<const char*>(&wire),sizeof wire);++frames;
     }
-    if(core.control_state().run!=Run::Completed||covered.size()!=6||provider.misuse)throw std::runtime_error("incomplete Core evidence");
-    std::cout<<"PASS actual Core: "<<frames<<" frames, "<<live<<" Live/injected raw checks, six actions; fake devices only\n";return 0;
+    if(core.control_state().run!=Run::Completed||covered.size()!=(forward?1:6)||provider.misuse)throw std::runtime_error("incomplete Core evidence");
+    std::cout<<"PASS actual Core: "<<frames<<" frames, "<<live<<" Live/injected raw checks, "<<(forward?"bounded forward throttle":"six actions")<<"; fake devices only\n";return 0;
 }catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}

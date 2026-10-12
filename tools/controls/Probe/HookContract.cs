@@ -27,6 +27,7 @@ public static class HookContract
         Require(T("StageStartup").GetMethod("ValidateRace",All)?.GetParameters().Single().ParameterType.FullName=="MainCar","StageStartup.ValidateRace");
         foreach(var name in new[]{"RecordingStatus","RecordingDrops"})Require(T("Runtime").GetField("Output",All)?.FieldType.GetProperty(name,All)!=null,"Output."+name);
         Require(T("Runtime").GetField("Output",All)?.FieldType.GetMethod("StopRecording",All)?.ReturnType==typeof(void),"Output.StopRecording");
+        Require(T("Runtime").GetMethod("ObserveForceAnalysis",All)?.GetParameters().Single().ParameterType.FullName=="WodenRallyEdge.Core.TelemetrySample","Runtime.ObserveForceAnalysis(sample)");
         Require(T("ShimInput").GetMethod("MenuTrialScope",All,null,new[]{typeof(int)},null)?.ReturnType==typeof(void),"ShimInput.MenuTrialScope");
         foreach(var name in new[]{"KnownNeutral","TrialNativeMenuAllowed"})Require(T("ShimInput").GetMethod(name,All)?.ReturnType==typeof(bool),"ShimInput."+name);
         foreach(var name in new[]{"Status","TransmissionStatus"})Require(T("ShimInput").GetProperty(name,All)?.PropertyType==typeof(string),"ShimInput."+name);

@@ -1,5 +1,9 @@
 # Bounded shared-Core original car trial
 
+The separate [schema 6 forward capture](SHIM-FORCE-CAPTURE.md) is prepared for
+production-reference and independent-analysis qualification. It does not change
+this schema 5 workload or the retained trial01/trial02 evidence.
+
 The second private run on October 12 **passed** all six raw shared-Core actions
 through the native car, including Manual gear +1/-1, all 23 native plateaus and
 final neutral/Core completion. The earlier incomplete run remains documented
