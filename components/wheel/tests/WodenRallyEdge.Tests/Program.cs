@@ -404,6 +404,22 @@ Test("game window policy excludes foreign, console, hidden and unrepresentable h
     Check(!WodenRallyEdge.GameWindow.Eligible(0x100001234, self, "UnityWndClass", true), "unrepresentable HWND not truncated");
 });
 Test("actual toolkit adapter pins the game window and requires exit guards", () => WodenRallyEdge.ToolkitForceChecks.Run(Check));
+Test("shim main-window fallback never trusts console, foreign, hidden or stale windows", () => {
+    uint self=(uint)Environment.ProcessId; int lookups=0;
+    var candidates=new Dictionary<long,(uint owner,string kind,bool visible,bool live)> {
+        [123]=(self,"UnityWndClass",true,true), [124]=(self,"ConsoleWindowClass",true,true),
+        [125]=(self+1,"UnityWndClass",true,true), [126]=(self,"UnityWndClass",false,true),
+        [127]=(self,"UnityWndClass",true,false)
+    };
+    bool Owned(IntPtr h) => candidates.TryGetValue(h.ToInt64(),out var c) && c.live && WodenRallyEdge.GameWindow.Eligible(h.ToInt64(),c.owner,c.kind,c.visible);
+    IntPtr Main(long h) {lookups++;return new(h);}
+    Check(WodenRallyEdge.GameWindow.SelectShimWindow(new(123),()=>Main(124),Owned)==123&&lookups==0,"verified Unity foreground wins without fallback lookup");
+    foreach(long foreground in new long[]{0,124,125})
+        Check(WodenRallyEdge.GameWindow.SelectShimWindow(new(foreground),()=>Main(123),Owned)==123,"verified current-process Unity main window can open shim behind non-Unity foreground");
+    foreach(long main in new long[]{0,124,125,126,127,0x100001234})
+        Check(WodenRallyEdge.GameWindow.SelectShimWindow(new(124),()=>Main(main),Owned)==0,"fallback refuses unavailable/non-owned/non-Unity/nonvisible/dead candidate "+main);
+    Check(!WodenRallyEdge.GameWindow.IsOwned(0)&&!WodenRallyEdge.GameWindow.IsFocused(0),"zero is never owned or focused at the actual Windows boundary");
+});
 Test("waiting for the game window never closes readers or latches a startup failure", () => {
     var (controller, device) = WodenRallyEdge.ForceControllerChecks.Create(); device.CanOpen = false;
     for (int i = 0; i < 100; i++) controller.Prepare();

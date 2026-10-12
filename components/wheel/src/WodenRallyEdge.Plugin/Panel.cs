@@ -360,6 +360,11 @@ internal static class Panel
     {
         if(ShimInput.Owns) { ShimPage(); return; }
         if(CapturePage())return; var input=Runtime.Wheel!; float y=152;
+        if(Runtime.Settings.InputBackend=="Shim")
+        {
+            Label(250,y,690,ShimInput.Status,true,72);y+=84;
+            Label(250,y,690,"Native bindings below remain active until Shim admission. Close the game to change dbce-controls.ini or the backend.",true,60);y+=72;
+        }
         foreach(string name in new[]{"Steer","Throttle","Brake","Handbrake"})
         {
             var b=input.Bindings.Axis(name);Label(250,y,210,ActionLabel(name));

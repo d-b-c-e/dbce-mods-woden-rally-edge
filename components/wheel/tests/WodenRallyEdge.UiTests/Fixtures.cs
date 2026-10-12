@@ -69,7 +69,14 @@ namespace WodenRallyEdge
 {
     internal static class Plugin {internal const string Version="0.2.12";}
     internal static class TimingDiagnostics {internal static double PollMs,ControlsMs;}
-    internal static class GameWindow {internal static int Window=123; internal static int Capture()=>Window;}
+    internal static class GameWindow
+    {
+        internal static int Window=123; internal static bool Valid=true, UnityFocused=true;
+        internal static int Capture()=>UnityFocused&&Valid?Window:0;
+        internal static int CaptureForShim()=>Valid?Window:0;
+        internal static bool IsOwned(int window)=>Valid&&window!=0&&window==Window;
+        internal static bool IsFocused(int window)=>IsOwned(window)&&UnityFocused;
+    }
     // Native-behavior fixtures from guarded GameAssembly: DailyMessage.Update
     // RVA 0x456090 (ready + flags/legacy anyKey), title FixedUpdate 0xAFB560
     // (autonomous frame timeout, Start/legacy Return with Escape exclusion).
@@ -202,7 +209,7 @@ internal static class FrameRate {internal static string Summary=>"52 fps average
     {
         internal static Settings Settings=null!;internal static WheelInput? Wheel;internal static DeviceHub? Devices=new();internal static ForceController? Force=new();internal static TelemetryOutput? Output;
         internal static bool Focused=true;internal static MainCar? Local;internal static readonly TestClock Clock=new();internal static Log Log=new();
-        internal static PlayerControlState ControlState(MainCar c)=>new(PlayerPhase.Racing,true,true,false,false,false,false,false,false);
+        internal static PlayerControlState ControlState(MainCar c)=>new(PlayerPhase.Racing,true,Focused,Panel.Open,Pause.Paused,false,false,false,false);
         internal static bool CameraAvailable(MainCar c)=>true;
     }
     internal sealed class TestClock {private readonly Stopwatch watch=Stopwatch.StartNew();private double offset;internal TimeSpan Elapsed=>watch.Elapsed+TimeSpan.FromSeconds(offset);internal void Advance(double seconds)=>offset+=seconds;}

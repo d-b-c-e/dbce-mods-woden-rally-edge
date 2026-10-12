@@ -1,7 +1,9 @@
 # Shared input shim: wheel-only source pilot
 
-2026-10-12. Based on Woden `ff1c594`. Source and device-free checks only: no
-installed build, game launch, device read, physical force or rendered acceptance.
+2026-10-12. Based on Woden `ff1c594`. Two private force-fenced launches restored
+exactly; the second observed native pad isolation but shim ownership stayed
+pending on window selection. The source fix is not live-qualified. No permanent
+install, physical force or rendered shared-control acceptance.
 The accepted Classic/Grip models, gains, triple/span code and owner files are
 unchanged. The native producer audit is pinned to GameAssembly SHA-256
 `f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c`.
@@ -15,6 +17,12 @@ an accepted `dbce-controls.ini` in `BepInEx/config`. The plugin takes the exact
 `[Controls]` bytes at launch; changes require restart. Saved bindings remain intact.
 F6 Setup/Controls then show the shim's cached action status and supported scope,
 without offering legacy calibration that would not affect active input.
+Before ownership, Controls shows pending/refused status and retains the still-active
+Native bindings. Shim-only window selection can use the verified live, visible,
+current-process Unity main window behind a console. Physical FFB still requires
+Unity foreground. Shared wheel actions require actual Unity foreground; native
+pause/panel gates and fresh-neutral rearming remain. Loss of the owned window
+terminally stops the shim rather than switching windows or restoring legacy input.
 
 The DLL copied to the plugin build output is the exact provisional DRIVE ABI 2
 pin: see [provenance](../vendor/dbce-shim/PROVENANCE.md). It is **not** a new toolkit
@@ -83,8 +91,8 @@ dotnet run --project components/wheel/tests/WodenRallyEdge.UiTests -c Release
 dotnet run --project components/wheel/tests/WodenRallyEdge.InputTests -c Release
 ```
 
-Results: clean build; 53 core/controller suites, 39,143 assertions; 865 UI assertions
-including 54 production shim/lease checks and four F6 status checks; 3,896 production
+Results: clean build; 54 core/controller suites, 39,154 assertions; 879 UI assertions
+including 65 production shim/lease checks and seven F6 status checks; 3,896 production
 DeviceHub checks. The shim fixture calls only real DLL ABI exports, then replaces
 handle delegates with bounded fake calls. It exercises real decode, backend,
 WheelInput, ControlActions, InputLease and menu source. Force tests use the real controller with a
@@ -96,8 +104,9 @@ and brake coexist with shared throttle, keyboard handbrake/horn and shifts remai
 available even when shared gears are unsupported, and terminal shared transport
 failure leaves native keyboard values intact while blocking legacy wheel fallback.
 These source checks do not qualify live key delivery. The first ordinary menu
-pilot refused in its developer addon and restored exactly; the reviewed retry is
-still bounded to at-rest admission (see `SHIM-ADMISSION-TEST.md`).
+pilot refused in its developer addon; the second armed the addon but waited for
+Unity foreground behind the BepInEx console. Both restored exactly. A further
+reviewed retry remains bounded to at-rest admission (see `SHIM-ADMISSION-TEST.md`).
 
 Private native audit output is ignored under `artifacts/shim-source-audit` (REA
 interop evidence plus bounded native disassembly); no proprietary dump is committed.

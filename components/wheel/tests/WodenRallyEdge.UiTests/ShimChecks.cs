@@ -16,9 +16,9 @@ internal static class ShimChecks
 {
     private static readonly ShimAction[] FrameActions = new ShimAction[ShimActionMap.Count];
     private static byte[] _profile = Array.Empty<byte>();
-    private static int _opens, _ticks, _stops, _tickResult;
+    private static int _opens, _ticks, _stops, _tickResult, _openedWindow;
     private static string _unsupported = "";
-    private static bool _badHash;
+    private static bool _badHash, _invalidateAtOpen;
     private static string _mode = "Sequential";
     private static void Set(string field, object value) => typeof(ShimInput).GetField(field, BindingFlags.Static|BindingFlags.NonPublic)!.SetValue(null,value);
     private static void Replace(string field, string method)
@@ -27,7 +27,7 @@ internal static class ShimChecks
         f.SetValue(null,Delegate.CreateDelegate(f.FieldType,typeof(ShimChecks).GetMethod(method,BindingFlags.Static|BindingFlags.NonPublic)!));
     }
     private static int Open(string folder,string nonce,byte[] profile,int length,string unsupported,IntPtr window,out IntPtr handle,byte[] why,int whyLength)
-    { _opens++;_profile=profile;_unsupported=unsupported;handle=new IntPtr(77);return 0; }
+    { _opens++;_openedWindow=window.ToInt32();_profile=profile;_unsupported=unsupported;handle=new IntPtr(77);if(_invalidateAtOpen)GameWindow.Valid=false;return 0; }
     private static int Tick(IntPtr handle,byte[] frame)
     {
         _ticks++; if(_tickResult!=0)return _tickResult;
@@ -47,8 +47,9 @@ internal static class ShimChecks
     private static void Reset(string dir)
     {
         Set("_requested",false);Set("_refused",false);Set("_terminal",false);Set("_producer",null!);Set("_handle",IntPtr.Zero);Set("_frame",-1);Set("_context",-1);
+        Set("_window",0);
         Set("<Owns>k__BackingField",false);Set("<SteeringGuid>k__BackingField",null!);
-        _opens=_ticks=_stops=_tickResult=0;_badHash=false;_mode="Sequential";Gamepad.all.Clear();GameWindow.Window=123;Runtime.Focused=true;Runtime.Local=null;Pause.Paused=false;
+        _opens=_ticks=_stops=_tickResult=_openedWindow=0;_badHash=_invalidateAtOpen=false;_mode="Sequential";Gamepad.all.Clear();GameWindow.Window=123;GameWindow.Valid=GameWindow.UnityFocused=true;Runtime.Focused=true;Runtime.Local=null;Pause.Paused=false;
         for(int i=0;i<FrameActions.Length;i++)FrameActions[i]=new(0,ShimActionMap.UnsupportedNames.Contains(ShimActionMap.Names[i])?ShimStatus.Unsupported:ShimStatus.Live);
         Keyboard.current?.Clear();
         Runtime.Settings=new(new ConfigFile(Path.Combine(dir,Guid.NewGuid()+".cfg"),false)){InputBackend="Shim",WheelEnabled=true};
@@ -120,12 +121,28 @@ internal static class ShimChecks
         Check(Runtime.Wheel.Button("Camera")&&!Runtime.Wheel.Button("Camera"),"button edge consumed once per action");
         Runtime.Focused=false;Next();Runtime.Focused=true;Next();Check(!Runtime.Wheel.Button("Camera",false),"held button cannot fire on focus return");
         Frame("camera",0);Next();Frame("camera",1);Next();Check(Runtime.Wheel.Button("Camera"),"neutral then press rearms after focus return");
+        GameWindow.UnityFocused=false;Next();lease=Runtime.Wheel.Apply(controls);
+        Check(Runtime.Focused&&ShimInput.Ready&&ShimInput.Axis("steer")==0&&!ShimInput.AxesLive&&!Runtime.Wheel.Button("Camera",false),"same-process console foreground keeps host alive but neutralizes shared actions and force samples");
+        Check(lease!=null&&Runtime.Wheel.LastFor(car)==null,"console foreground cannot create a live shared driving sample");lease!.Restore();
+        GameWindow.UnityFocused=true;Next();Check(!Runtime.Wheel.Button("Camera",false),"console-to-Unity focus requires fresh neutral before held button delivery");
+        Frame("camera",0);Next();Frame("camera",1);Next();Check(Runtime.Wheel.Button("Camera"),"fresh camera press rearms after Unity focus return");
+        Pause.Paused=true;Next();Check(Runtime.Wheel.Apply(controls)==null&&values.SequenceEqual(saved),"native pause gate leaves the car action table untouched");
+        Frame("back",0);Next();Frame("back",1);Next();Check(Runtime.Wheel.Button("Back"),"paused context still permits a fresh menu Back press");
+        Pause.Paused=false;Next();Check(!Runtime.Wheel.Button("Camera",false)&&!Runtime.Wheel.Button("Back",false),"held actions cannot leak from pause back into driving");
         Frame("camera",0,ShimStatus.ReadFailed);Next();Frame("camera",1);Next();Check(!Runtime.Wheel.Button("Camera",false),"unavailable then held is not a fresh release/press");
         Frame("steer",1,ShimStatus.ReadFailed);Next();lease=Runtime.Wheel.Apply(controls);Check(lease!=null&&Runtime.Wheel.LastFor(car)==null,"missing live driving axis blocks force sample rather than substituting legacy reader");lease!.Restore();
         var connected=new Gamepad();Gamepad.all.Add(connected);Next();
         Check(ShimInput.Owns&&!ShimInput.Ready&&_stops==1&&ReferenceEquals(Gamepad.all[0],connected),"new unrelated pad terminates shim while preserving native pad");
         Check(!Runtime.Wheel.Button("Camera",false)&&Runtime.Wheel.Apply(controls)==null,"terminal session cannot fall back to legacy wheel actions");
         Gamepad.all.Clear();Next();ShimInput.Stop("again");Check(_opens==1&&_stops==1,"terminal state neither reopens nor stops handle twice");
+
+        Reset(dir);GameWindow.UnityFocused=false;ShimInput.BeforeStock(producer);Frame("steer",.7f);Next();Next();Next();
+        Check(ShimInput.Ready&&_opens==1&&_openedWindow==123&&_ticks==3&&ShimInput.Axis("steer")==0&&ShimInput.Status.Contains("unfocused"),"owned main window permits ordinary open/ticks behind console without action delivery");
+        int beforeInvalid=_ticks;GameWindow.Valid=false;ShimInput.Poll();
+        Check(ShimInput.Owns&&!ShimInput.Ready&&_stops==1&&_ticks==beforeInvalid&&ShimInput.Axis("steer")==0,"window liveness/identity failure stops before another tick, including in the same frame");
+        GameWindow.Valid=true;GameWindow.Window=456;Next();Check(_opens==1&&_stops==1,"a replacement Unity window cannot reopen a terminal host or fall back");
+        Reset(dir);_invalidateAtOpen=true;ShimInput.BeforeStock(producer);Next();
+        Check(ShimInput.Owns&&!ShimInput.Ready&&_stops==1&&_ticks==0,"window changing during native open closes the acquired host before its first tick");
 
         Reset(dir);ShimInput.BeforeStock(producer);_badHash=true;Next();Check(ShimInput.Owns&&!ShimInput.Ready&&_stops==1,"accepted-byte identity disagreement closes the owned handle, no legacy fallback");
         Reset(dir);ShimInput.BeforeStock(producer);Next();_tickResult=-4;Next();Check(ShimInput.Owns&&!ShimInput.Ready&&_stops==1,"native tick failure is sticky neutral");
@@ -167,6 +184,12 @@ internal static class ShimChecks
     }
     internal static void PanelCheck(string dir,Action<bool,string> check)
     {
+        Panel.Close(false);Reset(dir);
+        Runtime.Settings.UiPage="Controls";Panel.Toggle();GUI.Commands.Clear();Event.current=new();Panel.Draw();
+        check(GUI.Commands.Any(c=>c.Text.Contains("waiting for native input producer")),"pending shim request is visible on Controls before ownership");
+        check(GUI.Commands.Any(c=>c.Text.Contains("Native bindings below remain active"))&&GUI.Commands.Any(c=>c.Text=="Bind"),"pre-admission Controls clearly retains usable standalone bindings");
+        var refusedProducer=new GamePadSystem();refusedProducer.Game_Pads.Add(new(){Controller=new()});ShimInput.BeforeStock(refusedProducer);
+        GUI.Commands.Clear();Panel.Draw();check(GUI.Commands.Any(c=>c.Text.Contains("Shim refused; Native retained")),"refused shim reason remains visible on Controls before ownership");
         Panel.Close(false);Reset(dir);
         var producer=new GamePadSystem();producer.Game_Pads.Add(new());ShimInput.BeforeStock(producer);Next();
         Panel.Toggle();GUI.Commands.Clear();Event.current=new();int ticks=_ticks;Panel.Draw();
