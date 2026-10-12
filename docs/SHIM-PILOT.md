@@ -126,5 +126,8 @@ parity or enable Wheelkit Apply for this protocol before those contracts are agr
 Source groundwork is in [SHIM-MENU-TRIAL.md](SHIM-MENU-TRIAL.md): distinct schema 4,
 latched-only Open2, exact owner profile, known-neutral release admission and a
 fixed startup/one-pair menu route through production consumers. Offline actual
-Core frames and query/lifecycle fixtures pass; live selection delivery remains
-unqualified. No force, tune, triple, native pin or installed capability change.
+Core frames and query/lifecycle fixtures pass. Private trial01 passed actual
+Daily/Title -> Garage/Workshop/Garage with Core Completed, R12 epoch 1 and zero
+force/network; all 83 file entries and 25 raw registry values restored exactly.
+Driving/DS-8X and physical response remain unqualified. No force, tune, triple,
+native pin or installed capability change.

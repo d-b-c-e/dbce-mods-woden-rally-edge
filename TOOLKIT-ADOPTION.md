@@ -47,8 +47,10 @@ Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 October 12 shared-shim menu follow-up (STD-033/034/036): schema 4 developer-only
 latched trial preserves the exact profile and provisional ABI2 pin. Actual pure
 Core frames reach source-linked production startup/menu queries in device-free
-fixtures. The fixed Garage/Workshop/return native route remains live-unqualified;
-no driving, keyboard response, FFB coexistence or installed capability promotion.
+fixtures. October 12 trial01 then passed the actual native Garage/Workshop/return
+route with Core completion, zero force/network, exact 83-file/25-registry restore
+and observed R12 epoch 1. No driving, DS-8X delivery, keyboard response, FFB
+coexistence or installed capability promotion.
 See docs/SHIM-MENU-TRIAL.md. Existing STD-016/017/020 audit gaps, STD-031 force
 reference and STD-032 portfolio alignment remain outside this bounded task.
 
