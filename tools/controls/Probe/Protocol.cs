@@ -8,10 +8,11 @@ namespace Woden.ControlsTesting;
 // module and exact installed/configuration hashes before it can submit raw input.
 public sealed record ColdRequest(int Schema, string Nonce, DateTimeOffset ExpiresUtc,
     string PluginSha256, string CoreSha256, string ConfigSha256, string BindingsSha256,
-    string NativeSha256, string OutputDirectory);
+    string NativeSha256, string OutputDirectory, string Mode = "raw", string? ControlsSha256 = null, string? ShimSha256 = null);
 public sealed record RawRequest(int Sequence, string Nonce, string Operation, string? Raw);
 public static class Protocol
 {
+    public static bool ShimAdmission(ColdRequest? request) => request?.Mode == "shim-admission";
     public static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     static readonly Regex Hash = new("^[a-fA-F0-9]{64}$", RegexOptions.CultureInvariant);
     static readonly Regex Nonce = new("^[a-f0-9]{32}$", RegexOptions.CultureInvariant);
@@ -29,7 +30,9 @@ public static class Protocol
     public static ColdRequest Admit(byte[] bytes, DateTimeOffset now, string marker)
     {
         var r = Decode<ColdRequest>(bytes, 8192);
-        if (r.Schema != 2 || !ValidNonce(r.Nonce) || marker != r.Nonce || r.ExpiresUtc <= now || r.ExpiresUtc > now.AddMinutes(5))
+        if (!(r.Schema == 2 && r.Mode == "raw" && r.ControlsSha256 is null && r.ShimSha256 is null ||
+              r.Schema == 3 && ShimAdmission(r) && r.ControlsSha256 is not null && Hash.IsMatch(r.ControlsSha256) && r.ShimSha256 is not null && Hash.IsMatch(r.ShimSha256)) ||
+            !ValidNonce(r.Nonce) || marker != r.Nonce || r.ExpiresUtc <= now || r.ExpiresUtc > now.AddMinutes(5))
             throw new InvalidDataException("Cold request identity or expiry refused.");
         foreach (var value in new[] { r.PluginSha256, r.CoreSha256, r.ConfigSha256, r.BindingsSha256, r.NativeSha256 })
             if (value is null || !Hash.IsMatch(value)) throw new InvalidDataException("Missing artifact hash.");
@@ -37,12 +40,13 @@ public static class Protocol
             throw new InvalidDataException("Evidence directory must be absolute.");
         return r;
     }
-    public static RawRequest Command(byte[] bytes, string nonce, int previous, DateTimeOffset created, DateTimeOffset processStart)
+    public static RawRequest Command(byte[] bytes, string nonce, int previous, DateTimeOffset created, DateTimeOffset processStart, bool shimAdmission = false)
     {
         var r = Decode<RawRequest>(bytes, 2048);
         if (!ValidNonce(nonce) || r.Nonce != nonce || r.Sequence != previous + 1 || r.Sequence > 1024 || created <= processStart)
             throw new InvalidDataException("Stale or mismatched command refused.");
-        if (r.Operation is not ("status" or "raw" or "stop")) throw new InvalidDataException("Unknown operation.");
+        if (r.Operation is not ("status" or "stop") && !(shimAdmission ? r.Operation is "panel" or "shot" : r.Operation == "raw"))
+            throw new InvalidDataException("Operation unavailable in this test mode.");
         if (r.Operation == "raw")
         {
             if (string.IsNullOrEmpty(r.Raw) || !r.Raw.StartsWith("inject raw ", StringComparison.Ordinal) ||

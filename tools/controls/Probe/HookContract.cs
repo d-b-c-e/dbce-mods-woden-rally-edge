@@ -19,7 +19,11 @@ public static class HookContract
         foreach(var n in new[]{"Update","Stop"}) M("Runtime",n,typeof(void));
         M("DeviceHub","Poll",typeof(void)); M("DeviceHub","CloseReaders",typeof(void));
         M("DeviceHub","TryAxis",typeof(bool),"WodenRallyEdge.Core.AxisBinding","System.Single&");
-        M("WheelInput","Button",typeof(bool),"System.String","System.Boolean");
+        var button=T("WheelInput").GetMethod("Button",All);
+        var buttonArgs=button?.GetParameters().Select(p=>p.ParameterType.FullName ?? "").ToArray();
+        Require(button?.ReturnType==typeof(bool) && buttonArgs is not null &&
+            (buttonArgs.SequenceEqual(new[]{"System.String","System.Boolean"}) ||
+             buttonArgs.SequenceEqual(new[]{"System.String","System.Boolean","MainCar"})),"WheelInput.Button (legacy or exact-car context)");
         var apply=T("WheelInput").GetMethod("Apply",All);
         Require(apply?.GetParameters().Length==1 && apply.GetParameters()[0].ParameterType.Name=="Controls" && apply.ReturnType.Name=="InputLease","WheelInput.Apply");
         foreach(var n in new[]{"BeginAxis","BeginButton","FinishAxis","TryCommit","RetrySave"}) Require(T("WheelInput").GetMethod(n,All)!=null,"WheelInput."+n);

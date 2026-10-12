@@ -15,13 +15,34 @@ namespace HarmonyLib {
     public static class Priority {public const int First=800, Last=0;}
 }
 namespace UnityEngine {
+    public struct Vector2 {public float x,y;}
+    public static class ScreenCapture {public static string? LastPath;public static void CaptureScreenshot(string path,int size){LastPath=path;}}
     public static class Time {public static int frameCount=1;}
     public class Transform {public string name="node"; public Transform parent=null!;}
     public class GameObject {public Transform transform=new();}
 }
+namespace UnityEngine.InputSystem {public static class Gamepad {public static List<object> all=new();}}
+public class GamePadSystem {public List<Game_Pad> Game_Pads=new();public class Game_Pad {
+    public object? Controller;public UnityEngine.Vector2 LS,RS;public float LT,RT;
+    public bool A,B,X,Y,Back,Start,LB,RB,L3,R3,Dpad_Up,Dpad_Down,Dpad_Left,Dpad_Right,AnyKey;
+}}
 namespace UnityEngine.EventSystems {public class EventSystem {public static EventSystem? current; public UnityEngine.GameObject? currentSelectedGameObject;}}
 namespace WodenRallyEdge {
-    public static class Runtime {public static DeviceHub Devices=new(); public static bool DiagnosticNoForce; public static bool Focused=>true;}
+    public static class Runtime {public static DeviceHub Devices=new(); public static bool DiagnosticNoForce; public static bool Focused=>true;
+        public static object? Local;public static Force Force=new();public static Output Output=new();public static Settings Settings=new();}
+    public class Force {public long Attempts,Opens,Failures;public bool Connected;public float Sent;}
+    public class Output {public long ForzaPackets;}
+    public class Settings {public string UiPage="Setup";}
+    public static class Panel {public static bool Open{get;set;}public static void Toggle(){Open=!Open;}}
+    public static class ShimInput {
+        public static GamePadSystem? _producer;public static int _frame;public static IntPtr _handle=new(7);public static int Stops;
+        public static bool Owns{get;set;} public static bool Ready{get;set;} public static string Status=>Ready?"active":"refused";
+        public static Guid? SteeringGuid=>null;public static string TransmissionStatus=>"Sequential";
+        public static void Stop(string reason){Stops++;Ready=false;}
+        public static object Action(string id)=>new ActionValue(0,"Live",false);
+        public record ActionValue(float Value,string Status,bool Injected);
+    }
+    public static class ShimNative {public static string ProfileInfo(IntPtr h)=>"ok=1";public static string StartReport(IntPtr h)=>"ordinary";public static string DeviceReports(IntPtr h)=>"physical";}
     public class DeviceHub {
         public System.Collections.IEnumerable Devices=Array.Empty<object>(); public int Closes;
         public void CloseReaders(){Closes++;Devices=Array.Empty<object>();}

@@ -1,5 +1,13 @@
 # Production Apply and raw controls qualification
 
+October 12: the same runner has a separate `-ShimAdmission` at-rest ordinary
+shim pilot. It skips Apply/raw workloads, copies accepted Controls bytes exactly,
+stages a reviewed production plugin/Core plus the pinned shim, and retains the
+existing native force fence and exact owner restoration. Its schema 3 mode
+allows only status/panel/shot/stop and stops the shim's separate reader on exit.
+See [the exact private recipe](../../docs/SHIM-ADMISSION-TEST.md). This mode has
+not run; existing raw-controls results do not qualify the shim.
+
 This developer harness is separate from the player package. Its intended proof
 is Wheelkit production Apply -> the installed consumer reads those files -> an
 independent raw device sample -> the game's menu or car responds. A trajectory
@@ -70,6 +78,7 @@ dotnet build tools/controls/Probe/Woden.ControlsProbe.csproj -c Release
 dotnet build tools/controls/VerifyConfig -c Release
 pwsh -NoProfile -File tools/controls/Test-OwnerFiles.ps1
 pwsh -NoProfile -File tools/controls/Test-Recovery.ps1
+pwsh -NoProfile -File tools/controls/Test-ShimAdmission.ps1
 pwsh -NoProfile -File tools/controls/Test-ApplyCheck.ps1
 ```
 

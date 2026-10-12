@@ -33,6 +33,10 @@ static class Test
         Set("Deadline",Now+300);Set("NextIdentity",double.PositiveInfinity);Set("ObserveUntil",Now+300);Set("NextStatus",0d);
         Set("OwnedEvidence",Dir);Set("ProcessStart",DateTimeOffset.UtcNow.AddMinutes(-1));
         Set("Request",new ColdRequest(1,new string('a',32),DateTimeOffset.UtcNow.AddMinutes(5),"", "", "", "", "",Dir));
+        Set("ShimIdentityWritten",false);Set("ShimOriginalPage",null);WodenRallyEdge.Runtime.Local=null;WodenRallyEdge.Runtime.Force=new();WodenRallyEdge.Runtime.Output=new();WodenRallyEdge.Runtime.Settings=new();
+        WodenRallyEdge.ShimInput.Stops=0;WodenRallyEdge.ShimInput.Ready=true;WodenRallyEdge.ShimInput.Owns=true;
+        WodenRallyEdge.ShimInput._producer=new(){Game_Pads=new(){new(){AnyKey=true}}};WodenRallyEdge.ShimInput._frame=21;
+        WodenRallyEdge.Panel.Open=false;UnityEngine.ScreenCapture.LastPath=null;
         Set("Trace",new StreamWriter(new FileStream(Path.Combine(Dir,"observations.tsv"),FileMode.CreateNew,FileAccess.Write,FileShare.Read),new UTF8Encoding(false)));
         Submitted=0;NativeOk=true;
         var native=new NativeTestInjectionClient(flags=>flags==1?1:0,(cmd,reason,n)=>{Submitted++;Check(File.Exists(Path.Combine(Dir,"command-"+Get<int>("Sequence")+".json")),"archived before native call");CStr(reason,"accepted");return 1;},(text,n)=>{CStr(text,"latched");return NativeOk?1:0;},slot=>NativeOk?1:-1);
@@ -103,6 +107,31 @@ static class Test
         Reset("native-fault");Call("AfterSample",new object());
         Check(!Get<bool>("Armed") && !Get<bool>("Closed") && WodenRallyEdge.Runtime.Devices.Closes==0,"native observer failure defers closure safely");
         Tick();Stopped("native observation fault");
+        foreach(var scenario in new[]{"observe","raw-refused","expiry","car","force","network"}) {
+            Reset("shim-"+scenario);Set("Request",Get<ColdRequest>("Request") with{Schema=3,Mode="shim-admission"});
+            if(scenario=="observe") {
+                Call("AfterTick");Check(File.ReadAllText(Path.Combine(Dir,"shim-ProfileInfo.txt"))=="ok=1","actual observer retains native parser report");
+                Command(operation:"panel");Tick();Check(WodenRallyEdge.Panel.Open && WodenRallyEdge.Runtime.Settings.UiPage=="Controls","native panel selected without input");
+                Command(2,"shot");Tick();Check(UnityEngine.ScreenCapture.LastPath==Path.Combine(Dir,"shim-panel.png"),"bounded native screenshot request");
+                Command(3,"stop");Tick();Stopped("shim explicit stop");
+                Check(WodenRallyEdge.Runtime.Settings.UiPage=="Setup","temporary panel selection restored before production shutdown/save");
+                string rows=File.ReadAllText(Path.Combine(Dir,"observations.tsv"));
+                Check(rows.Contains("\"unityGamepads\":0") && rows.Contains("\"AnyKey\":true") && rows.Contains("\"tickFrame\":21"),"native classification/tick observed without clearing keyboard overlay");
+                Check(WodenRallyEdge.ShimInput._producer!.Game_Pads[0].AnyKey,"observer preserves keyboard state");
+            } else {
+                if(scenario=="raw-refused"){Command();Tick();}
+                else if(scenario=="expiry"){Set("Deadline",Now-1);Tick();}
+                else {
+                    if(scenario=="car")WodenRallyEdge.Runtime.Local=new();
+                    if(scenario=="force")WodenRallyEdge.Runtime.Force.Attempts=1;
+                    if(scenario=="network")WodenRallyEdge.Runtime.Output.ForzaPackets=1;
+                    Call("AfterTick");
+                }
+                Stopped("shim "+scenario);
+            }
+            Check(Submitted==0,"shim mode never submits raw input");
+            Check(WodenRallyEdge.ShimInput.Stops==1 && !WodenRallyEdge.ShimInput.Ready && WodenRallyEdge.ShimInput.Owns,"separate shim stops once with sticky ownership");
+        }
         Console.WriteLine($"PASS: {Checks} production-addon lifecycle assertions; private fixture {Base}");
     }
     sealed class BadText {public override string ToString()=>throw new InvalidOperationException("format failed");}

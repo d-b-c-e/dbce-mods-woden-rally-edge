@@ -32,6 +32,18 @@ foreach (var operation in new[] { "status", "stop" })
     Check(Protocol.Command(Bytes(command with { Operation=operation, Raw=null }), nonce, 0, now.AddSeconds(1), now).Operation == operation);
 Console.WriteLine($"PASS: {count} controls protocol checks; no engine, file mutation, device or native calls.");
 
+var shim=cold with {Schema=3,Mode="shim-admission",ControlsSha256=hash,ShimSha256=hash};
+Check(Protocol.Admit(Bytes(shim),now,nonce)==shim);
+foreach(var r in new[]{shim with{Schema=2},shim with{Mode="raw"},shim with{Mode="anything"},shim with{ControlsSha256=null},shim with{ControlsSha256="bad"},shim with{ShimSha256=null},shim with{ShimSha256="bad"},cold with{ControlsSha256=hash}})
+    Refuse(()=>Protocol.Admit(Bytes(r),now,nonce));
+Refuse(()=>Protocol.Command(Bytes(command),nonce,0,now.AddSeconds(1),now,true));
+foreach(var op in new[]{"status","stop","panel","shot"}) {
+    var c=command with{Operation=op,Raw=null};
+    Check(Protocol.Command(Bytes(c),nonce,0,now.AddSeconds(1),now,true)==c);
+    if(op is "panel" or "shot") Refuse(()=>Protocol.Command(Bytes(c),nonce,0,now.AddSeconds(1),now));
+}
+Console.WriteLine($"PASS: {count} total protocol checks including isolated shim admission and raw refusal.");
+
 int configs=0;
 byte[] Ini(string text)=>Encoding.UTF8.GetBytes(text);
 string config="[ForceFeedback]\nEnabled = false\nStrengthPercent = 50\n\n[Wheel]\nEnabled = true\n";

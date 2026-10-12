@@ -17,7 +17,7 @@ namespace Woden.ControlsTesting;
 
 [BepInPlugin(Id, "Woden developer raw controls probe", "0.1.0")]
 [BepInDependency("dbce.wodenrallyedgewheel", BepInDependency.DependencyFlags.HardDependency)]
-public sealed class ControlsProbe : BasePlugin
+public sealed partial class ControlsProbe : BasePlugin
 {
     const string Id = "dbce.woden.controls-test";
     static readonly BindingFlags All = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
@@ -77,6 +77,7 @@ public sealed class ControlsProbe : BasePlugin
             Match(Mod.Location,Request.PluginSha256);
             var core=AppDomain.CurrentDomain.GetAssemblies().Single(a=>a.GetName().Name=="WodenRallyEdge.Core");
             Match(core.Location,Request.CoreSha256);
+            if(Protocol.ShimAdmission(Request)) VerifyShimAdmission();
             string configSnapshot=Path.Combine(Path.GetDirectoryName(Request.OutputDirectory)!,"applied.cfg");
             Plain(configSnapshot);
             var addedDefaults=ConfigContract.Verify(ReadBounded(configSnapshot,1024*1024),
@@ -105,7 +106,7 @@ public sealed class ControlsProbe : BasePlugin
             Trace=new(new FileStream(Path.Combine(output,"observations.tsv"),FileMode.CreateNew,FileAccess.Write,FileShare.Read),new UTF8Encoding(false));
             Trace.WriteLine("time_s\tframe\tkind\tdata");
             File.WriteAllText(Path.Combine(output,"identity.json"),JsonSerializer.Serialize(new{request=Request,process=Environment.ProcessId,processStart=ProcessStart,
-                probeSha256=Hash(typeof(ControlsProbe).Assembly.Location),nativePath=NativePath,physicalOutput=false,kind="native-raw-before-binding",configAddedDefaults=addedDefaults},Protocol.Json));
+                probeSha256=Hash(typeof(ControlsProbe).Assembly.Location),nativePath=NativePath,physicalOutput=false,kind=Protocol.ShimAdmission(Request)?"ordinary-shim-menu-admission":"native-raw-before-binding",configAddedDefaults=addedDefaults},Protocol.Json));
             Patch(Method(Runtime,"Update"),nameof(BeforeTick),nameof(AfterTick));
             Patch(Method(Runtime,"Stop"),nameof(OnStop));
             Patch(Method(Hub,"Poll"),postfix:nameof(AfterPoll));
@@ -169,7 +170,7 @@ public sealed class ControlsProbe : BasePlugin
             // replace bytes between our validation and archival/submission.
             string claimed=Path.Combine(Request.OutputDirectory,"command-claimed.json");
             File.Move(command,claimed);
-            var r=Protocol.Command(ReadBounded(claimed,2048),Request.Nonce,Sequence,File.GetLastWriteTimeUtc(claimed),ProcessStart);
+            var r=Protocol.Command(ReadBounded(claimed,2048),Request.Nonce,Sequence,File.GetLastWriteTimeUtc(claimed),ProcessStart,Protocol.ShimAdmission(Request));
             Sequence=r.Sequence; File.Move(claimed,Path.Combine(Request.OutputDirectory,"command-"+Sequence+".json"));
             bool ok=true; string reply=Native!.Status;
             if(r.Operation=="raw")
@@ -180,6 +181,7 @@ public sealed class ControlsProbe : BasePlugin
                 Row(ok?"request-accepted":"request-refused",r.Raw!+"; "+reply);
                 if(!Native.Armed) throw new InvalidDataException("Native fence confirmation lost.");
             }
+            if(r.Operation is "panel" or "shot") ShimVisual(r.Operation);
             string nextReply=Path.Combine(Request.OutputDirectory,"reply.next.json");
             File.WriteAllText(nextReply,JsonSerializer.Serialize(new{r.Sequence,r.Nonce,ok,reply,physicalOutput=false},Protocol.Json));
             File.Move(nextReply,Path.Combine(Request.OutputDirectory,"reply.json"),true);
@@ -193,6 +195,7 @@ public sealed class ControlsProbe : BasePlugin
         try
         {
             NextStatus=Clock.Elapsed.TotalSeconds+.1;
+            if(Protocol.ShimAdmission(Request)) ObserveShim();
             Row("state","focused="+Runtime.GetProperty("Focused",All)!.GetValue(null)+" menu="+Type("MenuNavigation").GetProperty("Status",All)!.GetValue(null));
             if(Clock.Elapsed.TotalSeconds<=ObserveUntil)
             {
@@ -293,6 +296,15 @@ public sealed class ControlsProbe : BasePlugin
     static void Close(string reason)
     {
         if(Closed) return; Closed=true; Armed=false;
+        // The ordinary shim owns a separate reader. Closing DeviceHub alone
+        // cannot neutralize it at timeout/failure; ownership remains sticky.
+        if(Protocol.ShimAdmission(Request))
+        {
+            try { RestoreShimPresentation(); }
+            catch(Exception ex) { reason+="; presentation restore failed: "+ex.Message; }
+            try { Method(Type("ShimInput"),"Stop").Invoke(null,new object[]{"admission test ended: "+reason}); }
+            catch(Exception ex) { reason+="; shim stop failed: "+ex.Message; }
+        }
         try { var hub=Runtime?.GetField("Devices",All)?.GetValue(null); if(hub is not null) Method(Hub,"CloseReaders").Invoke(hub,null); }
         catch(Exception ex) { reason+="; reader close failed: "+ex.Message; }
         try { Trace?.Dispose(); } catch(Exception ex) { reason+="; trace close failed: "+ex.Message; } finally { Trace=null; }
