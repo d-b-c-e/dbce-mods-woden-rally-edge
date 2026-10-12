@@ -6,7 +6,9 @@ stages a reviewed production plugin/Core plus the pinned shim, and retains the
 existing native force fence and exact owner restoration. Its schema 3 mode
 allows only status/panel/shot/stop and stops the shim's separate reader on exit.
 See [the exact private recipe](../../docs/SHIM-ADMISSION-TEST.md). This mode has
-not run; existing raw-controls results do not qualify the shim.
+run once and refused before arming because of an ambiguous panel overload; exact
+owner restoration passed. The exact-signature follow-up is source-tested; existing
+raw-controls results and this refused run do not qualify the shim.
 
 This developer harness is separate from the player package. Its intended proof
 is Wheelkit production Apply -> the installed consumer reads those files -> an

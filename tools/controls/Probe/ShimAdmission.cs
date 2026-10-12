@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Reflection;
 using BepInEx;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -11,6 +12,8 @@ public sealed partial class ControlsProbe
 {
     static bool ShimIdentityWritten;
     static string? ShimOriginalPage;
+    static MethodInfo PanelToggle => Type("Panel").GetMethod("Toggle",All,null,System.Type.EmptyTypes,null) ??
+        throw new MissingMethodException("Panel.Toggle()");
     static object? Value(object target,string name) => target.GetType().GetProperty(name,All)?.GetValue(target) ??
         target.GetType().GetField(name,All)?.GetValue(target) ?? throw new MissingMemberException(target.GetType().FullName,name);
     static object? Static(string type,string name) => Type(type).GetProperty(name,All)?.GetValue(null) ?? Type(type).GetField(name,All)?.GetValue(null);
@@ -23,7 +26,8 @@ public sealed partial class ControlsProbe
         foreach(var name in new[]{"Owns","Ready","Status","SteeringGuid","TransmissionStatus"})
             if(Type("ShimInput").GetProperty(name,All) is null) throw new MissingMemberException("Shim observer seam: "+name);
         foreach(var name in new[]{"Stop","Action"}) Method(Type("ShimInput"),name);
-        Method(Type("Panel"),"Toggle");
+        _=PanelToggle;
+        HookContract.VerifyShim(Mod);
         ShimIdentityWritten=false;
         ShimOriginalPage=null;
     }
@@ -72,7 +76,7 @@ public sealed partial class ControlsProbe
             var settings=Field(Runtime,"Settings")!;
             ShimOriginalPage ??= (string)Field(settings.GetType(),"UiPage",settings)!;
             settings.GetType().GetField("UiPage",All)!.SetValue(settings,"Controls");
-            if(!open) Method(panel,"Toggle").Invoke(null,null);
+            if(!open) PanelToggle.Invoke(null,null);
             Row("visual","Opened F6 Controls using the native panel method; no keyboard input.");
         }
         else

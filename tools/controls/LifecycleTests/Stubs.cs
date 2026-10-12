@@ -33,7 +33,8 @@ namespace WodenRallyEdge {
     public class Force {public long Attempts,Opens,Failures;public bool Connected;public float Sent;}
     public class Output {public long ForzaPackets;}
     public class Settings {public string UiPage="Setup";}
-    public static class Panel {public static bool Open{get;set;}public static void Toggle(){Open=!Open;}}
+    public static class Panel {public static bool Open{get;set;}public static void Toggle(){Open=!Open;}
+        private static void Toggle(float x,float y,float width,string text,ref bool value)=>throw new Exception("Renderer widget is not the panel entry point");}
     public static class ShimInput {
         public static GamePadSystem? _producer;public static int _frame;public static IntPtr _handle=new(7);public static int Stops;
         public static bool Owns{get;set;} public static bool Ready{get;set;} public static string Status=>Ready?"active":"refused";

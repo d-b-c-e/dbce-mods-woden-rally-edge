@@ -1,6 +1,7 @@
 # Private ordinary shim menu admission
 
-Prepared October 12; **not launched or installed**. This is an at-rest native-menu
+Prepared October 12; first launch refused before addon arming, then restored
+exactly (see run 01 below). This is an at-rest native-menu
 check of production `Backend=Shim`, not axes/driving, keyboard response, FFB
 coexistence or physical acceptance. Native remains the public default. The
 provisional research shim is not a promoted toolkit/player package pin.
@@ -137,4 +138,31 @@ Preparation checks: addon and config verifier compile with zero warnings/errors;
 47 protocol, 13 configuration, 173 actual-addon lifecycle, 48 actual production
 metadata seams, 63 recovery, 28 file-restoration and 16 backend-staging checks
 pass. These fixtures use fake engine/native/registry boundaries and isolated
-files; none opened a game/device or edited installed owner state.
+files; these fixtures opened no game/device or installed owner state.
+
+## Run 01: addon overload refusal, exact restoration
+
+The reviewed 90-second pilot launched the ordinary Steam game as exact PID 71596
+at `2026-10-12T08:26:24.6172680Z`. The addon refused in `VerifyShimAdmission`
+before arming its native force fence: the name-only `Panel.Toggle` reflection
+matched both the parameterless panel entry point and the renderer's private
+five-argument toggle widget. Production shim terminal stop ran; the independent
+config and process output mutes stayed latched. The log showed zero force writes
+and Forza packets, no local car ticks, and ordinary splash/daily-message scenes.
+There was no raw/OS input, driving or screenshot; parser/open/tick admission and
+rendered UI remain unqualified.
+
+The supervisor closed the owned process normally when native admission was not
+confirmed. `restored.txt` is `2026-10-12T08:27:39.4844745Z`; independent readback
+matches all 83 file entries and 25 raw registry names/types/bytes, with no extra
+files and the original installed receipt unchanged. Woden is closed and the lease
+released. Evidence is private `results/shim-menu-admission-01/`, including
+`independent-readback.json`, config/runtime verification and the archived log
+under `after-be09fdc962d8425aa5ea7f49edc1d758/file/log`.
+
+The addon follow-up uses the exact parameterless method signature. The device-free
+compiled metadata check now verifies 24 additional actual shim/panel/output seams,
+and the lifecycle fixture includes the conflicting widget overload. All 173
+actual-addon callback checks pass with that overload present; the addon builds
+without warnings. Production plugin/Core/shim pins remain unchanged. A fresh
+reviewed run must use a new result directory and verify the rebuilt addon hash.

@@ -5,6 +5,33 @@ namespace Woden.ControlsTesting;
 public static class HookContract
 {
     const BindingFlags All=BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static;
+    public static int VerifyShim(Assembly mod)
+    {
+        int count=0;
+        void Require(bool ok,string what){count++;if(!ok)throw new MissingMemberException("Shim admission seam changed: "+what);}
+        Type T(string name)=>mod.GetType("WodenRallyEdge."+name,true)!;
+        // The real renderer also has Toggle(x,y,width,text,ref bool). Require
+        // the exact panel entry point; name-only lookup is ambiguous at runtime.
+        Require(T("Panel").GetMethod("Toggle",All,null,Type.EmptyTypes,null)?.ReturnType==typeof(void),"Panel.Toggle()");
+        Require(T("Panel").GetProperty("Open",All)?.PropertyType==typeof(bool),"Panel.Open");
+        Require(T("Settings").GetField("UiPage",All)?.FieldType==typeof(string),"Settings.UiPage");
+        Require(T("Settings").GetField("InputBackend",All)?.FieldType==typeof(string),"Settings.InputBackend");
+        foreach(var name in new[]{"Owns","Ready"})Require(T("ShimInput").GetProperty(name,All)?.PropertyType==typeof(bool),"ShimInput."+name);
+        foreach(var name in new[]{"Status","TransmissionStatus"})Require(T("ShimInput").GetProperty(name,All)?.PropertyType==typeof(string),"ShimInput."+name);
+        Require(T("ShimInput").GetProperty("SteeringGuid",All)?.PropertyType==typeof(Guid?),"ShimInput.SteeringGuid");
+        Require(T("ShimInput").GetField("_frame",All)?.FieldType==typeof(int),"ShimInput._frame");
+        Require(T("ShimInput").GetField("_handle",All)?.FieldType==typeof(IntPtr),"ShimInput._handle");
+        Require(T("ShimInput").GetField("_producer",All)?.FieldType.FullName=="GamePadSystem","ShimInput._producer");
+        Require(T("ShimInput").GetMethod("Stop",All,null,new[]{typeof(string)},null)?.ReturnType==typeof(void),"ShimInput.Stop(string)");
+        Require(T("ShimInput").GetMethod("Action",All,null,new[]{typeof(string)},null)?.ReturnType.FullName=="WodenRallyEdge.Core.ShimAction","ShimInput.Action(string)");
+        foreach(var name in new[]{"ProfileInfo","StartReport","DeviceReports"})Require(T("ShimNative").GetMethod(name,All,null,new[]{typeof(IntPtr)},null)?.ReturnType==typeof(string),"ShimNative."+name);
+        foreach(var name in new[]{"Attempts","Opens","Failures"})Require(T("ForceController").GetProperty(name,All)?.PropertyType==typeof(long),"ForceController."+name);
+        Require(T("ForceController").GetProperty("Connected",All)?.PropertyType==typeof(bool),"ForceController.Connected");
+        Require(T("ForceController").GetProperty("Sent",All)?.PropertyType==typeof(float),"ForceController.Sent");
+        Require(T("Runtime").GetField("Output",All)?.FieldType.GetProperty("ForzaPackets",All)?.PropertyType==typeof(long),"Output.ForzaPackets");
+        Require(T("Runtime").GetField("Local",All)?.FieldType.FullName=="MainCar","Runtime.Local");
+        return count;
+    }
     public static int Verify(Assembly mod, Assembly force)
     {
         int count=0;
