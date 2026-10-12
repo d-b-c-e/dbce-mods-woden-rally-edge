@@ -78,6 +78,8 @@ if(args.Length==4) {
     var controls=File.ReadAllBytes(args[0]);var profile=File.ReadAllBytes(args[1]);var workload=File.ReadAllBytes(args[2]);
     var plan=CarWorkload.Read(controls,profile,workload);
     Check(plan.Pulses.Length==10 && plan.Neutral.Command.Split('\n').Length==6 && plan.Neutral.Command.Contains("value=1743"));
+    Check(plan.Pulses.Select(p=>p.Action).SequenceEqual(new[]{"shiftUp","shiftDown","handbrake","handbrake","steer","steer","throttle","throttle","brake","brake"}));
+    Check(plan.Pulses.Select(p=>p.Expected).SequenceEqual(new[]{1d,1d,.5,1,-.5,.5,.5,1,.5,1}));
     foreach(int which in new[]{0,1,2}) {var all=new[]{controls.ToArray(),profile.ToArray(),workload.ToArray()};all[which][10]^=1;Refuse(()=>CarWorkload.Read(all[0],all[1],all[2]));}
     using var output=new StreamWriter(new FileStream(args[3],FileMode.CreateNew,FileAccess.Write));
     foreach(var p in new[]{plan.Neutral}.Concat(plan.Pulses.SelectMany(p=>new[]{p,plan.Neutral}))) {

@@ -37,8 +37,13 @@ static partial class Test
         Begin("car-original-complete");Call("AfterTick");Check(Get<int>("CarBatch")==0&&!WodenRallyEdge.ShimInput.CarDelivery,"native startup has no injected input before car/countdown");
         var live=new MainCar();WodenRallyEdge.Runtime.Local=live;WodenRallyEdge.Runtime.RaceReady=false;Call("AfterTick");Check(Get<int>("CarBatch")==0,"countdown cannot start raw workload");
         WodenRallyEdge.Runtime.RaceReady=true;Call("AfterTick");Check(Get<int>("CarBatch")==1&&WodenRallyEdge.ShimInput.CarDelivery,"native car identity arms a neutral baseline first");
+        FinishPulse();Check(Get<CarPulse>("CarPulse").Action=="shiftUp"&&live.MyGear==1,"first post-baseline pulse qualifies upshift before moving axes");
+        FinishPulse();Check(Get<CarPulse>("CarPulse").Action=="neutral"&&live.MyGear==2,"upshift is followed by a native neutral plateau");
+        FinishPulse();Check(Get<CarPulse>("CarPulse").Action=="shiftDown"&&live.MyGear==2,"downshift qualifies before handbrake and moving axes");
+        FinishPulse();Check(Get<CarPulse>("CarPulse").Action=="neutral"&&live.MyGear==1,"downshift restores native baseline gear before other controls");
         while(!Get<bool>("CarEnding")&&Get<bool>("Armed"))FinishPulse();
         Check(Get<int>("CarPulseCount")==23&&Get<int>("CarBatch")==24&&live.MyGear==1&&!WodenRallyEdge.ShimInput.CarDelivery,"bounded original six-action workload plus settle/neutral ends delivery");
+        WodenRallyEdge.ShimInput.Run=3;Call("AfterTick");Check(Get<bool>("Armed")&&WodenRallyEdge.Runtime.Output.RecordingStatus=="Recording","native plateaus cannot replace Core Completed");
         WodenRallyEdge.ShimInput.Run=4;Call("AfterTick");Set("CarNeutral",Now-1);Call("AfterTick");
         Stopped("car original complete");Check(Get<string>("CarVerdict").StartsWith("passed:")&&WodenRallyEdge.Runtime.Output.RecordingStatus=="Completed","Core completion and original recorder completion both required");
         Check(Submitted==0,"original car batches never enter legacy raw injector");
@@ -46,7 +51,11 @@ static partial class Test
         while(!Get<bool>("CarEnding")&&Get<bool>("Armed"))FinishPulse();
         WodenRallyEdge.Runtime.Output.Complete=false;WodenRallyEdge.ShimInput.Run=4;Call("AfterTick");Set("CarNeutral",Now-1);Call("AfterTick");
         Stopped("car recorder failure");Check(!Get<string>("CarVerdict").StartsWith("passed:"),"input plateaus cannot hide recorder completion failure");
-        foreach(string fault in new[]{"focus","force","network","epoch","missing-device","automatic","changing","no-plateau","no-query","no-gear","recording-drop","replay-active","profile-changed"})
+        Begin("car-final-native-neutral-missing");WodenRallyEdge.Runtime.Local=new MainCar();Call("AfterTick");
+        while(Get<CarPulse>("CarPulse").Action!="settle"&&Get<bool>("Armed"))FinishPulse();
+        FinishPulse();Check(Get<CarPulse>("CarPulse").Action=="neutral","settle is followed by a final native neutral plateau");FinishPulse(values:false);
+        Stopped("car final native neutral missing");Check(!Get<bool>("CarEnding")&&!Get<string>("CarVerdict").StartsWith("passed:"),"a terminal delay cannot replace final native neutral evidence");
+        foreach(string fault in new[]{"focus","force","network","epoch","missing-device","automatic","changing","native-state","no-plateau","no-query","no-gear","recording-drop","replay-active","profile-changed"})
         {
             Begin("car-fault-"+fault);WodenRallyEdge.Runtime.Local=new MainCar();Call("AfterTick");
             var car=(MainCar)WodenRallyEdge.Runtime.Local;
@@ -57,6 +66,7 @@ static partial class Test
             if(fault=="missing-device")WodenRallyEdge.ShimNative.Report="[]";
             if(fault=="automatic")car.Aids!.Automatic=true;
             if(fault=="changing")car.TransmissionSystem!.Changing=true;
+            if(fault=="native-state")WodenRallyEdge.Runtime.RaceReady=false;
             if(fault=="recording-drop")WodenRallyEdge.Runtime.Output.RecordingDrops=1;
             if(fault=="replay-active")WodenRallyEdge.StagePlayback.Session.Active=true;
             if(fault=="profile-changed")File.AppendAllText(Path.Combine(BepInEx.Paths.ConfigPath,"dbce-controls.ini"),"# changed\n");

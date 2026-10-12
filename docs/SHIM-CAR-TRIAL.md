@@ -25,8 +25,8 @@ be live and stable. DS-8X product in the accepted bytes is
 `05310483-0000-0000-0000-504944564944`. Names cannot substitute for identity.
 
 Only six driving actions are supported. Each 700 ms raw batch includes all four
-axes and both shift buttons. Neutral precedes and separates steering -0.5/+0.5;
-throttle, brake and handbrake 0.5/1; and one DS-8X up/down press. A brake/neutral
+axes and both shift buttons. Neutral precedes and separates one DS-8X up/down
+press; handbrake 0.5/1; steering -0.5/+0.5; then throttle and brake 0.5/1. A brake/neutral
 pair then `end` completes 23 native plateaus / at most 24 batches. No menu action
 can follow. Each batch requires native Manual, not-changing, racing/unlocked
 state and identity. The trial requires sustained native Controls/MainCar values,
@@ -142,6 +142,50 @@ the cause of the input trial's interruption. A coordinated follow-up should
 compare HUD motion against the native camera/world motion and triple HUD
 anchoring before changing input, timing or camera code. No HUD fix or visual
 acceptance is claimed here.
+
+## Reordered follow-up candidate — source only
+
+The next candidate moves both sequential shifts ahead of handbrake, steering,
+throttle and brake. This isolates the remaining shift checks while the car is
+still at its native starting position. The original hashed samples, 700 ms
+pulses, six raw records per batch, neutral intervals, 23 native plateaus/24-batch
+limit and final brake/neutral/Completed requirements are unchanged. It does not
+claim to fix respawn or alter native physics. Neutral proof means observed zero
+native control inputs; it does not claim that vehicle velocity or wheel torque
+is zero. Missing final native-neutral evidence still refuses completion.
+
+Device-free checks passed: actual pinned Core 2,640 frames / 5,166 raw provenance
+checks, production UI/consumer 15,857 assertions, addon lifecycle 341 assertions,
+protocol 88 and config 13 cases. The lifecycle fixture verifies the early native
+gear +1/-1 sequence, neutral between shifts, native-state refusal, missing final
+native-neutral refusal and separate Core Completed requirement. Private evidence:
+`artifacts/core-car-fixture-5e4e660953534f1da8b234916a4dff96`,
+`artifacts/shim-car-reorder-{tests,lifecycle}.log`. No follow-up game run yet.
+
+### Native brake/reverse and respawn evidence
+
+A read-only metadata/instruction audit used the same supported GameAssembly
+SHA-256 `f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c`.
+The existing interop describes `MainCar.Brake`, but its wrapper alone cannot
+establish behavior. The pinned native instructions at VA `0x1804fca00` show a
+low-speed branch that increments `BrakeTimer` when `TrueSpeed <= 1`. With
+`BrakeTimer > 30`, grounded, zero accelerator, positive fuel, inclination below
+55, speed above negative `Max_Reverse_Speed` and a native mode gate, that branch
+sets `MyGear=1`, clears wheel brake torque and writes negative
+`EngineSystem.ActualPower` as motor torque. This branch does not test
+`Aids.Automatic`. Thus a held brake can enter native reverse drive even in this
+Manual trial. The capture's later negative velocity/torque is consistent with
+that path; the audit does not prove the branch was executed in trial01.
+
+`MainCar.FixedUpdate` also has native respawn eligibility for
+`AutoRespawnOnFlip` with inclination above 85 for over 150 updates, an
+`OutOfBoundsTimer > 120` path subject to a native mode gate, and
+`RespawnTime >= 1`. `RespawnFunc` starts the native coroutine only when not
+already respawning. Trial01 did not capture these eligibility fields, so the
+particular trigger remains unknown. The native mode gate has not been named in
+this bounded audit. No assist, setting, torque, timer or position is changed.
+Private audit: `artifacts/shim-car-native-audit/{identity.json,selected.json,
+MainCar.Brake.asm,MainCar.FixedUpdate.asm,MainCar.RespawnFunc.asm}`.
 
 ## Command used for the first coordinated run
 

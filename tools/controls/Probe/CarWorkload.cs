@@ -37,7 +37,10 @@ public sealed class CarWorkload
         return new(result);
     }
     public CarPulse Neutral => new("neutral",0,Batch(null));
-    public CarPulse[] Pulses => Actions.SelectMany(id=>Samples[id].Where(s=>s.Expected!=0).Select(s=>s with{Command=Batch(s)})).ToArray();
+    // Observe both sequential edges before the moving pulses can leave the native
+    // racing state. This order does not change raw samples or relax respawn gates.
+    public CarPulse[] Pulses => new[]{"shiftUp","shiftDown","handbrake","steer","throttle","brake"}
+        .SelectMany(id=>Samples[id].Where(s=>s.Expected!=0).Select(s=>s with{Command=Batch(s)})).ToArray();
     public CarPulse Settle => new("settle",1,Batch(Samples["brake"].Single(s=>s.Expected==1)));
     string Batch(CarPulse? selected) => string.Join("\n",Actions.Select(id=>selected?.Action==id ? selected.Command : Samples[id].First(s=>s.Expected==0).Command));
 }
