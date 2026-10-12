@@ -1,12 +1,13 @@
 # Private shim admission checkpoint — 2026-10-12
 
-Two reviewed no-force at-rest runs restored the installed owner state exactly.
-Run02 admitted the real native producer (zero Unity Gamepads; four clean cached
-pads) and rendered the production panel, but shim open/ticks never began because
-the game's BepInEx console held foreground. A shim-only verified Unity main-window
-fallback and pre-ownership status display now pass offline checks; live retry is
-pending review. Physical FFB keeps its foreground requirement. No permanent
-install or driving/physical acceptance. See [shim evidence](../../../docs/SHIM-ADMISSION-TEST.md).
+Three reviewed no-force at-rest runs restored the installed owner state exactly.
+Run03 parsed the exact owner profile and admitted the ordinary shim with 507
+ready observations, native producer isolation and a rendered active panel. The
+verified Unity main-window path works behind the game's console while the actual
+Unity focus gate reports neutral delivery. Positive device epochs were missed by
+the startup-only report; focused action delivery, driving and FFB coexistence
+remain unqualified. Physical FFB keeps its foreground requirement. No permanent
+install or physical acceptance. See [shim evidence](../../../docs/SHIM-ADMISSION-TEST.md).
 
 # Current controls checkpoint — 2026-10-10
 

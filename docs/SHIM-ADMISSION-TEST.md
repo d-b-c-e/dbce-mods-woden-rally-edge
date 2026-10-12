@@ -1,7 +1,8 @@
 # Private ordinary shim menu admission
 
 Prepared October 12; run 01 refused before addon arming; run 02 armed but waited
-for a foreground Unity window. Both restored exactly (see below). This is an at-rest native-menu
+for a foreground Unity window; run 03 admitted and ticked the shim. All restored
+exactly (see below). This is an at-rest native-menu
 check of production `Backend=Shim`, not axes/driving, keyboard response, FFB
 coexistence or physical acceptance. Native remains the public default. The
 provisional research shim is not a promoted toolkit/player package pin.
@@ -229,5 +230,60 @@ Shim, muted native, owner Controls and GameAssembly pins stay as in the run tabl
 Source-linked checks: 54 core/controller suites / 39,154 assertions, 879 UI
 assertions including 65 shim/lease checks; plugin builds with zero warnings/errors.
 These simulate window/engine lifecycle and native handle calls; no device or game
-was opened by the checks. Await independent review before a new live retry; no
-successful native shim admission or physical-input claim is made.
+was opened by the checks. The reviewed source subsequently passed the bounded
+run 03 below; physical input and action delivery remain unqualified.
+
+## Run 03: ordinary host admission/ticks and panel pass
+
+Reviewed `61c0877` used the frozen source-follow-up plugin/Core/addon hashes
+above, unchanged native/shim pins and exact accepted owner Controls bytes.
+PID 79444 started at `2026-10-12T09:23:58.7047014Z`. Native no-force admission
+armed, Core parsed `Moza KS Pro Triple`, Sequential, exact revision
+`439A4118E99353997C8DF8555CA6B6C4F07DB89590C2B0A5EA60BA02B130D36C` and SHA-256
+`5206edfbd1b400e5d6a41d91ae836485bbe27d63992ad6f7483b3babb0e72b79`.
+
+The observer recorded 508 shim states: one pending startup state and 507
+owned/ready states, all with distinct Unity frame numbers (owned ticks 2 through
+8582). The native producer had four clean cached pads and no Unity Gamepads.
+Steer, throttle, brake, handbrake, shiftUp/Down, Confirm and Back progressed from
+DeviceMissing to Live with `injected=false`; modMenu stayed Unbound. The raw
+steering source read approximately +0.140734 at rest; pedals/buttons were zero.
+This is source availability, not demonstrated response to a physical control.
+
+Throughout ownership the observed status was `Unity window unfocused; wheel
+actions neutral`. The exact-window focus gate is source-tested; no focus was
+changed and no car or menu input was sent to test delivery. All force-open,
+attempt/failure/connection and network counters stayed zero. No raw commands or
+injected samples were accepted. Native-menu scene/panel observation only.
+
+The native method-invoked F6 Controls screenshot was inspected: centred panel,
+active Shim/unfocused reason, profile/restart text and live source bars. Original
+`trace/shim-panel.png` SHA-256:
+`b25268536eaaf1c647d2d60ad15ac5daeec49bec014e723962365356b3a5dd1d`.
+The screenshot does not qualify a physical keyboard F6 press.
+
+**Device epoch remains unobserved after acquisition.** The addon wrote its
+one-time `shim-DeviceReports.txt` at the first Ready observation, before native
+discovery completed. It reports R12 instance
+`d71b8350-61b7-11f1-8001-444553540000` and DS-8X instance
+`d9b1d890-6f3f-11f1-8002-444553540000`, both epoch 0 / opened false / device-missing.
+Later Live action states must not be described as epoch 1, and the startup report
+must not be treated as a final device failure. A future observer-only report
+refresh is needed to capture positive epochs and complete source availability.
+
+Stop was requested within the 90-second bound. Native shutdown reported
+`resolved`, `released=2`, `held=0`, `inputReleased=true`, `controlJoined=true`,
+`controlComplete=true` and `controlFinalTick=true`. Normal game close completed;
+`restored.txt` is `2026-10-12T09:25:16.3919800Z`. Independent readback at
+`09:26:32.4786309Z` matched 83 file entries and all 25 raw registry names/types/
+bytes, no extra files, receipt unchanged, process gone and lease released.
+Config/runtime verification passed with only the four known added defaults;
+owner bindings and accepted Controls bytes were unchanged.
+
+Private evidence: `results/shim-menu-admission-03/`, especially
+`independent-readback.json`, `trace/identity.json`, `trace/observations.tsv`, the
+original PNG and native shutdown under
+`after-431b1cda674b41eaa99da0b3b62aa107/tree/shimReports/`.
+Focused menu/car delivery, physical key/wheel response, device interruption and
+DirectInput/exclusive-FFB coexistence remain unqualified. No permanent install,
+profile writer/receipt promotion or tune change was made.

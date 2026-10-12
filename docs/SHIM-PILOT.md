@@ -1,8 +1,9 @@
 # Shared input shim: wheel-only source pilot
 
-2026-10-12. Based on Woden `ff1c594`. Two private force-fenced launches restored
-exactly; the second observed native pad isolation but shim ownership stayed
-pending on window selection. The source fix is not live-qualified. No permanent
+2026-10-12. Based on Woden `ff1c594`. Three private force-fenced launches restored
+exactly; run03 observed exact profile parsing, ordinary host ownership/ticks,
+native pad isolation and the active panel. Positive device epochs were not
+captured by its startup-only report; action delivery remains unqualified. No permanent
 install, physical force or rendered shared-control acceptance.
 The accepted Classic/Grip models, gains, triple/span code and owner files are
 unchanged. The native producer audit is pinned to GameAssembly SHA-256
@@ -105,8 +106,9 @@ available even when shared gears are unsupported, and terminal shared transport
 failure leaves native keyboard values intact while blocking legacy wheel fallback.
 These source checks do not qualify live key delivery. The first ordinary menu
 pilot refused in its developer addon; the second armed the addon but waited for
-Unity foreground behind the BepInEx console. Both restored exactly. A further
-reviewed retry remains bounded to at-rest admission (see `SHIM-ADMISSION-TEST.md`).
+Unity foreground behind the BepInEx console. Run03 opened through the verified
+Unity main window and ticked with unfocused wheel actions neutral. All restored
+exactly. See `SHIM-ADMISSION-TEST.md` for its bounded pass and epoch/delivery limits.
 
 Private native audit output is ignored under `artifacts/shim-source-audit` (REA
 interop evidence plus bounded native disassembly); no proprietary dump is committed.
