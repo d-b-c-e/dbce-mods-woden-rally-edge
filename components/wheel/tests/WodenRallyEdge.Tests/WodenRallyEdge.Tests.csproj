@@ -12,6 +12,7 @@
     <Compile Include="../../src/WodenRallyEdge.Plugin/InputLease.cs" Link="Consumer/InputLease.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CountdownTimerAssist.cs" Link="Consumer/CountdownTimerAssist.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Settings.cs" Link="Consumer/Settings.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/TripleHudDepth.cs" Link="Consumer/TripleHudDepth.cs" />
     <ProjectReference Include="../../src/WodenRallyEdge.Core/WodenRallyEdge.Core.csproj" />
     <Compile Include="../../tools/TelemetryInspector/StageCaptureReview.cs" Link="Diagnostics/StageCaptureReview.cs" />
     <Compile Include="../../tools/TelemetryInspector/ForceExport.cs" Link="Diagnostics/ForceExport.cs" />

@@ -37,6 +37,13 @@ Which entries of the wheel toolkit's standards ledger
 (`E:\Source\toolkits\dbce-wheel-mod-toolkit\STANDARDS.md`) this mod has brought in.
 Update a row in the same commit that adopts it. Statuses: `adopted`, `partial`,
 `pending`, `n/a` (say why), `unchecked` (nobody has looked yet).
+
+October 12 HUD precision source follow-up for STD-019: a compile-time opt-in,
+existing-muted-run-only depth100/far110 experiment preserves normal depth1/far10.
+It retains camera position/mask/viewport and snapshots/restores original Canvas
+plane distance. Geometry/source checks do not establish native auto-layout,
+foreign UI culling or a jitter fix; those remain pending rendered comparison.
+See [bounded review](docs/2026-10-12-hud-jitter-review.md). No installed change.
 Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 
 | Standard | Title | Status | Notes |
