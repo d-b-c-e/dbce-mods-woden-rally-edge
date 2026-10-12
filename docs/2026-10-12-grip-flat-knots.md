@@ -69,12 +69,16 @@ Classic, and saved numeric tuning is preserved.
 - Actual panel/settings fixture: **881 assertions** and **67 production shim/
   lease checks**. Plugin Release build: **zero warnings/errors**.
 - Existing force-envelope fixture: **10,836 checks**, nine signed pulse pairs.
-- `tools/game/Verify-Source.ps1` was attempted but stopped in dependency preflight:
-  this isolated worktree lacks the cached
-  `components/wheel/lib/loader/bepinex-788/BepInEx/core/0Harmony.dll` mirror.
-  The targeted commands above pass against the existing pinned source references;
-  the aggregate verifier is **not** claimed to pass. No dependency or cache was
-  changed to bypass that check.
+- Aggregate `tools/game/Verify-Source.ps1`: **PASS** after resolving its missing
+  ignored BE788 loader mirror from the canonical checkout's existing archive.
+  The archive matches the initializer's pinned SHA-256
+  `F4CC496BD098A0DF4164B81E3737297707F13A47C2478DBA2F60EEFAB784817A`;
+  each of the 32 copied comparison DLLs also matches the existing source
+  `lib/core` DLL exactly. No download, source-reference replacement or game
+  install change occurred. Dependency verification passes; the aggregate includes
+  the portable Core suite (55 suites / 41,209 assertions), UI, stage/export,
+  22 triple geometry assertions, wheel/triple builds and force-envelope fixture.
+  The separate private-capture suite above adds its exact original-source check.
 
 From the worktree root (no devices or game):
 
@@ -91,6 +95,9 @@ Without `WODEN_GRIP_CAPTURE`, the portable Core suite runs the same synthetic
 producer/refusal checks and skips the private original. Logs:
 `artifacts/grip6-{core-tests,stage-tests,ui-tests,plugin-build}.log`.
 Additional logs: `artifacts/grip6-{envelope-tests,verify-source}.log`.
+The original missing-cache failure is retained. Successful retry:
+`artifacts/grip6-verify-source-resolved.log`; exact cache source/readback:
+`artifacts/grip6-loader-cache-readback.json`.
 
 ## Separate owner observation: HUD jitter
 
