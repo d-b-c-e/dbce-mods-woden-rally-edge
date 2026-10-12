@@ -43,6 +43,9 @@ existing-muted-run-only depth100/far110 experiment preserves normal depth1/far10
 It retains camera position/mask/viewport and snapshots/restores original Canvas
 plane distance. Geometry/source checks do not establish native auto-layout,
 foreign UI culling or a jitter fix; those remain pending rendered comparison.
+Post-reboot review also makes original canvas plane/mode/camera restoration
+independent, so one failed setter cannot skip the other restoration attempts.
+The candidate still has no new rendered qualification or installed-default change.
 See [bounded review](docs/2026-10-12-hud-jitter-review.md). No installed change.
 Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 

@@ -264,16 +264,23 @@ internal static class TripleView
     private static void RestoreCanvases()
     {
         foreach (var (canvas, mode, world, plane) in MovedCanvases)
+        {
+            if (!Alive(canvas)) continue;
+            // Each original property gets its own restore attempt. A failed optional depth
+            // restore must not leave a canvas attached to the HUD camera we are destroying.
+            try { TripleNative.SetPlaneDistance(canvas, plane); }
+            catch (Exception ex) { Runtime.Log.LogWarning("Triple HUD plane restore failed: " + ex.Message); }
+            try { TripleNative.SetRenderMode(canvas, mode); }
+            catch (Exception ex) { Runtime.Log.LogWarning("Triple HUD mode restore failed: " + ex.Message); }
+            try { TripleNative.SetWorldCamera(canvas, world); }
+            catch (Exception ex) { Runtime.Log.LogWarning("Triple HUD camera restore failed: " + ex.Message); }
             try
             {
-                if (canvas == null || !Alive(canvas)) continue;
-                TripleNative.SetPlaneDistance(canvas, plane);
-                TripleNative.SetRenderMode(canvas, mode);
-                TripleNative.SetWorldCamera(canvas, world);
                 if (TripleNative.GetPlaneDistance(canvas) != plane)
                     Runtime.Log.LogWarning("Triple HUD original plane readback differs: " + canvas.name);
             }
-            catch (Exception ex) { Runtime.Log.LogWarning("Triple HUD restore failed: " + ex.Message); }
+            catch (Exception ex) { Runtime.Log.LogWarning("Triple HUD plane readback failed: " + ex.Message); }
+        }
         MovedCanvases.Clear();
     }
 

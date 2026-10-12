@@ -127,6 +127,11 @@ camera matrices and UI renderer bounds; verify the native visible set, clipping,
 masking, pixel layout and normal restoration. Do not silently relayer foreign
 objects or patch the game's CanvasScaler/materials to force the result.
 
+Post-reboot source follow-up: restoring the canvas plane, render mode and original
+camera now uses independent attempts. A failing plane call no longer skips the
+mode/camera restoration before the diagnostic camera is destroyed. No rendered
+comparison ran before the outage; the precision hypothesis remains unverified.
+
 ## Two-frame comparison on a later useful run
 
 No new launch is authorized by this document. During a separately reviewed muted
