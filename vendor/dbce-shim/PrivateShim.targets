@@ -1,0 +1,10 @@
+<Project>
+  <!-- Private developer builds only. There is no download or tracked binary fallback. -->
+  <ItemGroup Condition="'$(PrivateShimPath)' != ''">
+    <None Include="$(PrivateShimPath)" CopyToOutputDirectory="PreserveNewest" Link="dbce_shim.dll" />
+  </ItemGroup>
+  <Target Name="RequirePrivateShim" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(PrivateShimPath)' == '' or !Exists('$(PrivateShimPath)')"
+           Text="This experimental branch requires an explicitly supplied private shim. Set PrivateShimPath to the pinned DLL documented in vendor/dbce-shim/PROVENANCE.md. It is not cleared for public redistribution." />
+  </Target>
+</Project>

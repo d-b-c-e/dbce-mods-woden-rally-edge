@@ -1,7 +1,39 @@
-# dbce_shim.dll (vendored, provisional)
+# dbce_shim.dll (private build input, provisional)
 
 The shared input shim behind its experimental C ABI 2, built from the reviewed outrun2-decomp sources (Astra 17050:
 provisional vendoring until the shim moves to the toolkit, before the baseline is called reusable).
+
+## Supply the dependency explicitly
+
+The DLL is not part of the current source tree. A private developer build must
+set the MSBuild property `PrivateShimPath` to an existing absolute path with the
+exact hash below. There is no download or fallback. For example, after privately
+obtaining the reviewed dependency:
+
+```powershell
+$env:PrivateShimPath = 'E:/private-dependencies/woden/dbce_shim.dll'
+dotnet build components/wheel/WodenRallyEdgeWheel.sln -c Release -warnaserror
+dotnet run --project components/wheel/tests/WodenRallyEdge.UiTests -c Release
+```
+
+The path shown is illustrative. The plugin and UI fixture copy that explicit
+input to their ignored build outputs. `Run-Controls.ps1` takes it from the chosen
+`CandidateDirectory` and verifies the unchanged hash; the runtime loader also
+pins it. Public package allowlists do not include this DLL. Do not add it to a
+public release until its source/license disposition is settled.
+
+**October 12 correction:** commit `2a5a112` inadvertently tracked this private
+DLL on the public experimental branch despite its restrictive notice. It has
+been removed from current tracking, with the local test copy preserved and
+ignored. Earlier commits still contain the file; removing it at the branch tip
+does not erase that history or grant redistribution rights.
+
+Validation of this correction: the full solution builds with zero warnings or
+errors using the preserved private pin; the production UI fixture passes 881
+assertions (including 67 shim/lease checks). Empty and nonexistent dependency
+paths both fail before build. The controls runner parses, and its candidate
+hash and runtime loader pin are unchanged. No game, device, install or physical
+force was used in these checks.
 
 | File | SHA-256 | Source |
 |---|---|---|

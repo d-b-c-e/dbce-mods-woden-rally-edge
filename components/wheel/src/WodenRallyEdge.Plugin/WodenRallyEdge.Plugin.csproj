@@ -11,6 +11,6 @@
     <Reference Include="Dbce.Wheel.Playback" HintPath="../../../../vendor/playback/Dbce.Wheel.Playback.dll" />
     <Reference Include="Dbce.Wheel.Recording" HintPath="../../lib/recording/Dbce.Wheel.Recording.dll" />
     <None Include="../../lib/toolkit/native/WheelFfb.dll" CopyToOutputDirectory="PreserveNewest" Link="WheelFfb.dll" />
-    <None Include="../../../../vendor/dbce-shim/dbce_shim.dll" CopyToOutputDirectory="PreserveNewest" Link="dbce_shim.dll" />
   </ItemGroup>
+  <Import Project="../../../../vendor/dbce-shim/PrivateShim.targets" />
 </Project>

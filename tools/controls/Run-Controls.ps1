@@ -113,7 +113,8 @@ if($Recover) {
         $CandidateDirectory=Full $CandidateDirectory;$ControlsSource=Full $ControlsSource
         Assert-ControlPlain $CandidateDirectory;Assert-ControlPlain $ControlsSource
         if((Get-ControlHash $ControlsSource) -ne $ControlsSha256){throw 'Accepted Controls source changed.'}
-        $shimCandidate=Full "$PSScriptRoot/../../vendor/dbce-shim/dbce_shim.dll"
+        # The reviewed private build supplies its own shim; no repository binary fallback.
+        $shimCandidate=Full "$CandidateDirectory/dbce_shim.dll"
         $shimHash='9b8a036f664cf8f45cccf82b98e5e4376f93215b60eac50b6db965bf498015d8'
         if((Get-ControlHash $shimCandidate) -ne $shimHash){throw 'Provisional shim pin differs.'}
         $candidateHashes=[ordered]@{plugin=(Get-ControlHash "$CandidateDirectory/WodenRallyEdgeWheel.dll");core=(Get-ControlHash "$CandidateDirectory/WodenRallyEdge.Core.dll");shim=$shimHash;controls=$ControlsSha256}

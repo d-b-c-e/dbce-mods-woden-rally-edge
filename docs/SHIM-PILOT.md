@@ -25,7 +25,7 @@ Unity foreground. Shared wheel actions require actual Unity foreground; native
 pause/panel gates and fresh-neutral rearming remain. Loss of the owned window
 terminally stops the shim rather than switching windows or restoring legacy input.
 
-The DLL copied to the plugin build output is the exact provisional DRIVE ABI 2
+The privately supplied DLL copied to the plugin build output is the exact provisional DRIVE ABI 2
 pin: see [provenance](../vendor/dbce-shim/PROVENANCE.md). It is **not** a new toolkit
 pin. `ShimNative.Load` checks its hash, ABI, frame/argument sizes and all 31 action
 names before opening an ordinary host. No injection/capture mode is exposed.
@@ -86,6 +86,8 @@ exclusive force acquisition or physical input recovery on the rig.
 Commands run from the repository root:
 
 ```powershell
+# Explicit private dependency; see vendor/dbce-shim/PROVENANCE.md. Not in Git.
+$env:PrivateShimPath = 'E:/private-dependencies/woden/dbce_shim.dll'
 dotnet build components/wheel/WodenRallyEdgeWheel.sln -c Release -warnaserror
 dotnet run --project components/wheel/tests/WodenRallyEdge.Tests -c Release --no-build
 dotnet run --project components/wheel/tests/WodenRallyEdge.UiTests -c Release

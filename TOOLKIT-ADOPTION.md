@@ -147,3 +147,12 @@ every fleet injection mechanism matches the standard. The exact-restore Woden
 runner is authorized; per-game cloud convergence and full lifecycle matrix remain
 explicit separate checks. See docs/2026-10-10-profile-controls.md and
 tools/controls/README.md for scope and receipts.
+## October 12 private dependency correction
+
+The provisional input shim DLL is no longer tracked at this branch tip. Its
+notice does not grant public redistribution; the earlier public commits still
+contain it. Private plugin/UI builds require explicit `PrivateShimPath`, and
+the controls runner takes the unchanged pinned DLL from its selected candidate
+output. Source/license disposition and public shim packaging remain open; this
+does not change runtime qualification or any installed owner files. See
+`vendor/dbce-shim/PROVENANCE.md`.
