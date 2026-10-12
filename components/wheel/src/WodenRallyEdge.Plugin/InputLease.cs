@@ -36,7 +36,7 @@ internal sealed class InputLease
             Set(0, Handbrake > 0 ? 1 : 0, true);
             if (shim || input.Bindings.Handbrake?.Valid == true) { input.HandbrakeCar = car; input.HandbrakeAmount = Handbrake; }
             foreach (var (name, index) in Buttons)
-                if (shim ? ShimActionMap.Buttons.ContainsKey(name) : input.Bindings.Buttons.ContainsKey(name) || input.Bindings.CameraKeys.ContainsKey(name)) Set(index, input.Button(name, false) ? 1 : 0, true);
+                if (shim ? ShimActionMap.Buttons.ContainsKey(name) : input.Bindings.Buttons.ContainsKey(name) || input.Bindings.CameraKeys.ContainsKey(name)) Set(index, input.Button(name, false, car) ? 1 : 0, true);
             // H-pattern: the shifter's synthetic Shift up / Shift down presses join any held sequential button.
             if (shiftUp) Set(3, 1, true);
             if (shiftDown) Set(1, 1, true);

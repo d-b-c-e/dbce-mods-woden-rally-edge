@@ -28,7 +28,7 @@ public static class ShimProfile
         return all[start..end];
     }
 
-    public static Guid? SteeringDevice(byte[] section, string coreInfo)
+    public static Guid? SteeringDevice(byte[] section, string coreInfo, out string transmission)
     {
         var info = coreInfo.Split('\n').Where(l => l.Contains('=')).Select(l => l.TrimEnd('\r').Split('=', 2))
             .ToDictionary(p => p[0], p => p[1], StringComparer.Ordinal);
@@ -36,6 +36,7 @@ public static class ShimProfile
         if (!info.TryGetValue("ok", out var ok) || ok != "1" || !info.TryGetValue("sha256", out var accepted) ||
             !string.Equals(hash, accepted, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Core did not accept the exact Controls bytes");
+        transmission = info.TryGetValue("transmission", out var mode) ? mode : "Unavailable";
         foreach (string line in new UTF8Encoding(false, true).GetString(section).Split('\n'))
         {
             var p = line.Trim().Split('=', 2);

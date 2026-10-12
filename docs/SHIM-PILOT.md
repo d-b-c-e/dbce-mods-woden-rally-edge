@@ -53,6 +53,12 @@ fresh neutral release before a new button press. Clutch, neutral, reverse, selec
 and all H-pattern gears are reported unsupported to Core. Legacy H-pattern emulation
 is disabled only while the shim owns input. Lights/Records/Next song have no shared
 action and keep native keyboard behavior.
+Shared shift buttons also require Core's reported `Transmission = Sequential`,
+the exact consuming car's native Manual gearbox, and no gear change in progress.
+Automatic/HPattern/unknown profiles report unsupported shared gear actions. F6
+names a Sequential-profile/native-Automatic mismatch. A held button cannot cross
+a blocked state into a fresh shift; release and press again. Native keyboard
+shift actions retain their own game behavior.
 
 Native Core remains the Controls parser and normalizer. After it accepts the exact
 section hash, the already-vendored shared `ControlBinding` parser reads only the
@@ -61,6 +67,10 @@ DeviceHub continues its existing polling/force close-readers/refresh/zero-reacqu
 lifecycle but does not supply shim-owned wheel actions. Missing live axes withhold
 the force input sample; terminal shim failure releases FFB without changing its
 saved preference or tune.
+The new shim owns a separate nonexclusive DirectInput reader. Closing DeviceHub
+readers for the existing exclusive FFB open does not close that shim reader.
+Their coexistence is not yet tested; offline identity/lifecycle tests do not prove
+exclusive force acquisition or physical input recovery on the rig.
 
 ## Offline evidence and remaining work
 
@@ -73,8 +83,8 @@ dotnet run --project components/wheel/tests/WodenRallyEdge.UiTests -c Release
 dotnet run --project components/wheel/tests/WodenRallyEdge.InputTests -c Release
 ```
 
-Results: clean build; 53 core/controller suites, 39,143 assertions; 848 UI assertions
-including 37 production shim/lease checks and four F6 status checks; 3,896 production
+Results: clean build; 53 core/controller suites, 39,143 assertions; 859 UI assertions
+including 48 production shim/lease checks and four F6 status checks; 3,896 production
 DeviceHub checks. The shim fixture calls only real DLL ABI exports, then replaces
 handle delegates with bounded fake calls. It exercises real decode, backend,
 WheelInput, ControlActions, InputLease and menu source. Force tests use the real controller with a

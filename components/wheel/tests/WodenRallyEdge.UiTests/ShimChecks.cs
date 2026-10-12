@@ -19,6 +19,7 @@ internal static class ShimChecks
     private static int _opens, _ticks, _stops, _tickResult;
     private static string _unsupported = "";
     private static bool _badHash;
+    private static string _mode = "Sequential";
     private static void Set(string field, object value) => typeof(ShimInput).GetField(field, BindingFlags.Static|BindingFlags.NonPublic)!.SetValue(null,value);
     private static void Replace(string field, string method)
     {
@@ -38,7 +39,7 @@ internal static class ShimChecks
     }
     private static int Text(string text,byte[] bytes,out int needed)
     { var b=Encoding.UTF8.GetBytes(text);needed=b.Length+1;Array.Clear(bytes);Array.Copy(b,bytes,Math.Min(b.Length,bytes.Length-1));return 0; }
-    private static int Profile(IntPtr handle,byte[] bytes,int size,out int needed) => Text("ok=1\nsha256="+(_badHash?"incorrect":Convert.ToHexString(SHA256.HashData(_profile)))+"\n",bytes,out needed);
+    private static int Profile(IntPtr handle,byte[] bytes,int size,out int needed) => Text("ok=1\ntransmission="+_mode+"\nsha256="+(_badHash?"incorrect":Convert.ToHexString(SHA256.HashData(_profile)))+"\n",bytes,out needed);
     private static int Report(IntPtr handle,byte[] bytes,int size,out int needed) => Text("device-free fixture",bytes,out needed);
     private static int Stop(IntPtr handle,byte[] bytes,int size,out int needed) {_stops++;return Text("resolved fixture",bytes,out needed);}
     private static void Frame(string id,float value,ShimStatus status=ShimStatus.Live) => FrameActions[ShimActionMap.Index(id)]=new(value,status);
@@ -47,7 +48,7 @@ internal static class ShimChecks
     {
         Set("_requested",false);Set("_refused",false);Set("_terminal",false);Set("_producer",null!);Set("_handle",IntPtr.Zero);Set("_frame",-1);Set("_context",-1);
         Set("<Owns>k__BackingField",false);Set("<SteeringGuid>k__BackingField",null!);
-        _opens=_ticks=_stops=_tickResult=0;_badHash=false;Gamepad.all.Clear();GameWindow.Window=123;Runtime.Focused=true;Runtime.Local=null;Pause.Paused=false;
+        _opens=_ticks=_stops=_tickResult=0;_badHash=false;_mode="Sequential";Gamepad.all.Clear();GameWindow.Window=123;Runtime.Focused=true;Runtime.Local=null;Pause.Paused=false;
         for(int i=0;i<FrameActions.Length;i++)FrameActions[i]=new(0,ShimActionMap.UnsupportedNames.Contains(ShimActionMap.Names[i])?ShimStatus.Unsupported:ShimStatus.Live);
         Keyboard.current?.Clear();
         Runtime.Settings=new(new ConfigFile(Path.Combine(dir,Guid.NewGuid()+".cfg"),false)){InputBackend="Shim",WheelEnabled=true};
@@ -108,6 +109,13 @@ internal static class ShimChecks
         Check(lease!=null&&values[16].value==1&&values[17].value==0&&values[7].value==1&&values[6].value==.2f,"real WheelInput preserves native keyboard steering/throttle with shim brake");
         Check(values[11].Pressed&&lease!.Handbrake==.35f,"native keyboard horn and progressive shim handbrake retained");
         lease!.Restore();Check(values.SequenceEqual(saved),"production value-array lease restores native values byte-for-value");
+        car.Aids!.Automatic=true;Frame("shiftUp",1);Next();lease=Runtime.Wheel.Apply(controls);
+        Check(values[3].value==0&&ShimInput.TransmissionStatus.Contains("native gearbox is Automatic"),"Sequential profile cannot shift native Automatic; mismatch is explicit");lease!.Restore();
+        car.Aids.Automatic=false;Next();lease=Runtime.Wheel.Apply(controls);Check(values[3].value==0,"held shift cannot cross Automatic-to-Manual transition");lease!.Restore();
+        Frame("shiftUp",0);Next();Frame("shiftUp",1);Next();lease=Runtime.Wheel.Apply(controls);Check(values[3].value==1,"fresh sequential press reaches actual Manual car gearbox");lease!.Restore();
+        car.TransmissionSystem!.Changing=true;Next();lease=Runtime.Wheel.Apply(controls);Check(values[3].value==0,"gear change in progress blocks repeated shift");lease!.Restore();
+        car.TransmissionSystem.Changing=false;Next();lease=Runtime.Wheel.Apply(controls);Check(values[3].value==0,"still-held button cannot repeat after gear change finishes");lease!.Restore();
+        Frame("shiftUp",0);Next();
         Frame("camera",1);Next();lease=Runtime.Wheel.Apply(controls);Check(values[5].Pressed,"fresh mapped camera reaches native action table without legacy binding dependency");lease!.Restore();
         Check(Runtime.Wheel.Button("Camera")&&!Runtime.Wheel.Button("Camera"),"button edge consumed once per action");
         Runtime.Focused=false;Next();Runtime.Focused=true;Next();Check(!Runtime.Wheel.Button("Camera",false),"held button cannot fire on focus return");
@@ -124,6 +132,14 @@ internal static class ShimChecks
         Reset(dir);ShimInput.BeforeStock(producer);Next();
         controls.field_Private_Game_Pad_0!.Controller=new();
         Check(ControlActions.For(controls)==null&&!ShimInput.Ready&&_stops==1,"production lookup rejects cached Controls fallback pad outside observed producer");
+        controls.field_Private_Game_Pad_0.Controller=null;
+        foreach(string mode in new[]{"Automatic","HPattern","Unavailable"})
+        {
+            Reset(dir);_mode=mode;ShimInput.BeforeStock(producer);Runtime.Local=car;Next();Frame("shiftUp",1);Frame("shiftDown",1);Next();lease=Runtime.Wheel!.Apply(controls);
+            Check(lease!=null&&values[1].value==0&&values[3].value==0,"shared gear actions neutral for Core-reported "+mode+" profile");lease!.Restore();
+            Check(ShimInput.Action("shiftUp").Status==ShimStatus.Unsupported&&ShimInput.TransmissionStatus.Contains(mode),"unsupported transmission is visible: "+mode);
+            ShimInput.Stop("mode fixture complete");
+        }
         Reset(dir);Runtime.Settings.InputBackend="Native";ShimInput.Start(AppContext.BaseDirectory,dir,dir);Next();
         Check(!ShimInput.Owns&&_opens==0,"default standalone route never loads/opens an input host");
         Runtime.Log.Errors.Clear();Runtime.Log.Warnings.Clear();

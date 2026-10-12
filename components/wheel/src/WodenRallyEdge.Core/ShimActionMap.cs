@@ -50,10 +50,11 @@ public sealed class ShimButtonGate
             _pressed[i]=held&&!_held[i]; _held[i]=held;
         }
     }
-    public bool Read(string label,bool edge)
+    public bool Read(string label,bool edge,bool allowed=true)
     {
         if(!ShimActionMap.Buttons.TryGetValue(label,out var action)) return false;
         int index=ShimActionMap.Index(action);
+        if(!allowed) { _armed[index]=_held[index]=_pressed[index]=false; return false; }
         return edge ? _pressed[index]&&_consumed.Add(label) : _held[index];
     }
 }

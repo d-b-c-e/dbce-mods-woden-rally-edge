@@ -35,7 +35,7 @@ namespace WodenRallyEdge
         internal readonly HashSet<string> Pressed = new();
         internal MainCar? HandbrakeCar;
         internal float HandbrakeAmount;
-        internal bool Button(string action, bool edge = true) => Pressed.Contains(action);
+        internal bool Button(string action, bool edge = true, MainCar? car = null) => Pressed.Contains(action);
     }
     internal static class ShimInput
     {

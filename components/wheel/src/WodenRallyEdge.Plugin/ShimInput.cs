@@ -14,6 +14,7 @@ internal static class ShimInput
     private static readonly string[] DrivingAxes = { "steer", "throttle", "brake" };
     private static readonly ShimButtonGate _buttons = new();
     private static string _directory = "", _config = "", _reports = "";
+    private static string _transmission = "Unavailable";
     private static bool _requested, _refused, _terminal;
     private static GamePadSystem? _producer;
     private static IntPtr _handle;
@@ -22,6 +23,10 @@ internal static class ShimInput
     internal static bool Ready => Owns && !_terminal;
     internal static Guid? SteeringGuid { get; private set; }
     internal static string Status { get; private set; } = "Native backend (standalone bindings)";
+    internal static string TransmissionStatus => _transmission != "Sequential" ? "Gear actions unsupported: shared profile is " + _transmission + ". This pilot requires Sequential." :
+        Runtime.Local?.Aids?.Automatic == true ? "Sequential profile; native gearbox is Automatic. Shift buttons are disabled. Select Manual in the game." :
+        "Sequential profile; shift buttons require the native Manual gearbox and a completed gear change.";
+    private static bool ShiftReady(MainCar? car) => _transmission == "Sequential" && car?.Aids?.Automatic == false && car.TransmissionSystem?.Changing == false;
     internal static void Start(string directory, string config, string reports)
     {
         _directory = directory; _config = config; _reports = reports;
@@ -87,7 +92,7 @@ internal static class ShimInput
                 int result = ShimNative.Open(folder, nonce, bytes, ShimActionMap.Unsupported, new IntPtr(window), out _handle, out string why);
                 if (result != 0) { RefuseOrStop("Open " + result + ": " + why); return; }
                 Owns = true; // Sticky: no legacy binding fallback after native ownership.
-                SteeringGuid = ShimProfile.SteeringDevice(bytes, ShimNative.ProfileInfo(_handle));
+                SteeringGuid = ShimProfile.SteeringDevice(bytes, ShimNative.ProfileInfo(_handle), out _transmission);
                 Runtime.Wheel?.Cancel();
                 Runtime.Log.LogInfo("Shim pilot owns wheel input; native keyboard retained; " + ShimNative.StartReport(_handle));
             }
@@ -106,13 +111,15 @@ internal static class ShimInput
     }
     private static bool Allowed => Ready && Runtime.Focused && Runtime.Wheel?.Capturing != true;
     private static int Context => !Runtime.Focused ? -1 : Panel.Open ? 3 : Pause.Paused ? 2 : Runtime.Local == null ? 0 : 1;
-    internal static bool Button(string action, bool edge)
+    internal static bool Button(string action, bool edge, MainCar? car = null)
     {
         Poll();
         if (_context != Context) { _context = Context; _buttons.Observe(Actions, _context, Allowed); }
-        return Allowed && _buttons.Read(action, edge);
+        bool shift = action is "Gear up" or "Gear down";
+        return _buttons.Read(action, edge, Allowed && (!shift || ShiftReady(car ?? Runtime.Local)));
     }
-    internal static ShimAction Action(string id) => Ready ? Actions[ShimActionMap.Index(id)] : default;
+    internal static ShimAction Action(string id) => !Ready ? default : id is "shiftUp" or "shiftDown" && _transmission != "Sequential" ?
+        new(0, ShimStatus.Unsupported) : Actions[ShimActionMap.Index(id)];
     internal static float Axis(string id) => Allowed ? Action(id).Applied : 0;
     internal static bool AxesLive => Ready && DrivingAxes.All(id => Action(id) is { Status: ShimStatus.Live } a && float.IsFinite(a.Value));
     private static void RefuseOrStop(string reason)

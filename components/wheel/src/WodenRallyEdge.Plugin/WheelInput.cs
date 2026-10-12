@@ -132,7 +132,7 @@ internal sealed class WheelInput
         if (TryCommit(proposed => proposed.SetAxis(action, b))) Cancel();
     }
     internal void Cancel() { if (SavePending) SaveError = null; _pendingEdit = null; Capture = null; CaptureAxis = null; CaptureButton = null; Runtime.Devices?.ClearPresses(); }
-    internal bool Button(string action, bool edge = true) => (ShimInput.Owns ? ShimInput.Button(action, edge) :
+    internal bool Button(string action, bool edge = true, MainCar? car = null) => (ShimInput.Owns ? ShimInput.Button(action, edge, car) :
         Bindings.Buttons.TryGetValue(action, out var b) && Runtime.Devices?.Button(b, edge, action) == true) || CameraShortcuts.KeyPressed(action, edge);
     internal InputLease? Apply(Controls controls)
     {
