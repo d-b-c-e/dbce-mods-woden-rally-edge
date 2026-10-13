@@ -153,6 +153,10 @@ internal static class FullSessionChecks
         check(footer != null && (long?)counters["WrittenSamples"] == footer.Counts.WrittenSamples && (bool?)journal[^1]["detail"]!["complete"] == footer.Completed,
             "end row matches the immutable ordinary footer");
 
+        // A consumer fixture (Wheelkit) can take these exact writer bytes instead of a hand-made package.
+        if (Environment.GetEnvironmentVariable("WODEN_FULL_SESSION_FIXTURE_OUT") is { Length: > 0 } golden)
+            CopyTree(f.Root, Path.Combine(golden, Path.GetFileName(f.Root)));
+
         // The outer seal binds the payloads: a changed stage seal is refused.
         File.AppendAllText(Path.Combine(f.Root, "source.stage", "complete.tsv"), " ");
         check(Throws(() => ArtifactSeal.Verify(f.Root, names.OuterSealFiles())), "outer seal refuses a changed nested seal");
@@ -257,6 +261,12 @@ internal static class FullSessionChecks
         check(!ordinary.MuteFor(false), "no request, no mute");
     }
 
+    static void CopyTree(string source, string target)
+    {
+        Directory.CreateDirectory(target);
+        foreach (string file in Directory.GetFiles(source)) File.Copy(file, Path.Combine(target, Path.GetFileName(file)));
+        foreach (string directory in Directory.GetDirectories(source)) CopyTree(directory, Path.Combine(target, Path.GetFileName(directory)));
+    }
     static string Read(string path) => File.Exists(path) ? File.ReadAllText(path) : "";
     static bool Throws(Action action) { try { action(); return false; } catch (Exception) { return true; } }
 }
