@@ -156,7 +156,8 @@ public static class RecordedForceReplay
     {
         string source = Path.Combine(directory, "source.jsonl"), config = Path.Combine(directory, "force-config.json"), profile = Path.Combine(directory, "capture-profile.json");
         foreach (string path in new[] { source, config, profile }) if (!File.Exists(path)) throw new IOException("Missing capture artifact: " + Path.GetFileName(path));
-        var records = SessionReader.Read(source).ToArray();
+        // The reader still validates every record; only the header and footer are kept, not the whole source in memory.
+        var records = SessionReader.Read(source).Where(x => x.Kind is SessionRecordKind.Metadata or SessionRecordKind.Footer).ToArray();
         var metadata = records.SingleOrDefault(x => x.Kind == SessionRecordKind.Metadata)?.Metadata ?? throw new IOException("Recording metadata missing");
         var footer = records.SingleOrDefault(x => x.Kind == SessionRecordKind.Footer)?.Footer ?? throw new IOException("Recording footer missing");
         if (!footer.Completed) throw new IOException("Recording is incomplete: " + footer.StopReason);

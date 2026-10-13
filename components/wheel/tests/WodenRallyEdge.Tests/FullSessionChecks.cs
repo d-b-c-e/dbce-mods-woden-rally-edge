@@ -431,7 +431,7 @@ internal static class FullSessionChecks
         Console.WriteLine($"  stage seal (game thread): {seal:0.00} s");
         Console.WriteLine($"  package (worker): {package:0.00} s [bounds: 60 s to reach the commit, 300 s for a running commit, 10 s at game close]");
         Console.WriteLine($"    cached re-reads: ordinary source stream {readOuter:0.00} s, stage copy stream {readStage:0.00} s; SHA-256 {hashOuter:0.00} s and {hashStage:0.00} s");
-        Console.WriteLine($"  case reprocess (after exit): {reprocess:0.00} s");
+        Console.WriteLine($"  case reprocess (after exit): {reprocess:0.00} s; {result!.SourceSamples} source, {result.ModelSamples} model and {result.DrivingSamples} driving samples over {result.DrivingSeconds:0.###} s");
         long Size(params string[] parts) => new FileInfo(Path.Combine(new[] { f.Root }.Concat(parts).ToArray())).Length;
         Console.WriteLine($"  other files: trajectory.tsv {Size("source.stage", "trajectory.tsv")} B, force-observation.jsonl {Size("force-observation.jsonl")} B, " +
             $"case.json {Size("case.json")} B, source.session.jsonl {Size("source.session.jsonl")} B, source.stage-session.json {Size("source.stage-session.json")} B");
