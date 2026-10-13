@@ -324,11 +324,19 @@ internal static class FullSessionChecks
         check(supervised.MuteFor(true) && supervised.PollSupervised, "an unclaimed launch keeps the supervised request mute and commands");
         check(!supervised.TryClaimOrdinary(supervisedPresent: true) && !supervised.OrdinaryOwns && supervised.MuteFor(true),
             "a present stage request refuses the ordinary claim");
+        check(!supervised.OrdinaryConflict(true), "an unclaimed launch has no ordinary writer to conflict with");
         var ordinary = new StageLaunchOwner();
         check(ordinary.TryClaimOrdinary(supervisedPresent: false) && ordinary.OrdinaryOwns, "a clean ordinary launch is claimed");
+        check(!ordinary.OrdinaryConflict(false) && !StageLaunchOwner.PhysicalOutput(true, false, true),
+            "an independent no-force mute does not compete for the ordinary stage writers");
+        check(ordinary.OrdinaryConflict(true), "an active supervised stage session conflicts with the ordinary writer");
         check(!ordinary.MuteFor(true) && !ordinary.PollSupervised,
             "a later or stale stage request neither mutes the ordinary launch nor reaches the commands that reset force state");
         check(!ordinary.MuteFor(false), "no request, no mute");
+        check(!StageLaunchOwner.PhysicalOutput(false, true, true) &&
+              !StageLaunchOwner.PhysicalOutput(false, false, false) &&
+              StageLaunchOwner.PhysicalOutput(false, false, true),
+            "the stage-open physical-output flag reflects every current output gate");
     }
 
     static void CopyTree(string source, string target)

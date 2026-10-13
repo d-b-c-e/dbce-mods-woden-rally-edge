@@ -16,4 +16,10 @@ internal sealed class StageLaunchOwner
     /// <summary>A stage request file mutes outputs only in a launch the ordinary capture does not own.</summary>
     internal bool MuteFor(bool requestPresent) => requestPresent && !OrdinaryOwns;
     internal bool PollSupervised => !OrdinaryOwns;
+    /// <summary>Only a supervised stage session can compete for the ordinary stage writers.
+    /// An independent no-force mute remains active without changing writer ownership.</summary>
+    internal bool OrdinaryConflict(bool supervisedSessionActive) => OrdinaryOwns && supervisedSessionActive;
+    /// <summary>Truthful stage-open force state, including independent safety mutes.</summary>
+    internal static bool PhysicalOutput(bool outputsMuted, bool diagnosticNoForce, bool ffbEnabled) =>
+        !outputsMuted && !diagnosticNoForce && ffbEnabled;
 }

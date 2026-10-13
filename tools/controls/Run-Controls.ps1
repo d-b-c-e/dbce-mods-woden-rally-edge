@@ -51,6 +51,7 @@ $Result=Full $Result; $GameDir=Full $GameDir
 . "$PSScriptRoot/Environment.ps1"
 . "$PSScriptRoot/Apply-Check.ps1"
 . "$PSScriptRoot/OrdinaryCompanionGuard.ps1"
+. "$PSScriptRoot/ControlMode.ps1"
 . "$PSScriptRoot/../../vendor/playback/Stage-RigLease.ps1"
 $slot=Join-Path $env:LOCALAPPDATA 'dbce/test-slot.txt'
 $prefsKey='HKCU:\Software\ViJuDa\Super Woden Rally Edge'
@@ -78,7 +79,7 @@ if($Recover -and (Test-Path "$Result/recovery.json")){
             if($expected[$i].name -cne $actual[$i].name -or $expected[$i].sha256 -cne $actual[$i].sha256){throw 'Frozen private writer files changed.'}
         }
     }
-    $ShimAdmission=$savedMode -in @('shim-admission','shim-menu-trial','shim-car-trial','shim-applied-car-trial','shim-applied-forward-capture','shim-applied-forward-ordinary','shim-applied-forward-full-session','shim-force-capture','shim-hud-ordinary','shim-hud-stop-only');$ShimMenuTrial=$savedMode -eq 'shim-menu-trial';$ShimCarTrial=$savedMode -in @('shim-car-trial','shim-applied-car-trial','shim-applied-forward-capture','shim-applied-forward-ordinary','shim-applied-forward-full-session','shim-force-capture','shim-hud-ordinary');$ShimAppliedForwardCapture=$savedMode -in @('shim-applied-forward-capture','shim-applied-forward-ordinary','shim-applied-forward-full-session');$OrdinarySavedForward=$savedMode -in @('shim-applied-forward-ordinary','shim-applied-forward-full-session');$OrdinaryFullSession=$savedMode -eq 'shim-applied-forward-full-session';$ShimForceCapture=$savedMode -eq 'shim-force-capture';$ShimHudOrdinary=$savedMode -eq 'shim-hud-ordinary';$ShimHudStopOnly=$savedMode -eq 'shim-hud-stop-only'
+    $ShimAdmission=$savedMode -in @('shim-admission','shim-menu-trial','shim-car-trial','shim-applied-car-trial','shim-applied-forward-capture','shim-applied-forward-ordinary','shim-force-capture','shim-hud-ordinary','shim-hud-stop-only');$ShimMenuTrial=$savedMode -eq 'shim-menu-trial';$ShimCarTrial=$savedMode -in @('shim-car-trial','shim-applied-car-trial','shim-applied-forward-capture','shim-applied-forward-ordinary','shim-force-capture','shim-hud-ordinary');$ShimAppliedForwardCapture=$savedMode -in @('shim-applied-forward-capture','shim-applied-forward-ordinary');$OrdinarySavedForward=$savedMode -eq 'shim-applied-forward-ordinary';$OrdinaryFullSession=[bool]$savedState.fullSession;$ShimForceCapture=$savedMode -eq 'shim-force-capture';$ShimHudOrdinary=$savedMode -eq 'shim-hud-ordinary';$ShimHudStopOnly=$savedMode -eq 'shim-hud-stop-only'
 }
 if($OrdinarySavedForward -and (!$ShimAppliedForwardCapture -or !$PrivateApply -or $ShimForceCapture -or $ShimHudOrdinary -or $ShimMenuTrial -or $ShimHudStopOnly)){throw 'Ordinary Saved forward requires only the private applied-forward route.'}
 if($OrdinaryFullSession -and !$OrdinarySavedForward){throw 'Full-session assertion requires the ordinary Saved forward route.'}
@@ -105,7 +106,7 @@ if($ShimAdmission) {
     $files.shim=Join-Path $plugin 'dbce_shim.dll'
     $roots.shimReports=Join-Path $GameDir 'BepInEx/WodenShim'
 }
-$mode=if($ShimHudStopOnly){'shim-hud-stop-only'}elseif($ShimHudOrdinary){'shim-hud-ordinary'}elseif($ShimForceCapture){'shim-force-capture'}elseif($OrdinaryFullSession){'shim-applied-forward-full-session'}elseif($OrdinarySavedForward){'shim-applied-forward-ordinary'}elseif($ShimAppliedForwardCapture){'shim-applied-forward-capture'}elseif($ShimCarTrial -and $PrivateApply){'shim-applied-car-trial'}elseif($ShimCarTrial){'shim-car-trial'}elseif($ShimMenuTrial){'shim-menu-trial'}elseif($ShimAdmission){'shim-admission'}else{'raw'}
+$mode=Resolve-ControlMode -ShimHudStopOnly $ShimHudStopOnly -ShimHudOrdinary $ShimHudOrdinary -ShimForceCapture $ShimForceCapture -OrdinarySavedForward $OrdinarySavedForward -OrdinaryFullSession $OrdinaryFullSession -ShimAppliedForwardCapture $ShimAppliedForwardCapture -ShimCarTrial $ShimCarTrial -PrivateApply $PrivateApply -ShimMenuTrial $ShimMenuTrial -ShimAdmission $ShimAdmission
 $blocked=@($request,$marker,(Join-Path $roots.config 'woden-record-next-launch.json'),(Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/woden/request.txt'))
 $probe=Join-Path $PSScriptRoot 'Probe/bin/Release/net6.0/Woden.ControlsProbe.dll'
 $configVerifier=Join-Path $PSScriptRoot 'VerifyConfig/bin/Release/net8.0/VerifyConfig.dll'
@@ -371,7 +372,7 @@ try {
     }
     Save-ControlFiles "$Result/owner-before" $roots $files
     Registry-Snapshot "$Result/preferences.json"
-    $state=[ordered]@{schema=1;mode=$mode;privateApply=[bool]$PrivateApply;gameDir=$GameDir;lease=$lease;nonce=$nonce;filesHash=(Get-ControlHash "$Result/owner-before/manifest.json");prefsHash=(Get-ControlHash "$Result/preferences.json");writerReceiptHash=$writer.receiptHash;writerHashes=$(if($PrivateApply){Get-ControlHash "$Result/writer-hashes.json"}else{$null})}
+    $state=[ordered]@{schema=1;mode=$mode;fullSession=[bool]$OrdinaryFullSession;privateApply=[bool]$PrivateApply;gameDir=$GameDir;lease=$lease;nonce=$nonce;filesHash=(Get-ControlHash "$Result/owner-before/manifest.json");prefsHash=(Get-ControlHash "$Result/preferences.json");writerReceiptHash=$writer.receiptHash;writerHashes=$(if($PrivateApply){Get-ControlHash "$Result/writer-hashes.json"}else{$null})}
     $state | ConvertTo-Json -Depth 5 | Set-Content "$Result/recovery.json"
     $ready=$true
     foreach($pair in @(@('ForceFeedback','Enabled'),@('Telemetry','Enabled'),@('Diagnostics','RecordSession'),@('Dev','InputCommandFile'))){Set-IniFalse $pair[0] $pair[1]}

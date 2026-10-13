@@ -92,6 +92,7 @@ internal sealed class OrdinaryFullSession
         _stageUsed = true;
         double s = Seconds(now);
         string directory = Path.Combine(_root, _names.Stage);
+        // This flag describes the stage-open configuration. Per-row force history records later delivery changes.
         var metadata = new Dictionary<string, string> {
             ["contract"] = "dbce.trajectory@1", ["game"] = Game, ["gameSha256"] = _id.GameHash, ["scenario"] = scenario,
             ["fixedDeltaTime"] = fixedDeltaTime.ToString("R", CultureInfo.InvariantCulture), ["captureSource"] = "live-physics",

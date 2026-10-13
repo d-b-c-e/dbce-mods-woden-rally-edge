@@ -32,7 +32,7 @@ internal static partial class StagePlayback
             if (Owner.OrdinaryOwns) throw new InvalidOperationException("already armed in this launch");
             // Woden's ordinary request carries no explicit owner-origin evidence, so the package says diagnostic.
             var full = new OrdinaryFullSession(captureDirectory, "source.jsonl", identity, "diagnostic", Runtime.Clock.Elapsed.TotalSeconds);
-            if (!Owner.TryClaimOrdinary(Session.Active || OutputMuted || StageRunLifecycle.ReplayPath != null ||
+            if (!Owner.TryClaimOrdinary(Session.Active || StageRunLifecycle.ReplayPath != null ||
                 File.Exists(Path.Combine(ControlRoot, "request.txt"))))
                 throw new InvalidOperationException("supervised stage control is present in this launch");
             _full = full;
@@ -60,7 +60,8 @@ internal static partial class StagePlayback
             if (!full.StageOpen)
             {
                 if (!full.CanOpenStage || !Target.Ready) return;
-                full.OpenStage(FullSelection(car), Target.Scenario, Time.fixedDeltaTime, !Runtime.DiagnosticNoForce && Runtime.Settings.FfbEnabled,
+                full.OpenStage(FullSelection(car), Target.Scenario, Time.fixedDeltaTime,
+                    StageLaunchOwner.PhysicalOutput(OutputMuted, Runtime.DiagnosticNoForce, Runtime.Settings.FfbEnabled),
                     directory => StageCaptureContext.Write(directory, car), Runtime.Settings.ForceOptions, now);
                 if (!full.StageOpen) return;
             }
@@ -99,7 +100,7 @@ internal static partial class StagePlayback
         {
             if (full.Observing)
             {
-                if (OutputMuted || Session.Active) full.Fail("supervised stage control appeared during the ordinary capture");
+                if (Owner.OrdinaryConflict(Session.Active)) full.Fail("a supervised stage session became active during the ordinary capture");
                 else if (full.StageOpen)
                 {
                     // A timeScale-0 pause never reaches FixedUpdate.
