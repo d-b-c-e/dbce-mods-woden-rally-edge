@@ -232,14 +232,16 @@ internal sealed class OrdinaryFullSession
         try { tape?.Dispose(); } catch { /* evidence is retained as written */ }
         try { signals?.Dispose(); } catch { /* evidence is retained as written */ }
         if (tape != null) TryWrite(Path.Combine(_root, _names.Stage, "incomplete.txt"), "Stage capture failed: " + Failure);
-        Incomplete("Full-session capture failed: " + Failure);
+        using var lease = TryLock(_root);
+        if (lease != null) Incomplete("Full-session capture failed: " + Failure);
     }
 
     /// <summary>Fixture seams (null in production): VerificationStarted runs on the package worker once it is packaging,
     /// before it waits for the stage seal; PrepareFinished after its read-only verification, before it claims the commit;
-    /// CommitStarted once the commit has begun; StageSealRunning inside the detached stage seal, before it drains and
-    /// hashes.</summary>
+    /// CommitStarted once the commit has begun (the lock held); DescriptorWritten inside the commit, between session.json
+    /// and its outer seal; StageSealRunning inside the detached stage seal, before it drains and hashes.</summary>
     internal Action? CommitStarted { get; set; }
+    internal Action? DescriptorWritten { get; set; }
     internal Action? VerificationStarted { get; set; }
     internal Action? PrepareFinished { get; set; }
     internal Action? StageSealRunning { get; set; }
@@ -258,12 +260,23 @@ internal sealed class OrdinaryFullSession
 
     /// <summary>Gives up before the package commit begins (a stalled verification, or a game close before the ordinary
     /// signal file closed). False only while a commit is running; true once nothing further will be written (the marker
-    /// is attempted if still pending).</summary>
+    /// is attempted if still pending, with the timeline when the worker had already completed it).</summary>
     internal bool Abandon(string reason)
     {
         int previous = Interlocked.CompareExchange(ref _state, Done, Pending);
         if (previous == Committing) return false;
-        if (previous == Pending) Incomplete(reason);
+        if (previous == Pending)
+        {
+            using var lease = TryLock(_root);
+            if (lease != null)
+            {
+                // Kept only if already completed and readable without waiting; otherwise source and stage stay the evidence.
+                byte[]? timeline = null;
+                if (Monitor.TryEnter(_sync)) try { timeline = _timelineBytes; } finally { Monitor.Exit(_sync); }
+                if (timeline != null) TryWriteNew(Path.Combine(_root, _names.Timeline), timeline);
+                Incomplete(reason);
+            }
+        }
         return true;
     }
 
@@ -286,14 +299,18 @@ internal sealed class OrdinaryFullSession
         catch (Exception ex)
         {
             if (Interlocked.CompareExchange(ref _state, Done, Pending) != Pending) return; // handed off or abandoned: not this worker's outcome
+            using var failed = TryLock(_root);
+            if (failed == null) return; // another live writer holds the capture: write nothing, decide nothing
             if (timeline != null) TryWriteNew(Path.Combine(_root, _names.Timeline), timeline);
             Incomplete("Full-session package was not sealed: " + ex.Message);
             return;
         }
         PrepareFinished?.Invoke();
         if (Interlocked.CompareExchange(ref _state, Committing, Pending) != Pending) return; // handed off or abandoned meanwhile
+        using var lease = TryLock(_root);
+        if (lease == null) { Volatile.Write(ref _state, Done); return; } // another live writer holds the capture: write nothing
         CommitStarted?.Invoke();
-        if (Commit(_root, _names, plan, writeTimeline: true)) _outcome = "package";
+        if (Commit(_root, _names, plan, writeTimeline: true, DescriptorWritten)) _outcome = "package";
         else if (File.Exists(Path.Combine(_root, IncompleteFile))) _outcome = "incomplete";
         Volatile.Write(ref _state, Done);
     }
@@ -313,6 +330,8 @@ internal sealed class OrdinaryFullSession
             try { worker?.Wait(Left()); } catch (AggregateException) { /* Package reports through its outcome */ }
             return;
         }
+        using var lease = TryLock(_root);
+        if (lease == null) return; // another live writer holds the capture: write nothing
         try
         {
             if (!_stopped) throw new InvalidDataException("the capture did not stop cleanly");
@@ -343,40 +362,42 @@ internal sealed class OrdinaryFullSession
     internal sealed record OfflineOutcome(string Outcome, string Reason);
 
     /// <summary>The companion's finalizer (WodenCaseFinalizer package): completes a package handed off at game close with
-    /// the plugin's own verification and commit, ending in exactly one of a sealed package or the incomplete marker.
-    /// "refused", writing nothing, when another finalizer holds the lock, the outcome is already decided, or there is no
-    /// readable handoff.</summary>
+    /// the plugin's own verification and commit, ending in exactly one of a sealed package or the incomplete marker. A
+    /// descriptor left without its outer seal and no marker, found with the lock free, is an interrupted commit: its
+    /// writer has ended, so it is marked incomplete (payloads untouched). "refused", writing nothing, while a live writer
+    /// holds the lock, when the outcome is already decided, or without a readable handoff.</summary>
     internal static OfflineOutcome PackageOffline(string capture)
     {
         string root = Path.GetFullPath(capture);
-        FileStream lease;
-        try { lease = new FileStream(Path.Combine(root, PackagingLock), FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return new("refused", "the package lock is held or unavailable: " + ex.Message); }
-        using (lease)
+        using var lease = TryLock(root);
+        if (lease == null) return new("refused", "the package lock is held (a live writer) or unavailable");
+        foreach (string decided in new[] { "complete.tsv", IncompleteFile })
+            if (File.Exists(Path.Combine(root, decided))) return new("refused", "the package outcome is already decided: " + decided);
+        if (File.Exists(Path.Combine(root, FullSessionPackageNames.Descriptor)))
         {
-            foreach (string decided in new[] { FullSessionPackageNames.Descriptor, "complete.tsv", IncompleteFile })
-                if (File.Exists(Path.Combine(root, decided))) return new("refused", "the package outcome is already decided: " + decided);
-            PendingHandoff pending;
-            try { pending = ReadPending(root); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or JsonException or InvalidOperationException or ArgumentException or FormatException)
-            { return new("refused", "no readable package handoff: " + ex.Message); }
-            try
-            {
-                string path = Path.Combine(root, pending.Names.Timeline);
-                if (new FileInfo(path).Length > FullSessionTimeline.MaxDocumentBytes) throw new InvalidDataException("the timeline is too large");
-                byte[] bytes = File.ReadAllBytes(path);
-                if (Sha256(bytes) != pending.TimelineSha256) throw new InvalidDataException("the timeline differs from the handoff");
-                var timeline = JsonSerializer.Deserialize<FullSessionTimeline>(bytes) ?? throw new InvalidDataException("missing timeline");
-                timeline.Validate(TimelineSchema);
-                if (timeline.Stage?.SealSha256 != pending.StageSealSha256) throw new InvalidDataException("the stage seal differs from the handoff");
-                var plan = Prepare(root, pending.Names, pending.GameHash, pending.InputOrigin, timeline, bytes, pending.Journal);
-                return Commit(root, pending.Names, plan, writeTimeline: false) ? new("package", "") : new("incomplete", ReadMarker(root));
-            }
-            catch (Exception ex)
-            {
-                WriteIncomplete(root, "Full-session package was not sealed: " + ex.Message);
-                return new("incomplete", ex.Message);
-            }
+            WriteIncomplete(root, "Full-session package interrupted: session.json was left without its outer seal when its writer ended; the original capture files are retained.");
+            return new("incomplete", ReadMarker(root));
+        }
+        PendingHandoff pending;
+        try { pending = ReadPending(root); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or JsonException or InvalidOperationException or ArgumentException or FormatException)
+        { return new("refused", "no readable package handoff: " + ex.Message); }
+        try
+        {
+            string path = Path.Combine(root, pending.Names.Timeline);
+            if (new FileInfo(path).Length > FullSessionTimeline.MaxDocumentBytes) throw new InvalidDataException("the timeline is too large");
+            byte[] bytes = File.ReadAllBytes(path);
+            if (Sha256(bytes) != pending.TimelineSha256) throw new InvalidDataException("the timeline differs from the handoff");
+            var timeline = JsonSerializer.Deserialize<FullSessionTimeline>(bytes) ?? throw new InvalidDataException("missing timeline");
+            timeline.Validate(TimelineSchema);
+            if (timeline.Stage?.SealSha256 != pending.StageSealSha256) throw new InvalidDataException("the stage seal differs from the handoff");
+            var plan = Prepare(root, pending.Names, pending.GameHash, pending.InputOrigin, timeline, bytes, pending.Journal);
+            return Commit(root, pending.Names, plan, writeTimeline: false) ? new("package", "") : new("incomplete", ReadMarker(root));
+        }
+        catch (Exception ex)
+        {
+            WriteIncomplete(root, "Full-session package was not sealed: " + ex.Message);
+            return new("incomplete", ex.Message);
         }
     }
 
@@ -440,7 +461,7 @@ internal sealed class OrdinaryFullSession
 
     /// <summary>Writes a plan; only the winner of the outcome calls it. True for a sealed, verified package; otherwise the
     /// marker was attempted. Only files this call created are removed, so no descriptor can outlive a failed seal.</summary>
-    private static bool Commit(string root, FullSessionPackageNames.Names names, Plan plan, bool writeTimeline)
+    private static bool Commit(string root, FullSessionPackageNames.Names names, Plan plan, bool writeTimeline, Action? descriptorWritten = null)
     {
         bool descriptor = false, seal = false;
         try
@@ -450,6 +471,7 @@ internal sealed class OrdinaryFullSession
             if (plan.Descriptor == null) { WriteIncomplete(root, NoStage); return false; }
             WriteNew(Path.Combine(root, FullSessionPackageNames.Descriptor), plan.Descriptor);
             descriptor = true;
+            descriptorWritten?.Invoke();
             ArtifactSeal.Complete(root, names.OuterSealFiles());
             seal = true;
             ArtifactSeal.Verify(root, names.OuterSealFiles());
@@ -603,6 +625,13 @@ internal sealed class OrdinaryFullSession
     {
         try { string text = File.ReadAllText(Path.Combine(root, IncompleteFile)).Trim(); return text.Length > 512 ? text[..512] : text; }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return ""; }
+    }
+    // The packaging lock, held across every package-output write and the interrupted-commit decision, by the game's
+    // worker or close or the finalizer. Delete-on-close: only a live writer can hold it, and its end releases it.
+    private static FileStream? TryLock(string root)
+    {
+        try { return new FileStream(Path.Combine(root, PackagingLock), FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
     }
     private static string Sha256(byte[] bytes) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant();
     private static void WriteNew(string path, byte[] bytes)

@@ -434,7 +434,19 @@ internal static class FullSessionChecks
     /// same capture.</summary>
     public static void ExitHandoff(Action<bool, string> check)
     {
-        using var f = new Fixture();
+        HandoffParity(check, "unknown");
+        HandoffParity(check, "human");
+    }
+    static Dictionary<string, string> SourceProperties(string inputOrigin)
+    {
+        var properties = new Dictionary<string, string> { ["gameAssemblySha256"] = Hash };
+        if (inputOrigin != "unknown") properties["inputOrigin"] = inputOrigin; // omitted means unknown, as the request writes it
+        return properties;
+    }
+    static void HandoffParity(Action<bool, string> check, string inputOrigin)
+    {
+        string origin = inputOrigin == "human" ? "owner" : "diagnostic";
+        using var f = new Fixture(properties: _ => SourceProperties(inputOrigin), inputOrigin: inputOrigin);
         Capture(f);
         f.Session.Stop(f.Now += .1);
         check(f.Session.WaitStageSeal(TimeSpan.FromSeconds(30)), "stage sealed");
@@ -447,24 +459,85 @@ internal static class FullSessionChecks
             !File.Exists(Path.Combine(copy, "source.session.jsonl")) && !File.Exists(Path.Combine(copy, "session.json")),
             "the handoff writes only the timeline and itself (no observation: its end row needs the parsed source)");
         var pending = JsonNode.Parse(File.ReadAllText(Path.Combine(copy, OrdinaryFullSession.PendingFile)))!;
-        check((string?)pending["schema"] == OrdinaryFullSession.PendingSchema && (string?)pending["origin"] == "diagnostic" &&
-            pending["journal"]!.AsArray().Count == Kinds(f.Root).Length - 1, "handoff schema, origin and every journal row but the end");
+        check((string?)pending["schema"] == OrdinaryFullSession.PendingSchema && (string?)pending["origin"] == origin && (string?)pending["inputOrigin"] == inputOrigin &&
+            pending["journal"]!.AsArray().Count == Kinds(f.Root).Length - 1, inputOrigin + ": handoff schema, both origins and every journal row but the end");
         var outcome = OrdinaryFullSession.PackageOffline(copy);
-        check(outcome.Outcome == "package" && !File.Exists(Path.Combine(copy, OrdinaryFullSession.PackagingLock)), "the finalizer sealed the copy: " + outcome.Reason);
+        check(outcome.Outcome == "package" && !File.Exists(Path.Combine(copy, OrdinaryFullSession.PackagingLock)), inputOrigin + ": the finalizer sealed the copy: " + outcome.Reason);
+        var descriptor = JsonNode.Parse(File.ReadAllText(Path.Combine(copy, "session.json")))!;
+        check((string?)descriptor["inputOrigin"] == inputOrigin && (string?)descriptor["origin"] == origin, inputOrigin + ": the finalizer's descriptor states the request's origin");
         foreach (string name in PackageFiles)
-            check(File.ReadAllBytes(f.Path_(name)).AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(copy, name))), name + " is byte-identical to the worker's");
+            check(File.ReadAllBytes(f.Path_(name)).AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(copy, name))), inputOrigin + ": " + name + " is byte-identical to the worker's");
         ArtifactSeal.Verify(copy, FullSessionPackageNames.FromSignal("source.jsonl").OuterSealFiles());
         // Derived parity: S2 admits the worker's and the finalizer's originals into byte-identical derived packages.
         string workerDerived = f.Root + ".admitted", finalizerDerived = copy + ".admitted";
         var admittedWorker = FullSessionAdmission.Admit(f.Root, workerDerived, Hash);
         var admittedFinalizer = FullSessionAdmission.Admit(copy, finalizerDerived, Hash);
-        check(admittedWorker.Admitted && admittedFinalizer.Admitted, "S2 admits both originals: " + admittedWorker.Reason + " " + admittedFinalizer.Reason);
+        check(admittedWorker.Admitted && admittedFinalizer.Admitted, inputOrigin + ": S2 admits both originals: " + admittedWorker.Reason + " " + admittedFinalizer.Reason);
         string[] Files(string root) => Directory.GetFiles(root, "*", SearchOption.AllDirectories).Select(p => Path.GetRelativePath(root, p)).OrderBy(p => p, StringComparer.Ordinal).ToArray();
         check(Files(workerDerived).SequenceEqual(Files(finalizerDerived)) &&
             Files(workerDerived).All(name => File.ReadAllBytes(Path.Combine(workerDerived, name)).AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(finalizerDerived, name)))),
-            "the derived packages are byte-identical: " + string.Join(", ", Files(workerDerived)));
+            inputOrigin + ": the derived packages are byte-identical: " + string.Join(", ", Files(workerDerived)));
         var again = OrdinaryFullSession.PackageOffline(copy);
-        check(again.Outcome == "refused" && again.Reason.Contains("already decided", StringComparison.Ordinal), "a second run refuses: " + again.Reason);
+        check(again.Outcome == "refused" && again.Reason.Contains("already decided", StringComparison.Ordinal), inputOrigin + ": a second run refuses: " + again.Reason);
+    }
+
+    /// <summary>The packaging lock: a live commit holds it, so the finalizer refuses (bytes unchanged) rather than calling
+    /// its half-written package interrupted; once the writer has ended, a descriptor without its seal is marked
+    /// interrupted with the payloads untouched; a worker that cannot take the lock writes nothing and decides nothing;
+    /// a capture abandoned after its timeline was completed keeps the timeline.</summary>
+    public static void CommitLock(Action<bool, string> check)
+    {
+        static Dictionary<string, string> Snapshot(string root) => Directory.GetFiles(root, "*", SearchOption.AllDirectories)
+            .Where(p => Path.GetFileName(p) != OrdinaryFullSession.PackagingLock).ToDictionary(p => Path.GetRelativePath(root, p), ArtifactSeal.Hash);
+        static bool Same(Dictionary<string, string> a, Dictionary<string, string> b) => a.Count == b.Count && a.All(p => b.TryGetValue(p.Key, out var h) && h == p.Value);
+        using (var f = new Fixture())
+        {
+            Capture(f); f.Session.Stop(f.Now += .1);
+            using var written = new ManualResetEventSlim(); using var release = new ManualResetEventSlim();
+            f.Session.DescriptorWritten = () => { written.Set(); release.Wait(TimeSpan.FromSeconds(30)); };
+            var worker = Task.Run(f.Session.Package);
+            check(written.Wait(TimeSpan.FromSeconds(30)) && File.Exists(f.Path_("session.json")) && !File.Exists(f.Path_("complete.tsv")),
+                "the live commit is between session.json and its seal");
+            var before = Snapshot(f.Root);
+            var r = OrdinaryFullSession.PackageOffline(f.Root);
+            check(r.Outcome == "refused" && r.Reason.Contains("lock", StringComparison.Ordinal) && Same(before, Snapshot(f.Root)),
+                "the finalizer refuses a live commit and changes nothing: " + r.Reason);
+            release.Set();
+            check(worker.Wait(TimeSpan.FromSeconds(30)) && f.Session.Outcome == "package", "the live commit completes");
+            ArtifactSeal.Verify(f.Root, FullSessionPackageNames.FromSignal("source.jsonl").OuterSealFiles());
+
+            File.Delete(f.Path_("complete.tsv")); // as if its writer had ended before the seal
+            before = Snapshot(f.Root);
+            r = OrdinaryFullSession.PackageOffline(f.Root);
+            var after = Snapshot(f.Root);
+            after.Remove(OrdinaryFullSession.IncompleteFile);
+            check(r.Outcome == "incomplete" && Read(f.Path_(OrdinaryFullSession.IncompleteFile)).Contains("interrupted", StringComparison.Ordinal) && Same(before, after),
+                "an interrupted commit found with the lock free is marked incomplete, payloads untouched: " + r.Reason);
+        }
+        using (var f = new Fixture())
+        {
+            Capture(f); f.Session.Stop(f.Now += .1);
+            check(f.Session.WaitStageSeal(TimeSpan.FromSeconds(30)), "the detached stage seal finished before the snapshot");
+            using (new FileStream(f.Path_(OrdinaryFullSession.PackagingLock), FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose))
+            {
+                var before = Snapshot(f.Root);
+                f.Session.Package();
+                check(f.Session.Outcome == null && Same(before, Snapshot(f.Root)), "a worker that cannot take the lock writes nothing and decides nothing");
+            }
+        }
+        using (var f = new Fixture())
+        {
+            Capture(f); f.Session.Stop(f.Now += .1);
+            using var verified = new ManualResetEventSlim(); using var release = new ManualResetEventSlim();
+            f.Session.PrepareFinished = () => { verified.Set(); release.Wait(TimeSpan.FromSeconds(30)); };
+            var worker = Task.Run(f.Session.Package);
+            check(verified.Wait(TimeSpan.FromSeconds(30)), "the worker completed the timeline and verified");
+            check(f.Session.Abandon("fixture: verification exceeded the hold") && f.Session.Outcome == "incomplete" &&
+                File.Exists(f.Path_("source.stage-session.json")), "the abandoned capture keeps the timeline the worker had completed");
+            release.Set();
+            check(worker.Wait(TimeSpan.FromSeconds(30)) && !File.Exists(f.Path_("source.session.jsonl")) && !File.Exists(f.Path_("session.json")),
+                "the losing worker writes nothing after the abandon");
+        }
     }
 
     /// <summary>Who owns the outcome when the game closes during packaging. A worker that has not begun its commit loses
@@ -558,6 +631,31 @@ internal static class FullSessionChecks
         r = OrdinaryFullSession.PackageOffline(changed);
         check(r.Outcome == "incomplete" && !File.Exists(Path.Combine(changed, "session.json")) &&
             Read(Path.Combine(changed, OrdinaryFullSession.IncompleteFile)).Contains("timeline differs", StringComparison.Ordinal), "a changed timeline ends in the marker");
+
+        void EditHandoff(string root, Action<JsonObject> edit)
+        {
+            string path = Path.Combine(root, OrdinaryFullSession.PendingFile);
+            var handoff = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+            edit(handoff);
+            File.WriteAllText(path, handoff.ToJsonString());
+        }
+        string disagree = Variant("origin-disagrees");
+        EditHandoff(disagree, h => h["inputOrigin"] = "automated"); // a valid pair (automated -> diagnostic), but the source says unknown
+        r = OrdinaryFullSession.PackageOffline(disagree);
+        check(r.Outcome == "incomplete" && !File.Exists(Path.Combine(disagree, "session.json")) &&
+            Read(Path.Combine(disagree, OrdinaryFullSession.IncompleteFile)).Contains("input origin", StringComparison.Ordinal),
+            "a handoff whose input origin disagrees with the source ends in the marker: " + r.Reason);
+
+        foreach (var (name, edit) in new (string, Action<JsonObject>)[] {
+            ("origin-not-derived", h => h["origin"] = "owner"),       // unknown input never maps to owner
+            ("origin-invalid", h => h["inputOrigin"] = "Human") })    // exact values only
+        {
+            string bad = Variant(name);
+            EditHandoff(bad, edit);
+            before = Listing(bad);
+            r = OrdinaryFullSession.PackageOffline(bad);
+            check(r.Outcome == "refused" && Listing(bad).SequenceEqual(before), name + ": an invalid handoff identity is refused, nothing written (" + r.Reason + ")");
+        }
 
         r = OrdinaryFullSession.PackageOffline(f.Root);
         check(r.Outcome == "package", "the untouched capture packages: " + r.Reason);

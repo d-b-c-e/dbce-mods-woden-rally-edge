@@ -17,7 +17,7 @@ saved evidence until the cold-start route (S2) is qualified. Old flat captures a
 | `complete.tsv` | Outer seal over `session.json`, `source.jsonl`, `source.session.jsonl`, `source.stage-session.json`, `source.stage/complete.tsv`. |
 | `full-session-incomplete.txt` | One line, written **instead of** a package when the capture failed, recorded no sealed stage, the source did not complete (including a limit stop) or failed, or the package could not be verified. |
 | `full-session-pending.json` | `woden.full-session-pending@1`, at most 1 MiB, written only at game close when the package was not finished in the game: game build, `origin` and `inputOrigin` (the finalizer refuses an origin that does not follow from it, and ends in the marker if the source states another), signal name, the timeline's SHA-256, the stage seal, pose count and the observation rows so far (each exactly as it will be written, without `end`). The companion's finalizer turns it into the package or the marker; it is never removed and is history once either exists. |
-| `full-session-packaging.lock` | Transient: held (delete-on-close) only while the finalizer packages. |
+| `full-session-packaging.lock` | Transient, delete-on-close: held across every package-output write by the game's worker or close and by the finalizer, so only a live writer holds it. |
 
 A valid package is `session.json` with its verified outer `complete.tsv`. `session.json` is written only after the
 stage, timeline and source footer verified (nested seal, pose count, every stage row aligned to its pose, a
@@ -44,8 +44,14 @@ really exists; if the marker cannot be written, nothing claims an outcome and th
   is the recorder's real state. A descriptor left without its outer seal is never a package: readers require
   `complete.tsv`.
 - **One owner of the outcome.** The package worker, game close and the status hold race for a single state. Whoever
-  wins it writes every package output (timeline, observation, descriptor, seal, marker, handoff); a loser writes
-  nothing. The worker's verification is read-only, so it can lose until it begins its commit.
+  wins it writes every package output (timeline, observation, descriptor, seal, marker, handoff) under the packaging
+  lock; a loser, or a winner that cannot take the lock, writes nothing. The worker's verification is read-only, so it
+  can lose until it begins its commit. A capture abandoned at the 60 s hold keeps its timeline only if the worker had
+  already completed it; otherwise, like a close whose stage seal outran 10 s, the source and stage files and the marker
+  are its evidence.
+- **Interrupted commit.** If a writer ends mid-commit, `session.json` is left without `complete.tsv` and no marker; it
+  is never a package. The finalizer, finding that with the lock free (so its writer has ended), writes the marker and
+  leaves the payloads untouched; the companion runs it for that state too.
 - **Detached stage seal.** At the stage end the game thread only reserves the stage's journal row, observes the finish
   at that time and detaches the writers. The signal drain, the tape seal and its SHA-256 run on a worker. The row
   reads `stage-sealed`, or `stage-incomplete` if that seal fails (then the capture is incomplete, as before).
@@ -53,8 +59,9 @@ really exists; if the marker cannot be written, nothing claims an outcome and th
   detached stage seal or a commit the worker already began; otherwise it claims the outcome, writes the timeline
   and `full-session-pending.json`, and the companion completes the package after the game exits
   (`WodenCaseFinalizer package <capture>`): the same verification and commit as the worker, so the same bytes. A
-  stage seal still running at the end of the 10 s leaves the capture incomplete. Stop in the game is unchanged: the
-  worker packages within the 60 s hold.
+  stage seal still running at the end of the 10 s leaves the capture incomplete, as does a handoff over 1 MiB (only an
+  observation near its 10,000-row limit could reach that). Stop in the game is unchanged: the worker packages within
+  the 60 s hold.
 - **Companion order.** `Start-RecordedGame.ps1` runs the force-case reprocess, then the package step when a handoff
   exists (also when the force case failed), and only then writes `control/finalization.json`. Its `State` is the force
   case alone; the package's own files say how the package ended.

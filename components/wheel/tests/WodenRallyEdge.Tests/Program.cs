@@ -1063,6 +1063,7 @@ Test("the ordinary stage seals detached from the game thread; its journal row an
 Test("game close hands the package to the companion's finalizer, whose package is byte-identical to the worker's", () => WodenRallyEdge.FullSessionChecks.ExitHandoff(Check));
 Test("game close and the package worker: one owner of the outcome; the loser writes nothing", () => WodenRallyEdge.FullSessionChecks.ExitRaces(Check));
 Test("the companion's package step refuses without writing, and never packages a changed handoff", () => WodenRallyEdge.FullSessionChecks.FinalizerRefusals(Check));
+Test("the packaging lock: a live commit is refused, an interrupted one marked; a writer without it writes nothing", () => WodenRallyEdge.FullSessionChecks.CommitLock(Check));
 Test("ordinary recording holds its full 20 minutes: the largest row at the budgeted 70 Hz fits the cap (real recorder)", () => WodenRallyEdge.RecordingCapacityChecks.Capacity(Check));
 Test("the capacity budget is the real recorder's arithmetic: header, rows and footer reserve stop it exactly there", () => WodenRallyEdge.RecordingCapacityChecks.Boundary(Check));
 if (Environment.GetEnvironmentVariable("WODEN_LONG_SESSION_SECONDS") is { Length: > 0 } longSeconds)

@@ -119,13 +119,22 @@ $finalizer = Join-Path $PSScriptRoot 'WodenCaseFinalizer.exe'
 if (!(Test-Path -LiteralPath $finalizer -PathType Leaf)) { throw "Installed case finalizer is missing: $finalizer" }
 & $finalizer reprocess $captureDirectory
 $reprocessed = $LASTEXITCODE -eq 0
-# A first-stage package the game handed off at close is completed before any finalization notice, whether or not the
-# force case qualified. The two outcomes stay separate: the notice's State is the force case only, and the package's
-# own files (session.json + complete.tsv, or full-session-incomplete.txt) say how the package ended.
+# A first-stage package the game handed off at close (or a commit interrupted when its writer ended: a descriptor
+# without its outer seal) is completed before any finalization notice, whether or not the force case qualified. The two
+# outcomes stay separate: the notice's State is the force case only, and the package's own files (session.json +
+# complete.tsv, or full-session-incomplete.txt) say how the package ended. The finalizer refuses, writing nothing,
+# while a live writer holds the package lock.
 $packageNote = $null
-if (Test-Path -LiteralPath (Join-Path $captureDirectory 'full-session-pending.json') -PathType Leaf) {
-    & $finalizer package $captureDirectory
-    $packageNote = if ($LASTEXITCODE -eq 0) { 'First-stage package sealed by the companion.' } else { 'First-stage package not sealed; see full-session-incomplete.txt in the capture.' }
+$inCapture = { param($name) Test-Path -LiteralPath (Join-Path $captureDirectory $name) -PathType Leaf }
+if ((& $inCapture 'full-session-pending.json') -or ((& $inCapture 'session.json') -and !(& $inCapture 'complete.tsv') -and !(& $inCapture 'full-session-incomplete.txt'))) {
+    $packageOutput = & $finalizer package $captureDirectory
+    try { $packageResult = ($packageOutput | Out-String) | ConvertFrom-Json } catch { $packageResult = $null }
+    $packageNote = switch ($packageResult.Outcome) {
+        'package' { 'First-stage package sealed by the companion.' }
+        'incomplete' { "First-stage package not sealed: $($packageResult.Reason) (full-session-incomplete.txt)." }
+        'refused' { "First-stage package step refused: $($packageResult.Reason); the handoff is kept for a rerun." }
+        default { 'First-stage package step gave no readable result; the capture files are kept.' }
+    }
 }
 if (!$reprocessed) {
     Write-Finalization $controlRoot $requestId 'incomplete' 'Source or driving signal validation failed; original source retained.'
