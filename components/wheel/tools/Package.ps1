@@ -3,6 +3,7 @@ param(
     [ValidatePattern('^[a-z0-9][a-z0-9.-]*$')][string]$ArtifactLabel,
     [string]$PrivateShimPath,
     [string]$AutomationMutedNativePath,
+    [string]$AutomationNativeProvenancePath,
     [switch]$HudGuiDiagnostic,
     [switch]$HudDepthDiagnostic,
     [switch]$HudStateTrace
@@ -14,13 +15,15 @@ if ($HudGuiDiagnostic -and $ArtifactLabel -notmatch '^hudgui-') { throw 'HUD GUI
 if ($HudStateTrace -and $ArtifactLabel -notmatch '^hudstate-') { throw 'HUD state trace packages require a hudstate- artifact label.' }
 $root = Split-Path $PSScriptRoot -Parent
 $privateShimHash = '9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8'
-$automationNativeHash = '24A9B624E3F3C474383C64A0177019BFB0837DE70B311854C59EE692D7DB03F5'
+$automationNativeHash = '088F1089BEB6D18D478F37582C59330C6BDA6BC37D5E365F6BA7EBF80040F567'
+$automationProvenanceHash = '6068B7A848F85FE42AE88EE8A86B10F1EF4C4E307B9C4235BE44C1A84BBEA8E5'
 $baseNativeHash = 'F8361A08BBE08EAAB936B37800D308CF1FC7EDAB34E2839DB16A447FE34178C5'
 if ($PrivateShimPath) {
     if (-not [IO.Path]::IsPathFullyQualified($PrivateShimPath) -or -not (Test-Path -LiteralPath $PrivateShimPath -PathType Leaf)) { throw 'PrivateShimPath must be an existing absolute file.' }
     $PrivateShimPath = [IO.Path]::GetFullPath($PrivateShimPath)
     if ((Get-FileHash -LiteralPath $PrivateShimPath).Hash -ne $privateShimHash) { throw 'PrivateShimPath does not match the reviewed ABI 2 pin.' }
 }
+if ($AutomationNativeProvenancePath -and -not $AutomationMutedNativePath) { throw 'Automation native provenance requires the matching native DLL.' }
 if ($AutomationMutedNativePath) {
     if (-not $PrivateShimPath -or $ArtifactLabel -notmatch '^automation-muted-[a-z0-9.-]+$') {
         throw 'Automation-muted native requires a private shim and an automation-muted- artifact label.'
@@ -32,6 +35,15 @@ if ($AutomationMutedNativePath) {
     if ((Get-FileHash -LiteralPath $AutomationMutedNativePath).Hash -ne $automationNativeHash) {
         throw 'AutomationMutedNativePath does not match the proven no-force test native pin.'
     }
+    if (-not $AutomationNativeProvenancePath -or -not [IO.Path]::IsPathFullyQualified($AutomationNativeProvenancePath) -or
+        -not (Test-Path -LiteralPath $AutomationNativeProvenancePath -PathType Leaf)) { throw 'AutomationNativeProvenancePath must be the exact reviewed sidecar.' }
+    $AutomationNativeProvenancePath = [IO.Path]::GetFullPath($AutomationNativeProvenancePath)
+    if ((Get-FileHash -LiteralPath $AutomationNativeProvenancePath).Hash -ne $automationProvenanceHash) { throw 'Automation native provenance hash differs.' }
+    $nativeProvenance = Get-Content -LiteralPath $AutomationNativeProvenancePath -Raw | ConvertFrom-Json
+    if ($nativeProvenance.dllSha256 -ne $automationNativeHash -or $nativeProvenance.arch -cne 'x64' -or
+        $nativeProvenance.define -cne 'WHEELFFB_NO_FORCE_BUILD' -or $nativeProvenance.marker -cne 'DBCE-WHEELFFB-NO-FORCE-TEST-BUILD' -or
+        $nativeProvenance.commit -cne 'eb77b909416b8a6ef70787e4621aaa62f16b9f45' -or $nativeProvenance.sourcesDirty -ne $false -or
+        $nativeProvenance.firstCallStatus -notmatch 'armed: no force \(no-force build\)') { throw 'Native sidecar does not attest the qualified load-muted build.' }
     $sourceCommit = (& git -C (Join-Path $root '..\..') rev-parse HEAD).Trim()
     if ($LASTEXITCODE -ne 0 -or $sourceCommit -notmatch '^[a-f0-9]{40}$') { throw 'Automation package source commit could not be pinned.' }
     if (@(& git -C (Join-Path $root '..\..') status --porcelain --untracked-files=no).Count -ne 0) {
@@ -69,15 +81,18 @@ if ($AutomationMutedNativePath) {
     if ((Get-FileHash -LiteralPath (Join-Path $plugin 'WheelFfb.dll')).Hash -ne $automationNativeHash) {
         throw 'Staged automation native differs from the proven no-force pin.'
     }
+    Copy-Item -LiteralPath $AutomationNativeProvenancePath -Destination (Join-Path $stage 'WheelFfb.noforce.provenance.json')
+    if ((Get-FileHash -LiteralPath (Join-Path $stage 'WheelFfb.noforce.provenance.json')).Hash -ne $automationProvenanceHash) { throw 'Staged native provenance differs.' }
     [ordered]@{
-        schema='woden.automation-muted-native@1'; purpose='internal unattended test only; never an owner or public release candidate'
+        schema='woden.automation-muted-native@1'; purpose='internal hash-pinned temporary test deployment only; restore the product afterward; never a release or lasting install'
         sourceCommit=$sourceCommit
         baseToolkitVersion='v0.12.0'; baseNativeSha256=$baseNativeHash.ToLowerInvariant()
         nativeSha256=$automationNativeHash.ToLowerInvariant()
-        nativeDefaultState='unarmed'; requiresExplicitArm=$true
-        provenance='raw-controls-20261010-07 reviewed test-native artifact; EnableTestInjection(1) must latch before any force path'
+        nativeDefaultState='armed'; requiresExplicitArm=$false
+        toolkitNativeCommit=$nativeProvenance.commit; toolkitNativeProvenanceSha256=$automationProvenanceHash.ToLowerInvariant()
+        provenance='WheelFfb no-force internal build eb77b90; native force gate latched before first export, independently qualified with actual DLL first-call and fake-device checks'
     } | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath (Join-Path $stage 'automation-native-provenance.json') -Encoding utf8
-    'INTERNAL AUTOMATION ONLY. This package contains a test-native DLL; never install it as an owner or public candidate.' |
+    'INTERNAL AUTOMATION ONLY. Temporary hash-pinned test deployment; restore the product afterward. Never a release or lasting owner install.' |
         Set-Content -LiteralPath (Join-Path $stage 'AUTOMATION-ONLY.txt') -Encoding utf8
 }
 Copy-Item -LiteralPath (Join-Path $root 'lib\recording\provenance.json') -Destination (Join-Path $plugin 'recording-provenance.json')

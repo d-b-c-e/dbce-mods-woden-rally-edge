@@ -2,11 +2,13 @@
 param([Parameter(Mandatory=$true)][string]$PackageRoot)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$pin = '24A9B624E3F3C474383C64A0177019BFB0837DE70B311854C59EE692D7DB03F5'
+$pin = '088F1089BEB6D18D478F37582C59330C6BDA6BC37D5E365F6BA7EBF80040F567'
+$provenancePin = '6068B7A848F85FE42AE88EE8A86B10F1EF4C4E307B9C4235BE44C1A84BBEA8E5'
 $basePin = 'F8361A08BBE08EAAB936B37800D308CF1FC7EDAB34E2839DB16A447FE34178C5'
 $package = [IO.Path]::GetFullPath($PackageRoot)
 $pluginRelative = 'BepInEx\plugins\WodenRallyEdgeWheel\WheelFfb.dll'
 $metadataPath = Join-Path $package 'automation-native-provenance.json'
+$provenancePath = Join-Path $package 'WheelFfb.noforce.provenance.json'
 $noticePath = Join-Path $package 'AUTOMATION-ONLY.txt'
 $nativePath = Join-Path $package $pluginRelative
 $manifest = Get-Content -LiteralPath (Join-Path $package 'manifest.json') -Raw | ConvertFrom-Json
@@ -14,14 +16,16 @@ $metadata = Get-Content -LiteralPath $metadataPath -Raw | ConvertFrom-Json
 $script:checks = 0
 function Check([bool]$Condition,[string]$Message) { if (-not $Condition) { throw $Message }; $script:checks++ }
 function Hash([string]$Path) { (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash }
-foreach ($path in @($pluginRelative,'automation-native-provenance.json','AUTOMATION-ONLY.txt','private-shim-capability.json')) {
+foreach ($path in @($pluginRelative,'automation-native-provenance.json','WheelFfb.noforce.provenance.json','AUTOMATION-ONLY.txt','private-shim-capability.json')) {
     $entries = @($manifest | Where-Object { $_.path.Replace('/','\') -eq $path })
     Check ($entries.Count -eq 1 -and (Hash (Join-Path $package $path)) -eq $entries[0].sha256) ('Manifest pin: ' + $path)
 }
 Check ((Hash $nativePath) -eq $pin -and $metadata.nativeSha256 -eq $pin.ToLowerInvariant()) 'Automation native pin'
+Check ((Hash $provenancePath) -eq $provenancePin -and $metadata.toolkitNativeProvenanceSha256 -eq $provenancePin.ToLowerInvariant() -and
+    $metadata.toolkitNativeCommit -eq 'eb77b909416b8a6ef70787e4621aaa62f16b9f45') 'Qualified load-muted native provenance'
 Check ($metadata.schema -eq 'woden.automation-muted-native@1' -and $metadata.baseNativeSha256 -eq $basePin.ToLowerInvariant() -and
     $metadata.sourceCommit -match '^[a-f0-9]{40}$') 'Source and base toolkit provenance'
-Check ($metadata.nativeDefaultState -eq 'unarmed' -and $metadata.requiresExplicitArm) 'No implicit native mute claim'
+Check ($metadata.nativeDefaultState -eq 'armed' -and -not $metadata.requiresExplicitArm) 'Native force gate armed at load'
 Check ((Get-Content -LiteralPath $noticePath -Raw) -match 'INTERNAL AUTOMATION ONLY') 'Test-only notice'
 $fixture = Join-Path $root ('artifacts\automation-muted-installer-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $fixture | Out-Null
