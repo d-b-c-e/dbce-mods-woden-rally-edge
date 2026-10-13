@@ -95,7 +95,7 @@ internal static class FullSessionChecks
         f.Session.Seal("finished", true, f.Now);
         check(!f.Session.CanOpenStage, "one stage per launch; later stages are analysis-only");
         f.Session.Scene("StagePresentation", false, f.Now += 1);
-        for (int i = 0; i < 3; i++) f.Ordinary.Publish(f.Sample("no-local-car"));
+        for (int i = 0; i < 3; i++) { f.Now += .1; f.Ordinary.Publish(f.Sample("no-local-car")); } // the recorder refuses repeated times
         f.CloseOrdinary();
         f.Session.Stop(f.Now += .1);
         f.Session.Package();
