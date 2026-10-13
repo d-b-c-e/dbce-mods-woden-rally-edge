@@ -23,7 +23,9 @@ internal static partial class ShimInput
     internal static bool Ready => Owns && !_terminal;
     internal static Guid? SteeringGuid { get; private set; }
     internal static string Status { get; private set; } = "Native backend (standalone bindings)";
-    internal static bool HPattern => _transmission == "HPattern";
+    // The shared native profile reports Wheelkit's persisted H-pattern label;
+    // earlier fixtures and profiles can also report the compact legacy token.
+    internal static bool HPattern => _transmission is "H-pattern" or "HPattern";
     internal static bool HPatternGatesAvailable => Ready && HPattern && ShimActionMap.Names
         .Where(ShimActionMap.IsGate).Any(id => Action(id).Status == ShimStatus.Live);
     internal static bool HPatternReady(MainCar? car) => Allowed && HPattern && car?.Aids?.Automatic == false;

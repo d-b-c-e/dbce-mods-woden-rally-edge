@@ -213,7 +213,8 @@ public sealed partial class ControlsProbe : BasePlugin
             }
             Row("native-status",Native!.Status); Trace!.Flush();
         }
-        catch(Exception ex) { Close("state observation failed: "+ex.Message); }
+        catch(Exception ex) { var cause=ex is TargetInvocationException {InnerException: {} inner} ? inner : ex;
+            Close("state observation failed: "+cause.GetType().Name+": "+cause.Message); }
     }
     static string ObjectPath(Transform t) { var names=new List<string>(); for(int i=0;t!=null && i<32;t=t.parent,i++) names.Add(Uri.EscapeDataString(t.name)); names.Reverse(); return string.Join("/",names); }
     static bool Observing => Armed && Clock.Elapsed.TotalSeconds<=ObserveUntil;

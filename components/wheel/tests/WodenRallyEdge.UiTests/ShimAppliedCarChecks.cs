@@ -23,7 +23,7 @@ internal static partial class ShimChecks
         using var doc=JsonDocument.Parse(profileBytes);
         var binding=doc.RootElement.GetProperty("Profile").GetProperty("Bindings").GetProperty("throttle");
         int rest=binding.GetProperty("Rest").GetInt32(),max=binding.GetProperty("Maximum").GetInt32();
-        Panel.Close(false);Reset(dir);_mode="HPattern";
+        Panel.Close(false);Reset(dir);_mode=plan.Transmission;
         File.WriteAllBytes(Path.Combine(dir,"dbce-controls.ini"),controlsBytes);
         var values=Enumerable.Range(0,18).Select(i=>new GamePadSystem.Actions("applied"+i,0,false)).ToArray();
         var pad=new GamePadSystem.Game_Pad{PadActions=values};
@@ -50,6 +50,15 @@ internal static partial class ShimChecks
             lease!.Restore();
             check(values.All(v=>v.value==0),"generated H-pattern input lease restores the native action table");
         }
+        check(ShimInput.HPatternReady(car)&&ShimInput.TransmissionStatus.StartsWith("H-pattern profile",StringComparison.Ordinal),
+            "production Apply transmission label admits native Manual H-pattern drive");
+        Set("_carTrial",true);
+        ShimInput.CarTrialDelivery(true);
+        Set("_trialNonce",new string('a',32));
+        var trialDelivers=typeof(ShimInput).GetMethod("TrialDelivers",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Static)!;
+        check((bool)trialDelivers.Invoke(null,new object[]{"Gear 1"})! && !(bool)trialDelivers.Invoke(null,new object[]{"Gear up"})!,
+            "bounded car trial admits H-pattern gate and withholds Sequential shift");
+        ShimInput.CarTrialDelivery(false);
         ShimInput.Stop("applied H-pattern fixture complete");
     }
 }

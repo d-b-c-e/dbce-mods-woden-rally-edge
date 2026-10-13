@@ -37,7 +37,7 @@ internal static partial class ShimInput
     }
     private static bool TrialDelivers(string label) => _trialNonce==null || (_carTrial ?
         _carTrialDelivery && (_transmission=="Sequential" && (label is "Gear up" or "Gear down") ||
-            _transmission=="HPattern" && (label is "Gear 1" or "Gear 2")) : _trialScope switch {
+            HPattern && (label is "Gear 1" or "Gear 2")) : _trialScope switch {
         1=>label=="Confirm",2=>label=="Pause",3=>label is "Menu left" or "Menu right",_=>false });
     private static ulong KnownNeutralMask => _trialNonce!=null && Ready && Frame[41]==1 && Frame[42]==1 ?
         ShimActionMap.Buttons.Where(p=>TrialDelivers(p.Key)).Aggregate(0UL,(mask,p)=>mask|(1UL<<ShimActionMap.Index(p.Value))) : 0;
