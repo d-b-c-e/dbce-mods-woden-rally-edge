@@ -13,6 +13,9 @@ param(
     [Parameter(ParameterSetName='Run')][switch]$ShimForceCapture,
     [Parameter(ParameterSetName='Run')][switch]$ShimHudOrdinary,
     [Parameter(ParameterSetName='Run')][switch]$ShimHudStopOnly,
+    [Parameter(ParameterSetName='Run')][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$HudGuiDiagnosticPluginSha256,
+    [Parameter(ParameterSetName='Run')][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$HudDepthDiagnosticPluginSha256,
+    [Parameter(ParameterSetName='Run')][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$HudDiagnosticCoreSha256,
     [Parameter(ParameterSetName='Run')][switch]$PrivateApply,
     [Parameter(ParameterSetName='Run')][string]$StageReference=(Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/references/woden-kenya-20261005'),
     [Parameter(ParameterSetName='Run')][string]$OriginalWorkload='E:/Source/games/dbce-mods-woden-rally-edge/results/raw-controls-20261010-07',
@@ -69,6 +72,10 @@ if($Recover -and (Test-Path "$Result/recovery.json")){
     $ShimAdmission=$savedMode -in @('shim-admission','shim-menu-trial','shim-car-trial','shim-applied-car-trial','shim-force-capture','shim-hud-ordinary','shim-hud-stop-only');$ShimMenuTrial=$savedMode -eq 'shim-menu-trial';$ShimCarTrial=$savedMode -in @('shim-car-trial','shim-applied-car-trial','shim-force-capture','shim-hud-ordinary');$ShimForceCapture=$savedMode -eq 'shim-force-capture';$ShimHudOrdinary=$savedMode -eq 'shim-hud-ordinary';$ShimHudStopOnly=$savedMode -eq 'shim-hud-stop-only'
 }
 if($ShimHudStopOnly -and ($ShimMenuTrial -or $ShimCarTrial -or $ShimForceCapture -or $ShimHudOrdinary -or $PrivateApply)){throw 'HUD menu mode is isolated from car, menu-input and private Apply modes.'}
+if($HudGuiDiagnosticPluginSha256 -and !$ShimHudStopOnly){throw 'HUD GUI trace is only available in the menu-only stop trial.'}
+if($HudDepthDiagnosticPluginSha256 -and !$ShimHudOrdinary){throw 'HUD depth diagnostic is only available in the ordinary moving trial.'}
+if($HudGuiDiagnosticPluginSha256 -and $HudDepthDiagnosticPluginSha256){throw 'Use one HUD diagnostic at a time.'}
+if([bool]$HudDiagnosticCoreSha256 -ne [bool]($HudGuiDiagnosticPluginSha256 -or $HudDepthDiagnosticPluginSha256)){throw 'HUD diagnostic plugin and Core pins must be supplied together.'}
 if(($ShimForceCapture -or $ShimHudOrdinary) -and ($ShimMenuTrial -or ($ShimForceCapture -and $ShimHudOrdinary))){throw 'Choose one bounded trial mode.'}
 if($ShimForceCapture -or $ShimHudOrdinary){$ShimCarTrial=$true}
 if(($ShimForceCapture -or $ShimHudOrdinary) -and $PrivateApply){throw 'Dynamic private Apply does not include force capture.'}
@@ -183,8 +190,10 @@ if($Recover) {
         $shimHash='9b8a036f664cf8f45cccf82b98e5e4376f93215b60eac50b6db965bf498015d8'
         if((Get-ControlHash $shimCandidate) -ne $shimHash){throw 'Provisional shim pin differs.'}
         $candidateHashes=[ordered]@{plugin=(Get-ControlHash "$CandidateDirectory/WodenRallyEdgeWheel.dll");core=(Get-ControlHash "$CandidateDirectory/WodenRallyEdge.Core.dll");shim=$shimHash;controls=$ControlsSha256}
-        if(($ShimHudOrdinary -or $ShimHudStopOnly) -and ($candidateHashes.plugin -ne '95642FAAFB3C224772FD176F2F10487EAB7DA96C9CA8A077636276063E93D701' -or
-            $candidateHashes.core -ne '007BED8FA6A8A62284E7595E458BFC206C21158AB31E78399A46FE46ACE7EC0D')){throw 'HUD ordinary package pins differ.'}
+        $expectedHudPlugin=if($HudGuiDiagnosticPluginSha256){$HudGuiDiagnosticPluginSha256}elseif($HudDepthDiagnosticPluginSha256){$HudDepthDiagnosticPluginSha256}else{'95642FAAFB3C224772FD176F2F10487EAB7DA96C9CA8A077636276063E93D701'}
+        $expectedHudCore=if($HudDiagnosticCoreSha256){$HudDiagnosticCoreSha256}else{'007BED8FA6A8A62284E7595E458BFC206C21158AB31E78399A46FE46ACE7EC0D'}
+        if(($ShimHudOrdinary -or $ShimHudStopOnly) -and ($candidateHashes.plugin -ne $expectedHudPlugin -or
+            $candidateHashes.core -ne $expectedHudCore)){throw 'HUD ordinary package pins differ.'}
         if(($ShimHudOrdinary -or $ShimHudStopOnly) -and (Get-ControlHash (Join-Path (Split-Path -Parent $InspectorDll) 'WodenRallyEdge.Core.dll')) -ne $candidateHashes.core){throw 'Inspector Core differs from candidate Core.'}
         if($PrivateApply){$candidateHashes.native=Get-ControlHash "$CandidateDirectory/WheelFfb.dll"}
         if($candidateHashes.Values -contains 'absent'){throw 'Production candidate is incomplete.'}
@@ -349,7 +358,9 @@ try {
         if(($ShimHudOrdinary -or $ShimHudStopOnly) -and !$postCapture -and (Test-Path "$Result/trace/observations.tsv") -and
             (Select-String -LiteralPath "$Result/trace/observations.tsv" -Pattern '(car|hud)-recorder-stop.*probe-direct-stop' -Quiet)) {
             if((Get-ControlHash $WindowCaptureDll) -ne $WindowCaptureSha256){throw 'Capture tool changed before post-Stop launch.'}
-            $postCapture=Start-Process dotnet -ArgumentList @($WindowCaptureDll,$game.Id,(Join-Path $Result 'hud-poststop'),'--duration','2','--max-frames','6') -PassThru -NoNewWindow -RedirectStandardOutput "$Result/hud-poststop.log" -RedirectStandardError "$Result/hud-poststop-error.log"
+            $postDuration=if($HudGuiDiagnosticPluginSha256){'3'}else{'2'}
+            $postMaxFrames=if($HudGuiDiagnosticPluginSha256){'60'}else{'6'}
+            $postCapture=Start-Process dotnet -ArgumentList @($WindowCaptureDll,$game.Id,(Join-Path $Result 'hud-poststop'),'--duration',$postDuration,'--max-frames',$postMaxFrames) -PassThru -NoNewWindow -RedirectStandardOutput "$Result/hud-poststop.log" -RedirectStandardError "$Result/hud-poststop-error.log"
         }
         if(!(OwnerActivityAllowed) -and [double](& "$HubRepo/tools/Owner-Input.ps1" -IdleSeconds) -lt 5){'Owner returned' | Set-Content "$Result/interrupted.txt";break}
         Start-Sleep -Seconds 2;$game.Refresh()

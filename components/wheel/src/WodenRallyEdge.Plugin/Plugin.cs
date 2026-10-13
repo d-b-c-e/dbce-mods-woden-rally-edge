@@ -56,12 +56,34 @@ public sealed class Lifecycle : MonoBehaviour
     private void Update() => Runtime.Update();
     private void OnGUI()
     {
+#if WODEN_HUD_GUI_DIAGNOSTIC
+        int trace = HudGuiTrace.Begin();
+        string phase = "activity-gate";
+        try
+        {
+#endif
         using var lease = Runtime.Activity.TryEnter();
         if (lease == null) return;
         Panel.Draw();
+#if WODEN_HUD_GUI_DIAGNOSTIC
+        phase = "panel-returned";
+#endif
         StagePlayback.OnGui();
+#if WODEN_HUD_GUI_DIAGNOSTIC
+        phase = "stage-returned";
+#endif
         FrameRate.Draw(Runtime.Settings.ShowFrameRate);
+#if WODEN_HUD_GUI_DIAGNOSTIC
+        phase = "frame-rate-returned";
+#endif
         RecordingStatusOverlay.Draw();
+#if WODEN_HUD_GUI_DIAGNOSTIC
+        phase = "recording-returned";
+#endif
+#if WODEN_HUD_GUI_DIAGNOSTIC
+        }
+        finally { HudGuiTrace.End(trace, phase); }
+#endif
     }
     private void OnApplicationQuit() => Runtime.Stop();
     private void OnDestroy() => Runtime.Stop();
@@ -247,6 +269,9 @@ internal static class Runtime
     }
     private static void FinishStop()
     {
+#if WODEN_HUD_GUI_DIAGNOSTIC
+        HudGuiTrace.Flush();
+#endif
         TripleView.Stop("plugin stopping");
         Force.Shutdown();
         ShimInput.Stop("plugin stopping");
