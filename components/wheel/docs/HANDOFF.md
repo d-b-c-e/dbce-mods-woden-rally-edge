@@ -4,6 +4,8 @@ Owner install: `0.2.14+d8df97b455460814ae0ddeced615b5098a4747fa`, receipt SHA-25
 
 No game launch or force/device output occurred during installation. Physical rendered scanout and ordinary Shim FFB-open/shared-reader coexistence are still unqualified. The ordinary `Start-RecordedGame.ps1` path captures signals from launch for offline reprocessing; Wheelkit's registered Woden path records a muted stage trajectory. These have different replay claims. The source-only Record/Stop gap review is in the [hub handoff](../../../../../dbce-project-mgmt/artifacts/woden-private-apply-20261013/ordinary-record-stop-gap.md). The sealed Kenya reference is unchanged. All dated handoffs below describe historical checkouts and installs.
 
+The next ordinary Record/Stop implementation is source-only at `fcc513e`, with focused device-free Woden and isolated Wheelkit contract checks passing. It is not in the current `d8df97b` owner install. See [STATE](STATE.md) for exact tests and the future receipt/dispatch gate; do not promote the source candidate to installed capability.
+
 # Session handoff — 2026-10-04 (Claude → Codex)
 
 **Installed now:** the `claude/triple-screens` build (this worktree,
