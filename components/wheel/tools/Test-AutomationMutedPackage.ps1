@@ -21,6 +21,7 @@ foreach ($path in @($pluginRelative,'automation-native-provenance.json','AUTOMAT
 Check ((Hash $nativePath) -eq $pin -and $metadata.nativeSha256 -eq $pin.ToLowerInvariant()) 'Automation native pin'
 Check ($metadata.schema -eq 'woden.automation-muted-native@1' -and $metadata.baseNativeSha256 -eq $basePin.ToLowerInvariant() -and
     $metadata.sourceCommit -match '^[a-f0-9]{40}$') 'Source and base toolkit provenance'
+Check ($metadata.nativeDefaultState -eq 'unarmed' -and $metadata.requiresExplicitArm) 'No implicit native mute claim'
 Check ((Get-Content -LiteralPath $noticePath -Raw) -match 'INTERNAL AUTOMATION ONLY') 'Test-only notice'
 $fixture = Join-Path $root ('artifacts\automation-muted-installer-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $fixture | Out-Null

@@ -74,7 +74,8 @@ if ($AutomationMutedNativePath) {
         sourceCommit=$sourceCommit
         baseToolkitVersion='v0.12.0'; baseNativeSha256=$baseNativeHash.ToLowerInvariant()
         nativeSha256=$automationNativeHash.ToLowerInvariant()
-        provenance='raw-controls-20261010-07 reviewed native no-force test artifact; arm EnableTestInjection before any force path'
+        nativeDefaultState='unarmed'; requiresExplicitArm=$true
+        provenance='raw-controls-20261010-07 reviewed test-native artifact; EnableTestInjection(1) must latch before any force path'
     } | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath (Join-Path $stage 'automation-native-provenance.json') -Encoding utf8
     'INTERNAL AUTOMATION ONLY. This package contains a test-native DLL; never install it as an owner or public candidate.' |
         Set-Content -LiteralPath (Join-Path $stage 'AUTOMATION-ONLY.txt') -Encoding utf8
