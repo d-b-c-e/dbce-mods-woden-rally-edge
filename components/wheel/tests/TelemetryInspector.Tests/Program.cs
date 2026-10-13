@@ -205,15 +205,21 @@ void OwnerDelivery(int i, Dictionary<string, double> c) { c["ffb.deliveryAttempt
 string owner = Capture("owner-ffb-on", true, OwnerDelivery, model: 6, flat: true, independent: true, physicalOutput: "true");
 Refuses(() => StageCaptureReview.Run(owner), "physically muted");
 var ordinary = JsonSerializer.SerializeToElement(StageCaptureReview.Run(owner, StageReviewPolicy.OrdinaryOutputRetained));
-Check(ordinary.GetProperty("policy").GetString() == "ordinary-output-retained" && ordinary.GetProperty("physicalOutput").GetBoolean() &&
+Check(ordinary.GetProperty("policy").GetString() == "ordinary-output-retained" && ordinary.GetProperty("physicalOutputAtStageStart").GetBoolean() &&
     ordinary.GetProperty("physicalDeliveryAttempts").GetDouble() == 159 && ordinary.GetProperty("playback").GetString() == "muted" &&
     ordinary.GetProperty("maximumForceReprocessError").GetDouble() == 0 && ordinary.GetProperty("analysisContract").GetString() == ForceAnalysisHistory.Contract,
     "ordinary policy reviews an FFB-on capture and reports its delivery; force history replays exactly");
 Check(!JsonSerializer.SerializeToElement(StageCaptureReview.Run(gripPath)).TryGetProperty("policy", out _), "the muted review output is unchanged");
-Check(!JsonSerializer.SerializeToElement(StageCaptureReview.Run(gripPath, StageReviewPolicy.OrdinaryOutputRetained)).GetProperty("physicalOutput").GetBoolean(),
-    "a muted capture under the ordinary policy reports no output");
-Refuses(() => StageCaptureReview.Run(Capture("owner-muted-delivery", true, (i, c) => { if (i == 55) c["ffb.deliveryAttempts"] = 1; }, model: 6, flat: true, independent: true),
-    StageReviewPolicy.OrdinaryOutputRetained), "physically muted");
+var mutedStart = JsonSerializer.SerializeToElement(StageCaptureReview.Run(gripPath, StageReviewPolicy.OrdinaryOutputRetained));
+Check(!mutedStart.GetProperty("physicalOutputAtStageStart").GetBoolean() && mutedStart.GetProperty("physicalDeliveryAttempts").GetDouble() == 0,
+    "a muted capture under the ordinary policy reports no delivery");
+// Forces turned on mid-stage: the stage-start flag says false, the per-row counters are the history and are reported.
+string later = Capture("owner-forces-later", true, (i, c) => { c["ffb.deliveryAttempts"] = Math.Max(0, i - 55); c["ffb.connectionAttempts"] = i >= 55 ? 1 : 0; },
+    model: 6, flat: true, independent: true);
+Refuses(() => StageCaptureReview.Run(later), "physically muted");
+var laterReview = JsonSerializer.SerializeToElement(StageCaptureReview.Run(later, StageReviewPolicy.OrdinaryOutputRetained));
+Check(!laterReview.GetProperty("physicalOutputAtStageStart").GetBoolean() && laterReview.GetProperty("physicalDeliveryAttempts").GetDouble() == 104,
+    "a force setting change mid-stage keeps the stage and reports its delivery history")
 Refuses(() => StageCaptureReview.Run(Capture("owner-decreasing", true, (i, c) => { OwnerDelivery(i, c); if (i == 55) c["ffb.deliveryAttempts"] = 3; }, model: 6, flat: true, independent: true,
     physicalOutput: "true"), StageReviewPolicy.OrdinaryOutputRetained), "truthful cumulative");
 Refuses(() => StageCaptureReview.Run(Capture("owner-fractional", true, (i, c) => { OwnerDelivery(i, c); if (i == 55) c["ffb.deliveryAttempts"] = 55.5; }, model: 6, flat: true, independent: true,

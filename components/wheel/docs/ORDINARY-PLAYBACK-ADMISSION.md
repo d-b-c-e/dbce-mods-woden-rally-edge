@@ -73,10 +73,12 @@ Before reviewing, the command checks the derived package:
 - that the admission's source hashes match `derivedFrom` and the nested stage seal.
 
 It then runs the same stage review under the explicit `ordinary-output-retained` policy, with two differences:
-- **`physicalOutput`** may be `true`, but the tape and the source metadata must agree. When `false`, the
-  delivery counters must still be zero.
-- **Delivery counters,** when output was allowed, must be truthful cumulative counts: nonnegative, whole and
-  non-decreasing. Their deltas are reported, and nothing replays them.
+- **`physicalOutput`** is the stage-start flag: whether forces were allowed when the stage opened. It may be
+  `true`, but the tape and the source metadata must agree. It is not torque proof, and an owner may change FFB
+  settings mid-stage, so it never truncates or refuses a stage by itself.
+- **Delivery counters** (`ffb.deliveryAttempts`, `ffb.connectionAttempts`) are the per-row delivery history.
+  They must be truthful cumulative counts: nonnegative, whole and non-decreasing. Their deltas are reported as is,
+  and nothing replays them.
 
 Every tune, alignment, clock, coverage and force-reprocess check is unchanged, so the ordinary force history
 (`analysis.force.*` from the stage's own history, and the recorded `ffb.*`) is proven replayable byte for byte.

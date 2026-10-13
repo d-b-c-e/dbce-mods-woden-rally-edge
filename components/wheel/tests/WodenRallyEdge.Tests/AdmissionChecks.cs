@@ -219,7 +219,7 @@ internal static class AdmissionChecks
         check(result.GetProperty("passed").GetBoolean() && result.GetProperty("coldReplay").GetString() == "not-qualified" &&
             result.GetProperty("derivedFrom").GetProperty("sessionSha256").GetString() == ArtifactSeal.Hash(Path.Combine(f.Root, "session.json")),
             "the ordinary review names the derived package and its original, and claims no cold replay");
-        check(review.GetProperty("policy").GetString() == "ordinary-output-retained" && review.GetProperty("physicalOutput").GetBoolean() &&
+        check(review.GetProperty("policy").GetString() == "ordinary-output-retained" && review.GetProperty("physicalOutputAtStageStart").GetBoolean() &&
             review.GetProperty("physicalDeliveryAttempts").GetDouble() == 79 && review.GetProperty("playback").GetString() == "muted",
             "the review reports the recorded delivery and keeps playback muted");
         check(review.GetProperty("maximumForceReprocessError").GetDouble() == 0 && review.GetProperty("analysisContract").GetString() == ForceAnalysisHistory.Contract &&

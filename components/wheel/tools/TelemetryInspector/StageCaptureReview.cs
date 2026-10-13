@@ -6,8 +6,9 @@ using WodenRallyEdge.Core;
 // Device-free validation of original signals. Kinematic playback cannot generate
 // a replacement tyre-force baseline; re-evaluate the actual model on this stream.
 // Muted (the default, unchanged) requires a physically muted capture. OrdinaryOutputRetained is used only for an
-// admitted ordinary package (OrdinaryStageReview): the capture's own output policy must be consistent and its delivery
-// counters truthful; every tune, alignment, clock and force-reprocess check is the same. Playback itself is always muted.
+// admitted ordinary package (OrdinaryStageReview): the stage-start output flag must agree between tape and source, and the
+// per-row delivery counters (the delivery history) must be truthful; every tune, alignment, clock and force-reprocess check is
+// the same. Playback itself is always muted.
 internal enum StageReviewPolicy { Muted, OrdinaryOutputRetained }
 
 internal static class StageCaptureReview
@@ -91,14 +92,15 @@ internal static class StageCaptureReview
                 throw new IOException("Original signal/trajectory physics clocks differ");
             if (Get("sample.driving") != 1 || Get("sample.discontinuity") is not (0 or 1))
                 throw new IOException("Capture is not a driving trajectory");
-            if (output == "false")
+            if (muted)
             {
                 foreach (string key in new[] { "ffb.sent", "ffb.connectionAttempts", "ffb.deliveryAttempts" })
                     if (Get(key) != 0) throw new IOException("Capture was not physically muted: " + key);
             }
             else
             {
-                // Output-retained source: cumulative counters must be truthful; they are reported, never replayed.
+                // Ordinary source: the per-row cumulative counters are the delivery history (forces may change mid-stage, so the
+                // stage-start flag is not torque proof). They must be truthful; they are reported, never replayed.
                 double delivery = Get("ffb.deliveryAttempts"), connection = Get("ffb.connectionAttempts"); Get("ffb.sent");
                 if (delivery < 0 || connection < 0 || delivery != Math.Truncate(delivery) || connection != Math.Truncate(connection) ||
                     delivery < (lastDelivery ?? 0) || connection < (lastConnection ?? 0))
@@ -152,7 +154,7 @@ internal static class StageCaptureReview
         if (valid < 50 || nonzero < 1 || maxSpeed < 1) throw new IOException("Insufficient driving/force coverage");
         ArtifactSeal.Verify(directory, "source.jsonl", "force-config.json", "stage-context.json", "channels.json");
         if (!muted)
-            return new { schema = "woden.stage-review@1", passed = true, policy = "ordinary-output-retained", physicalOutput = output == "true",
+            return new { schema = "woden.stage-review@1", passed = true, policy = "ordinary-output-retained", physicalOutputAtStageStart = output == "true",
                 physicalDeliveryAttempts = (lastDelivery ?? 0) - (firstDelivery ?? 0), connectionAttempts = (lastConnection ?? 0) - (firstConnection ?? 0),
                 playback = "muted", scenario = tape.Metadata["scenario"],
                 samples = count, seconds = tape.Frames[^1].Time - tape.Frames[0].Time, validForceSamples = valid,
