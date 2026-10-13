@@ -30,6 +30,7 @@ state, source discontinuity, duplicate/backward/nonfinite simulation time or a
 gap beyond the existing 100 ms policy. Model refusals also break shaping history.
 Device, focus, saved-off and diagnostic-mute gates do not independently reset
 this history. A source non-driving state still does.
+Compare reference acquisition only within one `runtimeSource` rule: captures before `0aca431` (including `d8df97b`) may contain reverse-learned Driving references, while exact replay still restores each recorded row.
 
 `analysis.force.*` records preview, validity, reset count, model version, Grip
 steering/damping terms, contract version 1, analysis/car/tune epochs, boundary

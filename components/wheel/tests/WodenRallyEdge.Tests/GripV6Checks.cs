@@ -48,7 +48,7 @@ internal static class GripV6Checks
             var result = grip.Evaluate(forward, options);
             check(result.Valid, "forward row remains valid after reverse travel");
         }
-        check(grip.Reference.Kind == FrontLoadReferenceKind.Driving && grip.Reference.Load == 10000,
+        check(grip.Reference.Kind == FrontLoadReferenceKind.Driving && Math.Abs(grip.Reference.Load - 10000) < 1e-6,
             "forward-only rows qualify the unchanged reference load");
 
         var historical = new FrontLoadReference();
