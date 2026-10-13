@@ -181,3 +181,19 @@ the controls runner takes the unchanged pinned DLL from its selected candidate
 output. Source/license disposition and public shim packaging remain open; this
 does not change runtime qualification or any installed owner files. See
 `vendor/dbce-shim/PROVENANCE.md`.
+
+## October 13 auxiliary-display row selection
+
+STD-015 now uses toolkit `db0383c`'s byte-identical racing-row selector and
+read-only Windows monitor reader. The primary-centered, equal-size three-screen
+row is selected independently of auxiliary displays above or below it; saved
+opt-outs and startup-only resolution substitution remain unchanged. One cached
+observation serves two seconds of calls. See `components/wheel/docs/TRIPLE.md`
+and `DEPENDENCIES.md` for the policy and source pins.
+
+Mufa's final source build passed with zero warnings, 85 suites / 51,353
+assertions and 912 UI assertions before the Claude quota interruption. Sana
+reviewed the code and recovered that completed checkpoint from hcom transcript
+734; planned mutation checks were not completed. The four-display runtime is
+not yet qualified or installed. Existing pending/unchecked standards and
+physical FFB acceptance are unchanged by this display-only source change.

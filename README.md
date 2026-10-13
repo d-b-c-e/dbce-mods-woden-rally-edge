@@ -36,7 +36,8 @@ files and keeps settings and the shared loader. Full steps: [setup guide](tools/
   (8/2 forward/back, 9/3 up/down, 4/6 left/right, 7/1 tilt, +/− field of view, 5 reset).
 - **Triple screens:** three angle-correct views with the HUD and menus on the centre screen.
   On Surround, choose the Surround resolution in the game. On three separate monitors the mod
-  opens one borderless window across them by itself.
+  opens one borderless window across them by itself when the primary display is the center one and
+  its left and right neighbors have the same size; other displays above or below are ignored.
 - **Online:** the optional countdown-timer assist keeps those runs off the Steam leaderboards.
 
 ## Known limits

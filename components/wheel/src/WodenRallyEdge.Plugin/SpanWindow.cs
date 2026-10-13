@@ -1,17 +1,20 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using BepInEx.Configuration;
+using Dbce.Wheel.Display;
 using HarmonyLib;
 using UnityEngine;
+using WodenRallyEdge.Core;
 
 namespace WodenRallyEdge;
 
 /// <summary>
-/// STD-015: triples on separate monitors without Surround (port of DRIVE's SpanWindow). When Windows
-/// shows three or more side-by-side monitors at one height and the main display is a single
-/// screen, the game's own startup apply (<c>ResolutionManager.FirstResolutionSet</c>) becomes one
-/// windowed apply at the virtual-desktop span; the window is then made borderless and placed over
-/// the span, and Unity follows the window size, so Auto triples start.
+/// STD-015: triples on separate monitors without Surround (port of DRIVE's SpanWindow). When the toolkit
+/// racing-row policy finds the primary display with one equal-size display directly on each side
+/// (<see cref="SpanTarget"/>; other displays above or below, such as a diagnostic screen, are ignored), the
+/// game's own startup apply (<c>ResolutionManager.FirstResolutionSet</c>) becomes one windowed apply at that
+/// row's span; the window is then made borderless and placed over the row, and Unity follows the window
+/// size, so Auto triples start.
 /// </summary>
 /// <remarks>
 /// Only <c>Screen.SetResolution</c> calls made while <c>FirstResolutionSet</c> runs are changed, so it
@@ -21,7 +24,6 @@ namespace WodenRallyEdge;
 /// </remarks>
 internal static class SpanWindow
 {
-    [DllImport("user32.dll")] private static extern int GetSystemMetrics(int index);
     [DllImport("user32.dll")] private static extern bool EnumWindows(EnumProc proc, IntPtr lParam);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassNameW(IntPtr hwnd, StringBuilder name, int count);
@@ -39,6 +41,7 @@ internal static class SpanWindow
 
     private static ConfigEntry<bool> _enabled = null!;
     private static Func<bool> _triplesAllowed = () => true;
+    private static readonly SpanTarget _target = new(WindowsMonitors.SelectRacingRow);
     private static int _attempts, _depth;
     private static bool _maintain;
     private static float _next, _nextCheck;
@@ -54,16 +57,12 @@ internal static class SpanWindow
         _enabled = cfg.Bind("Triple", "SpanSeparateMonitors", true, "With three side-by-side monitors and no Surround, open the game as one borderless window across all of them so the triple views can run (STD-015). Set false to keep the stock single screen.");
     }
 
-    /// <summary>The virtual-desktop span when it should be used, else null.</summary>
+    /// <summary>The racing row's span when it should be used, else null (SpanTarget; the reason is logged once per change).</summary>
     internal static (int X, int Y, int W, int H)? Target()
     {
-        if (!_enabled.Value || !_triplesAllowed()) return null;
-        int monitors = GetSystemMetrics(80); // SM_CMONITORS
-        int x = GetSystemMetrics(76), y = GetSystemMetrics(77), w = GetSystemMetrics(78), h = GetSystemMetrics(79);
-        int mainW = GetSystemMetrics(0), mainH = GetSystemMetrics(1); // primary monitor
-        if (monitors < 3 || h != mainH || w < h * 2.9f) return null;   // not three equal-height monitors in a row
-        if (mainW >= mainH * 2.9f) return null;                         // Surround: one wide display already
-        return (x, y, w, h);
+        var span = _target.Decide(_enabled.Value, _triplesAllowed(), out bool changed);
+        if (changed) Runtime.Log.LogInfo("Span window: " + (span == null ? "not used: " : "racing row: ") + _target.Reason);
+        return span;
     }
 
     internal static void BeginApply() => _depth++;

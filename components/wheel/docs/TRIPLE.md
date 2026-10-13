@@ -80,9 +80,16 @@ uses `Car_Cam` and is a good render test. Turn the dev channel off after testing
 
 ## Separate monitors without Surround (STD-015, 2026-10-06, unverified)
 
-`SpanWindow` ports DRIVE's plain-launch span: with three or more equal-height monitors side by side and a
-single-screen primary, `Screen.SetResolution` calls made while `ResolutionManager.FirstResolutionSet` runs (the
-game's single startup apply) become one windowed apply at the virtual-desktop span; the window is then made a
+`SpanWindow` ports DRIVE's plain-launch span. Since 2026-10-13 the row comes from the toolkit racing-row policy
+(`shared/display/RacingRow.cs`, vendored under `Toolkit/Display`; see DEPENDENCIES.md): the primary display is the
+center, with one display of the same width, height and top directly on each side. Displays wholly above or below that
+row, such as the owner's 1920x1080 diagnostic display above it, are ignored. A fourth display in the row, a missing,
+offset or different-size neighbor, two candidates for a side, or a primary at an end of the row select no row, and the
+game keeps its own window (the reason is logged once). A primary already 2.9:1 or wider keeps the Surround path. Three racing screens plus a dashboard or other auxiliary display is a common setup; the selector reports only the
+observed racing row and never changes the saved F6 choice or `[Triple] SpanSeparateMonitors`. The former test took
+the whole virtual desktop, which refused such a setup once a display sat above the row. When a row is
+selected, `Screen.SetResolution` calls made while `ResolutionManager.FirstResolutionSet` runs (the game's single
+startup apply) become one windowed apply at the row's span; the window is then made a
 borderless popup and placed over the span without activation, re-checked every 2 s. Patched one by one after
 `PatchAll` so a missing `SetResolution` overload disables only this. `[Triple] SpanSeparateMonitors` is **on by
 default** since 2026-10-06: Astra's cold Kenya replay on "Sim Racing" with the span (results/woden-kenya-span-after2-20261006-020506)
