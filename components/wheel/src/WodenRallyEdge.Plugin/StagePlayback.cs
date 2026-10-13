@@ -12,7 +12,8 @@ namespace WodenRallyEdge;
 
 // Explicit developer commands only. This adapter shares the trajectory/lifecycle
 // contract with other games; game-owned physics and channel semantics stay here.
-internal static class StagePlayback
+// StagePlayback.FullSession.cs adds the ordinary launch's first-stage capture.
+internal static partial class StagePlayback
 {
     internal static readonly string ControlRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Dbce", "StagePlayback", "woden");
     private static readonly Adapter Target = new();
@@ -43,9 +44,10 @@ internal static class StagePlayback
     {
         try
         {
+            FullUpdate(now);
             if (_control == null) return;
-            if (File.Exists(Path.Combine(ControlRoot, "request.txt"))) Target.MuteOutputs();
-            _control.Poll(now);
+            if (Owner.MuteFor(File.Exists(Path.Combine(ControlRoot, "request.txt")))) Target.MuteOutputs();
+            if (Owner.PollSupervised) _control.Poll(now);
             if (Session.Active && UnityEngine.Input.GetKeyDown(KeyCode.F12)) Session.Stop();
             StageRunLifecycle.Tick(Session.Active, Session.Status, _control.LastError, now);
             StageStartup.Tick(Session.Active, Session.ReplayActive, Session.Playing, now);
@@ -55,7 +57,8 @@ internal static class StagePlayback
     }
     internal static bool BeforeCar(MainCar car)
     {
-        if (!Session.Active || !Runtime.Select(car)) return true;
+        if (!Session.Active) { FullBeforeCar(car); return true; }
+        if (!Runtime.Select(car)) return true;
         try
         {
             _car = car;
@@ -72,6 +75,7 @@ internal static class StagePlayback
     }
     internal static void Observe(TelemetrySample sample)
     {
+        if (!Session.Active) { _full?.Signal(sample, Runtime.Settings.ForceOptions); return; }
         if (!Session.Recording || _signals == null) return;
         // The real output gate resets its own filter while muted. Keep an explicit
         // independent model stream for normalization, never a fabricated native write.
@@ -140,26 +144,14 @@ internal static class StagePlayback
         {
             _analysis = new ForceAnalysisHistory(); _signalCount = 0;
             StageCaptureContext.Write(directory, _car ?? throw new InvalidOperationException("Player unavailable"));
-            RecordingArtifacts.WriteForceConfig(Path.Combine(directory, "force-config.json"), Runtime.Settings.ForceOptions);
-            File.WriteAllText(Path.Combine(directory, "channels.json"), JsonSerializer.Serialize(TelemetrySchema.Channels));
-            var properties = new Dictionary<string, string> { ["capability"] = "signal-reprocess", ["physicalOutput"] = "false", ["captureSource"] = "live-physics",
-                ["gameAssemblySha256"] = GameHash, ["pluginSha256"] = RecordingArtifacts.Sha256(typeof(Plugin).Assembly.Location),
-                ["forceConfigSha256"] = RecordingArtifacts.Sha256(Path.Combine(directory, "force-config.json")),
-                ["analysisForceContract"] = ForceAnalysisHistory.Contract, ["analysisForce"] = ForceAnalysisHistory.Scope,
-                ["posePhase"] = "MainCar.FixedUpdate.prefix; signals from postfix before Unity solve",
-                ["alignment"] = "capture.trajectoryIndex is the zero-based trajectory row; sample.simulationSeconds is the absolute physics clock" };
-            _signals = new TelemetryOutput(new OutputOptions(RecordingPath: Path.Combine(directory, "source.jsonl"), Enabled: false), Runtime.SessionId,
-                File.ReadAllText(Path.Combine(Path.GetDirectoryName(typeof(Plugin).Assembly.Location)!, "recording-provenance.json")), Plugin.Version, properties,
-                new Dbce.Wheel.Recording.RecordingOptions { QueueCapacity = 512, MaxDurationSeconds = 1801, MaxFileBytes = 128L * 1024 * 1024, MaxChannelsPerSample = 512 });
+            _signals = StageSignalFiles.Open(directory, SignalIdentity, Runtime.Settings.ForceOptions, physicalOutput: false);
         }
         public string[] FinishSignals()
         {
             var signals = _signals; _signals = null;
             if (signals == null) return Array.Empty<string>();
-            signals.Dispose();
-            if (signals.RecordingDrops != 0 || signals.RecordingError != null || signals.RecordingStatus != "Completed" || _signalCount < 2 || _signalCount != Session.Samples)
-                throw new IOException("Signal recording was not complete: " + signals.RecordingStatus + "; " + signals.RecordingError);
-            return new[] { "source.jsonl", "force-config.json", "channels.json", "stage-context.json" };
+            StageSignalFiles.Finish(signals, _signalCount, Session.Samples);
+            return StageSignalFiles.Files;
         }
         public TrajectoryFrame Read()
         {

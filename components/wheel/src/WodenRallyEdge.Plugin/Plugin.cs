@@ -138,6 +138,8 @@ internal static class Runtime
                 using var process = Process.GetCurrentProcess();
                 RecordingControl = new DiagnosticRecordingControl(Path.GetDirectoryName(_recordingPath)!,
                     _recordLaunch.Id, process.Id, process.StartTime.ToUniversalTime().Ticks, Output);
+                StagePlayback.ArmFullSession(Path.GetDirectoryName(_recordingPath)!, StagePlayback.SignalIdentity);
+                RecordingControl.HoldTerminal = () => StagePlayback.FullPackagePending;
             }
             catch (Exception ex) { Log.LogWarning("Ordinary recording control unavailable; F6 Stop remains available: " + ex.Message); }
         }
@@ -293,6 +295,7 @@ internal static class Runtime
         StockWheelOwner.Release(false);
         MountedCamera.Restore();
         Output?.Dispose();
+        StagePlayback.FinishFullOnExit();
         RecordingControl?.Flush();
         _recordingAnalysis = null;
         Log.LogInfo($"Stopped; outputWorkerStopped={Output?.Stopped}, recording={Output?.RecordingStatus}, drops={Output?.RecordingDrops}");

@@ -21,6 +21,9 @@ public sealed class DiagnosticRecordingControl
     private DiagnosticFinalization? _finalization;
     public DiagnosticFinalization? Finalization => _finalization;
     public string? LastError => _lastError;
+    /// <summary>While true, a closed recorder is published as Stopping (inactive), so readers see Completed only after
+    /// work tied to this capture (the full-session package or its incomplete marker) exists. The owner bounds it.</summary>
+    public Func<bool>? HoldTerminal { get; set; }
 
     public DiagnosticRecordingControl(string directory, Guid requestId, int processId,
         long processStartUtcTicks, TelemetryOutput output)
@@ -111,6 +114,7 @@ public sealed class DiagnosticRecordingControl
     private void PublishStatus()
     {
         string state = _output.RecordingStatus, error = _output.RecordingError ?? _lastError ?? "";
+        if ((state is "Completed" or "LimitReached" or "Faulted") && Held()) { state = "Stopping"; error = ""; }
         string key = state + "\n" + error;
         if (key == _lastPublished) return;
         string path = Path.Combine(_controlRoot, "status.txt");
@@ -128,5 +132,11 @@ public sealed class DiagnosticRecordingControl
             _lastPublished = key;
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
+
+    private bool Held()
+    {
+        try { return HoldTerminal?.Invoke() == true; }
+        catch { return false; } // a failing hold never hides the recorder's real state
     }
 }

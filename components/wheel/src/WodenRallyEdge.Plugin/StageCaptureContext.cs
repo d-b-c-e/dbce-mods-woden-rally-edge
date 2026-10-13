@@ -7,29 +7,38 @@ namespace WodenRallyEdge;
 
 // Read-only evidence for a future native startup adapter. This is not permission
 // to replay arbitrary static fields or overwrite the owner's save/presentation.
+// It also feeds an armed ordinary full-session capture, whose own journal is not limited to these 64 entries.
 internal static class StageCaptureContext
 {
     private static readonly List<object> SceneRequests = new();
     private static readonly List<string> Scenes = new();
     private static string? _scene;
+    private static bool _scenesTruncated, _requestsTruncated;
+    private static bool Observing => StagePlayback.OutputMuted || StagePlayback.FullObserving;
     internal static void ObserveScene()
     {
-        if (!StagePlayback.OutputMuted) return;
+        if (!Observing) return;
         string scene = SceneManager.GetActiveScene().name;
         if (scene == _scene) return;
         _scene = scene;
-        if (Scenes.Count < 64) Scenes.Add(scene);
+        if (Scenes.Count < 64) Scenes.Add(scene); else _scenesTruncated = true;
         Runtime.Log.LogInfo("Stage scene: " + scene);
+        StagePlayback.FullScene(scene);
     }
     internal static void ObserveLoad(LoadScene loader, string scene)
     {
-        if (!StagePlayback.OutputMuted || StagePlayback.Playing || SceneRequests.Count >= 64) return;
+        if (!Observing || StagePlayback.Playing) return;
         try
         {
-            SceneRequests.Add(new { sceneFrom = SceneManager.GetActiveScene().name, sceneTo = scene,
-                loaderObject = loader.gameObject.name, overrideScene = loader.OverrideScene,
-                selection = ReadSelection(), wallSeconds = Runtime.Clock.Elapsed.TotalSeconds });
-            Runtime.Log.LogInfo("Stage native load: " + SceneManager.GetActiveScene().name + " -> " + scene);
+            string from = SceneManager.GetActiveScene().name;
+            var selection = ReadSelection();
+            if (SceneRequests.Count < 64)
+                SceneRequests.Add(new { sceneFrom = from, sceneTo = scene,
+                    loaderObject = loader.gameObject.name, overrideScene = loader.OverrideScene,
+                    selection, wallSeconds = Runtime.Clock.Elapsed.TotalSeconds });
+            else _requestsTruncated = true;
+            Runtime.Log.LogInfo("Stage native load: " + from + " -> " + scene);
+            StagePlayback.FullLoad(from, scene, "LoadScene.LoadScene_", selection);
         }
         catch (Exception ex) { Runtime.Log.LogWarning("Stage load context unavailable: " + ex.Message); }
     }
@@ -50,13 +59,18 @@ internal static class StageCaptureContext
     }
     internal static void ObserveMenuLoad(string scene, bool loading, bool flag)
     {
-        if (!StagePlayback.OutputMuted || StagePlayback.Playing || SceneRequests.Count >= 64) return;
+        if (!Observing || StagePlayback.Playing) return;
         try
         {
-            SceneRequests.Add(new { sceneFrom = SceneManager.GetActiveScene().name, sceneTo = scene,
-                nativeMethod = "MenuCameraScript.LoadScene", loading, flag, selection = ReadSelection(),
-                wallSeconds = Runtime.Clock.Elapsed.TotalSeconds });
-            Runtime.Log.LogInfo("Stage native menu load: " + SceneManager.GetActiveScene().name + " -> " + scene);
+            string from = SceneManager.GetActiveScene().name;
+            var selection = ReadSelection();
+            if (SceneRequests.Count < 64)
+                SceneRequests.Add(new { sceneFrom = from, sceneTo = scene,
+                    nativeMethod = "MenuCameraScript.LoadScene", loading, flag, selection,
+                    wallSeconds = Runtime.Clock.Elapsed.TotalSeconds });
+            else _requestsTruncated = true;
+            Runtime.Log.LogInfo("Stage native menu load: " + from + " -> " + scene);
+            StagePlayback.FullLoad(from, scene, "MenuCameraScript.LoadScene", selection);
         }
         catch (Exception ex) { Runtime.Log.LogWarning("Stage menu context unavailable: " + ex.Message); }
     }
@@ -99,6 +113,8 @@ internal static class StageCaptureContext
             ["selection"] = ReadSelection(),
             ["observedScenes"] = Scenes.ToArray(),
             ["nativeSceneRequests"] = SceneRequests.ToArray(),
+            ["observedScenesTruncated"] = _scenesTruncated,
+            ["nativeSceneRequestsTruncated"] = _requestsTruncated,
         };
         File.WriteAllText(Path.Combine(directory, "stage-context.json"),
             JsonSerializer.Serialize(context, new JsonSerializerOptions { WriteIndented = true }));
