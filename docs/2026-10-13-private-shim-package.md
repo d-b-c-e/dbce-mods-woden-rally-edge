@@ -1,0 +1,17 @@
+# Private Woden shim package candidate
+
+This is a source and installer fixture path for the provisional ABI 2 shim. It does not change the installed game, ship in the ordinary public package, select `Backend = Shim`, or qualify wheel/FFB behavior. The private DLL remains subject to the source and redistribution review in `vendor/dbce-shim/PROVENANCE.md`.
+
+From `components/wheel`, `tools/Package.ps1` without extra arguments still stages the 13 ordinary Native payloads and writes no `sharedInputCandidate`. To make a separately named private development archive, pass the explicitly held, hash-pinned input:
+
+```powershell
+.\tools\Package.ps1 -ArtifactLabel review -PrivateShimPath 'E:\Source\games\.worktrees\woden-shim-input\vendor\dbce-shim\dbce_shim.dll'
+```
+
+The private archive stages `dbce_shim.dll` as a 14th plugin payload and `private-shim-capability.json` at the package root. Both files are covered by `manifest.json`. The installer verifies the DLL pin, game build, every payload hash, and the metadata contract before an installed write. An installed private receipt owns the 14 files and retains the existing top-level `controlsProfileSchema = 1` and `adapter = woden-bindings-1`. Only that installed receipt adds `sharedInputCandidate.controls` for Wheelkit's separate opt-in writer. The 27 delivered actions exclude clutch, select, gear7 and gear8; sequential shifts and H-pattern gates require the game's native Manual gearbox. `Backend` remains Native unless the owner explicitly uses a verified Wheelkit Apply.
+
+Updating Native to private adds the owned DLL; updating private to Native removes it after its existing hash is verified. A Native package refuses a saved `[Input] Backend = Shim` before any write, asking the player to select Native and restart first. Private updates and uninstall keep the DLL in the same ownership and rollback rules as the other payloads. Unknown or changed DLL bytes are refused. The installer backs up and preserves saved config, bindings and recordings; it does not alter the backend. This candidate is for review and PS5.1 fixture validation, with no game launch or install.
+
+Run the existing `tools/Test-ManageInstall.ps1 -PackageRoot <native-stage>` and the new `tools/Test-PrivateShimInstall.ps1 -NativePackageRoot <native-stage> -PrivatePackageRoot <private-stage>` under the shared build lease. The second fixture covers both transitions, injected failures, unknown DLL bytes, uninstall ownership and config preservation using a marked disposable game directory.
+
+October 13 offline result: the clean Native and private package builds passed the managed test harnesses; the explicit private build reported its real-DLL ABI 2 check passing without opening a native handle. Windows PowerShell 5.1 passed 114 existing installer checks and 29 private transition checks. `tools/game/Verify-Source.ps1` also passed, including the triple and force-envelope fixtures. Exact stages, archive hashes, logs and the retained disposable private install receipt are in `E:\Source\dbce-project-mgmt\artifacts\woden-private-shim-package-20261013\final-result.json`. These checks do not establish installed owner behavior or physical input/force acceptance.

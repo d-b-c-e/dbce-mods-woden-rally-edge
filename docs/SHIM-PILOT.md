@@ -31,7 +31,10 @@ pin. `ShimNative.Load` checks its hash, ABI, frame/argument sizes and all 31 act
 names before opening an ordinary host. No injection/capture mode is exposed.
 The existing public package allowlists and installed Wheelkit discovery remain
 unchanged; they do not yet distribute or advertise this private pilot. Private
-test staging must include this pinned DLL explicitly. Public distribution awaits
+test staging must include this pinned DLL explicitly. An October 13 source-only
+`Package.ps1 -PrivateShimPath` candidate adds the DLL and receipt capability only
+to a separately named private archive; see [the package boundary](2026-10-13-private-shim-package.md).
+Public distribution awaits
 the upstream dependency/source-license disposition and consumer qualification.
 
 Admission requires an observed native `GamePadSystem`, an owned game window,

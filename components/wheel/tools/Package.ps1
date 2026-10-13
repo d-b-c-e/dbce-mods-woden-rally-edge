@@ -1,9 +1,20 @@
 [CmdletBinding()]
-param([ValidatePattern('^[a-z0-9][a-z0-9.-]*$')][string]$ArtifactLabel)
+param(
+    [ValidatePattern('^[a-z0-9][a-z0-9.-]*$')][string]$ArtifactLabel,
+    [string]$PrivateShimPath
+)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
+$privateShimHash = '9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8'
+if ($PrivateShimPath) {
+    if (-not [IO.Path]::IsPathFullyQualified($PrivateShimPath) -or -not (Test-Path -LiteralPath $PrivateShimPath -PathType Leaf)) { throw 'PrivateShimPath must be an existing absolute file.' }
+    $PrivateShimPath = [IO.Path]::GetFullPath($PrivateShimPath)
+    if ((Get-FileHash -LiteralPath $PrivateShimPath).Hash -ne $privateShimHash) { throw 'PrivateShimPath does not match the reviewed ABI 2 pin.' }
+}
 & (Join-Path $PSScriptRoot 'Verify-Dependencies.ps1')
-& dotnet build (Join-Path $root 'WodenRallyEdgeWheel.sln') -c Release -warnaserror -v q
+$buildArgs = @('build',(Join-Path $root 'WodenRallyEdgeWheel.sln'),'-c','Release','-warnaserror','-v','q')
+if ($PrivateShimPath) { $buildArgs += ('-p:PrivateShimPath=' + $PrivateShimPath) }
+& dotnet @buildArgs
 if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
 & dotnet run --project (Join-Path $root 'tests\WodenRallyEdge.Tests') -c Release --no-build
 if ($LASTEXITCODE -ne 0) { throw 'Regression failed' }
@@ -25,6 +36,25 @@ Copy-Item -LiteralPath (Join-Path $playback 'provenance.json') -Destination (Joi
 Copy-Item -LiteralPath (Join-Path $playback 'LICENSE') -Destination (Join-Path $plugin 'playback-LICENSE.txt')
 Copy-Item -LiteralPath (Join-Path $playback 'Stage-Session.ps1') -Destination $plugin
 Copy-Item -LiteralPath (Join-Path $root 'lib\toolkit\VERSION') -Destination (Join-Path $plugin 'toolkit.version')
+if ($PrivateShimPath) {
+    Copy-Item -LiteralPath $PrivateShimPath -Destination (Join-Path $plugin 'dbce_shim.dll')
+    if ((Get-FileHash -LiteralPath (Join-Path $plugin 'dbce_shim.dll')).Hash -ne $privateShimHash) { throw 'Staged private shim differs from the reviewed pin.' }
+    $delivered = @('steer','throttle','brake','handbrake','shiftUp','shiftDown','neutral','reverse','confirm','back','start','navUp','navDown','navLeft','navRight','camera','lookBack','reset','horn','modMenu','muteFfb','gear1','gear2','gear3','gear4','gear5','gear6')
+    $unsupported = [ordered]@{}
+    foreach ($action in 'clutch','select','gear7','gear8') { $unsupported[$action] = 'not delivered by Woden wheel-only shim pilot' }
+    $conditions = [ordered]@{ shiftUp='Transmission=Sequential;NativeGearbox=Manual'; shiftDown='Transmission=Sequential;NativeGearbox=Manual' }
+    foreach ($action in @('neutral','reverse') + @(1..6 | ForEach-Object { 'gear' + $_ })) { $conditions[$action] = 'Transmission=H-pattern;NativeGearbox=Manual' }
+    $candidate = [ordered]@{
+        schema=1; adapter='woden-shim-ini-controls-1'; profile='BepInEx/config/dbce-controls.ini'; settings='BepInEx/config/dbce.wodenrallyedgewheel.cfg'; shimAbi=2
+        optIn=[ordered]@{ section='Input'; key='Backend'; value='Shim'; default='Native'; appliesAfterRestart=$true }
+        gameAssemblySha256='F422894D8D2B0DF4EDB7E5259E5E60CB8C4F8DEA2E85EBDFC09DD6766349250C'
+        pluginSha256=(Get-FileHash -LiteralPath (Join-Path $plugin 'WodenRallyEdgeWheel.dll')).Hash.ToLowerInvariant()
+        coreSha256=(Get-FileHash -LiteralPath (Join-Path $plugin 'WodenRallyEdge.Core.dll')).Hash.ToLowerInvariant()
+        nativeSha256=(Get-FileHash -LiteralPath (Join-Path $plugin 'WheelFfb.dll')).Hash.ToLowerInvariant()
+        shimSha256=$privateShimHash.ToLowerInvariant(); delivered=$delivered; unsupported=$unsupported; conditions=$conditions
+    }
+    [ordered]@{ controls=$candidate } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $stage 'private-shim-capability.json') -Encoding utf8
+}
 & dotnet run --project (Join-Path $root 'tools\TelemetryInspector') -c Release --no-build -- schema (Join-Path $plugin 'telemetry-schema.json')
 if ($LASTEXITCODE -ne 0) { throw 'Schema export failed' }
 Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination $stage
@@ -34,7 +64,8 @@ $manifest = @(Get-ChildItem -LiteralPath $stage -File -Recurse | Sort-Object Ful
 $manifest | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $stage 'manifest.json') -Encoding utf8
 $version = ([xml](Get-Content (Join-Path $root 'Directory.Build.props') -Raw)).Project.PropertyGroup.Version
 $identity = if ($ArtifactLabel) { "$version-$ArtifactLabel" } else { $version }
-$zip = Join-Path $root "dist\WodenRallyEdgeWheel-$identity-dev.zip"
+$suffix = if ($PrivateShimPath) { '-private-shim-dev.zip' } else { '-dev.zip' }
+$zip = Join-Path $root ("dist\WodenRallyEdgeWheel-$identity" + $suffix)
 if (Test-Path -LiteralPath $zip) { throw 'Package already exists. Preserve its identity and choose a distinct version before packaging again.' }
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip
 Write-Host "Development package: $zip"

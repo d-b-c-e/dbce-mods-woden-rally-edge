@@ -17,6 +17,61 @@ $gameHash = 'F422894D8D2B0DF4EDB7E5259E5E60CB8C4F8DEA2E85EBDFC09DD6766349250C'
 $loaderHash = 'F4CC496BD098A0DF4164B81E3737297707F13A47C2478DBA2F60EEFAB784817A'
 $loaderName = 'BepInEx-Unity.IL2CPP-win-x64-6.0.0-be.788+5b766a3.zip'
 $payloadNames = @('WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Recording.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll','recording-provenance.json','toolkit.version','telemetry-schema.json','Dbce.Wheel.Playback.dll','playback-provenance.json','playback-LICENSE.txt','Stage-Session.ps1')
+$shimPath = 'BepInEx\plugins\WodenRallyEdgeWheel\dbce_shim.dll'
+$capabilityPath = 'private-shim-capability.json'
+$privateShimHash = '9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8'
+$basePaths = @($payloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
+function Expected-Candidate($Entries) {
+    $hashes = @{}
+    foreach ($entry in @($Entries)) { $hashes[$entry.path.Replace('/','\').ToLowerInvariant()] = $entry.sha256.ToLowerInvariant() }
+    foreach ($name in 'WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','WheelFfb.dll','dbce_shim.dll') {
+        if (-not $hashes.ContainsKey(('BepInEx\plugins\WodenRallyEdgeWheel\' + $name).ToLowerInvariant())) { throw "Private capability lacks owned payload: $name" }
+    }
+    if ($hashes[$shimPath.ToLowerInvariant()] -ne $privateShimHash.ToLowerInvariant()) { throw 'Private shim payload does not match the reviewed ABI 2 pin.' }
+    $unsupported = [ordered]@{}
+    foreach ($action in 'clutch','select','gear7','gear8') { $unsupported[$action] = 'not delivered by Woden wheel-only shim pilot' }
+    $conditions = [ordered]@{ shiftUp='Transmission=Sequential;NativeGearbox=Manual'; shiftDown='Transmission=Sequential;NativeGearbox=Manual' }
+    foreach ($action in @('neutral','reverse') + @(1..6 | ForEach-Object { 'gear' + $_ })) { $conditions[$action] = 'Transmission=H-pattern;NativeGearbox=Manual' }
+    return [ordered]@{
+        schema=1; adapter='woden-shim-ini-controls-1'; profile='BepInEx/config/dbce-controls.ini'; settings='BepInEx/config/dbce.wodenrallyedgewheel.cfg'; shimAbi=2
+        optIn=[ordered]@{ section='Input'; key='Backend'; value='Shim'; default='Native'; appliesAfterRestart=$true }
+        gameAssemblySha256=$gameHash
+        pluginSha256=$hashes['bepinex\plugins\wodenrallyedgewheel\wodenrallyedgewheel.dll']
+        coreSha256=$hashes['bepinex\plugins\wodenrallyedgewheel\wodenrallyedge.core.dll']
+        nativeSha256=$hashes['bepinex\plugins\wodenrallyedgewheel\wheelffb.dll']
+        shimSha256=$privateShimHash.ToLowerInvariant()
+        delivered=@('steer','throttle','brake','handbrake','shiftUp','shiftDown','neutral','reverse','confirm','back','start','navUp','navDown','navLeft','navRight','camera','lookBack','reset','horn','modMenu','muteFfb','gear1','gear2','gear3','gear4','gear5','gear6')
+        unsupported=$unsupported; conditions=$conditions
+    }
+}
+function Assert-Candidate($Actual,$Entries) {
+    if ($null -eq $Actual -or @($Actual.PSObject.Properties).Count -ne 1 -or $null -eq $Actual.controls) { throw 'Invalid private shim capability metadata.' }
+    $expected = Expected-Candidate $Entries
+    if (($Actual.controls | ConvertTo-Json -Depth 8 -Compress) -cne ($expected | ConvertTo-Json -Depth 8 -Compress)) { throw 'Private shim capability does not match owned payloads and reviewed contract.' }
+}
+function Assert-ReceiptFiles($Receipt) {
+    $paths = @($Receipt.files | ForEach-Object { $_.path.Replace('/','\').ToLowerInvariant() })
+    $private = $shimPath.ToLowerInvariant() -in $paths
+    $expected = if ($private) { @($basePaths + $shimPath) } else { $basePaths }
+    $expected = @($expected | ForEach-Object { $_.ToLowerInvariant() })
+    if (@($Receipt.files).Count -ne $expected.Count -or @($paths | Select-Object -Unique).Count -ne $expected.Count) { throw 'Invalid install ownership entries or payload count.' }
+    foreach ($entry in @($Receipt.files)) {
+        if ($entry.path.Replace('/','\').ToLowerInvariant() -notin $expected -or $entry.sha256 -notmatch '^[a-fA-F0-9]{64}$') { throw 'Unrecognized install ownership entry.' }
+    }
+    if ($private -and $Receipt.mode -eq 'Install') { Assert-Candidate $Receipt.sharedInputCandidate $Receipt.files }
+    elseif ($null -ne $Receipt.PSObject.Properties['sharedInputCandidate']) { throw 'Native or uninstalled receipt must not advertise private Shim capability.' }
+    return $private
+}
+function Assert-NativeBackend([string]$ConfigPath) {
+    if (-not (Test-Path -LiteralPath $ConfigPath -PathType Leaf)) { return }
+    $section = ''; $values = @()
+    foreach ($line in @(Get-Content -LiteralPath $ConfigPath)) {
+        if ($line -match '^\s*\[([^\]]+)\]\s*(?:[;#].*)?$') { $section = $Matches[1].Trim(); continue }
+        if ($section -eq 'Input' -and $line -match '^\s*Backend\s*=\s*([^;#\r\n]*)') { $values += $Matches[1].Trim() }
+    }
+    if ($values.Count -gt 1 -or ($values.Count -eq 1 -and $values[0] -notin @('Native','Shim'))) { throw 'Native package refused: ambiguous saved [Input] Backend. Review the Woden configuration first.' }
+    if ($values.Count -eq 1 -and $values[0] -eq 'Shim') { throw 'Native package refused while [Input] Backend=Shim. Select Native and restart Woden before removing the private shim DLL.' }
+}
 function Assert-Closed {
     if ((Get-Process -Name $gameName -ErrorAction SilentlyContinue) -or $script:fixtureGameRunning) { throw "Close $gameName normally, then retry. No process will be stopped." }
 }
@@ -107,14 +162,25 @@ Assert-Tree $destination
 Write-Host "$Mode $gameName wheel mod: $game"
 $beforeConfig = @{}
 if (Test-Path -LiteralPath $config) { Get-ChildItem -LiteralPath $config -File -Recurse | ForEach-Object { $beforeConfig[$_.FullName] = (Get-FileHash -LiteralPath $_.FullName).Hash } }
-$owned = @(); $loaderStage = $null
+$owned = @(); $retired = @(); $loaderStage = $null
 if ($Mode -eq 'Install') {
     if ((Get-FileHash -LiteralPath (Join-Path $game 'GameAssembly.dll')).Hash -ne $gameHash) { throw 'Unsupported game build. Existing files were left in place.' }
     $package = [IO.Path]::GetFullPath($PackageRoot).TrimEnd('\')
     $manifest = Get-Content -LiteralPath (Join-Path $package 'manifest.json') -Raw | ConvertFrom-Json
+    if (@($manifest | ForEach-Object { $_.path.Replace('/','\').ToLowerInvariant() } | Select-Object -Unique).Count -ne @($manifest).Count) { throw 'Package manifest has duplicate paths.' }
     foreach ($entry in $manifest) {
         $file = Assert-Path (Join-Path $package $entry.path) $package
         if ($entry.sha256 -notmatch '^[a-fA-F0-9]{64}$' -or (Get-FileHash -LiteralPath $file).Hash -ne $entry.sha256) { throw "Package integrity check failed: $($entry.path)" }
+    }
+    $shimEntries = @($manifest | Where-Object { $_.path.Replace('/','\') -eq $shimPath })
+    $capabilityEntries = @($manifest | Where-Object { $_.path.Replace('/','\') -eq $capabilityPath })
+    $private = $shimEntries.Count -eq 1 -and $capabilityEntries.Count -eq 1
+    if (($shimEntries.Count -ne $capabilityEntries.Count) -or $shimEntries.Count -gt 1 -or
+        ((Test-Path -LiteralPath (Join-Path $package $shimPath)) -ne $private) -or
+        ((Test-Path -LiteralPath (Join-Path $package $capabilityPath)) -ne $private)) { throw 'Private shim package requires one manifest-owned DLL and capability file together.' }
+    if ($private) {
+        $privateMetadata = Get-Content -LiteralPath (Join-Path $package $capabilityPath) -Raw | ConvertFrom-Json
+        Assert-Candidate $privateMetadata $manifest
     }
     foreach ($name in $payloadNames) {
         $relative = 'BepInEx\plugins\WodenRallyEdgeWheel\' + $name
@@ -122,31 +188,32 @@ if ($Mode -eq 'Install') {
         if ($entry.Count -ne 1) { throw "Package is missing a unique owned payload: $name" }
         $owned += [ordered]@{ path=$relative; sha256=$entry[0].sha256 }
     }
+    if ($private) { $owned += [ordered]@{ path=$shimPath; sha256=$shimEntries[0].sha256 } }
     # A filename and a backup do not establish ownership. Refuse unknown or
     # modified payloads before any loader preparation, backup or replacement.
     $priorPayloadHashes = @{}
     $priorReceiptHash = File-Hash $receiptPath
-    $allowedPaths = @($payloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
     if ($null -ne $priorReceiptHash) {
         $prior = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
         if ($prior.mode -notin @('Install','Uninstall') -or $prior.installerRevision -notin @(1,2,3) -or
-            [string]::IsNullOrWhiteSpace($prior.version) -or $prior.gameDirectory -ne $game -or
-            @($prior.files).Count -ne $payloadNames.Count -or
-            @($prior.files | ForEach-Object { $_.path.Replace('/','\').ToLowerInvariant() } | Select-Object -Unique).Count -ne $payloadNames.Count) { throw 'Invalid prior install ownership receipt; separate adoption review required.' }
+            [string]::IsNullOrWhiteSpace($prior.version) -or $prior.gameDirectory -ne $game) { throw 'Invalid prior install ownership receipt; separate adoption review required.' }
+        try { $priorPrivate = Assert-ReceiptFiles $prior } catch { throw 'Invalid prior install ownership receipt; separate adoption review required. ' + $_.Exception.Message }
         foreach ($entry in @($prior.files)) {
-            if ($entry.path.Replace('/','\') -notin $allowedPaths -or $entry.sha256 -notmatch '^[a-fA-F0-9]{64}$') { throw 'Unrecognized prior install ownership entry.' }
             $target = Assert-Path (Join-Path $game $entry.path) $game
             $expected = if ($prior.mode -eq 'Install') { $entry.sha256 } else { $null }
             if ((File-Hash $target) -ne $expected) { throw "Prior owned file missing or modified; update refused: $target" }
             $priorPayloadHashes[$target] = $expected
         }
+        if ($priorPrivate -and -not $private) { $retired = @($prior.files | Where-Object { $_.path.Replace('/','\') -eq $shimPath }) }
+        if (-not $priorPrivate -and $null -ne (File-Hash (Assert-Path (Join-Path $game $shimPath) $game))) { throw 'Unowned private shim DLL refused; separate adoption review required.' }
     } else {
-        foreach ($relative in $allowedPaths) {
+        foreach ($relative in @($basePaths + $shimPath)) {
             $target = Assert-Path (Join-Path $game $relative) $game
             if ($null -ne (File-Hash $target)) { throw "No prior ownership receipt; unknown payload refused. Separate adoption review required: $target" }
             $priorPayloadHashes[$target] = $null
         }
     }
+    if (-not $private) { Assert-NativeBackend (Join-Path $config 'dbce.wodenrallyedgewheel.cfg') }
     $core = Join-Path $game 'BepInEx\core\BepInEx.Unity.IL2CPP.dll'
     if (Test-Path -LiteralPath $core) {
         # Pin copied from the verified BE #788 archive, not a name/version guess.
@@ -173,11 +240,11 @@ if ($Mode -eq 'Install') {
 } else {
     if (-not (Test-Path -LiteralPath $receiptPath)) { throw 'No owned-file receipt. Separate adoption review required before update or uninstall.' }
     $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
-    $allowedPaths = @($payloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
-    if (@($receipt.files).Count -ne $payloadNames.Count -or @($receipt.files.path | Select-Object -Unique).Count -ne $payloadNames.Count) { throw 'Incomplete or duplicate uninstall ownership entries.' }
+    if ($receipt.mode -notin @('Install','Uninstall') -or $receipt.installerRevision -notin @(1,2,3) -or
+        [string]::IsNullOrWhiteSpace($receipt.version) -or $receipt.gameDirectory -ne $game) { throw 'Invalid uninstall ownership receipt.' }
+    try { $null = Assert-ReceiptFiles $receipt } catch { throw 'Unrecognized uninstall ownership entry or invalid receipt. ' + $_.Exception.Message }
     foreach ($entry in @($receipt.files)) {
         $target = Assert-Path (Join-Path $game $entry.path) $game
-        if ($entry.path.Replace('/','\') -notin $allowedPaths -or $entry.sha256 -notmatch '^[a-fA-F0-9]{64}$') { throw 'Unrecognized uninstall ownership entry.' }
         if ((Test-Path -LiteralPath $target) -and (Get-FileHash -LiteralPath $target).Hash -ne $entry.sha256) { throw "Owned file was modified; uninstall left files in place: $target" }
         $owned += $entry
     }
@@ -185,7 +252,7 @@ if ($Mode -eq 'Install') {
 Assert-Closed
 $backup = Assert-Path (Join-Path $game ('WodenWheelBackups\before-' + $Mode.ToLowerInvariant() + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8))) $game
 $originals = @{}
-foreach ($entry in $owned) {
+foreach ($entry in @($owned) + @($retired)) {
     $target = Assert-Path (Join-Path $game $entry.path) $game
     Snapshot-File $target (Join-Path $backup ('WodenRallyEdgeWheel\' + [IO.Path]::GetFileName($target)))
     if ($Mode -eq 'Install' -and $originals[$target].hash -ne $priorPayloadHashes[$target]) { throw 'Prior owned file changed after receipt validation; update refused.' }
@@ -222,6 +289,7 @@ try {
             Write-Owned $stagedConfig $loaderConfig (File-Hash $stagedConfig)
         }
         Ensure-Directory $destination
+        foreach ($entry in $retired) { Remove-Owned (Assert-Path (Join-Path $game $entry.path) $game) }
         foreach ($entry in $owned) {
             Assert-Closed
             $target = Assert-Path (Join-Path $game $entry.path) $game
@@ -255,8 +323,9 @@ try {
         $nextReceipt.controlsProfileSchema = 1
         $nextReceipt.adapter = 'woden-bindings-1'
         $nextReceipt.controlsProfileHatNeighbours = $true
+        if ($private) { $nextReceipt.sharedInputCandidate = $privateMetadata }
     }
-    $nextReceipt | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $stagedReceipt -Encoding utf8
+    $nextReceipt | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $stagedReceipt -Encoding utf8
     Write-Owned $stagedReceipt $receiptPath (File-Hash $stagedReceipt)
 } catch {
     $failure = $_.Exception.Message

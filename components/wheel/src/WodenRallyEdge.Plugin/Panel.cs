@@ -411,7 +411,7 @@ internal static class Panel
             Label(742,y,202,action.Status.ToString(),true);y+=54;
         }
         Label(250,y,690,"Wheel-only pilot: Unity gamepads must be disconnected before launch. Native keyboard controls remain available.",true,54);y+=64;
-        Label(250,y,690,"Sequential shifting only. Clutch, neutral, reverse, select and H-pattern gears are unsupported. Lights, Records and Next song retain native keyboard controls.",true,72);y+=84;
+        Label(250,y,690,"Sequential shifts or H-pattern N/R/gears 1-6 require native Manual. Clutch, select and gears 7-8 are unavailable. Lights, Records and Next song retain native keyboard controls.",true,72);y+=84;
         Label(250,y,690,ShimInput.TransmissionStatus,true,64);y+=76;
         End(y);
     }

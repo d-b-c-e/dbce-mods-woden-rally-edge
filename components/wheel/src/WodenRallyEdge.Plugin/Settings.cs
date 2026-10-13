@@ -109,7 +109,7 @@ public sealed class Settings
         Item("Interface", "View", ref UiView, "Simple or Advanced; presentation only.");
         Item("Interface", "Page", ref UiPage, "Last settings page.");
         Item("Interface", "ScalePercent", ref UiScale, "Settings text and target scale, 85..150%.");
-        Item("Input", "Backend", ref InputBackend, "Native (standalone bindings) or opt-in Shim wheel-only pilot. Requires dbce-controls.ini and no Unity gamepads; restart to change. H-pattern/clutch unsupported in this pilot.");
+        Item("Input", "Backend", ref InputBackend, "Native (standalone bindings) or opt-in Shim wheel-only pilot. Requires dbce-controls.ini and no Unity gamepads; restart to change. Sequential or H-pattern N/R/gears 1-6 require native Manual; clutch, select and gears 7-8 remain unavailable.");
         Item("Telemetry", "Enabled", ref TelemetryEnabled, "Send dashboard UDP; does not start or stop diagnostic recording.");
         Item("ForceFeedback", "FollowSteering", ref FfbFollowSteering, "Use the saved Steering device GUID. An explicit selection remains independent.");
         Item("ForceFeedback", "SelectionVersion", ref _selectionVersion, "Preserve legacy explicit selections during migration.");
