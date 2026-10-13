@@ -6,6 +6,9 @@ param(
     [switch]$Record,
     [ValidateRange(10,1800)][int]$Seconds = 60,
     [string]$Recording,
+    # An admitted ordinary package (TelemetryInspector admit): reviewed with ordinary-stage-review instead of the
+    # muted-capture stage-review; its nested stage is replayed. Playback stays muted either way.
+    [string]$AdmittedPackage,
     [switch]$SpanSeparateMonitors,
     [Parameter(Mandatory)][string]$Result,
     [string]$GameDir = 'D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge',
@@ -72,6 +75,13 @@ function Review-Recording([string]$Path) {
     if (!(Test-Path -LiteralPath $inspector)) { throw 'Build TelemetryInspector before running a stage session.' }
     $report = & dotnet $inspector stage-review $Path
     if ($LASTEXITCODE -ne 0) { throw 'Original recording validation failed.' }
+    return ($report -join [Environment]::NewLine)
+}
+function Review-AdmittedPackage([string]$Path) {
+    $inspector = Join-Path $PSScriptRoot '../../components/wheel/tools/TelemetryInspector/bin/Release/net10.0/TelemetryInspector.dll'
+    if (!(Test-Path -LiteralPath $inspector)) { throw 'Build TelemetryInspector before running a stage session.' }
+    $report = & dotnet $inspector ordinary-stage-review $Path
+    if ($LASTEXITCODE -ne 0) { throw 'Admitted ordinary package validation failed.' }
     return ($report -join [Environment]::NewLine)
 }
 function Save-Owner {
@@ -153,10 +163,12 @@ try {
         if ($RigLeaseToken) { Assert-StageRigLease -Path $slot -Token $RigLeaseToken }
         Save-Owner; Restore-Owner; Write-Output 'PASS: owner environment backup and exact readback.'; return
     }
+    if ($AdmittedPackage -and ($Record -or $Recording)) { throw 'Choose either an admitted package, Record or a completed Recording.' }
+    if ($AdmittedPackage) { $admittedReview = Review-AdmittedPackage $AdmittedPackage; $Recording = Join-Path $AdmittedPackage 'source.stage' }
     if ($Record -and $Recording) { throw 'Choose either Record or a completed Recording.' }
     if ($Record -and $SpanSeparateMonitors) { throw 'The temporary span override is for replay qualification only.' }
     if (!$Record -and (!$Recording -or !(Test-Path -LiteralPath (Join-Path $Recording 'complete.tsv')))) { throw 'A completed recording is required.' }
-    if (!$Record) { $sourceReview = Review-Recording $Recording }
+    if (!$Record) { $sourceReview = if ($AdmittedPackage) { $admittedReview } else { Review-Recording $Recording } }
     if ($Record) { $Recording = Join-Path $Result 'recording' }
     if (Test-Path -LiteralPath (Join-Path $control 'request.txt')) { throw 'An unconsumed stage request exists.' }
     $other = Get-Process -Name 'artofrally','iracing-arcade','DRIVERally','SonicRacingCrossWorldsSteam','OR2006C2C' -ErrorAction SilentlyContinue

@@ -5,6 +5,11 @@ using WodenRallyEdge.Core;
 
 // Device-free validation of original signals. Kinematic playback cannot generate
 // a replacement tyre-force baseline; re-evaluate the actual model on this stream.
+// Muted (the default, unchanged) requires a physically muted capture. OrdinaryOutputRetained is used only for an
+// admitted ordinary package (OrdinaryStageReview): the capture's own output policy must be consistent and its delivery
+// counters truthful; every tune, alignment, clock and force-reprocess check is the same. Playback itself is always muted.
+internal enum StageReviewPolicy { Muted, OrdinaryOutputRetained }
+
 internal static class StageCaptureReview
 {
     internal static ForceOptions ReadOptions(string directory)
@@ -42,11 +47,17 @@ internal static class StageCaptureReview
         var reference = new FrontLoadReference(); reference.Restore(load, (FrontLoadReferenceKind)(int)kind); return reference;
     }
 
-    internal static object Run(string directory)
+    internal static object Run(string directory) => Run(directory, StageReviewPolicy.Muted);
+
+    internal static object Run(string directory, StageReviewPolicy policy)
     {
         var tape = TrajectoryTape.Read(directory); // verifies every sealed artifact
         ArtifactSeal.Verify(directory, "source.jsonl", "force-config.json", "stage-context.json", "channels.json");
-        if (tape.Metadata["physicalOutput"] != "false") throw new IOException("Capture was not physically muted");
+        bool muted = policy == StageReviewPolicy.Muted;
+        string output = tape.Metadata["physicalOutput"];
+        if (muted && output != "false") throw new IOException("Capture was not physically muted");
+        if (!muted && output is not ("true" or "false")) throw new IOException("Capture output policy is unknown");
+        double? firstDelivery = null, lastDelivery = null, firstConnection = null, lastConnection = null;
         var options = ReadOptions(directory);
         var records = SessionReader.Read(Path.Combine(directory, "source.jsonl")).ToArray();
         bool independent = ForceAnalysisHistory.Declared(records);
@@ -65,7 +76,7 @@ internal static class StageCaptureReview
                 var properties = record.Metadata.Properties;
                 if (!properties.TryGetValue("forceConfigSha256", out var hash) || hash != ArtifactSeal.Hash(Path.Combine(directory, "force-config.json")) ||
                     !properties.TryGetValue("captureSource", out var source) || source != tape.Metadata["captureSource"] ||
-                    !properties.TryGetValue("physicalOutput", out var output) || output != "false")
+                    !properties.TryGetValue("physicalOutput", out var recorded) || recorded != output)
                     throw new IOException("Original signal metadata differs from the sealed capture");
             }
             if (record.Kind == SessionRecordKind.Footer) footer = record.Footer;
@@ -80,8 +91,20 @@ internal static class StageCaptureReview
                 throw new IOException("Original signal/trajectory physics clocks differ");
             if (Get("sample.driving") != 1 || Get("sample.discontinuity") is not (0 or 1))
                 throw new IOException("Capture is not a driving trajectory");
-            foreach (string key in new[] { "ffb.sent", "ffb.connectionAttempts", "ffb.deliveryAttempts" })
-                if (Get(key) != 0) throw new IOException("Capture was not physically muted: " + key);
+            if (output == "false")
+            {
+                foreach (string key in new[] { "ffb.sent", "ffb.connectionAttempts", "ffb.deliveryAttempts" })
+                    if (Get(key) != 0) throw new IOException("Capture was not physically muted: " + key);
+            }
+            else
+            {
+                // Output-retained source: cumulative counters must be truthful; they are reported, never replayed.
+                double delivery = Get("ffb.deliveryAttempts"), connection = Get("ffb.connectionAttempts"); Get("ffb.sent");
+                if (delivery < 0 || connection < 0 || delivery != Math.Truncate(delivery) || connection != Math.Truncate(connection) ||
+                    delivery < (lastDelivery ?? 0) || connection < (lastConnection ?? 0))
+                    throw new IOException("Delivery counters are not truthful cumulative counts at sample " + count);
+                firstDelivery ??= delivery; firstConnection ??= connection; lastDelivery = delivery; lastConnection = connection;
+            }
             var capturedOptions = new ForceOptions((float)Get("ffb.tuning.strengthPercent"), (float)Get("ffb.tuning.peakPercent"),
                 (float)Get("ffb.tuning.loadReference"), (float)Get("ffb.tuning.slipScale"), (float)Get("ffb.tuning.smoothingMs"),
                 (float)Get("ffb.tuning.damping"), Get("ffb.tuning.invert") == 1);
@@ -128,6 +151,16 @@ internal static class StageCaptureReview
             throw new IOException("Original source is incomplete or dropped data");
         if (valid < 50 || nonzero < 1 || maxSpeed < 1) throw new IOException("Insufficient driving/force coverage");
         ArtifactSeal.Verify(directory, "source.jsonl", "force-config.json", "stage-context.json", "channels.json");
+        if (!muted)
+            return new { schema = "woden.stage-review@1", passed = true, policy = "ordinary-output-retained", physicalOutput = output == "true",
+                physicalDeliveryAttempts = (lastDelivery ?? 0) - (firstDelivery ?? 0), connectionAttempts = (lastConnection ?? 0) - (firstConnection ?? 0),
+                playback = "muted", scenario = tape.Metadata["scenario"],
+                samples = count, seconds = tape.Frames[^1].Time - tape.Frames[0].Time, validForceSamples = valid,
+                nonzeroForceSamples = nonzero, minimumPreview = minForce, maximumPreview = maxForce,
+                maximumForceReprocessError = maxError, maximumPhysicsSpeedMps = maxSpeed,
+                model = ForceObservationSemantics.ModelId(options.Model), analysisContract = independent ? ForceAnalysisHistory.Contract : "legacy-stage-history",
+                qualifiedForceSamples = qualified, forceScope = "steering analysis only; crash cues and physical delivery are separate",
+                source = tape.Metadata["captureSource"], normalization = "software signal only; no measured wheel torque" };
         return new { schema = "woden.stage-review@1", passed = true, scenario = tape.Metadata["scenario"],
             samples = count, seconds = tape.Frames[^1].Time - tape.Frames[0].Time, validForceSamples = valid,
             nonzeroForceSamples = nonzero, minimumPreview = minForce, maximumPreview = maxForce,
