@@ -144,7 +144,7 @@ internal static partial class StagePlayback
         {
             _analysis = new ForceAnalysisHistory(); _signalCount = 0;
             StageCaptureContext.Write(directory, _car ?? throw new InvalidOperationException("Player unavailable"));
-            _signals = StageSignalFiles.Open(directory, SignalIdentity, Runtime.Settings.ForceOptions, physicalOutput: false);
+            _signals = StageSignalFiles.Open(directory, SignalIdentity, Runtime.Settings.ForceOptions, physicalOutput: false, RecordingProfiles.Stage());
         }
         public string[] FinishSignals()
         {

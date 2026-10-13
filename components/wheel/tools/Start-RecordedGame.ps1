@@ -96,7 +96,7 @@ do {
     Start-Sleep -Milliseconds 250
 } while ([DateTimeOffset]::UtcNow -lt $startupDeadline)
 if ($running.Count -eq 0) { throw "Woden did not appear within $StartupTimeoutSeconds seconds. No process was stopped; the expiring request remains at $requestPath." }
-Write-Host "Woden started. Use F6 Telemetry Stop, the exact -Stop -RequestId command, or normal exit to end capture (20 minutes / 64 MiB maximum)."
+Write-Host "Woden started. Use F6 Telemetry Stop, the exact -Stop -RequestId command, or normal exit to end capture (20 minutes / 1.75 GiB maximum)."
 $sessionDeadline = [DateTimeOffset]::UtcNow.AddMinutes($SessionTimeoutMinutes)
 do {
     Start-Sleep -Milliseconds 500

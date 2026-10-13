@@ -11,7 +11,9 @@ internal static class StageSignalFiles
     internal static readonly string[] Files = { "source.jsonl", "force-config.json", "channels.json", "stage-context.json" };
     internal sealed record Identity(string GameHash, string PluginPath, string RecordingSource, string PluginVersion, string SessionId);
 
-    internal static TelemetryOutput Open(string directory, Identity id, ForceOptions options, bool physicalOutput)
+    /// <param name="recording">RecordingProfiles.Ordinary() for the ordinary full session's stage, which can run as long
+    /// as the ordinary capture; RecordingProfiles.Stage() for the supervised stage tool.</param>
+    internal static TelemetryOutput Open(string directory, Identity id, ForceOptions options, bool physicalOutput, RecordingOptions recording)
     {
         RecordingArtifacts.WriteForceConfig(Path.Combine(directory, "force-config.json"), options);
         File.WriteAllText(Path.Combine(directory, "channels.json"), JsonSerializer.Serialize(TelemetrySchema.Channels));
@@ -22,8 +24,7 @@ internal static class StageSignalFiles
             ["posePhase"] = "MainCar.FixedUpdate.prefix; signals from postfix before Unity solve",
             ["alignment"] = "capture.trajectoryIndex is the zero-based trajectory row; sample.simulationSeconds is the absolute physics clock" };
         return new TelemetryOutput(new OutputOptions(RecordingPath: Path.Combine(directory, "source.jsonl"), Enabled: false), id.SessionId,
-            id.RecordingSource, id.PluginVersion, properties,
-            new RecordingOptions { QueueCapacity = 512, MaxDurationSeconds = 1801, MaxFileBytes = 128L * 1024 * 1024, MaxChannelsPerSample = 512 });
+            id.RecordingSource, id.PluginVersion, properties, recording);
     }
 
     /// <summary>Closes the stage signals; refuses anything short of one complete, drop-free row per recorded pose.</summary>

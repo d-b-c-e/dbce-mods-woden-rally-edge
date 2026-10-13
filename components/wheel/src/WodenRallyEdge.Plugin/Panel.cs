@@ -564,7 +564,7 @@ internal static class Panel
             if(Button(510,y,148,"Cancel",false,ConnectionDirty))ReadConnection();y+=48;
             if(Button(250,y,356,"Restore connection defaults")){_forza="8000";_detail="8001";_rate=20;}y+=48;
             Label(250,y,690,$"Forza packets {output?.ForzaPackets}; overwritten ticks {output?.OverwrittenTicks}; send errors {output?.SendErrors}. Loopback only.",true,48);y+=60;
-            Label(250,y,690,"Recordings are prepared by the agent before launch (20 minutes / 64 MiB maximum). No recording starts from this menu. Changing connection/view keeps any capture running.",true,70);y+=80;
+            Label(250,y,690,"Recordings are prepared by the agent before launch ("+RecordingProfiles.OrdinaryLimit+" maximum). No recording starts from this menu. Changing connection/view keeps any capture running.",true,70);y+=80;
         }
         End(y);
     }

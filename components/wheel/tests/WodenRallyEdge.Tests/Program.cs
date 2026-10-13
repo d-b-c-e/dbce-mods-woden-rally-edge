@@ -1058,6 +1058,12 @@ Test("ordinary full-session outcomes stay incomplete without a sealed aligned st
 Test("ordinary status shows Completed only after the full-session package or its marker exists", () => WodenRallyEdge.FullSessionChecks.StatusHold(Check));
 Test("plugin close releases the status hold even with a package commit already begun", () => WodenRallyEdge.FullSessionChecks.ClosingHold(Check));
 Test("an ordinary-owned launch ignores later stage requests: no mute, no supervised commands", () => WodenRallyEdge.FullSessionChecks.Ownership(Check));
+Test("the ordinary full session's stage copy records with the ordinary profile", () => WodenRallyEdge.FullSessionChecks.StageProfile(Check));
+Test("ordinary recording holds its full 20 minutes: the largest row at the budgeted 70 Hz fits the cap (real recorder)", () => WodenRallyEdge.RecordingCapacityChecks.Capacity(Check));
+Test("the capacity budget is the real recorder's arithmetic: header, rows and footer reserve stop it exactly there", () => WodenRallyEdge.RecordingCapacityChecks.Boundary(Check));
+if (Environment.GetEnvironmentVariable("WODEN_LONG_SESSION_SECONDS") is { Length: > 0 } longSeconds)
+    Test("measurement only: a long ordinary full session's stage seal, package and case reprocess", () => WodenRallyEdge.FullSessionChecks.LongSession(Check,
+        double.Parse(longSeconds, System.Globalization.CultureInfo.InvariantCulture), Environment.GetEnvironmentVariable("WODEN_LONG_SESSION_TEXT") == "longest"));
 if (Environment.GetEnvironmentVariable("WODEN_GRIP_CAPTURE") is { Length: > 0 } gripCapture)
     Test("private native Grip5 capture: exact old replay and isolated Grip6 trial", () => GripV6Checks.NativeCapture(Check, gripCapture));
 Console.WriteLine($"{passed} suites passed; {failed} failed; {checks} assertions.");

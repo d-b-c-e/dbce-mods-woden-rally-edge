@@ -8,7 +8,7 @@ The priority is useful data with traceable meaning. The versioned dictionary in 
 |---|---|---|
 | Forza Horizon 5 Data Out | UDP 127.0.0.1:8000 | Toolkit's 324-byte packet, physical motion and wheel rotation. Raw game scales are not converted speculatively. |
 | Detailed telemetry v1 | UDP 127.0.0.1:8001, up to 20 Hz | JSON snapshot with session/sequence, wall/simulation clocks, sampling phase, driving state, available numeric channels and read failures. |
-| Diagnostic recording | Off | Toolkit JSONL metadata, numeric samples at sampled physics rate, ordered state/reset/gate/model markers and validating footer. Correlated owner requests also write config/profile identity for device-free model reprocessing. 512-record queue, 20-minute / 64 MiB caps. |
+| Diagnostic recording | Off | Toolkit JSONL metadata, numeric samples at sampled physics rate, ordered state/reset/gate/model markers and validating footer. Correlated owner requests also write config/profile identity for device-free model reprocessing. 512-record queue, 20-minute / 1.75 GiB caps (`RecordingProfiles.Ordinary`, budgeted for the measured 60 Hz physics rows plus the 10 Hz idle bound at the largest possible row). |
 
 The network worker has one pending slot. A slow consumer drops old network ticks; overwrite/error counters are logged every ten seconds. Recording has its own queue and drop counters. Its producer copies finite numeric values; serialization and disk writes happen on the toolkit worker. Maximum detailed UDP payload is 60,000 bytes; a complete schema sample is tested below that budget. UDP does not guarantee delivery or order.
 

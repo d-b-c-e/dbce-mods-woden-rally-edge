@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Numerics;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Dbce.Wheel.Playback;
@@ -23,15 +25,18 @@ internal static class FullSessionChecks
         public readonly string Temp, Root;
         public readonly TelemetryOutput Ordinary;
         public readonly OrdinaryFullSession Session;
-        public double Now = 1, Physics = 250;
+        public double Now = 1, Physics = 250, Step = Dt;
+        /// <summary>Runs on each tick's sample before the stage copy and the ordinary recorder see it.</summary>
+        public Action<TelemetrySample>? Extend;
         int _sequence;
-        public Fixture(RecordingOptions? recording = null)
+        /// <param name="properties">Ordinary recording properties for the capture root (default: the game build only).</param>
+        public Fixture(RecordingOptions? recording = null, Func<string, Dictionary<string, string>>? properties = null)
         {
             Temp = Path.Combine(Path.GetTempPath(), "woden-full-session-" + Guid.NewGuid().ToString("N"));
             Root = Path.Combine(Temp, "request-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(Root);
             Ordinary = new TelemetryOutput(new OutputOptions(ForzaPort: 0, DetailPort: 0, RecordingPath: Path.Combine(Root, "source.jsonl"), Enabled: false),
-                "fixture", "{\"fixture\":true}", "0.2.14", new Dictionary<string, string> { ["gameAssemblySha256"] = Hash }, recording);
+                "fixture", "{\"fixture\":true}", "0.2.14", properties?.Invoke(Root) ?? new Dictionary<string, string> { ["gameAssemblySha256"] = Hash }, recording);
             Session = new OrdinaryFullSession(Root, "source.jsonl", Identity(), "diagnostic", 0);
         }
         public static StageSignalFiles.Identity Identity() => new(Hash, typeof(FullSessionChecks).Assembly.Location, "{\"fixture\":true}", "0.2.14", "fixture");
@@ -49,14 +54,15 @@ internal static class FullSessionChecks
         /// <summary>One physics tick as CarHook runs it. A paused tick has no pose; its postfix sample has no stage row.</summary>
         public void Tick(bool paused = false, bool pose = true, bool signal = true)
         {
-            Physics += paused ? 0 : Dt; Now += Dt;
-            if (pose && !paused) Session.Pose(Frame(Physics), "Kenya SS1|car=8", Dt, Now);
+            Physics += paused ? 0 : Step; Now += Step;
+            if (pose && !paused) Session.Pose(Frame(Physics), "Kenya SS1|car=8", Step, Now);
             else if (paused) Session.Pause(Now);
             var sample = Sample();
+            Extend?.Invoke(sample);
             if (signal) Session.Signal(sample, Options);
             Ordinary.Publish(sample);
         }
-        public void Open(bool physicalOutput = false) => Session.OpenStage(Selection(), "Kenya SS1|car=8", Dt, physicalOutput,
+        public void Open(bool physicalOutput = false) => Session.OpenStage(Selection(Step), "Kenya SS1|car=8", Step, physicalOutput,
             dir => File.WriteAllText(Path.Combine(dir, "stage-context.json"), Context()), Options, Now);
         // StageCaptureContext.Write's field set with synthetic values, so consumers can test the context checks.
         static string Context() => JsonSerializer.Serialize(new Dictionary<string, object?> {
@@ -92,8 +98,8 @@ internal static class FullSessionChecks
             try { Directory.Delete(Temp, true); } catch { }
         }
     }
-    static FullSessionSelection Selection() => new() { Scene = "Kenya SS1", Biome = "Arcade Route 1", Track = "Kenya SS1",
-        Car = "car=8", Mode = "Arcade/Arcade", Start = "route=0;round=0", FixedDeltaTime = Dt };
+    static FullSessionSelection Selection(double step = Dt) => new() { Scene = "Kenya SS1", Biome = "Arcade Route 1", Track = "Kenya SS1",
+        Car = "car=8", Mode = "Arcade/Arcade", Start = "route=0;round=0", FixedDeltaTime = step };
 
     /// <summary>Boot, menus, a stage with a pause and a finish: one sealed package with phase-aligned stage signals.</summary>
     public static void Package(Action<bool, string> check)
@@ -337,6 +343,153 @@ internal static class FullSessionChecks
               !StageLaunchOwner.PhysicalOutput(false, false, false) &&
               StageLaunchOwner.PhysicalOutput(false, false, true),
             "the stage-open physical-output flag reflects every current output gate");
+    }
+
+    /// <summary>The stage copy records for as long as the ordinary capture, so it takes the ordinary profile, as the
+    /// ordinary source does by default. Read from the live recorders' own option snapshots.</summary>
+    public static void StageProfile(Action<bool, string> check)
+    {
+        using var f = new Fixture();
+        f.Menus(); f.Open(); f.Tick();
+        var expected = RecordingProfiles.Ordinary();
+        foreach (var (name, output) in new[] { ("stage copy", Nested(f.Session)), ("ordinary source", f.Ordinary) })
+        {
+            var actual = RecorderOptions(output ?? throw new InvalidOperationException(name + " is not recording"));
+            check(actual.MaxFileBytes == expected.MaxFileBytes && actual.MaxDurationSeconds == expected.MaxDurationSeconds &&
+                actual.QueueCapacity == expected.QueueCapacity && actual.MaxChannelsPerSample == expected.MaxChannelsPerSample,
+                $"{name} uses the ordinary profile: {actual.MaxFileBytes} B, {actual.MaxDurationSeconds} s");
+        }
+        check(RecordingProfiles.Stage().MaxFileBytes != expected.MaxFileBytes && RecordingProfiles.Stage().MaxDurationSeconds != expected.MaxDurationSeconds,
+            "the supervised stage profile differs, so the check tells them apart");
+    }
+
+    /// <summary>Measurement only (WODEN_LONG_SESSION_SECONDS; WODEN_LONG_SESSION_TEXT=longest for longest-text filler).
+    /// One ordinary capture whose single stage lasts the whole duration at the measured 1/60 s step, through the actual
+    /// force controller, with rows widened by channels no force, crash or replay path reads. Prints the stage seal (game
+    /// thread), the package (worker) and the case finalizer's reprocess, with memory. Asserts only that each completes;
+    /// the existing bounds are compared in the report, not here.</summary>
+    public static void LongSession(Action<bool, string> check, double seconds, bool longestText)
+    {
+        var (controller, _) = ForceControllerChecks.Create(); controller.Prepare();
+        var force = new ForceOptions();
+        using var f = new Fixture(properties: root =>
+        {
+            string config = RecordingArtifacts.WriteForceConfig(Path.Combine(root, "force-config.json"), force);
+            string profile = RecordingArtifacts.WriteCaptureProfile(Path.Combine(root, "capture-profile.json"), Hash, new string('2', 64), new string('3', 64), new string('4', 64), true, true, true, "fixture-guid");
+            return new() { ["recordingContract"] = "dbce.wheel.replay-case@1", ["capability"] = "signal-reprocess", ["requestId"] = Guid.NewGuid().ToString(),
+                ["caseId"] = "long-session", ["disableForces"] = "false", ["gameAssemblySha256"] = Hash, ["pluginSha256"] = new string('2', 64),
+                ["pluginProductVersion"] = "0.2.14+fixture-source", ["runtimeSource"] = "fixture-source", ["forceConfigSha256"] = config, ["captureProfileSha256"] = profile };
+        });
+        f.Step = 1.0 / RecordingProfiles.PhysicsHz;
+        string[] filler = TelemetrySchema.Channels.Keys.Where(Filler).ToArray();
+        int tick = 0;
+        f.Extend = s =>
+        {
+            foreach (string c in new[] { "fl", "fr" })
+            { s.Add("wheel." + c + ".grounded", 1); s.Add("wheel." + c + ".contactForce", 3000); s.Add("wheel." + c + ".sidewaysSlip", .3 * Math.Sin(tick * .005)); }
+            s.Add("wheelInput.steer", 0);
+            for (int i = 0; i < filler.Length; i++) s.Add(filler[i], longestText ? -1.2345678901234567E-300 : Math.Round(Math.Sin(tick * .01 + i) * 100, 7));
+            controller.Tick(s);
+            tick++;
+        };
+        f.Menus(); f.Open();
+        var nested = Nested(f.Session) ?? throw new InvalidOperationException("the stage did not open");
+        int ticks = (int)(seconds * RecordingProfiles.PhysicsHz);
+        var clock = Stopwatch.StartNew();
+        for (int i = 0; i < ticks; i++) { f.Tick(); Pace(f.Ordinary); Pace(nested); }
+        double produced = clock.Elapsed.TotalSeconds;
+
+        double seal = Time(() => f.Session.Seal("finished", true, f.Now));
+        check(!f.Session.StageOpen && f.Session.Failure == null && File.Exists(Path.Combine(f.Root, "source.stage", "complete.tsv")), "stage sealed: " + f.Session.Failure);
+        f.Session.Scene("StagePresentation", false, f.Now += 1);
+        f.CloseOrdinary();
+        check(f.Ordinary.RecordingStatus == "Completed" && f.Ordinary.RecordingDrops == 0, "ordinary source completed without drops: " + f.Ordinary.RecordingStatus);
+        f.Session.Stop(f.Now += .1);
+        double package = Time(f.Session.Package);
+        check(f.Session.Outcome == "package", "package sealed: " + f.Session.Failure + " " + Read(f.Path_(OrdinaryFullSession.IncompleteFile)));
+
+        // The package's reads and hashes again, now from the OS cache, to attribute its time.
+        string outer = f.Path_("source.jsonl"), stage = Path.Combine(f.Root, "source.stage", "source.jsonl");
+        long outerRows = 0, stageRows = 0;
+        double readOuter = Time(() => { foreach (var r in SessionReader.Read(outer)) if (r.Sample != null) outerRows++; });
+        double readStage = Time(() => { foreach (var r in SessionReader.Read(stage)) if (r.Sample != null) stageRows++; });
+        double hashOuter = Time(() => ArtifactSeal.Hash(outer)), hashStage = Time(() => ArtifactSeal.Hash(stage));
+
+        // WodenCaseFinalizer reprocess on the same capture after the package, as the companion runs it after exit.
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+        long baseManaged = GC.GetTotalMemory(true), baseWorkingSet = Process.GetCurrentProcess().WorkingSet64;
+        RecordedForceReplayResult? result = null;
+        var peak = new PeakSampler();
+        double reprocess = Time(() => result = RecordedForceReplay.Reprocess(f.Root));
+        peak.Stop();
+        check(result != null && result.SourceSamples == outerRows, "reprocess completed over every source row");
+        Console.WriteLine($"  reprocess memory: managed peak {Mb(peak.Managed)} MB over {Mb(baseManaged)} MB before; working set peak {Mb(peak.WorkingSet)} MB over {Mb(baseWorkingSet)} MB before");
+
+        long outerBytes = new FileInfo(outer).Length, stageBytes = new FileInfo(stage).Length;
+        Console.WriteLine($"  long session: {seconds:0.#} s at {RecordingProfiles.PhysicsHz} Hz, {(longestText ? "longest-text" : "measured-like")} filler; produced in {produced:0.0} s");
+        Console.WriteLine($"  ordinary source {Mb(outerBytes)} MB, {outerRows} rows, {outerBytes / Math.Max(1, outerRows)} B/row; stage copy {Mb(stageBytes)} MB, {stageRows} rows, {stageBytes / Math.Max(1, stageRows)} B/row");
+        Console.WriteLine($"  stage seal (game thread): {seal:0.00} s");
+        Console.WriteLine($"  package (worker): {package:0.00} s [bounds: 60 s to reach the commit, 300 s for a running commit, 10 s at game close]");
+        Console.WriteLine($"    cached re-reads: ordinary source stream {readOuter:0.00} s, stage copy stream {readStage:0.00} s; SHA-256 {hashOuter:0.00} s and {hashStage:0.00} s");
+        Console.WriteLine($"  case reprocess (after exit): {reprocess:0.00} s");
+        long Size(params string[] parts) => new FileInfo(Path.Combine(new[] { f.Root }.Concat(parts).ToArray())).Length;
+        Console.WriteLine($"  other files: trajectory.tsv {Size("source.stage", "trajectory.tsv")} B, force-observation.jsonl {Size("force-observation.jsonl")} B, " +
+            $"case.json {Size("case.json")} B, source.session.jsonl {Size("source.session.jsonl")} B, source.stage-session.json {Size("source.stage-session.json")} B");
+    }
+
+    // Channels no force, crash or replay path reads: the rear wheels, the front-wheel fields beside the contact the
+    // models read, game state, timing, controls, assists and raw wheel input.
+    static bool Filler(string name)
+    {
+        if (name.StartsWith("wheel.rl.", StringComparison.Ordinal) || name.StartsWith("wheel.rr.", StringComparison.Ordinal)) return true;
+        if (name.StartsWith("wheel.fl.", StringComparison.Ordinal) || name.StartsWith("wheel.fr.", StringComparison.Ordinal))
+        {
+            string field = name["wheel.fl.".Length..];
+            return field is not ("grounded" or "contactForce" or "sidewaysSlip") && !field.StartsWith("sideFriction.", StringComparison.Ordinal);
+        }
+        return name.StartsWith("game.", StringComparison.Ordinal) && name != "game.trueSpeed" || name.StartsWith("timing.", StringComparison.Ordinal) ||
+            name.StartsWith("controls.", StringComparison.Ordinal) || name.StartsWith("assist.", StringComparison.Ordinal) || name.StartsWith("wheelRaw.", StringComparison.Ordinal);
+    }
+
+    // A game tick is about 16.7 ms; this loop is faster than the writers, so it waits for them rather than overflow their queues.
+    static void Pace(TelemetryOutput output)
+    {
+        static long Backlog(RecordingCounters c) => c.AcceptedSamples + c.AcceptedMarkers - c.WrittenSamples - c.WrittenMarkers;
+        if (output.RecordingCounters is not { } counters || Backlog(counters) < 384) return;
+        while (output.RecordingStatus == "Recording" && output.RecordingCounters is { } now && Backlog(now) > 64) Thread.Sleep(1);
+    }
+
+    static TelemetryOutput? Nested(OrdinaryFullSession session) =>
+        (TelemetryOutput?)typeof(OrdinaryFullSession).GetField("_signals", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(session);
+
+    // The recorder's own snapshot of its options (Dbce.Wheel.Recording SessionRecorder.options): what the writer enforces.
+    static RecordingOptions RecorderOptions(TelemetryOutput output)
+    {
+        object recorder = typeof(TelemetryOutput).GetField("_recorder", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(output)
+            ?? throw new InvalidOperationException("no recorder");
+        return (RecordingOptions)(recorder.GetType().GetField("options", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(recorder)
+            ?? throw new InvalidOperationException("SessionRecorder.options was not found"));
+    }
+
+    static double Time(Action action) { var clock = Stopwatch.StartNew(); action(); return clock.Elapsed.TotalSeconds; }
+    static long Mb(long bytes) => bytes / 1_000_000;
+
+    // Peak managed heap and working set, sampled every 50 ms.
+    sealed class PeakSampler
+    {
+        readonly Thread _thread;
+        volatile bool _stop;
+        public long Managed, WorkingSet;
+        public PeakSampler()
+        {
+            _thread = new Thread(() =>
+            {
+                using var process = Process.GetCurrentProcess();
+                while (!_stop) { Managed = Math.Max(Managed, GC.GetTotalMemory(false)); process.Refresh(); WorkingSet = Math.Max(WorkingSet, process.WorkingSet64); Thread.Sleep(50); }
+            }) { IsBackground = true };
+            _thread.Start();
+        }
+        public void Stop() { _stop = true; _thread.Join(); }
     }
 
     static void CopyTree(string source, string target)

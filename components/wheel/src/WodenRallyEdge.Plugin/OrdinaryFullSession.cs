@@ -102,7 +102,7 @@ internal sealed class OrdinaryFullSession
         _selection = selection.Copy(); _scenario = scenario; _fixedDeltaTime = fixedDeltaTime;
         _stagePoses = 0; _signalRows = 0; _paused = false;
         writeContext(directory);
-        _signals = StageSignalFiles.Open(directory, _id, options, physicalOutput);
+        _signals = StageSignalFiles.Open(directory, _id, options, physicalOutput, RecordingProfiles.Ordinary());
         _analysis = new ForceAnalysisHistory();
         _capture.Observe(new FullSessionState { Phase = FullSessionPhase.Driving, Marker = "stage.driving", Selection = _selection.Copy() }, _poses, s);
         Journal("stage-open", s, new JsonObject { ["stage"] = _names.Stage, ["scenario"] = scenario, ["fixedDeltaTime"] = fixedDeltaTime,

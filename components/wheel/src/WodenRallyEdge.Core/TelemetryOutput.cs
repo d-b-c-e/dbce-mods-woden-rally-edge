@@ -115,7 +115,7 @@ public sealed class TelemetryOutput : IDisposable
                 StartedUtc = DateTime.UtcNow,
                 Properties = properties,
                 ChannelUnits = TelemetrySchema.Channels.ToDictionary(x => x.Key, x => x.Value.Unit)
-            }, recordingOptions ?? new RecordingOptions { QueueCapacity = 512, MaxDurationSeconds = 1200, MaxFileBytes = 64L * 1024 * 1024, MaxChannelsPerSample = 512 });
+            }, recordingOptions ?? RecordingProfiles.Ordinary());
         }
         try { ConfigureNetwork(options); } catch { _recorder?.Stop(TimeSpan.FromMilliseconds(500)); throw; }
         _worker = new Thread(Run) { IsBackground = true, Name = "Woden telemetry output" };
