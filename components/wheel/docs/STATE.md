@@ -4,6 +4,8 @@
 
 The original post-install wrapper printed `PASSED=False` after the packaged installer had completed. Its non-owned inventory excluded only new payload names, so it counted prior receipt-owned `dbce_shim.dll`; this production package intentionally retires that private shim and adds six runner/capability files. The corrected read-only comparison excludes both receipts' owned names and passes 302/302. The native production install does not claim shared-shim input. Wheelkit's separate public Woden release installer still needs revision-5 support before public packaging.
 
+The [FFB/direct-provider source review](../../../docs/SHIM-PILOT.md#ffb-and-direct-provider-reader-boundary-source-review-2026-10-13) confirms that the shim's own reader is separate from the `DeviceHub` readers closed for force-device Open. Follow-steering already uses the shim's steering GUID. Source-only tests cannot prove physical DirectInput coexistence; ordinary Shim FFB-open and physical feel remain attended qualifications. This does not gate a Native-default private package.
+
 **Wheelkit delivery update, later October 13:** Wheelkit v0.6.34 from `ddcb15f`
 is published, and the owner's running app was independently read as that version.
 Its revision-5 session adapter accepts this package's receipt and capability;

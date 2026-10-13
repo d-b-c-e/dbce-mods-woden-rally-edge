@@ -1,6 +1,6 @@
 # Shared input shim: wheel-only source pilot
 
-Current install pointer (2026-10-13): the reviewed private HUD-stable candidate was installed closed-game from `d8df97b` under receipt `F645FE98`, with saved Backend still Native. The October 12 pilot evidence below is historical; this install did not qualify ordinary Shim FFB-open/shared-reader coexistence or rendered physical HUD scanout. See `components/wheel/docs/STATE.md` and the hub `artifacts/woden-private-apply-20261013/hudstable-candidate-handoff.md` for exact identity and limits.
+Current install pointer (2026-10-13, before the later private-package update): the qualified combined row/playback owner package from `7c1e287` is installed under revision-5 receipt `66EC5A30`, with saved Backend still Native. It intentionally omitted the earlier private shim DLL. A separate current-source `-PrivateShimPath` package passed package and isolated installer checks; its installation and receipt are tracked in `components/wheel/docs/STATE.md`. The October 12 pilot evidence below is historical. Neither the Native install nor the private package check qualifies ordinary Shim FFB-open/shared-reader coexistence or physical force.
 
 2026-10-12. Based on Woden `ff1c594`. Three private force-fenced launches restored
 exactly; run03 observed exact profile parsing, ordinary host ownership/ticks,
@@ -87,6 +87,14 @@ The new shim owns a separate nonexclusive DirectInput reader. Closing DeviceHub
 readers for the existing exclusive FFB open does not close that shim reader.
 Their coexistence is not yet tested; offline identity/lifecycle tests do not prove
 exclusive force acquisition or physical input recovery on the rig.
+
+## FFB and direct-provider reader boundary (source review, 2026-10-13)
+
+`ForceController.PrepareCore` resolves the force target from `WheelInput.SteeringGuid`, closes only `DeviceHub`'s `WheelFfbNative` read slots, opens the selected force device, and then refreshes those slots (`components/wheel/src/WodenRallyEdge.Plugin/ForceController.cs:136-176`; `DeviceHub.cs:39-52`). `WheelInput.SteeringGuid` already follows `ShimInput.SteeringGuid` while the shim owns input and withholds a stale Native binding while shared input is pending (`WheelInput.cs:17-24`). The earlier follow-steering identity problem is fixed in this consumer.
+
+Ordinary `ShimInput` separately opens `dbce_shim.dll`'s direct-provider handle and keeps ticking it until a terminal stop (`ShimInput.cs:94-129, 204-221`). `DeviceHub.CloseReaders()` does not close or bridge that handle. The code therefore does not prove that the shim reader continues after the force device's exclusive acquisition. The no-force car trials return before force-device Open (`ForceController.cs:136-137`; [force-capture limits](SHIM-FORCE-CAPTURE.md)), so they cannot answer the driver question.
+
+Art of Sim Rally's shared path is structurally different: its `ShimBridge` borrows existing wheel read slots and copies one snapshot per frame; force reconnect closes those slots and stops the attached shared session before reopening the force device (`src/ArtOfSimRally.Mod/Shim/ShimBridge.cs`, `Main.cs`, `WheelInput.Shim.cs`). That is a useful fallback design if Woden shows an actual sharing conflict, not evidence of simultaneous Woden direct-provider/FFB operation. A fake-device test that merely preserves Woden's current CloseReaders/Open/Refresh ordering cannot establish DirectInput coexistence, so it is not a new gate or a reason to change production source. The remaining qualification is a separate owner-attended ordinary Shim launch that observes shim ticks and input after an FFB Open; physical feel is a further attended matter. Saved Native-default installation and tune preservation do not depend on that result.
 
 ## Offline evidence and remaining work
 
