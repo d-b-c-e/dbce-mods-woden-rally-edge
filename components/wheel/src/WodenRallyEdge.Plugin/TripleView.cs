@@ -44,6 +44,9 @@ internal static class TripleView
     private static PanelFrustum[]? _views;
     private static string _viewsKey = "";
     private static double _nextLog, _nextCanvasScan;
+#if WODEN_HUD_STATE_TRACE
+    private static double _nextHudStateLog;
+#endif
     private static readonly List<(Canvas Canvas, RenderMode Mode, Camera? World, float Plane)> MovedCanvases = new();
     private static TripleHudDepth _hudDepth = new(1f, 10f);
     private const int UiLayer = 5;
@@ -146,6 +149,13 @@ internal static class TripleView
         if (_hud != null) { _hud.rect = source.rect; TripleNative.SetDepth(_hud, source.depth + 10); }
 
         double now = Runtime.Clock.Elapsed.TotalSeconds;
+#if WODEN_HUD_STATE_TRACE
+        if (Runtime.DiagnosticNoForce && StagePlayback.OutputMuted && _hud != null && now >= _nextHudStateLog)
+        {
+            _nextHudStateLog = now + 1;
+            LogHudState(source, _hud, now);
+        }
+#endif
         if (now >= _nextLog)
         {
             _nextLog = now + 30;
@@ -303,8 +313,36 @@ internal static class TripleView
             try { if (go != null && Alive(go)) Object.Destroy(go); } catch { }
         _source = _left = _right = _hud = null;
         _leftGo = _rightGo = _hudGo = null;
+#if WODEN_HUD_STATE_TRACE
+        _nextHudStateLog = 0;
+#endif
         Runtime.Log.LogInfo("Triple screens off (" + why + "); game camera restored");
     }
+
+#if WODEN_HUD_STATE_TRACE
+    private static void LogHudState(Camera source, Camera hud, double elapsed)
+    {
+        try
+        {
+            string utc = DateTime.UtcNow.ToString("O");
+            Runtime.Log.LogInfo($"HUD-STATE utc={utc} elapsed={elapsed:0.000} source='{source.name}' ptr={source.Pointer} rect={source.rect} depth={source.depth} " +
+                                $"hudPtr={hud.Pointer} pos={hud.transform.position} rot={hud.transform.rotation.eulerAngles} rect={hud.rect} " +
+                                $"depth={hud.depth} near={hud.nearClipPlane} far={hud.farClipPlane} canvases={MovedCanvases.Count}");
+            foreach (var (canvas, _, _, _) in MovedCanvases)
+            {
+                if (!Alive(canvas))
+                {
+                    Runtime.Log.LogInfo($"HUD-STATE utc={utc} canvas=destroyed");
+                    continue;
+                }
+                var world = canvas.worldCamera;
+                Runtime.Log.LogInfo($"HUD-STATE utc={utc} canvas='{canvas.name}' ptr={canvas.Pointer} mode={canvas.renderMode} " +
+                                    $"worldPtr={(world == null ? "null" : world.Pointer.ToString())} plane={TripleNative.GetPlaneDistance(canvas)}");
+            }
+        }
+        catch (Exception ex) { Runtime.Log.LogWarning("HUD-STATE readback failed: " + ex.Message); }
+    }
+#endif
 
     private static void LogCameras(Camera source)
     {

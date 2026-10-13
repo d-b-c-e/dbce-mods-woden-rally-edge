@@ -15,6 +15,7 @@ param(
     [Parameter(ParameterSetName='Run')][switch]$ShimHudStopOnly,
     [Parameter(ParameterSetName='Run')][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$HudGuiDiagnosticPluginSha256,
     [Parameter(ParameterSetName='Run')][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$HudDepthDiagnosticPluginSha256,
+    [Parameter(ParameterSetName='Run')][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$HudStateTracePluginSha256,
     [Parameter(ParameterSetName='Run')][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$HudDiagnosticCoreSha256,
     [Parameter(ParameterSetName='Run')][switch]$PrivateApply,
     [Parameter(ParameterSetName='Run')][string]$StageReference=(Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/references/woden-kenya-20261005'),
@@ -74,8 +75,10 @@ if($Recover -and (Test-Path "$Result/recovery.json")){
 if($ShimHudStopOnly -and ($ShimMenuTrial -or $ShimCarTrial -or $ShimForceCapture -or $ShimHudOrdinary -or $PrivateApply)){throw 'HUD menu mode is isolated from car, menu-input and private Apply modes.'}
 if($HudGuiDiagnosticPluginSha256 -and !$ShimHudStopOnly){throw 'HUD GUI trace is only available in the menu-only stop trial.'}
 if($HudDepthDiagnosticPluginSha256 -and !$ShimHudOrdinary){throw 'HUD depth diagnostic is only available in the ordinary moving trial.'}
+if($HudStateTracePluginSha256 -and !$ShimHudOrdinary){throw 'HUD state trace is only available in the ordinary moving trial.'}
 if($HudGuiDiagnosticPluginSha256 -and $HudDepthDiagnosticPluginSha256){throw 'Use one HUD diagnostic at a time.'}
-if([bool]$HudDiagnosticCoreSha256 -ne [bool]($HudGuiDiagnosticPluginSha256 -or $HudDepthDiagnosticPluginSha256)){throw 'HUD diagnostic plugin and Core pins must be supplied together.'}
+if($HudStateTracePluginSha256 -and ($HudGuiDiagnosticPluginSha256 -or $HudDepthDiagnosticPluginSha256)){throw 'Use one HUD diagnostic plugin pin at a time.'}
+if([bool]$HudDiagnosticCoreSha256 -ne [bool]($HudGuiDiagnosticPluginSha256 -or $HudDepthDiagnosticPluginSha256 -or $HudStateTracePluginSha256)){throw 'HUD diagnostic plugin and Core pins must be supplied together.'}
 if(($ShimForceCapture -or $ShimHudOrdinary) -and ($ShimMenuTrial -or ($ShimForceCapture -and $ShimHudOrdinary))){throw 'Choose one bounded trial mode.'}
 if($ShimForceCapture -or $ShimHudOrdinary){$ShimCarTrial=$true}
 if(($ShimForceCapture -or $ShimHudOrdinary) -and $PrivateApply){throw 'Dynamic private Apply does not include force capture.'}
@@ -190,7 +193,7 @@ if($Recover) {
         $shimHash='9b8a036f664cf8f45cccf82b98e5e4376f93215b60eac50b6db965bf498015d8'
         if((Get-ControlHash $shimCandidate) -ne $shimHash){throw 'Provisional shim pin differs.'}
         $candidateHashes=[ordered]@{plugin=(Get-ControlHash "$CandidateDirectory/WodenRallyEdgeWheel.dll");core=(Get-ControlHash "$CandidateDirectory/WodenRallyEdge.Core.dll");shim=$shimHash;controls=$ControlsSha256}
-        $expectedHudPlugin=if($HudGuiDiagnosticPluginSha256){$HudGuiDiagnosticPluginSha256}elseif($HudDepthDiagnosticPluginSha256){$HudDepthDiagnosticPluginSha256}else{'95642FAAFB3C224772FD176F2F10487EAB7DA96C9CA8A077636276063E93D701'}
+        $expectedHudPlugin=if($HudGuiDiagnosticPluginSha256){$HudGuiDiagnosticPluginSha256}elseif($HudDepthDiagnosticPluginSha256){$HudDepthDiagnosticPluginSha256}elseif($HudStateTracePluginSha256){$HudStateTracePluginSha256}else{'95642FAAFB3C224772FD176F2F10487EAB7DA96C9CA8A077636276063E93D701'}
         $expectedHudCore=if($HudDiagnosticCoreSha256){$HudDiagnosticCoreSha256}else{'007BED8FA6A8A62284E7595E458BFC206C21158AB31E78399A46FE46ACE7EC0D'}
         if(($ShimHudOrdinary -or $ShimHudStopOnly) -and ($candidateHashes.plugin -ne $expectedHudPlugin -or
             $candidateHashes.core -ne $expectedHudCore)){throw 'HUD ordinary package pins differ.'}

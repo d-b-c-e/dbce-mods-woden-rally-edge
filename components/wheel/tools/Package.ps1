@@ -3,12 +3,15 @@ param(
     [ValidatePattern('^[a-z0-9][a-z0-9.-]*$')][string]$ArtifactLabel,
     [string]$PrivateShimPath,
     [switch]$HudGuiDiagnostic,
-    [switch]$HudDepthDiagnostic
+    [switch]$HudDepthDiagnostic,
+    [switch]$HudStateTrace
 )
 $ErrorActionPreference = 'Stop'
 if ($HudGuiDiagnostic -and $HudDepthDiagnostic) { throw 'Use one HUD diagnostic at a time.' }
+if ($HudGuiDiagnostic -and $HudStateTrace) { throw 'HUD state trace is for the matched driving depth trial, not the menu GUI trial.' }
 if ($HudGuiDiagnostic -and $ArtifactLabel -notmatch '^hudgui-') { throw 'HUD GUI diagnostic packages require a hudgui- artifact label.' }
 if ($HudDepthDiagnostic -and $ArtifactLabel -notmatch '^huddepth-') { throw 'HUD depth diagnostic packages require a huddepth- artifact label.' }
+if ($HudStateTrace -and !$HudDepthDiagnostic -and $ArtifactLabel -notmatch '^hudstate-') { throw 'Normal HUD state trace packages require a hudstate- artifact label.' }
 $root = Split-Path $PSScriptRoot -Parent
 $privateShimHash = '9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8'
 if ($PrivateShimPath) {
@@ -19,8 +22,11 @@ if ($PrivateShimPath) {
 & (Join-Path $PSScriptRoot 'Verify-Dependencies.ps1')
 $buildArgs = @('build',(Join-Path $root 'WodenRallyEdgeWheel.sln'),'-c','Release','-warnaserror','-v','q')
 if ($PrivateShimPath) { $buildArgs += ('-p:PrivateShimPath=' + $PrivateShimPath) }
-if ($HudGuiDiagnostic) { $buildArgs += '-p:DefineConstants=WODEN_HUD_GUI_DIAGNOSTIC' }
-if ($HudDepthDiagnostic) { $buildArgs += '-p:DefineConstants=WODEN_HUD_DEPTH_DIAGNOSTIC' }
+$diagnostics = @()
+if ($HudGuiDiagnostic) { $diagnostics += 'WODEN_HUD_GUI_DIAGNOSTIC' }
+if ($HudDepthDiagnostic) { $diagnostics += 'WODEN_HUD_DEPTH_DIAGNOSTIC' }
+if ($HudStateTrace) { $diagnostics += 'WODEN_HUD_STATE_TRACE' }
+if ($diagnostics.Count) { $buildArgs += ('-p:DefineConstants=' + ($diagnostics -join '%3B')) }
 & dotnet @buildArgs
 if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
 & dotnet run --project (Join-Path $root 'tests\WodenRallyEdge.Tests') -c Release --no-build
