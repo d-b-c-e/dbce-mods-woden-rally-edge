@@ -216,12 +216,7 @@ try {
     $source = Join-Path $recording 'source.jsonl'
     $header = Get-Content -LiteralPath $source -TotalCount 1 | ConvertFrom-Json
     $footer = Get-Content -LiteralPath $source -Tail 1 | ConvertFrom-Json
-    $properties = $header.metadata.properties
-    if ($header.kind -cne 'metadata' -or $properties.requestId -ne $RequestId.ToString() -or $properties.disableForces -cne 'true' -or
-        $properties.forceConfigSha256 -ne (Get-ControlHash (Join-Path $recording 'force-config.json')) -or
-        $properties.captureProfileSha256 -ne (Get-ControlHash (Join-Path $recording 'capture-profile.json'))) { throw 'Original source does not prove this no-force request and capture inputs.' }
-    $profile = Get-Content -LiteralPath (Join-Path $recording 'capture-profile.json') -Raw | ConvertFrom-Json
-    if ($profile.ffbEnabled -ne $false) { throw 'Capture profile did not suppress force output.' }
+    Assert-OrdinarySourceMute $header $RequestId (Join-Path $recording 'force-config.json') (Join-Path $recording 'capture-profile.json')
     if ($footer.kind -cne 'footer' -or $footer.footer.completed -ne $true -or $footer.footer.stopReason -cne 'stopped') { throw 'Original source footer is not a completed Stop.' }
     foreach ($count in @('contentionCount','droppedMarkers','droppedSamples','errorCount','invalidCount','limitCount','queueFullCount','rejectedAfterStop')) {
         if ($footer.footer.counts.$count -ne 0) { throw "Original source footer reports $count." }
