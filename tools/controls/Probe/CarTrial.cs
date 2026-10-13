@@ -20,6 +20,23 @@ public sealed partial class ControlsProbe
     static ICarWorkload ReadCarWorkload()
     {
         string folder=Request!.WorkloadDirectory!;
+        if(Protocol.DynamicCarTrial(Request))
+        {
+            string root=Path.GetDirectoryName(Request.OutputDirectory)!;
+            string readback=Path.Combine(root,"private-apply-readback.json");
+            string writer=Path.Combine(root,"harness","ConfigurationQualification.dll");
+            string receipt=Path.Combine(Paths.GameRootPath,"BepInEx","WodenWheel-install.json");
+            foreach(string path in new[]{readback,writer,receipt})Plain(path);
+            Match(readback,Request.ApplyReadbackSha256!);
+            using var r=JsonDocument.Parse(ReadBounded(readback,8192));
+            var row=r.RootElement;
+            bool Equal(string field,string expected)=>string.Equals(row.GetProperty(field).GetString(),expected,StringComparison.OrdinalIgnoreCase);
+            if(row.GetProperty("schema").GetInt32()!=1 || !Equal("profileRevision",Request.ProfileRevision!) ||
+                !Equal("controlsSha256",Request.ControlsSha256!) || !Equal("rawWorkloadSha256",Request.WorkloadSha256!))
+                throw new InvalidDataException("Production Apply readback differs from frozen car request.");
+            Match(writer,row.GetProperty("writerSha256").GetString()!);
+            Match(receipt,row.GetProperty("installedReceiptSha256").GetString()!);
+        }
         foreach(string path in new[]{folder,Request.StageReference!,Path.Combine(Paths.ConfigPath,"dbce-controls.ini")})Plain(path);
         foreach(string path in new[]{Path.Combine(folder,"profile.json"),Path.Combine(folder,"raw-workload.json"),Path.Combine(Request.StageReference!,"stage-context.json")})Plain(path);
         var controls=ReadBounded(Path.Combine(Paths.ConfigPath,"dbce-controls.ini"),1024*1024);
@@ -70,7 +87,8 @@ public sealed partial class ControlsProbe
         var expected=CarWork!.DevicePins is {} pins ? pins.Select(p=>(p.Key.ToString("B"),p.Value.ToString("B"))).ToArray() :
             new[]{("{d71b8350-61b7-11f1-8001-444553540000}","{0006346e-0000-0000-0000-504944564944}"),
                 ("{d9b1d890-6f3f-11f1-8002-444553540000}","{05310483-0000-0000-0000-504944564944}")};
-        if(devices.Length<expected.Length || devices.Length>8)throw new InvalidDataException("Car trial device count differs from the bounded profile.");
+        if(Protocol.DynamicCarTrial(Request) ? devices.Length<expected.Length || devices.Length>8 : devices.Length!=expected.Length)
+            throw new InvalidDataException("Car trial device count differs from the bounded profile.");
         var identities=new List<string>();
         foreach(var (instance,product) in expected)
         {

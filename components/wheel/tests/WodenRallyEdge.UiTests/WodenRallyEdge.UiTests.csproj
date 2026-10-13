@@ -19,6 +19,8 @@
     <Compile Include="../../src/WodenRallyEdge.Plugin/WheelInput.cs" Link="Consumer/WheelInput.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CameraShortcuts.cs" Link="Consumer/CameraShortcuts.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Settings.cs" Link="Consumer/Settings.cs" />
+    <Compile Include="../../../../tools/controls/Probe/CarWorkload.cs" Link="Qualification/CarWorkload.cs" />
+    <Compile Include="../../../../tools/controls/Probe/AppliedCarWorkload.cs" Link="Qualification/AppliedCarWorkload.cs" />
     <ProjectReference Include="../../src/WodenRallyEdge.Core/WodenRallyEdge.Core.csproj" />
     <Reference Include="BepInEx.Core" HintPath="../../lib/core/BepInEx.Core.dll" />
     <Reference Include="0Harmony" HintPath="../../lib/core/0Harmony.dll" />

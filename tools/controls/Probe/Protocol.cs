@@ -10,7 +10,8 @@ public sealed record ColdRequest(int Schema, string Nonce, DateTimeOffset Expire
     string PluginSha256, string CoreSha256, string ConfigSha256, string BindingsSha256,
     string NativeSha256, string OutputDirectory, string Mode = "raw", string? ControlsSha256 = null, string? ShimSha256 = null,
     string? StageReference = null, string? WorkloadDirectory = null,
-    string? ProfileSha256 = null, string? WorkloadSha256 = null, string? ProfileRevision = null);
+    string? ProfileSha256 = null, string? WorkloadSha256 = null, string? ProfileRevision = null,
+    string? ApplyReadbackSha256 = null);
 public sealed record RawRequest(int Sequence, string Nonce, string Operation, string? Raw);
 public static class Protocol
 {
@@ -51,9 +52,10 @@ public static class Protocol
             throw new InvalidDataException("Car-trial sources require schema 5/6 and absolute paths.");
         if(DynamicCarTrial(r) ? r.ProfileSha256 is null || !Hash.IsMatch(r.ProfileSha256) ||
             r.WorkloadSha256 is null || !Hash.IsMatch(r.WorkloadSha256) ||
-            r.ProfileRevision is null || !Hash.IsMatch(r.ProfileRevision) :
-            r.ProfileSha256 is not null || r.WorkloadSha256 is not null || r.ProfileRevision is not null)
-            throw new InvalidDataException("Dynamic car sources require schema 7 and three frozen pins.");
+            r.ProfileRevision is null || !Hash.IsMatch(r.ProfileRevision) ||
+            r.ApplyReadbackSha256 is null || !Hash.IsMatch(r.ApplyReadbackSha256) :
+            r.ProfileSha256 is not null || r.WorkloadSha256 is not null || r.ProfileRevision is not null || r.ApplyReadbackSha256 is not null)
+            throw new InvalidDataException("Dynamic car sources require schema 7 and four frozen pins.");
         return r;
     }
     public static RawRequest Command(byte[] bytes, string nonce, int previous, DateTimeOffset created, DateTimeOffset processStart, bool shimAdmission = false,bool menuTrial=false)

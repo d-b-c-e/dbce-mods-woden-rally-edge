@@ -276,7 +276,7 @@ try {
     if($ShimAdmission){$cold.schema=if($ShimForceCapture){6}elseif($ShimCarTrial -and $PrivateApply){7}elseif($ShimCarTrial){5}elseif($ShimMenuTrial){4}else{3};$cold.mode=$mode;$cold.controlsSha256=$ControlsSha256;$cold.shimSha256=$shimHash}
     if($ShimCarTrial) {
         $cold.stageReference=$StageReference;$cold.workloadDirectory=Join-Path $Result 'workload'
-        if($PrivateApply){$cold.profileSha256=Get-ControlHash "$Result/workload/profile.json";$cold.workloadSha256=Get-ControlHash "$Result/workload/raw-workload.json";$cold.profileRevision=$workload.ProfileHash}
+        if($PrivateApply){$cold.profileSha256=Get-ControlHash "$Result/workload/profile.json";$cold.workloadSha256=Get-ControlHash "$Result/workload/raw-workload.json";$cold.profileRevision=$workload.ProfileHash;$cold.applyReadbackSha256=Get-ControlHash "$Result/private-apply-readback.json"}
         # Existing ordinary diagnostic producer; schema 5/6 explicitly permits
         # this exact nonce/case/expiry. No stage replay or pose request is made.
         [ordered]@{Version=2;Id=([guid]::ParseExact($nonce,'N').ToString());ExpiresUtc=$cold.expiresUtc;DisableForces=$true;CaseId="woden-shim-car-$nonce"} |

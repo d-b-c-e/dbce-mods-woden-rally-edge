@@ -1,5 +1,7 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Woden.ControlsTesting;
 
 int count = 0;
@@ -61,11 +63,11 @@ var forward=car with{Schema=6,Mode="shim-force-capture"};Check(Protocol.Admit(By
 foreach(var r in new[]{forward with{Schema=5},forward with{Mode="shim-car-trial"},car with{Schema=6},forward with{WorkloadDirectory=null}})
     Refuse(()=>Protocol.Admit(Bytes(r),now,nonce));
 Check(Protocol.ForceCapture(forward)&&Protocol.CarTrial(forward)&&Protocol.LatchedTrial(forward)&&!Protocol.MenuTrial(forward));
-var appliedCar=car with{Schema=7,Mode="shim-applied-car-trial",ProfileSha256=hash,WorkloadSha256=hash,ProfileRevision=hash};
+var appliedCar=car with{Schema=7,Mode="shim-applied-car-trial",ProfileSha256=hash,WorkloadSha256=hash,ProfileRevision=hash,ApplyReadbackSha256=hash};
 Check(Protocol.Admit(Bytes(appliedCar),now,nonce)==appliedCar && Protocol.DynamicCarTrial(appliedCar) &&
     Protocol.CarTrial(appliedCar) && Protocol.ShimAdmission(appliedCar) && Protocol.LatchedTrial(appliedCar) && !Protocol.ForceCapture(appliedCar));
 foreach(var r in new[]{appliedCar with{Schema=5},appliedCar with{Mode="shim-car-trial"},appliedCar with{ProfileSha256=null},
-    appliedCar with{WorkloadSha256="bad"},appliedCar with{ProfileRevision=null},car with{ProfileSha256=hash}})
+    appliedCar with{WorkloadSha256="bad"},appliedCar with{ProfileRevision=null},appliedCar with{ApplyReadbackSha256=null},car with{ProfileSha256=hash}})
     Refuse(()=>Protocol.Admit(Bytes(r),now,nonce));
 
 Dictionary<string,double> NativeValues(string action="neutral",double expected=0)=>new(){
@@ -111,6 +113,43 @@ if(args.Length==5 && args[0]=="--applied") {
     Check(applied.Gaps.Any(g=>g.StartsWith("clutch:",StringComparison.Ordinal)) &&
         applied.Pulses.All(p=>p.Action is not ("clutch" or "select" or "gear7" or "gear8")));
     Check(applied.Pulses.Take(2).Select(p=>p.Action).SequenceEqual(args[4]=="Sequential"?["shiftUp","shiftDown"]:["gear2","gear1"]));
+    if(args[4]=="H-pattern") {
+        int gate=Array.IndexOf(applied.Actions,"gear1");
+        var throttle=applied.Pulses.Single(p=>p.Action=="throttle"&&p.Expected==.5);
+        var cut=applied.Pulses.Single(p=>p.Action=="throttleCut");
+        Check(gate>=0 && throttle.Command.Split('\n')[gate].Contains(" value=1 ") && cut.Command.Split('\n')[gate].Contains(" value=0 "));
+        Check(Observe("throttleCut",.5).Passed && !Observe("throttleCut",.5,v=>v["game.throttle"]=.5).Passed);
+        // A valid alternate applied profile may use a hat for a forward gate
+        // and a digital pedal; the dynamic plan must not depend on this rig's
+        // current button/axis objects.
+        var alteredProfile=JsonNode.Parse(profile)!;
+        var alteredWorkload=JsonNode.Parse(workload)!;
+        var bindings=alteredProfile["Profile"]!["Bindings"]!;
+        bindings["gear1"]!["Kind"]="Hat";bindings["gear1"]!["Index"]=0;bindings["gear1"]!["Direction"]=9000;
+        bindings["throttle"]!["Kind"]="Button";bindings["throttle"]!["Index"]=11;bindings["throttle"]!["Direction"]=1;
+        string changedControls=Encoding.UTF8.GetString(controls);
+        changedControls=Regex.Replace(changedControls,@"(?m)^gear1 = button 0 ","gear1 = hat 0 9000 ");
+        string axisLine=changedControls.Split('\n').Single(s=>s.StartsWith("throttle = axis 2 ",StringComparison.Ordinal)).TrimEnd('\r');
+        string digitalLine=axisLine[..axisLine.IndexOf(" range=",StringComparison.Ordinal)].Replace("axis 2 ","button 11 ",StringComparison.Ordinal);
+        changedControls=changedControls.Replace(axisLine,digitalLine,StringComparison.Ordinal);
+        var actionRows=alteredWorkload["Actions"]!.AsArray();
+        foreach(var sample in actionRows.Single(a=>a!["Action"]!.GetValue<string>()=="gear1")!["Samples"]!.AsArray()) {
+            bool held=sample!["Expected"]!.GetValue<double>()>0;
+            sample["Raw"]=held?9000:-1;
+            sample["Command"]=Regex.Replace(sample["Command"]!.GetValue<string>(),@"button 0 (.*) value=[01] ms=500",
+                "hat 0 9000 $1 value="+(held?"9000":"-1")+" ms=500");
+        }
+        var throttleRows=actionRows.Single(a=>a!["Action"]!.GetValue<string>()=="throttle")!["Samples"]!.AsArray();
+        throttleRows.Clear();
+        foreach(double level in new[]{0d,1d,0d}) {
+            int raw=level>0?1:0;
+            var instance=bindings["throttle"]!["InstanceGuid"]!.GetValue<string>();
+            throttleRows.Add(new JsonObject{["Expected"]=level,["Raw"]=raw,["Command"]=$"inject raw button 11 dev={{{instance}}} value={raw} ms=500"});
+        }
+        var alternate=Read(Encoding.UTF8.GetBytes(changedControls),JsonSerializer.SerializeToUtf8Bytes(alteredProfile),JsonSerializer.SerializeToUtf8Bytes(alteredWorkload));
+        Check(alternate.Transmission=="H-pattern"&&alternate.Pulses.Any(p=>p.Action=="throttleCut"&&p.Expected==1)&&
+            alternate.Pulses.Length<=10);
+    }
     Refuse(()=>AppliedCarWorkload.Read(controls,profile,workload,new string('0',64),Hash(profile),Hash(workload),revision));
     Refuse(()=>AppliedCarWorkload.Read(controls,profile,workload,Hash(controls),Hash(profile),Hash(workload),new string('0',64)));
     byte[] badControl=Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(controls).Replace("steer = axis 0 ","steer = axis 1 ",StringComparison.Ordinal));
