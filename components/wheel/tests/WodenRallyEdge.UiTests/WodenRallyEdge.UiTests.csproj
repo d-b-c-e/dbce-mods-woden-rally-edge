@@ -2,6 +2,7 @@
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework></PropertyGroup>
   <ItemGroup>
     <Reference Include="Dbce.Wheel.Ffb" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Ffb.dll" />
+    <Reference Include="Dbce.Wheel.Recording" HintPath="../../lib/recording/Dbce.Wheel.Recording.dll" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/InputPolling.cs" Link="Consumer/InputPolling.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ShimInput.cs" Link="Consumer/ShimInput.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ShimInput.Trial.cs" Link="Consumer/ShimInput.Trial.cs" />

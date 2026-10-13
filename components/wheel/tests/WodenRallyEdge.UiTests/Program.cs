@@ -12,7 +12,7 @@ var dir=Path.Combine(outputDir,Guid.NewGuid().ToString("N"));Directory.CreateDir
 int checks=0;void Check(bool ok,string message){checks++;if(!ok)throw new Exception(message);}
 Screen.width=7680;Screen.height=1440;GUI.Commands.Clear();Event.current.type=EventType.Repaint;
 var hudColor=GUI.color;var hudEnabled=GUI.enabled;var hudMatrix=GUI.matrix;
-new StrippedSessionStatusHud(UiNative.Style).Draw(RecordingHudLine.Describe("Recording",65,0,null,true)!,true,112);
+new StrippedSessionStatusHud(UiNative.Style).Draw(RecordingHudLine.Describe("Recording",65,new(),null,true,true)!,true,112);
 Check(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.Contains("REC  01:05")&&c.Text.Contains("F6 > Telemetry > Stop recording")&&c.FontSize>0&&c.Wrap),
     "source-linked shared recording renderer shows the actual Woden stop route");
 Check(GUI.Commands.Count(c=>c.Kind=="rect")==2&&GUI.Commands.Where(c=>c.Kind=="rect").All(c=>c.Rect.x>2560&&c.Rect.x+c.Rect.width<5120&&c.Rect.y>100),

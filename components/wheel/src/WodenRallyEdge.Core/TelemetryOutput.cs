@@ -83,6 +83,8 @@ public sealed class TelemetryOutput : IDisposable
     public string? RecordingError => _recordingFailure ?? _recorder?.LastError;
     public string RecordingStatus => _recordingFailure != null ? "Faulted" : _recorder?.Status.ToString() ?? "Disabled";
     public long RecordingDrops => _recorder?.DroppedSamples ?? 0;
+    public RecordingCounters? RecordingCounters => _recorder?.GetCounters();
+    public bool RecordingRequiresFinalization { get; }
     public double RecordingElapsedSeconds => Volatile.Read(ref _recordingElapsedSeconds);
 
     public TelemetryOutput(OutputOptions options, string sessionId, string recordingSource, string pluginVersion = "unknown",
@@ -90,6 +92,8 @@ public sealed class TelemetryOutput : IDisposable
     {
         Validate(options);
         _options = options;
+        RecordingRequiresFinalization = recordingProperties != null &&
+            recordingProperties.TryGetValue("recordingContract", out string? contract) && contract == "dbce.wheel.replay-case@1";
         if (options.RecordingPath != null)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(options.RecordingPath))!);

@@ -27,6 +27,8 @@ Each request writes under:
 
 The first three files are created by the installed consumer. `case.json` and `force-observation.jsonl` are produced only after source validation and offline reprocessing. Existing files are never replaced.
 
+The in-game recording HUD reports **Recording data written | Finalization pending** when a prepared request's `source.jsonl` recorder reaches `Completed`. That status proves only that the source writer closed; `Start-RecordedGame.ps1` performs the case/observation finalizer after normal game exit, and it may still reject missing coverage or inconsistent source/config/profile identity. The HUD does not claim Saved for a prepared request. A plain recording whose source file is the complete artifact may show Saved after its clean footer. Sample or marker drops and invalid recorder counters instead show Incomplete.
+
 ## Identity and evidence levels
 
 The source metadata contains the request/case identity, actual plugin version and hash, runtime source revision, supported GameAssembly hash, no-force/attended mode, force-config hash and capture-profile hash. `force-config.json` records effective tuning and an explicit model: config versions 1/2/3/4 identify Classic 3 / Grip 4 / Grip 5 / Grip 6 respectively. `capture-profile.json` records game/plugin/config/binding identities and the effective saved wheel/FFB selection state without copying owner configuration files into the repository.

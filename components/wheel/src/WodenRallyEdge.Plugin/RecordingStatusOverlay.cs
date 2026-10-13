@@ -18,8 +18,7 @@ internal static class RecordingStatusOverlay
         if (output == null) return;
         try
         {
-            var line = RecordingHudLine.Describe(output.RecordingStatus, output.RecordingElapsedSeconds,
-                output.RecordingDrops, output.RecordingError, Runtime.DiagnosticNoForce || StagePlayback.OutputMuted);
+            var line = RecordingHudLine.Describe(output, Runtime.DiagnosticNoForce || StagePlayback.OutputMuted);
             if (line != null) Hud.Draw(line, Screen.width >= Screen.height * 2.9f,
                 StagePlayback.OutputMuted ? 112 : 12);
         }

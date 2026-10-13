@@ -19,18 +19,25 @@ TelemetrySample Sample(double time, float velocity = 10, float position = 0, int
 }
 
 Test("shared recording HUD uses actual Woden recorder states and center viewport", () => {
-    Check(RecordingHudLine.Describe("Disabled", 0, 0, null, false) == null, "no prepared recorder has no HUD");
-    var active = RecordingHudLine.Describe("Recording", 65, 0, null, true)!;
+    var clean = new RecordingCounters();
+    Check(RecordingHudLine.Describe("Disabled", 0, clean, null, false, false) == null, "no prepared recorder has no HUD");
+    var active = RecordingHudLine.Describe("Recording", 65, clean, null, true, true)!;
     Check(active.Text.Contains("REC  01:05") && active.Text.Contains("F6 > Telemetry > Stop recording") &&
-        active.Text.Contains("Outputs muted"), "actual Stop route and mute are truthful");
-    Check(!RecordingHudLine.Describe("Stopping", 65, 0, null, false)!.Text.Contains("saved"), "stopping is saving");
-    Check(RecordingHudLine.Describe("Completed", 65, 0, null, false)!.Text.StartsWith("Recording saved"), "completed is saved");
-    Check(RecordingHudLine.Describe("LimitReached", 65, 0, null, false)!.Tone == SessionDisplayTone.Problem,
+        active.Text.Contains("Outputs muted") && !active.Text.Contains("stop and save"),
+        "prepared-request Stop route and mute do not promise package finalization");
+    Check(!RecordingHudLine.Describe("Stopping", 65, clean, null, false, true)!.Text.Contains("saved"), "stopping is saving");
+    Check(RecordingHudLine.Describe("Completed", 65, clean, null, false, false)!.Text.StartsWith("Recording saved"),
+        "loose source completion is saved");
+    Check(RecordingHudLine.Describe("Completed", 65, clean, null, false, true)!.Text.Contains("Finalization pending"),
+        "prepared source completion is not a sealed package");
+    Check(RecordingHudLine.Describe("LimitReached", 65, clean, null, false, true)!.Tone == SessionDisplayTone.Problem,
         "limit cannot claim saved");
-    Check(RecordingHudLine.Describe("Faulted", 65, 0, "capture failed", false)!.Text.StartsWith("Recording incomplete"),
+    Check(RecordingHudLine.Describe("Faulted", 65, clean, "capture failed", false, true)!.Text.StartsWith("Recording incomplete"),
         "failure cannot claim saved");
-    Check(RecordingHudLine.Describe("Completed", 65, 2, null, false)!.Text.Contains("2 dropped"),
-        "dropped rows invalidate saved claim");
+    var damaged = new RecordingCounters { DroppedSamples = 2, DroppedMarkers = 1, InvalidCount = 1 };
+    var incomplete = RecordingHudLine.Describe("Completed", 65, damaged, null, false, false)!;
+    Check(incomplete.Text.StartsWith("Recording incomplete") && incomplete.Text.Contains("3 dropped") &&
+        incomplete.Text.Contains("1 invalid"), "sample/marker loss and invalid counters prevent saved claim");
     var box = SessionStatusPresentation.Layout(7680, 1440, true, 112);
     Check(box.X > 2560 && box.X + box.Width < 5120 && box.Y > 100,
         "shared renderer layout stays below stage banner on center screen");
@@ -521,9 +528,35 @@ Test("live capture starts at zero even hours after game launch", () => {
         output.StopRecording();
         output.Publish(Sample(7200.04));
         Near(output.RecordingElapsedSeconds, .02, "HUD clock freezes after recorder stop");
+        Check(RecordingHudLine.Describe(output, false)!.Text.StartsWith("Recording saved"),
+            "loose source may claim saved after completed footer and clean counters");
     }
     var rows = SessionReader.Read(path).ToArray(); Check(rows.Count(x => x.Kind == SessionRecordKind.Sample) == 2, "late recording is not instantly duration-limited");
     Check(rows.Last().Footer.Completed, "late capture complete"); File.Delete(path);
+});
+Test("prepared recording source completion waits for the external case finalizer", () => {
+    string directory = Path.Combine(Path.GetTempPath(), "woden-prepared-hud-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(directory);
+    try {
+        var properties = new Dictionary<string, string> {
+            ["recordingContract"] = "dbce.wheel.replay-case@1", ["requestId"] = Guid.NewGuid().ToString(), ["caseId"] = "hud-fixture"
+        };
+        using (var output = new TelemetryOutput(new(0, 0, 20, Path.Combine(directory, "source.jsonl")), "fixture", "synthetic", "fixture", properties)) {
+            output.Publish(Sample(10)); output.Publish(Sample(10.02)); output.StopRecording();
+            Check(output.RecordingStatus == "Completed" && output.RecordingRequiresFinalization,
+                "production prepared-request metadata identifies a completed source that still needs finalization");
+            var line = RecordingHudLine.Describe(output, true)!;
+            Check(line.Text.Contains("Finalization pending") && !line.Text.Contains("saved") &&
+                !File.Exists(Path.Combine(directory, "case.json")),
+                "completed source without external case manifest cannot claim a sealed package");
+        }
+        using (var output = new TelemetryOutput(new(0, 0, 20, Path.Combine(directory, "damaged.jsonl")), "fixture", "synthetic", "fixture", properties)) {
+            output.Publish(Sample(11, state: new string('x', 4097))); output.StopRecording();
+            Check(output.RecordingCounters is { DroppedMarkers: > 0, InvalidCount: > 0 } &&
+                RecordingHudLine.Describe(output, true)!.Text.StartsWith("Recording incomplete"),
+                "production recorder marker/invalid counters take precedence over finalization pending");
+        }
+    } finally { Directory.Delete(directory, true); }
 });
 Test("camera button extends the stock cycle without saving invalid native indices and yields on takeover", () => {
     var cycle = new CameraCycle();
