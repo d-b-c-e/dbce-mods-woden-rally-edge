@@ -57,9 +57,12 @@ $owner=Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
 if($owner.mode -cne 'Install' -or $owner.installerRevision -ne 3 -or @($owner.files).Count -ne 14 -or $owner.sharedInputCandidate.controls.adapter -cne 'woden-shim-ini-controls-1'){throw 'Original owner receipt differs.'}
 $ownerPaths=@($owner.files | ForEach-Object { $_.path.Replace('\','/') })
 $pluginPaths=@(Get-ChildItem -LiteralPath $plugin -File -Recurse -Force | ForEach-Object { 'BepInEx/plugins/WodenRallyEdgeWheel/'+$_.FullName.Substring($plugin.Length+1).Replace('\','/') })
-$ownerSet=[string]::Join("`n",@($ownerPaths | Sort-Object))
-$pluginSet=[string]::Join("`n",@($pluginPaths | Sort-Object))
-if(![string]::Equals($ownerSet,$pluginSet,[StringComparison]::Ordinal)){throw 'Original plugin membership differs from receipt.'}
+if(@($ownerPaths | Select-Object -Unique).Count -ne 14){throw 'Original receipt repeats an owned plugin path.'}
+foreach($path in $ownerPaths){if($pluginPaths -cnotcontains $path){throw "Original receipt-owned plugin file is absent: $path"}}
+$unknown=@($pluginPaths | Where-Object { $ownerPaths -notcontains $_ })
+$candidateOwned=@($manifest | ForEach-Object { $_.path.Replace('\','/') } | Where-Object { $_ -like 'BepInEx/plugins/WodenRallyEdgeWheel/*' })
+if($candidateOwned.Count -ne 17 -or @($candidateOwned | Select-Object -Unique).Count -ne 17){throw 'Private package plugin membership differs.'}
+foreach($path in $candidateOwned){if($unknown -contains $path){throw "Private candidate would replace a pre-existing unknown plugin file: $path"}}
 foreach($entry in $owner.files){Pin (Join-Path $GameDir $entry.path) $entry.sha256}
 
 $roots=[ordered]@{
