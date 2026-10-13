@@ -89,7 +89,7 @@ public sealed partial class ControlsProbe : BasePlugin
             var dev=Field(Type("DevInput"),"_enabled")!;
             if((bool)dev.GetType().GetProperty("Value")!.GetValue(dev)!) throw new InvalidDataException("Normal DevInput must stay disabled.");
             var recordLaunch=Runtime.GetField("_recordLaunch",All)!.GetValue(null);
-            if(Protocol.CarTrial(Request))VerifyCarRecordingRequest(recordLaunch);
+            if(Protocol.RecordingTrial(Request))VerifyRecordingRequest(recordLaunch);
             else if(recordLaunch is not null) throw new InvalidDataException("Diagnostic launch already requested.");
             var stage=Type("StagePlayback");
             var session=Field(stage,"Session")!;
@@ -109,7 +109,7 @@ public sealed partial class ControlsProbe : BasePlugin
             Trace.WriteLine("time_s\tframe\tkind\tdata");
             File.WriteAllText(Path.Combine(output,"identity.json"),JsonSerializer.Serialize(new{request=Request,process=Environment.ProcessId,processStart=ProcessStart,
                 probeSha256=Hash(typeof(ControlsProbe).Assembly.Location),nativePath=NativePath,physicalOutput=false,
-                kind=Protocol.CarTrial(Request)?"shared-core-latched-original-car-trial":Protocol.MenuTrial(Request)?"shared-core-latched-menu-trial":Protocol.ShimAdmission(Request)?"ordinary-shim-menu-admission":"native-raw-before-binding",configAddedDefaults=addedDefaults},Protocol.Json));
+                kind=Protocol.HudStopOnly(Request)?"ordinary-recorder-menu-stop-only":Protocol.CarTrial(Request)?"shared-core-latched-original-car-trial":Protocol.MenuTrial(Request)?"shared-core-latched-menu-trial":Protocol.ShimAdmission(Request)?"ordinary-shim-menu-admission":"native-raw-before-binding",configAddedDefaults=addedDefaults},Protocol.Json));
             Patch(Method(Runtime,"Update"),nameof(BeforeTick),nameof(AfterTick));
             if(Protocol.ForceCapture(Request))Patch(Method(Runtime,"ObserveForceAnalysis"),postfix:nameof(AfterForceAnalysis));
             Patch(Method(Runtime,"Stop"),nameof(OnStop));
@@ -123,6 +123,7 @@ public sealed partial class ControlsProbe : BasePlugin
             Deadline=Clock.Elapsed.TotalSeconds+Math.Min(300,remaining); Armed=true;
             if(Protocol.MenuTrial(Request))StartMenuTrial();
             if(Protocol.CarTrial(Request))StartCarTrial();
+            if(Protocol.HudStopOnly(Request))StartHudStopOnly();
             Row("armed",Native.Status); Trace.Flush();
             Log.LogInfo("Raw controls test armed; native force fence and progression/network mute latched. Focus guards unchanged.");
         }
@@ -202,6 +203,7 @@ public sealed partial class ControlsProbe : BasePlugin
         {
             TickMenuTrial();
             TickCarTrial();
+            TickHudStopOnly();
             if(!Armed || Clock.Elapsed.TotalSeconds<NextStatus)return;
             NextStatus=Clock.Elapsed.TotalSeconds+.1;
             if(Protocol.ShimAdmission(Request)) ObserveShim();
@@ -301,7 +303,7 @@ public sealed partial class ControlsProbe : BasePlugin
         if(Trace is null) return;
         if(++Rows>200000) { RequestStop("trace row limit"); return; }
         if(data.Length>4096) { RequestStop("trace value limit"); return; }
-        try { Trace.WriteLine(Clock.Elapsed.TotalSeconds.ToString("R",CultureInfo.InvariantCulture)+"\t"+Time.frameCount+"\t"+kind+"\t"+data.Replace('\t',' ').Replace('\r',' ').Replace('\n',' ')); if(kind is "car-trial-active" or "car-recorder-stop")Trace.Flush(); }
+        try { Trace.WriteLine(Clock.Elapsed.TotalSeconds.ToString("R",CultureInfo.InvariantCulture)+"\t"+Time.frameCount+"\t"+kind+"\t"+data.Replace('\t',' ').Replace('\r',' ').Replace('\n',' ')); if(kind is "car-trial-active" or "car-recorder-stop" or "hud-recorder-stop")Trace.Flush(); }
         catch(Exception ex) { RequestStop("trace write failed: "+ex.Message); }
     }
     // Observation runs inside device/car enumerations. Do not close their readers
@@ -327,7 +329,7 @@ public sealed partial class ControlsProbe : BasePlugin
         try { var hub=Runtime?.GetField("Devices",All)?.GetValue(null); if(hub is not null) Method(Hub,"CloseReaders").Invoke(hub,null); }
         catch(Exception ex) { reason+="; reader close failed: "+ex.Message; }
         try { Trace?.Dispose(); } catch(Exception ex) { reason+="; trace close failed: "+ex.Message; } finally { Trace=null; }
-        try { if(OwnedEvidence is not null) File.WriteAllText(Path.Combine(OwnedEvidence,"result.json"),JsonSerializer.Serialize(new{reason,rows=Rows,commands=RawCommands,inputVerdict=Protocol.CarTrial(Request)?CarVerdict:Protocol.MenuTrial(Request)?TrialVerdict:"unclassified",physicalOutput=false,
+        try { if(OwnedEvidence is not null) File.WriteAllText(Path.Combine(OwnedEvidence,"result.json"),JsonSerializer.Serialize(new{reason,rows=Rows,commands=RawCommands,inputVerdict=Protocol.HudStopOnly(Request)?HudVerdict:Protocol.CarTrial(Request)?CarVerdict:Protocol.MenuTrial(Request)?TrialVerdict:"unclassified",physicalOutput=false,
             carEvidence=Protocol.CarTrial(Request)?new{recording=CarRecording,kind="new-original-not-reference-replay",nativePlateaus=CarPulseCount,
                 recipe=Protocol.ForceCapture(Request)?"forward-50pct-8s@1":"six-actions@1",forceCapture=Protocol.ForceCapture(Request)?ForceCoverage:null,
                 forceProducer="existing diagnostic source.jsonl; inspect actual ffb validity/gates",pressure="unavailable: no native pressure channel qualified",

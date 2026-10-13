@@ -5,6 +5,7 @@
     <Compile Include="../Probe/ShimAdmission.cs" Link="Production/ShimAdmission.cs" />
     <Compile Include="../Probe/MenuTrial.cs" Link="Production/MenuTrial.cs" />
     <Compile Include="../Probe/CarTrial.cs" Link="Production/CarTrial.cs" />
+    <Compile Include="../Probe/HudStopOnly.cs" Link="Production/HudStopOnly.cs" />
     <Compile Include="../Probe/CarWorkload.cs" Link="Production/CarWorkload.cs" />
     <Compile Include="../Probe/AppliedCarWorkload.cs" Link="Production/AppliedCarWorkload.cs" />
     <Compile Include="../Probe/TrialBatchWriter.cs" Link="Production/TrialBatchWriter.cs" />

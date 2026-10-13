@@ -48,13 +48,14 @@ public sealed partial class ControlsProbe
         Match(Path.Combine(Request.StageReference!,"stage-context.json"),CarWorkload.StageHash);
         return work;
     }
-    static void VerifyCarRecordingRequest(object? launch)
+    static void VerifyRecordingRequest(object? launch)
     {
+        string caseId=(Protocol.HudStopOnly(Request)?"woden-shim-hud-":"woden-shim-car-")+Request!.Nonce;
         if(launch==null || Convert.ToInt32(Value(launch,"Version"))!=2 || (Guid)Value(launch,"Id")! != Guid.ParseExact(Request!.Nonce,"N") ||
             (DateTimeOffset)Value(launch,"ExpiresUtc")! != Request.ExpiresUtc || !(bool)Value(launch,"DisableForces")! ||
-            (string?)Value(launch,"CaseId")!="woden-shim-car-"+Request.Nonce ||
+            (string?)Value(launch,"CaseId")!=caseId ||
             !string.Equals(Runtime.GetField("_recordingPath",All)?.GetValue(null) as string,CarRecording,StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException("Car capture requires its exact one-shot, force-disabled diagnostic recorder.");
+            throw new InvalidDataException("Capture requires its exact one-shot, force-disabled diagnostic recorder.");
         if(!File.Exists(CarRecording))throw new InvalidDataException("Original diagnostic recorder did not create source.jsonl.");
     }
     static void StartCarTrial()

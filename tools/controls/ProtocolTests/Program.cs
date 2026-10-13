@@ -67,6 +67,15 @@ var hud=forward with{Mode="shim-hud-ordinary"};
 Check(Protocol.Admit(Bytes(hud),now,nonce)==hud && Protocol.HudOrdinary(hud) && Protocol.ForceCapture(hud) && Protocol.CarTrial(hud) && Protocol.LatchedTrial(hud));
 foreach(var r in new[]{hud with{Schema=5},hud with{Schema=7},hud with{WorkloadDirectory=null},hud with{ControlsSha256=null}})
     Refuse(()=>Protocol.Admit(Bytes(r),now,nonce));
+var hudStop=shim with{Schema=8,Mode="shim-hud-stop-only"};
+Check(Protocol.Admit(Bytes(hudStop),now,nonce)==hudStop && Protocol.HudStopOnly(hudStop) &&
+    Protocol.RecordingTrial(hudStop) && Protocol.ShimAdmission(hudStop) && Protocol.LatchedTrial(hudStop) &&
+    !Protocol.CarTrial(hudStop) && !Protocol.ForceCapture(hudStop));
+foreach(var r in new[]{hudStop with{Schema=7},hudStop with{Schema=6},hudStop with{StageReference=car.StageReference},
+    hudStop with{WorkloadDirectory=car.WorkloadDirectory},hudStop with{ControlsSha256=null},
+    hudStop with{ProfileSha256=hash}})Refuse(()=>Protocol.Admit(Bytes(r),now,nonce));
+foreach(var op in new[]{"raw","panel","shot"})Refuse(()=>Protocol.Command(Bytes(command with{Operation=op,Raw=null}),nonce,0,now.AddSeconds(1),now,true,Protocol.LatchedTrial(hudStop)));
+foreach(var op in new[]{"status","stop"})Check(Protocol.Command(Bytes(command with{Operation=op,Raw=null}),nonce,0,now.AddSeconds(1),now,true,Protocol.LatchedTrial(hudStop)).Operation==op);
 var appliedCar=car with{Schema=7,Mode="shim-applied-car-trial",ProfileSha256=hash,WorkloadSha256=hash,ProfileRevision=hash,ApplyReadbackSha256=hash};
 Check(Protocol.Admit(Bytes(appliedCar),now,nonce)==appliedCar && Protocol.DynamicCarTrial(appliedCar) &&
     Protocol.CarTrial(appliedCar) && Protocol.ShimAdmission(appliedCar) && Protocol.LatchedTrial(appliedCar) && !Protocol.ForceCapture(appliedCar));

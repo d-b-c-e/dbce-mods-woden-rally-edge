@@ -137,6 +137,7 @@ static partial class Test
         }
         MenuTrialChecks();
         CarTrialChecks();
+        HudStopOnlyChecks();
         Console.WriteLine($"PASS: {Checks} production-addon lifecycle assertions; private fixture {Base}");
     }
     static void MenuTrialChecks()

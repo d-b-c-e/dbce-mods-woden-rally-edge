@@ -54,6 +54,25 @@ Check-Case $false 'shim-hud-ordinary'
 Check-Case $false 'shim-hud-ordinary'
 @{schema='dbce.window-burst@1';status='complete';saved=2;process=322;processStartedUtc='2026-10-13T12:00:00Z';startedUtc='2026-10-13T12:00:16Z';frames=@(@{ArrivalElapsedSeconds=0.1},@{ArrivalElapsedSeconds=0.2})} | ConvertTo-Json -Depth 4 | Set-Content "$temp/hud-poststop/capture.json"
 Check-Case $false 'shim-hud-ordinary'
+Write-Case 'shim-hud-stop-only'
+$case.reason='bounded menu recorder stop and dwell completed'
+$case.inputVerdict='passed: 2s menu Recording, probe-direct Stop, 5s Completed/DataWritten dwell; no injected input or physical output'
+$case.carEvidence=$null
+@{status='refused-no-driving';stop='probe-direct-stop';sourcePins=@{'source.jsonl'=('a'*64);'force-config.json'=('b'*64);'capture-profile.json'=('c'*64)};reprocessExit=1;reason='Insufficient driving coverage: 0 samples over 0.000s'} | ConvertTo-Json -Depth 4 | Set-Content "$temp/ordinary-finalizer.json"
+@{status='captured'} | ConvertTo-Json | Set-Content "$temp/hud-capture-verdict.json"
+'1.0`t1`thud-recorder-stop`tprobe-direct-stop; utc=2026-10-13T12:00:15Z' | Set-Content "$temp/trace/observations.tsv"
+@{schema='dbce.window-burst@1';status='complete';saved=2;process=321;processStartedUtc='2026-10-13T12:00:00Z';startedUtc='2026-10-13T12:00:16Z';frames=@(@{ArrivalElapsedSeconds=0.1},@{ArrivalElapsedSeconds=0.2})} | ConvertTo-Json -Depth 4 | Set-Content "$temp/hud-poststop/capture.json"
+Check-Case $true 'shim-hud-stop-only'
+$case.reason='game stopping';Check-Case $false 'shim-hud-stop-only'
+$case.reason='bounded menu recorder stop and dwell completed'
+$case.carEvidence=@{nativePlateaus=1};Check-Case $false 'shim-hud-stop-only'
+$case.carEvidence=$null
+@{status='refused-no-driving';stop='probe-direct-stop';sourcePins=@{'source.jsonl'=('a'*64);'force-config.json'=('b'*64);'capture-profile.json'=('c'*64)};reprocessExit=1;reason='Recording metadata differs'} | ConvertTo-Json -Depth 4 | Set-Content "$temp/ordinary-finalizer.json"
+Check-Case $false 'shim-hud-stop-only'
+@{status='passed';stop='probe-direct-stop';sourcePins=@{'source.jsonl'=('a'*64);'force-config.json'=('b'*64);'capture-profile.json'=('c'*64)};caseSha256=('d'*64);observationSha256=('e'*64)} | ConvertTo-Json -Depth 4 | Set-Content "$temp/ordinary-finalizer.json"
+Check-Case $true 'shim-hud-stop-only'
+@{schema='dbce.window-burst@1';status='complete';saved=2;process=322;processStartedUtc='2026-10-13T12:00:00Z';startedUtc='2026-10-13T12:00:16Z';frames=@(@{ArrivalElapsedSeconds=0.1},@{ArrivalElapsedSeconds=0.2})} | ConvertTo-Json -Depth 4 | Set-Content "$temp/hud-poststop/capture.json"
+Check-Case $false 'shim-hud-stop-only'
 if($null -ne (Assert-ControlTrialResult $temp 'raw')){throw 'Raw observer mode was reclassified.'};$checks++
 if($null -ne (Assert-ControlTrialResult $temp 'shim-admission')){throw 'Admission-only mode was reclassified.'};$checks++
 Write-Output "$checks trial-result checks passed. Disposable evidence: $temp"

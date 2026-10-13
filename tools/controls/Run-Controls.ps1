@@ -1,6 +1,6 @@
 #Requires -Version 7.0
 # Developer-only, restored controls qualification. Raw mode is operator-driven;
-# explicit schema 4/5/6 trials run only their fixed shared-Core workloads.
+# explicit schema 4/5/6/7/8 trials run only their fixed bounded recipes.
 [CmdletBinding(DefaultParameterSetName='Run')]
 param(
     [Parameter(Mandatory)][string]$Result,
@@ -12,6 +12,7 @@ param(
     [Parameter(ParameterSetName='Run')][switch]$ShimCarTrial,
     [Parameter(ParameterSetName='Run')][switch]$ShimForceCapture,
     [Parameter(ParameterSetName='Run')][switch]$ShimHudOrdinary,
+    [Parameter(ParameterSetName='Run')][switch]$ShimHudStopOnly,
     [Parameter(ParameterSetName='Run')][switch]$PrivateApply,
     [Parameter(ParameterSetName='Run')][string]$StageReference=(Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/references/woden-kenya-20261005'),
     [Parameter(ParameterSetName='Run')][string]$OriginalWorkload='E:/Source/games/dbce-mods-woden-rally-edge/results/raw-controls-20261010-07',
@@ -65,20 +66,21 @@ if($Recover -and (Test-Path "$Result/recovery.json")){
             if($expected[$i].name -cne $actual[$i].name -or $expected[$i].sha256 -cne $actual[$i].sha256){throw 'Frozen private writer files changed.'}
         }
     }
-    $ShimAdmission=$savedMode -in @('shim-admission','shim-menu-trial','shim-car-trial','shim-applied-car-trial','shim-force-capture','shim-hud-ordinary');$ShimMenuTrial=$savedMode -eq 'shim-menu-trial';$ShimCarTrial=$savedMode -in @('shim-car-trial','shim-applied-car-trial','shim-force-capture','shim-hud-ordinary');$ShimForceCapture=$savedMode -eq 'shim-force-capture';$ShimHudOrdinary=$savedMode -eq 'shim-hud-ordinary'
+    $ShimAdmission=$savedMode -in @('shim-admission','shim-menu-trial','shim-car-trial','shim-applied-car-trial','shim-force-capture','shim-hud-ordinary','shim-hud-stop-only');$ShimMenuTrial=$savedMode -eq 'shim-menu-trial';$ShimCarTrial=$savedMode -in @('shim-car-trial','shim-applied-car-trial','shim-force-capture','shim-hud-ordinary');$ShimForceCapture=$savedMode -eq 'shim-force-capture';$ShimHudOrdinary=$savedMode -eq 'shim-hud-ordinary';$ShimHudStopOnly=$savedMode -eq 'shim-hud-stop-only'
 }
+if($ShimHudStopOnly -and ($ShimMenuTrial -or $ShimCarTrial -or $ShimForceCapture -or $ShimHudOrdinary -or $PrivateApply)){throw 'HUD menu mode is isolated from car, menu-input and private Apply modes.'}
 if(($ShimForceCapture -or $ShimHudOrdinary) -and ($ShimMenuTrial -or ($ShimForceCapture -and $ShimHudOrdinary))){throw 'Choose one bounded trial mode.'}
 if($ShimForceCapture -or $ShimHudOrdinary){$ShimCarTrial=$true}
 if(($ShimForceCapture -or $ShimHudOrdinary) -and $PrivateApply){throw 'Dynamic private Apply does not include force capture.'}
 if($ShimCarTrial -and $ShimMenuTrial){throw 'Choose one bounded trial mode.'}
-if($ShimMenuTrial -or $ShimCarTrial -or $PrivateApply){$ShimAdmission=$true}
+if($ShimMenuTrial -or $ShimCarTrial -or $ShimHudStopOnly -or $PrivateApply){$ShimAdmission=$true}
 if($ShimAdmission) {
     $files.plugin=Join-Path $plugin 'WodenRallyEdgeWheel.dll'
     $files.core=Join-Path $plugin 'WodenRallyEdge.Core.dll'
     $files.shim=Join-Path $plugin 'dbce_shim.dll'
     $roots.shimReports=Join-Path $GameDir 'BepInEx/WodenShim'
 }
-$mode=if($ShimHudOrdinary){'shim-hud-ordinary'}elseif($ShimForceCapture){'shim-force-capture'}elseif($ShimCarTrial -and $PrivateApply){'shim-applied-car-trial'}elseif($ShimCarTrial){'shim-car-trial'}elseif($ShimMenuTrial){'shim-menu-trial'}elseif($ShimAdmission){'shim-admission'}else{'raw'}
+$mode=if($ShimHudStopOnly){'shim-hud-stop-only'}elseif($ShimHudOrdinary){'shim-hud-ordinary'}elseif($ShimForceCapture){'shim-force-capture'}elseif($ShimCarTrial -and $PrivateApply){'shim-applied-car-trial'}elseif($ShimCarTrial){'shim-car-trial'}elseif($ShimMenuTrial){'shim-menu-trial'}elseif($ShimAdmission){'shim-admission'}else{'raw'}
 $blocked=@($request,$marker,(Join-Path $roots.config 'woden-record-next-launch.json'),(Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/woden/request.txt'))
 $probe=Join-Path $PSScriptRoot 'Probe/bin/Release/net6.0/Woden.ControlsProbe.dll'
 $configVerifier=Join-Path $PSScriptRoot 'VerifyConfig/bin/Release/net8.0/VerifyConfig.dll'
@@ -128,7 +130,7 @@ if($Recover) {
     if($state.schema -ne 1 -or $state.gameDir -ne $GameDir -or $state.lease.path -ne $slot -or $state.nonce -notmatch '^[a-f0-9]{32}$'){throw 'Recovery scope differs.'}
     if((Get-ControlHash "$Result/owner-before/manifest.json") -ne $state.filesHash -or (Get-ControlHash "$Result/preferences.json") -ne $state.prefsHash){throw 'Recovery metadata changed.'}
     $nonce=$state.nonce
-    if($ShimCarTrial){$roots.recording=Join-Path $GameDir "BepInEx/WodenRecordings/request-$nonce"}
+    if($ShimCarTrial -or $ShimHudStopOnly){$roots.recording=Join-Path $GameDir "BepInEx/WodenRecordings/request-$nonce"}
     foreach($p in @($request,$marker)) {if(Test-Path -LiteralPath $p){if(!(Get-Content -LiteralPath $p -Raw).Contains($nonce)){throw 'Another controls request exists.'}}}
     if(Test-Path -LiteralPath $slot) {
         $token=(Get-Content -LiteralPath $slot -Raw).TrimEnd("`r","`n")
@@ -141,8 +143,8 @@ if($Recover) {
     foreach($p in $blocked){if(Test-Path -LiteralPath $p){throw "Existing request needs resolution: $p"}}
     $NativeCandidate=Full $NativeCandidate
     if((Get-ControlHash $NativeCandidate) -ne $NativeSha256 -or !(Test-Path -LiteralPath $probe) -or !(Test-Path -LiteralPath $configVerifier)){throw 'Build/hash preflight failed.'}
-    if(($PrivateApply -or $ShimHudOrdinary) -and !$ProbeSha256){throw 'This mode requires the reviewed developer probe SHA-256.'}
-    if($ShimHudOrdinary){
+    if(($PrivateApply -or $ShimHudOrdinary -or $ShimHudStopOnly) -and !$ProbeSha256){throw 'This mode requires the reviewed developer probe SHA-256.'}
+    if($ShimHudOrdinary -or $ShimHudStopOnly){
         if($NativeSha256 -ne '24A9B624E3F3C474383C64A0177019BFB0837DE70B311854C59EE692D7DB03F5'){throw 'HUD ordinary mode requires the reviewed explicitly armed native test fence.'}
         if(!$WindowCaptureDll -or !$WindowCaptureSha256 -or !$InspectorDll -or !$InspectorSha256){throw 'HUD ordinary mode requires pinned capture and inspector tools.'}
         $WindowCaptureDll=Full $WindowCaptureDll;$InspectorDll=Full $InspectorDll
@@ -181,9 +183,9 @@ if($Recover) {
         $shimHash='9b8a036f664cf8f45cccf82b98e5e4376f93215b60eac50b6db965bf498015d8'
         if((Get-ControlHash $shimCandidate) -ne $shimHash){throw 'Provisional shim pin differs.'}
         $candidateHashes=[ordered]@{plugin=(Get-ControlHash "$CandidateDirectory/WodenRallyEdgeWheel.dll");core=(Get-ControlHash "$CandidateDirectory/WodenRallyEdge.Core.dll");shim=$shimHash;controls=$ControlsSha256}
-        if($ShimHudOrdinary -and ($candidateHashes.plugin -ne '95642FAAFB3C224772FD176F2F10487EAB7DA96C9CA8A077636276063E93D701' -or
+        if(($ShimHudOrdinary -or $ShimHudStopOnly) -and ($candidateHashes.plugin -ne '95642FAAFB3C224772FD176F2F10487EAB7DA96C9CA8A077636276063E93D701' -or
             $candidateHashes.core -ne '007BED8FA6A8A62284E7595E458BFC206C21158AB31E78399A46FE46ACE7EC0D')){throw 'HUD ordinary package pins differ.'}
-        if($ShimHudOrdinary -and (Get-ControlHash (Join-Path (Split-Path -Parent $InspectorDll) 'WodenRallyEdge.Core.dll')) -ne $candidateHashes.core){throw 'Inspector Core differs from candidate Core.'}
+        if(($ShimHudOrdinary -or $ShimHudStopOnly) -and (Get-ControlHash (Join-Path (Split-Path -Parent $InspectorDll) 'WodenRallyEdge.Core.dll')) -ne $candidateHashes.core){throw 'Inspector Core differs from candidate Core.'}
         if($PrivateApply){$candidateHashes.native=Get-ControlHash "$CandidateDirectory/WheelFfb.dll"}
         if($candidateHashes.Values -contains 'absent'){throw 'Production candidate is incomplete.'}
         if($PrivateApply){
@@ -227,12 +229,14 @@ try {
     $configVerifier=Join-Path $Result 'config-verifier/VerifyConfig.dll'
     Get-ChildItem "$Result/config-verifier" -File | Sort-Object Name | ForEach-Object {@{name=$_.Name;sha256=(Get-ControlHash $_.FullName)}} | ConvertTo-Json | Set-Content "$Result/config-verifier-hashes.json"
     $nonce=[guid]::NewGuid().ToString('N')
-    if($ShimCarTrial) {
+    if($ShimCarTrial -or $ShimHudStopOnly) {
         $roots.recording=Join-Path $GameDir "BepInEx/WodenRecordings/request-$nonce"
         Assert-ControlPlain $roots.recording
-        if(Test-Path -LiteralPath $roots.recording){throw 'Car trial recording directory must be new.'}
-        [IO.Directory]::CreateDirectory("$Result/workload")|Out-Null
-        if(!$PrivateApply){foreach($pair in @(@("$OriginalWorkload/raw-workload.json","$Result/workload/raw-workload.json"),@("$OriginalWorkload/apply/profile.json","$Result/workload/profile.json"))){Copy-ControlExact $pair[0] $pair[1] (Get-ControlHash $pair[0])}}
+        if(Test-Path -LiteralPath $roots.recording){throw 'Trial recording directory must be new.'}
+        if($ShimCarTrial){
+            [IO.Directory]::CreateDirectory("$Result/workload")|Out-Null
+            if(!$PrivateApply){foreach($pair in @(@("$OriginalWorkload/raw-workload.json","$Result/workload/raw-workload.json"),@("$OriginalWorkload/apply/profile.json","$Result/workload/profile.json"))){Copy-ControlExact $pair[0] $pair[1] (Get-ControlHash $pair[0])}}
+        }
     }
     Save-ControlFiles "$Result/owner-before" $roots $files
     Registry-Snapshot "$Result/preferences.json"
@@ -281,7 +285,7 @@ try {
         # The console previously kept actual Unity focus false. This temporary
         # launch setting is part of the exact config-tree backup/restoration;
         # it does not move focus or bypass the production focus gate.
-        if($ShimMenuTrial -or $ShimCarTrial){Set-IniFalse 'Logging.Console' 'Enabled' (Join-Path $roots.config 'BepInEx.cfg')}
+        if($ShimMenuTrial -or $ShimCarTrial -or $ShimHudStopOnly){Set-IniFalse 'Logging.Console' 'Enabled' (Join-Path $roots.config 'BepInEx.cfg')}
     } else {Invoke-ControlApplyCheck $GameDir $Result $harness $writer.catalog $Profiles}
     $applied=$true
     # Verify again after production Apply and before launch. The addon also
@@ -296,13 +300,13 @@ try {
     }
     Copy-ControlExact $probe $files.probe (Get-ControlHash $probe)
     $cold=[ordered]@{schema=2;nonce=$nonce;expiresUtc=[DateTime]::UtcNow.AddMinutes(5).ToString('o');pluginSha256=(Get-ControlHash "$plugin/WodenRallyEdgeWheel.dll");coreSha256=(Get-ControlHash "$plugin/WodenRallyEdge.Core.dll");configSha256=(Get-ControlHash "$Result/applied.cfg");bindingsSha256=(Get-ControlHash "$($roots.config)/wheel-bindings.json");nativeSha256=$NativeSha256;outputDirectory=(Join-Path $Result 'trace')}
-    if($ShimAdmission){$cold.schema=if($ShimForceCapture -or $ShimHudOrdinary){6}elseif($ShimCarTrial -and $PrivateApply){7}elseif($ShimCarTrial){5}elseif($ShimMenuTrial){4}else{3};$cold.mode=$mode;$cold.controlsSha256=$ControlsSha256;$cold.shimSha256=$shimHash}
-    if($ShimCarTrial) {
-        $cold.stageReference=$StageReference;$cold.workloadDirectory=Join-Path $Result 'workload'
+    if($ShimAdmission){$cold.schema=if($ShimHudStopOnly){8}elseif($ShimForceCapture -or $ShimHudOrdinary){6}elseif($ShimCarTrial -and $PrivateApply){7}elseif($ShimCarTrial){5}elseif($ShimMenuTrial){4}else{3};$cold.mode=$mode;$cold.controlsSha256=$ControlsSha256;$cold.shimSha256=$shimHash}
+    if($ShimCarTrial -or $ShimHudStopOnly) {
+        if($ShimCarTrial){$cold.stageReference=$StageReference;$cold.workloadDirectory=Join-Path $Result 'workload'}
         if($PrivateApply){$cold.profileSha256=Get-ControlHash "$Result/workload/profile.json";$cold.workloadSha256=Get-ControlHash "$Result/workload/raw-workload.json";$cold.profileRevision=$workload.ProfileHash;$cold.applyReadbackSha256=Get-ControlHash "$Result/private-apply-readback.json"}
-        # Existing ordinary diagnostic producer; schema 5/6 explicitly permits
-        # this exact nonce/case/expiry. No stage replay or pose request is made.
-        [ordered]@{Version=2;Id=([guid]::ParseExact($nonce,'N').ToString());ExpiresUtc=$cold.expiresUtc;DisableForces=$true;CaseId="woden-shim-car-$nonce"} |
+        # Existing ordinary diagnostic producer; recording modes require this
+        # exact nonce/case/expiry. No stage replay or pose request is made.
+        [ordered]@{Version=2;Id=([guid]::ParseExact($nonce,'N').ToString());ExpiresUtc=$cold.expiresUtc;DisableForces=$true;CaseId=$(if($ShimHudStopOnly){"woden-shim-hud-$nonce"}else{"woden-shim-car-$nonce"})} |
             ConvertTo-Json | Set-Content (Join-Path $roots.config 'woden-record-next-launch.json')
     }
     [IO.Directory]::CreateDirectory($control) | Out-Null
@@ -342,8 +346,8 @@ try {
             if((Get-ControlHash $WindowCaptureDll) -ne $WindowCaptureSha256){throw 'Capture tool changed before launch.'}
             $capture=Start-Process dotnet -ArgumentList @($WindowCaptureDll,$game.Id,(Join-Path $Result 'hud-burst'),'--duration','3','--max-frames','60') -PassThru -NoNewWindow -RedirectStandardOutput "$Result/hud-capture.log" -RedirectStandardError "$Result/hud-capture-error.log"
         }
-        if($ShimHudOrdinary -and !$postCapture -and (Test-Path "$Result/trace/observations.tsv") -and
-            (Select-String -LiteralPath "$Result/trace/observations.tsv" -Pattern 'car-recorder-stop.*probe-direct-stop' -Quiet)) {
+        if(($ShimHudOrdinary -or $ShimHudStopOnly) -and !$postCapture -and (Test-Path "$Result/trace/observations.tsv") -and
+            (Select-String -LiteralPath "$Result/trace/observations.tsv" -Pattern '(car|hud)-recorder-stop.*probe-direct-stop' -Quiet)) {
             if((Get-ControlHash $WindowCaptureDll) -ne $WindowCaptureSha256){throw 'Capture tool changed before post-Stop launch.'}
             $postCapture=Start-Process dotnet -ArgumentList @($WindowCaptureDll,$game.Id,(Join-Path $Result 'hud-poststop'),'--duration','2','--max-frames','6') -PassThru -NoNewWindow -RedirectStandardOutput "$Result/hud-poststop.log" -RedirectStandardError "$Result/hud-poststop-error.log"
         }
@@ -352,10 +356,12 @@ try {
     }
     if(!$game.HasExited -and !(Test-Path "$Result/trace/result.json")){& "$PSScriptRoot/Send-Command.ps1" -Result $Result -Operation stop}
 } finally {
-    if($ShimHudOrdinary -and !$Recover -and $ready){
-        if(!$capture){$captureError='HUD burst never started at the forward batch.'}
-        elseif(!$capture.WaitForExit(20000)){$captureError='HUD burst exceeded its bounded post-capture wait.';try{Stop-Process -Id $capture.Id -Force -ErrorAction Stop}catch{$captureError+=' Child stop failed: '+$_.Exception.Message}}
-        elseif($capture.ExitCode -ne 0 -or !(Test-Path "$Result/hud-burst/capture.json")){$captureError="HUD burst failed (exit $($capture.ExitCode))."}
+    if(($ShimHudOrdinary -or $ShimHudStopOnly) -and !$Recover -and $ready){
+        if($ShimHudOrdinary){
+            if(!$capture){$captureError='HUD burst never started at the forward batch.'}
+            elseif(!$capture.WaitForExit(20000)){$captureError='HUD burst exceeded its bounded post-capture wait.';try{Stop-Process -Id $capture.Id -Force -ErrorAction Stop}catch{$captureError+=' Child stop failed: '+$_.Exception.Message}}
+            elseif($capture.ExitCode -ne 0 -or !(Test-Path "$Result/hud-burst/capture.json")){$captureError="HUD burst failed (exit $($capture.ExitCode))."}
+        }
         if(!$postCapture){$captureError+=' Post-Stop HUD burst never started.'}
         elseif(!$postCapture.WaitForExit(20000)){$captureError+=' Post-Stop HUD burst exceeded its bounded wait.';try{Stop-Process -Id $postCapture.Id -Force -ErrorAction Stop}catch{$captureError+=' Child stop failed: '+$_.Exception.Message}}
         elseif($postCapture.ExitCode -ne 0 -or !(Test-Path "$Result/hud-poststop/capture.json")){$captureError+=" Post-Stop HUD burst failed (exit $($postCapture.ExitCode))."}
@@ -419,7 +425,7 @@ try {
     if($errors.Count){$errors | Set-Content "$Result/restore-errors.txt";throw "Independent recovery attempted; lease retained: $Result"}
     $restored=$true
     if(Test-Path -LiteralPath $Result){[DateTime]::UtcNow.ToString('o') | Set-Content "$Result/restored.txt"}
-    if($ShimHudOrdinary -and !$Recover -and $ready){
+    if(($ShimHudOrdinary -or $ShimHudStopOnly) -and !$Recover -and $ready){
         try {
             $archive=Join-Path $after 'tree/recording'
             Assert-ControlPlain $archive
@@ -428,12 +434,20 @@ try {
             foreach($name in $inputs){$before[$name]=Get-ControlHash (Join-Path $archive $name);if($before[$name] -eq 'absent'){throw "Archived ordinary source missing: $name"}}
             if((Get-ControlHash $InspectorDll) -ne $InspectorSha256){throw 'Inspector tool changed before finalization.'}
             & dotnet $InspectorDll reprocess $archive > "$Result/ordinary-reprocess.json" 2> "$Result/ordinary-reprocess-error.txt"
-            if($LASTEXITCODE){throw "Ordinary reprocess refused (exit $LASTEXITCODE)."}
-            foreach($name in $inputs){if((Get-ControlHash (Join-Path $archive $name)) -ne $before[$name]){throw "Archived ordinary source changed: $name"}}
-            $caseHash=Get-ControlHash (Join-Path $archive 'case.json')
-            $observationHash=Get-ControlHash (Join-Path $archive 'force-observation.jsonl')
-            if($caseHash -eq 'absent' -or $observationHash -eq 'absent'){throw 'Ordinary reprocess did not produce both case and observation.'}
-            [ordered]@{schema=1;status='passed';stop='probe-direct-stop';archive=$archive;sourcePins=$before;caseSha256=$caseHash;observationSha256=$observationHash} | ConvertTo-Json -Depth 4 | Set-Content "$Result/ordinary-finalizer.json"
+            if($LASTEXITCODE){
+                if(!$ShimHudStopOnly){throw "Ordinary reprocess refused (exit $LASTEXITCODE)."}
+                $reprocessExit=$LASTEXITCODE
+                $refusal=Get-Content "$Result/ordinary-reprocess-error.txt" -Raw
+                if($refusal -notmatch 'Insufficient driving coverage: 0 samples'){throw "Menu source reprocess refused for an unexpected reason (exit $reprocessExit): $refusal"}
+                foreach($name in $inputs){if((Get-ControlHash (Join-Path $archive $name)) -ne $before[$name]){throw "Archived ordinary source changed: $name"}}
+                [ordered]@{schema=1;status='refused-no-driving';stop='probe-direct-stop';archive=$archive;sourcePins=$before;reprocessExit=$reprocessExit;reason=$refusal} | ConvertTo-Json -Depth 4 | Set-Content "$Result/ordinary-finalizer.json"
+            } else {
+                foreach($name in $inputs){if((Get-ControlHash (Join-Path $archive $name)) -ne $before[$name]){throw "Archived ordinary source changed: $name"}}
+                $caseHash=Get-ControlHash (Join-Path $archive 'case.json')
+                $observationHash=Get-ControlHash (Join-Path $archive 'force-observation.jsonl')
+                if($caseHash -eq 'absent' -or $observationHash -eq 'absent'){throw 'Ordinary reprocess did not produce both case and observation.'}
+                [ordered]@{schema=1;status='passed';stop='probe-direct-stop';archive=$archive;sourcePins=$before;caseSha256=$caseHash;observationSha256=$observationHash} | ConvertTo-Json -Depth 4 | Set-Content "$Result/ordinary-finalizer.json"
+            }
         } catch {
             $finalizerError=$_.Exception.Message
             [ordered]@{schema=1;status='failed';stop='probe-direct-stop';reason=$finalizerError} | ConvertTo-Json | Set-Content "$Result/ordinary-finalizer.json"
@@ -447,7 +461,7 @@ try {
 }
 # Evaluate input only after the finally block has restored owner state and
 # released the lease. Raw/admission runs retain their separate observer verdict.
-if($ShimMenuTrial -or $ShimCarTrial){
+if($ShimMenuTrial -or $ShimCarTrial -or $ShimHudStopOnly){
     . "$PSScriptRoot/Trial-Result.ps1"
     try {
         Assert-ControlTrialResult -Result $Result -Mode $mode | ConvertTo-Json | Set-Content "$Result/trial-verdict.json"
