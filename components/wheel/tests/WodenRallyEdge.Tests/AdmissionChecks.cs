@@ -222,13 +222,25 @@ internal static class AdmissionChecks
         check(review.GetProperty("policy").GetString() == "ordinary-output-retained" && review.GetProperty("physicalOutputAtStageStart").GetBoolean() &&
             review.GetProperty("physicalDeliveryAttempts").GetDouble() == 79 && review.GetProperty("playback").GetString() == "muted",
             "the review reports the recorded delivery and keeps playback muted");
-        check(review.GetProperty("maximumForceReprocessError").GetDouble() == 0 && review.GetProperty("analysisContract").GetString() == ForceAnalysisHistory.Contract &&
-            review.GetProperty("samples").GetInt32() == 80, "the ordinary force history replays exactly for every pose");
+        var force = review.GetProperty("forceAnalysis");
+        check(review.GetProperty("trajectory").GetString() == "eligible" && review.GetProperty("samples").GetInt32() == 80 && force.GetProperty("qualified").GetBoolean() &&
+            force.GetProperty("maximumForceReprocessError").GetDouble() == 0 && force.GetProperty("analysisContract").GetString() == ForceAnalysisHistory.Contract,
+            "the ordinary force history replays exactly for every pose: " + force.GetProperty("reason"));
+        check(result.GetProperty("stage").GetString() == "source.stage" &&
+            result.GetProperty("stageSealSha256").GetString() == ArtifactSeal.Hash(Path.Combine(admitted.Output!, "source.stage", "complete.tsv")),
+            "the review returns the validated stage and its seal for the runner to pin");
         check(Throws(() => OrdinaryStageReview.Run(f.Root), "Not an admitted ordinary package"), "a raw original is not reviewed as admitted");
         string changed = f.Root + ".changed-admission";
         Copy(admitted.Output!, changed);
         File.AppendAllText(Path.Combine(changed, "admission.json"), " ");
         check(Throws(() => OrdinaryStageReview.Run(changed), "changed"), "a changed admission fails the derived seal");
+        // Re-sealed after swapping the timeline: the derived seal verifies, but the bytes are not the admitted source's.
+        string swapped = f.Root + ".swapped-timeline";
+        Copy(admitted.Output!, swapped);
+        File.AppendAllText(Path.Combine(swapped, "source.stage-session.json"), " ");
+        File.Delete(Path.Combine(swapped, "complete.tsv"));
+        ArtifactSeal.Complete(swapped, FullSessionAdmission.DerivedSealFiles(FullSessionPackageNames.FromSignal("source.jsonl")));
+        check(Throws(() => OrdinaryStageReview.Run(swapped), "differs from the admitted source"), "a re-sealed derived payload loses its provenance");
     }
     static bool Throws(Action action, string reason)
     {

@@ -18,6 +18,8 @@ internal static class OrdinaryStageReview
             descriptor["derivedFrom"] is not JsonObject from)
             throw new IOException("Not an admitted ordinary package");
         var names = FullSessionPackageNames.FromSignal((string?)descriptor["signals"] ?? "");
+        if ((string?)descriptor["observation"] != names.Observation || (string?)descriptor["timeline"] != names.Timeline || (string?)descriptor["stage"] != names.Stage)
+            throw new IOException("Derived payload names disagree");
         var sealedFiles = FullSessionAdmission.DerivedSealFiles(names);
         if (File.ReadAllLines(Path.Combine(derived, "complete.tsv")).Length != sealedFiles.Length + 1) throw new IOException("Unexpected derived seal inventory");
         ArtifactSeal.Verify(derived, sealedFiles);
@@ -29,8 +31,12 @@ internal static class OrdinaryStageReview
             (string?)source["sessionSha256"] != (string?)from["sessionSha256"] || (string?)source["packageSealSha256"] != (string?)from["packageSealSha256"] ||
             (string?)source["stageSealSha256"] != ArtifactSeal.Hash(Path.Combine(stage, "complete.tsv")))
             throw new IOException("Admission differs from the derived descriptor or its stage");
+        // Provenance survives later consumers: every copied payload is still the verified source byte for byte (Rita 72210).
+        foreach (var (file, key) in new[] { (names.Signals, "signalsSha256"), (names.Observation, "observationSha256"), (names.Timeline, "timelineSha256") })
+            if ((string?)source[key] != ArtifactSeal.Hash(Path.Combine(derived, file))) throw new IOException("Derived " + file + " differs from the admitted source");
+        string stageSeal = ArtifactSeal.Hash(Path.Combine(stage, "complete.tsv"));
         var review = StageCaptureReview.Run(stage, StageReviewPolicy.OrdinaryOutputRetained);
-        return new { schema = "woden.ordinary-stage-review@1", passed = true, package = derived,
+        return new { schema = "woden.ordinary-stage-review@1", passed = true, package = derived, stage = names.Stage, stageSealSha256 = stageSeal,
             sessionSha256 = ArtifactSeal.Hash(Path.Combine(derived, FullSessionPackageNames.Descriptor)),
             packageSealSha256 = ArtifactSeal.Hash(Path.Combine(derived, "complete.tsv")),
             derivedFrom = new { sessionSha256 = (string?)from["sessionSha256"], packageSealSha256 = (string?)from["packageSealSha256"] },

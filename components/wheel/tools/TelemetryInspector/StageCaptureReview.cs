@@ -58,11 +58,25 @@ internal static class StageCaptureReview
         string output = tape.Metadata["physicalOutput"];
         if (muted && output != "false") throw new IOException("Capture was not physically muted");
         if (!muted && output is not ("true" or "false")) throw new IOException("Capture output policy is unknown");
+        // Muted: any force-analysis failure refuses the capture, exactly as before. Ordinary: the structure (seals, metadata,
+        // row alignment, clocks, driving rows, delivery counters, a complete drop-free source) stays required, while a force
+        // analysis that cannot qualify (tune change, zero strength, a history that does not reproduce) is reported with its
+        // first reason. A valid recorded route is never lost to its force analysis.
+        string? analysisFailure = null;
+        void Analyze(Action check)
+        {
+            if (analysisFailure != null) return;
+            if (muted) { check(); return; }
+            try { check(); }
+            catch (Exception ex) when (ex is IOException or InvalidDataException) { analysisFailure = ex.Message; }
+        }
         double? firstDelivery = null, lastDelivery = null, firstConnection = null, lastConnection = null;
-        var options = ReadOptions(directory);
+        ForceOptions? options = null;
+        Analyze(() => options = ReadOptions(directory));
         var records = SessionReader.Read(Path.Combine(directory, "source.jsonl")).ToArray();
         bool independent = ForceAnalysisHistory.Declared(records);
-        var analysis = independent ? ForceAnalysisHistory.Replay(records, options) : null;
+        IReadOnlyList<RecordedForceTrialSample>? analysis = null;
+        Analyze(() => analysis = independent ? ForceAnalysisHistory.Replay(records, options!) : null);
         var signal = new ForceSignal(); signal.Reset();
         var grip = new GripSignal(); grip.NewCar();
         int count = 0, valid = 0, nonzero = 0; double? origin = null;
@@ -107,67 +121,75 @@ internal static class StageCaptureReview
                     throw new IOException("Delivery counters are not truthful cumulative counts at sample " + count);
                 firstDelivery ??= delivery; firstConnection ??= connection; lastDelivery = delivery; lastConnection = connection;
             }
-            var capturedOptions = new ForceOptions((float)Get("ffb.tuning.strengthPercent"), (float)Get("ffb.tuning.peakPercent"),
-                (float)Get("ffb.tuning.loadReference"), (float)Get("ffb.tuning.slipScale"), (float)Get("ffb.tuning.smoothingMs"),
-                (float)Get("ffb.tuning.damping"), Get("ffb.tuning.invert") == 1);
-            if (options.Grip) capturedOptions = capturedOptions with { Model = options.Model,
-                LoadRatio = (float)Get("ffb.tuning.loadRatio"), GripSmoothing = (float)Get("ffb.tuning.gripSmoothing") };
-            if (capturedOptions != options || Get("ffb.tuning.modelVersion") != options.Model || Get("ffb.tuning.invert") is not (0 or 1))
-                throw new IOException("Capture tune changed; split into stable configuration cases");
-            // Historical Classic captures predate this additive channel.
-            if ((options.Grip || channels.ContainsKey("analysis.force.modelVersion")) && Get("analysis.force.modelVersion") != options.Model)
-                throw new IOException("Analysis force model differs from the captured configuration");
-            FrontLoadReference? reference = null;
-            if (options.Grip)
+            Analyze(() =>
             {
-                reference = ReadReference(channels);
-                if (Get("ffb.grip.curveEstimateVersion") != 1) throw new IOException("Unsupported grip curve estimate");
-                double epoch = Get("ffb.grip.carEpoch"); carEpoch ??= epoch;
-                if (epoch < 0 || epoch != Math.Truncate(epoch) || epoch != carEpoch.Value)
-                    throw new IOException("Capture car changed; split into single-car cases");
-            }
-            var sample = new TelemetrySample { Sequence = row.Sequence, ElapsedSeconds = row.ElapsedSeconds,
-                SimulationSeconds = time, State = "driving", Discontinuity = Get("sample.discontinuity") == 1 ? "recorded" : null };
-            foreach (var pair in channels) sample.Channels[pair.Key] = pair.Value;
-            var result = independent ? new ForceResult(analysis![count].Valid, "independent analysis", 0, 0, 0, analysis[count].Request) :
-                options.Grip ? grip.Evaluate(sample, options, reference) : signal.Evaluate(sample, options);
-            if (!independent && ((result.Valid ? 1 : 0) != Get("analysis.force.valid") || (options.Grip ? grip.ResetCount : signal.ResetCount) != Get("analysis.force.reset")))
-                throw new IOException($"Model validity/reset differs at sample {count}");
-            var error = Math.Abs(result.Preview - Get("analysis.force.preview"));
-            maxError = Math.Max(maxError, error);
-            if (error > .000002) throw new IOException($"Model preview differs at sample {count}: {error:R}");
-            // Grip v5/v6 captures carry the two pre-clamp terms; older grip captures are checked only if they have them.
-            if (!independent && options.Grip && (options.Model is GripSignal.IndependentDampingVersion or GripSignal.ModelVersion || channels.ContainsKey("analysis.force.steering")))
-                foreach (var (key, value) in new[] { ("analysis.force.steering", grip.LastSteering), ("analysis.force.dampingTerm", grip.LastDamping) })
-                    if (Math.Abs(value - Get(key)) > .000002) throw new IOException($"Model {key} differs at sample {count}");
-            if (result.Valid) valid++;
-            if (result.Valid && (!options.Grip || reference!.Kind == FrontLoadReferenceKind.Driving)) qualified++;
-            if (result.Preview != 0) nonzero++;
-            minForce = Math.Min(minForce, result.Preview); maxForce = Math.Max(maxForce, result.Preview);
-            maxSpeed = Math.Max(maxSpeed, Get("motion.speed")); count++;
+                var o = options!;
+                var capturedOptions = new ForceOptions((float)Get("ffb.tuning.strengthPercent"), (float)Get("ffb.tuning.peakPercent"),
+                    (float)Get("ffb.tuning.loadReference"), (float)Get("ffb.tuning.slipScale"), (float)Get("ffb.tuning.smoothingMs"),
+                    (float)Get("ffb.tuning.damping"), Get("ffb.tuning.invert") == 1);
+                if (o.Grip) capturedOptions = capturedOptions with { Model = o.Model,
+                    LoadRatio = (float)Get("ffb.tuning.loadRatio"), GripSmoothing = (float)Get("ffb.tuning.gripSmoothing") };
+                if (capturedOptions != o || Get("ffb.tuning.modelVersion") != o.Model || Get("ffb.tuning.invert") is not (0 or 1))
+                    throw new IOException("Capture tune changed; split into stable configuration cases");
+                // Historical Classic captures predate this additive channel.
+                if ((o.Grip || channels.ContainsKey("analysis.force.modelVersion")) && Get("analysis.force.modelVersion") != o.Model)
+                    throw new IOException("Analysis force model differs from the captured configuration");
+                FrontLoadReference? reference = null;
+                if (o.Grip)
+                {
+                    reference = ReadReference(channels);
+                    if (Get("ffb.grip.curveEstimateVersion") != 1) throw new IOException("Unsupported grip curve estimate");
+                    double epoch = Get("ffb.grip.carEpoch"); carEpoch ??= epoch;
+                    if (epoch < 0 || epoch != Math.Truncate(epoch) || epoch != carEpoch.Value)
+                        throw new IOException("Capture car changed; split into single-car cases");
+                }
+                var sample = new TelemetrySample { Sequence = row.Sequence, ElapsedSeconds = row.ElapsedSeconds,
+                    SimulationSeconds = time, State = "driving", Discontinuity = Get("sample.discontinuity") == 1 ? "recorded" : null };
+                foreach (var pair in channels) sample.Channels[pair.Key] = pair.Value;
+                var result = independent ? new ForceResult(analysis![count].Valid, "independent analysis", 0, 0, 0, analysis[count].Request) :
+                    o.Grip ? grip.Evaluate(sample, o, reference) : signal.Evaluate(sample, o);
+                if (!independent && ((result.Valid ? 1 : 0) != Get("analysis.force.valid") || (o.Grip ? grip.ResetCount : signal.ResetCount) != Get("analysis.force.reset")))
+                    throw new IOException($"Model validity/reset differs at sample {count}");
+                var error = Math.Abs(result.Preview - Get("analysis.force.preview"));
+                maxError = Math.Max(maxError, error);
+                if (error > .000002) throw new IOException($"Model preview differs at sample {count}: {error:R}");
+                // Grip v5/v6 captures carry the two pre-clamp terms; older grip captures are checked only if they have them.
+                if (!independent && o.Grip && (o.Model is GripSignal.IndependentDampingVersion or GripSignal.ModelVersion || channels.ContainsKey("analysis.force.steering")))
+                    foreach (var (key, value) in new[] { ("analysis.force.steering", grip.LastSteering), ("analysis.force.dampingTerm", grip.LastDamping) })
+                        if (Math.Abs(value - Get(key)) > .000002) throw new IOException($"Model {key} differs at sample {count}");
+                if (result.Valid) valid++;
+                if (result.Valid && (!o.Grip || reference!.Kind == FrontLoadReferenceKind.Driving)) qualified++;
+                if (result.Preview != 0) nonzero++;
+                minForce = Math.Min(minForce, result.Preview); maxForce = Math.Max(maxForce, result.Preview);
+                maxSpeed = Math.Max(maxSpeed, Get("motion.speed"));
+            });
+            count++;
         }
         if (count != tape.Frames.Length || footer == null || !footer.Completed || footer.Counts.DroppedSamples != 0 ||
             footer.Counts.DroppedMarkers != 0 || footer.Counts.ErrorCount != 0 || footer.Counts.LimitCount != 0 ||
             footer.Counts.InvalidCount != 0 || footer.Counts.ContentionCount != 0 || footer.Counts.QueueFullCount != 0 ||
             footer.Counts.RejectedAfterStop != 0 || footer.Counts.WrittenSamples != count)
             throw new IOException("Original source is incomplete or dropped data");
-        if (valid < 50 || nonzero < 1 || maxSpeed < 1) throw new IOException("Insufficient driving/force coverage");
+        Analyze(() => { if (valid < 50 || nonzero < 1 || maxSpeed < 1) throw new IOException("Insufficient driving/force coverage"); });
         ArtifactSeal.Verify(directory, "source.jsonl", "force-config.json", "stage-context.json", "channels.json");
+        string contract = independent ? ForceAnalysisHistory.Contract : "legacy-stage-history";
         if (!muted)
-            return new { schema = "woden.stage-review@1", passed = true, policy = "ordinary-output-retained", physicalOutputAtStageStart = output == "true",
+            return new { schema = "woden.stage-review@1", passed = true, policy = "ordinary-output-retained", trajectory = "eligible",
+                physicalOutputAtStageStart = output == "true",
                 physicalDeliveryAttempts = (lastDelivery ?? 0) - (firstDelivery ?? 0), connectionAttempts = (lastConnection ?? 0) - (firstConnection ?? 0),
-                playback = "muted", scenario = tape.Metadata["scenario"],
-                samples = count, seconds = tape.Frames[^1].Time - tape.Frames[0].Time, validForceSamples = valid,
-                nonzeroForceSamples = nonzero, minimumPreview = minForce, maximumPreview = maxForce,
-                maximumForceReprocessError = maxError, maximumPhysicsSpeedMps = maxSpeed,
-                model = ForceObservationSemantics.ModelId(options.Model), analysisContract = independent ? ForceAnalysisHistory.Contract : "legacy-stage-history",
-                qualifiedForceSamples = qualified, forceScope = "steering analysis only; crash cues and physical delivery are separate",
-                source = tape.Metadata["captureSource"], normalization = "software signal only; no measured wheel torque" };
+                playback = "muted", scenario = tape.Metadata["scenario"], samples = count, seconds = tape.Frames[^1].Time - tape.Frames[0].Time,
+                source = tape.Metadata["captureSource"],
+                forceAnalysis = new { qualified = analysisFailure == null, partial = analysisFailure != null, reason = analysisFailure,
+                    validForceSamples = valid, nonzeroForceSamples = nonzero, qualifiedForceSamples = qualified,
+                    minimumPreview = minForce, maximumPreview = maxForce, maximumForceReprocessError = maxError, maximumPhysicsSpeedMps = maxSpeed,
+                    model = options == null ? "unavailable" : ForceObservationSemantics.ModelId(options.Model), analysisContract = contract,
+                    forceScope = "steering analysis only; crash cues and physical delivery are separate",
+                    normalization = "software signal only; no measured wheel torque" } };
         return new { schema = "woden.stage-review@1", passed = true, scenario = tape.Metadata["scenario"],
             samples = count, seconds = tape.Frames[^1].Time - tape.Frames[0].Time, validForceSamples = valid,
             nonzeroForceSamples = nonzero, minimumPreview = minForce, maximumPreview = maxForce,
             maximumForceReprocessError = maxError, maximumPhysicsSpeedMps = maxSpeed,
-            model = ForceObservationSemantics.ModelId(options.Model), analysisContract = independent ? ForceAnalysisHistory.Contract : "legacy-stage-history",
+            model = ForceObservationSemantics.ModelId(options!.Model), analysisContract = contract,
             qualifiedForceSamples = qualified, forceScope = "steering analysis only; crash cues and physical delivery are separate",
             physicalDeliveryAttempts = 0, source = tape.Metadata["captureSource"], normalization = "software signal only; no measured wheel torque" };
     }

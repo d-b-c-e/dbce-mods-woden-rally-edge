@@ -80,11 +80,19 @@ It then runs the same stage review under the explicit `ordinary-output-retained`
   They must be truthful cumulative counts: nonnegative, whole and non-decreasing. Their deltas are reported as is,
   and nothing replays them.
 
-Every tune, alignment, clock, coverage and force-reprocess check is unchanged, so the ordinary force history
-(`analysis.force.*` from the stage's own history, and the recorded `ffb.*`) is proven replayable byte for byte.
+The review then splits its result in two:
+- **Structure** stays required: the seals, the metadata, row alignment, clocks, driving rows, truthful delivery
+  counters, and a complete, drop-free source. The review reports `trajectory: eligible`.
+- **Force analysis** is reported separately under `forceAnalysis`:
+  - **Qualified:** the stage's own history replays exactly, the tune is stable, and coverage is enough.
+  - **Unqualified** (`partial`), with its first reason: a tune change mid-stage, zero strength, a car change, or
+    a history that does not reproduce. A valid recorded route is never lost to its force analysis.
+
+The runner plays exactly the stage the review returns (`stage`). It pins that stage's `stageSealSha256` before
+arming, and runs the same admitted review after the run.
+
 The cold replay itself is always muted. The review claims `coldReplay: not-qualified`; a passed replay of the
 derived package is separate evidence.
-
 **Not yet admitted:**
 - later rounds and other modes;
 - results observation.

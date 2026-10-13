@@ -164,7 +164,14 @@ try {
         Save-Owner; Restore-Owner; Write-Output 'PASS: owner environment backup and exact readback.'; return
     }
     if ($AdmittedPackage -and ($Record -or $Recording)) { throw 'Choose either an admitted package, Record or a completed Recording.' }
-    if ($AdmittedPackage) { $admittedReview = Review-AdmittedPackage $AdmittedPackage; $Recording = Join-Path $AdmittedPackage 'source.stage' }
+    if ($AdmittedPackage) {
+        # Play exactly the stage the admitted review validated, pinned by its seal (Rita 72210).
+        $admittedReview = Review-AdmittedPackage $AdmittedPackage
+        $admitted = $admittedReview | ConvertFrom-Json
+        $Recording = Child $AdmittedPackage ([string]$admitted.stage)
+        $admittedSeal = ([string]$admitted.stageSealSha256).ToLowerInvariant()
+        if ($admittedSeal -notmatch '^[0-9a-f]{64}$') { throw 'Admitted review did not pin its stage seal.' }
+    }
     if ($Record -and $Recording) { throw 'Choose either Record or a completed Recording.' }
     if ($Record -and $SpanSeparateMonitors) { throw 'The temporary span override is for replay qualification only.' }
     if (!$Record -and (!$Recording -or !(Test-Path -LiteralPath (Join-Path $Recording 'complete.tsv')))) { throw 'A completed recording is required.' }
@@ -190,6 +197,9 @@ try {
     if (!$Record) { $sourceReview | Set-Content -LiteralPath (Join-Path $Result 'source-review.json') -Encoding utf8 }
     foreach ($file in @((Join-Path $GameDir 'BepInEx/LogOutput.log'),(Join-Path $data 'Player.log'))) {
         if (Test-Path -LiteralPath $file) { Copy-Exact $file (Join-Path $Result ('previous-'+[IO.Path]::GetFileName($file))) }
+    }
+    if ($AdmittedPackage -and (Get-FileHash -LiteralPath (Join-Path $Recording 'complete.tsv')).Hash.ToLowerInvariant() -ne $admittedSeal) {
+        throw 'The admitted stage seal changed before replay.'
     }
     if ($Record) { & $command -Game woden -Action Record -Path $Recording -Seconds $Seconds | Out-Null }
     else { & $command -Game woden -Action Replay -Path $Recording -Output (Join-Path $Result 'playback') | Out-Null }
@@ -233,7 +243,12 @@ try {
     Restore-Owner
     if ($Record -and !(Test-Path -LiteralPath (Join-Path $Recording 'complete.tsv'))) { $passed = $false }
     if (!$seen -or !$passed) { throw 'Session did not complete; evidence saved and owner state restored.' }
-    Review-Recording $Recording | Set-Content -LiteralPath (Join-Path $Result 'source-review.json') -Encoding utf8
+    if ($AdmittedPackage) {
+        # The same admitted review after the run: the package and its pinned stage are unchanged.
+        $after = Review-AdmittedPackage $AdmittedPackage
+        if (([string]($after | ConvertFrom-Json).stageSealSha256).ToLowerInvariant() -ne $admittedSeal) { throw 'The admitted stage seal changed during replay.' }
+        $after | Set-Content -LiteralPath (Join-Path $Result 'source-review.json') -Encoding utf8
+    } else { Review-Recording $Recording | Set-Content -LiteralPath (Join-Path $Result 'source-review.json') -Encoding utf8 }
     Write-Output ('PASS: requested session completed, game closed and owner state restored. '+$Result)
 } finally {
     # A failed launch must not leave this recording/replay armed for ordinary play.
