@@ -33,6 +33,14 @@ Write-Case; Remove-Item -LiteralPath "$temp/restored.txt";Check-Case $false
 Write-Case 'shim-menu-trial';$case.carEvidence=$null;Check-Case $true 'shim-menu-trial'
 Write-Case 'shim-car-trial';Check-Case $true 'shim-car-trial'
 Write-Case 'shim-force-capture';Check-Case $true 'shim-force-capture'
+Write-Case 'shim-applied-forward-capture'
+$case.carEvidence.nativePlateaus=3
+$case.carEvidence.recipe='applied-forward-50pct-8s@1'
+$case.carEvidence.forceCapture=@{forwardGroundedSeconds=2.5;qualifiedRows=12}
+Check-Case $true 'shim-applied-forward-capture'
+$case.carEvidence.forceCapture.qualifiedRows=0;Check-Case $false 'shim-applied-forward-capture'
+$case.carEvidence.forceCapture.qualifiedRows=12;$case.carEvidence.forceCapture.forwardGroundedSeconds=1.9;Check-Case $false 'shim-applied-forward-capture'
+$case.carEvidence.forceCapture.forwardGroundedSeconds=2.5;$case.carEvidence.recipe='six-actions@1';Check-Case $false 'shim-applied-forward-capture'
 Write-Case 'shim-hud-ordinary'
 $case.inputVerdict='passed: probe-direct-stop, 5s HUD dwell'
 $case.carEvidence.recipe='forward-50pct-8s@1'

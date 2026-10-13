@@ -121,7 +121,16 @@ public sealed class AppliedCarWorkload : ICarWorkload
             samples["gear1"].Single(s=>s.Expected==1).Command : samples[id].First(s=>s.Expected==0).Command));
     public CarPulse Neutral=>new("neutral",0,Batch(null));
     public CarPulse Settle=>new("settle",1,Batch(samples["brake"].Single(s=>s.Expected==1)));
-    public CarPulse[] Forward=>throw new InvalidOperationException("Dynamic car qualification does not include force capture.");
+    // The existing applied profile supplies both the throttle sample and (for
+    // H-pattern) the held gear1 command. No alternate calibration is invented.
+    public CarPulse[] Forward
+    {
+        get
+        {
+            var throttle=samples["throttle"].Single(s=>s.Expected==.5);
+            return [Neutral,new CarPulse("throttle",.5,Batch(throttle).Replace("ms=700","ms=8000",StringComparison.Ordinal),8000),Neutral];
+        }
+    }
     public CarPulse[] Pulses
     {
         get

@@ -10,6 +10,7 @@ param(
     [Parameter(ParameterSetName='Run')][switch]$ShimAdmission,
     [Parameter(ParameterSetName='Run')][switch]$ShimMenuTrial,
     [Parameter(ParameterSetName='Run')][switch]$ShimCarTrial,
+    [Parameter(ParameterSetName='Run')][switch]$ShimAppliedForwardCapture,
     [Parameter(ParameterSetName='Run')][switch]$ShimForceCapture,
     [Parameter(ParameterSetName='Run')][switch]$ShimHudOrdinary,
     [Parameter(ParameterSetName='Run')][switch]$ShimHudStopOnly,
@@ -26,6 +27,7 @@ param(
     [Parameter(ParameterSetName='Run')][string]$PrivateWriter,
     [Parameter(ParameterSetName='Run')][string]$PrivateCatalog,
     [Parameter(ParameterSetName='Run')][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ProbeSha256,
+    [Parameter(ParameterSetName='Run')][string]$NativeProvenancePath,
     [Parameter(ParameterSetName='Run')][string]$WindowCaptureDll,
     [Parameter(ParameterSetName='Run')][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$WindowCaptureSha256,
     [Parameter(ParameterSetName='Run')][ValidatePattern('^[0-9]+,[0-9]+,[1-9][0-9]*,[1-9][0-9]*$')][string]$HudBurstCrop,
@@ -71,9 +73,9 @@ if($Recover -and (Test-Path "$Result/recovery.json")){
             if($expected[$i].name -cne $actual[$i].name -or $expected[$i].sha256 -cne $actual[$i].sha256){throw 'Frozen private writer files changed.'}
         }
     }
-    $ShimAdmission=$savedMode -in @('shim-admission','shim-menu-trial','shim-car-trial','shim-applied-car-trial','shim-force-capture','shim-hud-ordinary','shim-hud-stop-only');$ShimMenuTrial=$savedMode -eq 'shim-menu-trial';$ShimCarTrial=$savedMode -in @('shim-car-trial','shim-applied-car-trial','shim-force-capture','shim-hud-ordinary');$ShimForceCapture=$savedMode -eq 'shim-force-capture';$ShimHudOrdinary=$savedMode -eq 'shim-hud-ordinary';$ShimHudStopOnly=$savedMode -eq 'shim-hud-stop-only'
+    $ShimAdmission=$savedMode -in @('shim-admission','shim-menu-trial','shim-car-trial','shim-applied-car-trial','shim-applied-forward-capture','shim-force-capture','shim-hud-ordinary','shim-hud-stop-only');$ShimMenuTrial=$savedMode -eq 'shim-menu-trial';$ShimCarTrial=$savedMode -in @('shim-car-trial','shim-applied-car-trial','shim-applied-forward-capture','shim-force-capture','shim-hud-ordinary');$ShimAppliedForwardCapture=$savedMode -eq 'shim-applied-forward-capture';$ShimForceCapture=$savedMode -eq 'shim-force-capture';$ShimHudOrdinary=$savedMode -eq 'shim-hud-ordinary';$ShimHudStopOnly=$savedMode -eq 'shim-hud-stop-only'
 }
-if($ShimHudStopOnly -and ($ShimMenuTrial -or $ShimCarTrial -or $ShimForceCapture -or $ShimHudOrdinary -or $PrivateApply)){throw 'HUD menu mode is isolated from car, menu-input and private Apply modes.'}
+if($ShimHudStopOnly -and ($ShimMenuTrial -or $ShimCarTrial -or $ShimAppliedForwardCapture -or $ShimForceCapture -or $ShimHudOrdinary -or $PrivateApply)){throw 'HUD menu mode is isolated from car, menu-input and private Apply modes.'}
 if($HudGuiDiagnosticPluginSha256 -and !$ShimHudStopOnly){throw 'HUD GUI trace is only available in the menu-only stop trial.'}
 if($HudDepthDiagnosticPluginSha256 -and !$ShimHudOrdinary){throw 'HUD depth diagnostic is only available in the ordinary moving trial.'}
 if($HudStateTracePluginSha256 -and !$ShimHudOrdinary){throw 'HUD state trace is only available in the ordinary moving trial.'}
@@ -83,6 +85,10 @@ if($HudBurstCrop -and !$ShimHudOrdinary){throw 'HUD burst crop is only available
 if([bool]$HudDiagnosticCoreSha256 -ne [bool]($HudGuiDiagnosticPluginSha256 -or $HudDepthDiagnosticPluginSha256 -or $HudStateTracePluginSha256)){throw 'HUD diagnostic plugin and Core pins must be supplied together.'}
 if(($ShimForceCapture -or $ShimHudOrdinary) -and ($ShimMenuTrial -or ($ShimForceCapture -and $ShimHudOrdinary))){throw 'Choose one bounded trial mode.'}
 if($ShimForceCapture -or $ShimHudOrdinary){$ShimCarTrial=$true}
+if($ShimAppliedForwardCapture){
+    if(!$PrivateApply -or $ShimForceCapture -or $ShimHudOrdinary -or $ShimMenuTrial){throw 'Applied forward capture requires only the private Apply car route.'}
+    $ShimCarTrial=$true
+}
 if(($ShimForceCapture -or $ShimHudOrdinary) -and $PrivateApply){throw 'Dynamic private Apply does not include force capture.'}
 if($ShimCarTrial -and $ShimMenuTrial){throw 'Choose one bounded trial mode.'}
 if($ShimMenuTrial -or $ShimCarTrial -or $ShimHudStopOnly -or $PrivateApply){$ShimAdmission=$true}
@@ -92,7 +98,7 @@ if($ShimAdmission) {
     $files.shim=Join-Path $plugin 'dbce_shim.dll'
     $roots.shimReports=Join-Path $GameDir 'BepInEx/WodenShim'
 }
-$mode=if($ShimHudStopOnly){'shim-hud-stop-only'}elseif($ShimHudOrdinary){'shim-hud-ordinary'}elseif($ShimForceCapture){'shim-force-capture'}elseif($ShimCarTrial -and $PrivateApply){'shim-applied-car-trial'}elseif($ShimCarTrial){'shim-car-trial'}elseif($ShimMenuTrial){'shim-menu-trial'}elseif($ShimAdmission){'shim-admission'}else{'raw'}
+$mode=if($ShimHudStopOnly){'shim-hud-stop-only'}elseif($ShimHudOrdinary){'shim-hud-ordinary'}elseif($ShimForceCapture){'shim-force-capture'}elseif($ShimAppliedForwardCapture){'shim-applied-forward-capture'}elseif($ShimCarTrial -and $PrivateApply){'shim-applied-car-trial'}elseif($ShimCarTrial){'shim-car-trial'}elseif($ShimMenuTrial){'shim-menu-trial'}elseif($ShimAdmission){'shim-admission'}else{'raw'}
 $blocked=@($request,$marker,(Join-Path $roots.config 'woden-record-next-launch.json'),(Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/woden/request.txt'))
 $probe=Join-Path $PSScriptRoot 'Probe/bin/Release/net6.0/Woden.ControlsProbe.dll'
 $configVerifier=Join-Path $PSScriptRoot 'VerifyConfig/bin/Release/net8.0/VerifyConfig.dll'
@@ -155,6 +161,17 @@ if($Recover) {
     foreach($p in $blocked){if(Test-Path -LiteralPath $p){throw "Existing request needs resolution: $p"}}
     $NativeCandidate=Full $NativeCandidate
     if((Get-ControlHash $NativeCandidate) -ne $NativeSha256 -or !(Test-Path -LiteralPath $probe) -or !(Test-Path -LiteralPath $configVerifier)){throw 'Build/hash preflight failed.'}
+    if($ShimAppliedForwardCapture){
+        if($NativeSha256 -ne '088F1089BEB6D18D478F37582C59330C6BDA6BC37D5E365F6BA7EBF80040F567' -or !$NativeProvenancePath){throw 'Applied forward capture requires the qualified load-muted native and provenance.'}
+        $NativeProvenancePath=Full $NativeProvenancePath
+        Assert-ControlPlain $NativeCandidate;Assert-ControlPlain $NativeProvenancePath
+        if((Get-ControlHash $NativeProvenancePath) -ne '6068B7A848F85FE42AE88EE8A86B10F1EF4C4E307B9C4235BE44C1A84BBEA8E5'){throw 'Qualified native provenance differs.'}
+        $provenance=Get-Content -LiteralPath $NativeProvenancePath -Raw | ConvertFrom-Json
+        if($provenance.dllSha256 -ne $NativeSha256 -or $provenance.define -cne 'WHEELFFB_NO_FORCE_BUILD' -or
+           $provenance.arch -cne 'x64' -or $provenance.marker -cne 'DBCE-WHEELFFB-NO-FORCE-TEST-BUILD' -or
+           $provenance.commit -cne 'eb77b909416b8a6ef70787e4621aaa62f16b9f45' -or $provenance.sourcesDirty -ne $false -or
+           $provenance.firstCallStatus -notmatch 'armed: no force \(no-force build\)'){throw 'Qualified native provenance is not the reviewed load-muted build.'}
+    } elseif($NativeProvenancePath){throw 'Native provenance is only accepted by applied forward capture.'}
     if(($PrivateApply -or $ShimHudOrdinary -or $ShimHudStopOnly) -and !$ProbeSha256){throw 'This mode requires the reviewed developer probe SHA-256.'}
     if($ShimHudOrdinary -or $ShimHudStopOnly){
         if($NativeSha256 -ne '24A9B624E3F3C474383C64A0177019BFB0837DE70B311854C59EE692D7DB03F5'){throw 'HUD ordinary mode requires the reviewed explicitly armed native test fence.'}
@@ -207,7 +224,8 @@ if($Recover) {
         if($PrivateApply){
             $nativeOwned=@($receipt.files | Where-Object { $_.path.Replace('\','/') -eq 'BepInEx/plugins/WodenRallyEdgeWheel/WheelFfb.dll' })
             if($nativeOwned.Count -ne 1 -or $nativeOwned[0].sha256 -ne $candidateHashes.native -or (Get-ControlHash $files.native) -ne $candidateHashes.native){throw 'Installed production native DLL differs from private receipt.'}
-            if($NativeSha256 -ne '24A9B624E3F3C474383C64A0177019BFB0837DE70B311854C59EE692D7DB03F5' -or $NativeSha256 -eq $candidateHashes.native){throw 'Private runtime requires the reviewed no-force test-native pin, distinct from the installed package.'}
+            $requiredTestNative=if($ShimAppliedForwardCapture){'088F1089BEB6D18D478F37582C59330C6BDA6BC37D5E365F6BA7EBF80040F567'}else{'24A9B624E3F3C474383C64A0177019BFB0837DE70B311854C59EE692D7DB03F5'}
+            if($NativeSha256 -ne $requiredTestNative -or $NativeSha256 -eq $candidateHashes.native){throw 'Private runtime requires the exact reviewed no-force test-native pin, distinct from the installed package.'}
         }
         if((Get-ControlHash (Join-Path $GameDir 'GameAssembly.dll')) -ne 'f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c'){throw 'Supported game build differs.'}
         if($ShimCarTrial){

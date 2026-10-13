@@ -1,7 +1,7 @@
 # Read-only postflight for the automatic trials. Restoration is necessary but
 # cannot turn an incomplete input trial into a passing runner exit.
 function Assert-ControlTrialResult([string]$Result, [string]$Mode) {
-    if ($Mode -notin @('shim-menu-trial','shim-car-trial','shim-applied-car-trial','shim-force-capture','shim-hud-ordinary','shim-hud-stop-only')) { return }
+    if ($Mode -notin @('shim-menu-trial','shim-car-trial','shim-applied-car-trial','shim-applied-forward-capture','shim-force-capture','shim-hud-ordinary','shim-hud-stop-only')) { return }
     function Read-TrialJson([string]$Name) {
         $path = Join-Path $Result $Name
         if (!(Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing trial evidence: $Name" }
@@ -54,6 +54,9 @@ function Assert-ControlTrialResult([string]$Result, [string]$Mode) {
     }
     if ($Mode -ne 'shim-menu-trial' -and ($trial.carEvidence.kind -cne 'new-original-not-reference-replay' -or
         $trial.carEvidence.nativePlateaus -le 0)) { throw 'No native car plateaus were qualified.' }
+    if ($Mode -eq 'shim-applied-forward-capture' -and ($trial.carEvidence.recipe -cne 'applied-forward-50pct-8s@1' -or
+        $trial.carEvidence.nativePlateaus -ne 3 -or $trial.carEvidence.forceCapture.forwardGroundedSeconds -lt 2 -or
+        $trial.carEvidence.forceCapture.qualifiedRows -le 0)) { throw 'Applied forward capture lacks measured qualified reference rows.' }
     if($Mode -eq 'shim-hud-ordinary'){
         if($trial.carEvidence.recipe -cne 'forward-50pct-8s@1' -or $trial.inputVerdict -notmatch 'probe-direct-stop, 5s HUD dwell'){
             throw 'HUD ordinary mode did not finish its exact probe stop and dwell.'

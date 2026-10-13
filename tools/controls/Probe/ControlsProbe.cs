@@ -331,7 +331,7 @@ public sealed partial class ControlsProbe : BasePlugin
         try { Trace?.Dispose(); } catch(Exception ex) { reason+="; trace close failed: "+ex.Message; } finally { Trace=null; }
         try { if(OwnedEvidence is not null) File.WriteAllText(Path.Combine(OwnedEvidence,"result.json"),JsonSerializer.Serialize(new{reason,rows=Rows,commands=RawCommands,inputVerdict=Protocol.HudStopOnly(Request)?HudVerdict:Protocol.CarTrial(Request)?CarVerdict:Protocol.MenuTrial(Request)?TrialVerdict:"unclassified",physicalOutput=false,
             carEvidence=Protocol.CarTrial(Request)?new{recording=CarRecording,kind="new-original-not-reference-replay",nativePlateaus=CarPulseCount,
-                recipe=Protocol.ForceCapture(Request)?"forward-50pct-8s@1":"six-actions@1",forceCapture=Protocol.ForceCapture(Request)?ForceCoverage:null,
+                recipe=Protocol.AppliedForwardCapture(Request)?"applied-forward-50pct-8s@1":Protocol.ForceCapture(Request)?"forward-50pct-8s@1":"six-actions@1",forceCapture=Protocol.ForceCapture(Request)?ForceCoverage:null,
                 forceProducer="existing diagnostic source.jsonl; inspect actual ffb validity/gates",pressure="unavailable: no native pressure channel qualified",
                 torque="native wheel torque channels/missing list retained; proportional handbrake and physical torque not qualified",opponents="none",temporaryTransmission="player0 Manual"}:null},Protocol.Json)); }
         catch(Exception ex) { Instance?.Log.LogError("Controls result write failed: "+ex.Message); }

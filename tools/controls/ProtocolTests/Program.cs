@@ -79,6 +79,11 @@ foreach(var op in new[]{"status","stop"})Check(Protocol.Command(Bytes(command wi
 var appliedCar=car with{Schema=7,Mode="shim-applied-car-trial",ProfileSha256=hash,WorkloadSha256=hash,ProfileRevision=hash,ApplyReadbackSha256=hash};
 Check(Protocol.Admit(Bytes(appliedCar),now,nonce)==appliedCar && Protocol.DynamicCarTrial(appliedCar) &&
     Protocol.CarTrial(appliedCar) && Protocol.ShimAdmission(appliedCar) && Protocol.LatchedTrial(appliedCar) && !Protocol.ForceCapture(appliedCar));
+var appliedForward=appliedCar with{Mode="shim-applied-forward-capture"};
+Check(Protocol.Admit(Bytes(appliedForward),now,nonce)==appliedForward && Protocol.AppliedForwardCapture(appliedForward) &&
+    Protocol.DynamicCarTrial(appliedForward) && Protocol.ForceCapture(appliedForward) && Protocol.CarTrial(appliedForward));
+foreach(var r in new[]{appliedForward with{Schema=6},appliedForward with{ProfileSha256=null},appliedForward with{ApplyReadbackSha256=null}})
+    Refuse(()=>Protocol.Admit(Bytes(r),now,nonce));
 foreach(var r in new[]{appliedCar with{Schema=5},appliedCar with{Mode="shim-car-trial"},appliedCar with{ProfileSha256=null},
     appliedCar with{WorkloadSha256="bad"},appliedCar with{ProfileRevision=null},appliedCar with{ApplyReadbackSha256=null},car with{ProfileSha256=hash}})
     Refuse(()=>Protocol.Admit(Bytes(r),now,nonce));
@@ -123,6 +128,9 @@ if(args.Length==5 && args[0]=="--applied") {
     var applied=Read(controls,profile,workload);
     Check(applied.Transmission==args[4] && applied.Revision==revision && applied.Actions.Length==6 && applied.Devices.Count is >0 and <=4);
     Check(applied.Neutral.Command.Split('\n').Length==6 && applied.Pulses.Length==10 && applied.Pulses.All(p=>p.DurationMs==700));
+    Check(applied.Forward.Length==3 && applied.Forward[1] is {Action:"throttle",Expected:.5,DurationMs:8000} &&
+        applied.Forward[1].Command.Split('\n').Length==6 &&
+        applied.Forward[1].Command.Split('\n').All(line=>line.Split(' ').Contains("ms=8000")));
     Check(applied.Gaps.Any(g=>g.StartsWith("clutch:",StringComparison.Ordinal)) &&
         applied.Pulses.All(p=>p.Action is not ("clutch" or "select" or "gear7" or "gear8")));
     Check(applied.Pulses.Take(2).Select(p=>p.Action).SequenceEqual(args[4]=="Sequential"?["shiftUp","shiftDown"]:["gear2","gear1"]));
@@ -131,6 +139,8 @@ if(args.Length==5 && args[0]=="--applied") {
         var throttle=applied.Pulses.Single(p=>p.Action=="throttle"&&p.Expected==.5);
         var cut=applied.Pulses.Single(p=>p.Action=="throttleCut");
         Check(gate>=0 && throttle.Command.Split('\n')[gate].Contains(" value=1 ") && cut.Command.Split('\n')[gate].Contains(" value=0 "));
+        Check(applied.Forward[1].Command.Split('\n')[gate].Contains(" value=1 ") &&
+            applied.Forward[1].Command.Split('\n')[Array.IndexOf(applied.Actions,"throttle")].Contains(" ms=8000 "));
         Check(Observe("throttleCut",.5).Passed && !Observe("throttleCut",.5,v=>v["game.throttle"]=.5).Passed);
         // A valid alternate applied profile may use a hat for a forward gate
         // and a digital pedal; the dynamic plan must not depend on this rig's
