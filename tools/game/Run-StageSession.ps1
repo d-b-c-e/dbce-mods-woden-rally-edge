@@ -31,6 +31,7 @@ if ($rigPin.schema -ne 'dbce.stage-rig-lease-pin@1' -or (Get-FileHash -LiteralPa
 $Result = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Result)
 $GameDir = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($GameDir)
 if ($Recording) { $Recording = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Recording) }
+if ($AdmittedPackage) { $AdmittedPackage = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($AdmittedPackage) }
 $control = Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/woden'
 $data = Join-Path $env:USERPROFILE 'AppData/LocalLow/ViJuDa/Super Woden Rally Edge'
 $backup = Join-Path $Result 'owner-before'
