@@ -79,7 +79,9 @@ if($Recover -and (Test-Path "$Result/recovery.json")){
             if($expected[$i].name -cne $actual[$i].name -or $expected[$i].sha256 -cne $actual[$i].sha256){throw 'Frozen private writer files changed.'}
         }
     }
-    $ShimAdmission=$savedMode -in @('shim-admission','shim-menu-trial','shim-car-trial','shim-applied-car-trial','shim-applied-forward-capture','shim-applied-forward-ordinary','shim-force-capture','shim-hud-ordinary','shim-hud-stop-only');$ShimMenuTrial=$savedMode -eq 'shim-menu-trial';$ShimCarTrial=$savedMode -in @('shim-car-trial','shim-applied-car-trial','shim-applied-forward-capture','shim-applied-forward-ordinary','shim-force-capture','shim-hud-ordinary');$ShimAppliedForwardCapture=$savedMode -in @('shim-applied-forward-capture','shim-applied-forward-ordinary');$OrdinarySavedForward=$savedMode -eq 'shim-applied-forward-ordinary';$OrdinaryFullSession=[bool]$savedState.fullSession;$ShimForceCapture=$savedMode -eq 'shim-force-capture';$ShimHudOrdinary=$savedMode -eq 'shim-hud-ordinary';$ShimHudStopOnly=$savedMode -eq 'shim-hud-stop-only'
+    # The first failed S1 result used a distinct mode. Recovery may still read it; new cold requests use the frozen ordinary mode.
+    $legacyFullSession=$savedMode -eq 'shim-applied-forward-full-session'
+    $ShimAdmission=$savedMode -in @('shim-admission','shim-menu-trial','shim-car-trial','shim-applied-car-trial','shim-applied-forward-capture','shim-applied-forward-ordinary','shim-applied-forward-full-session','shim-force-capture','shim-hud-ordinary','shim-hud-stop-only');$ShimMenuTrial=$savedMode -eq 'shim-menu-trial';$ShimCarTrial=$savedMode -in @('shim-car-trial','shim-applied-car-trial','shim-applied-forward-capture','shim-applied-forward-ordinary','shim-applied-forward-full-session','shim-force-capture','shim-hud-ordinary');$ShimAppliedForwardCapture=$savedMode -in @('shim-applied-forward-capture','shim-applied-forward-ordinary','shim-applied-forward-full-session');$OrdinarySavedForward=$savedMode -in @('shim-applied-forward-ordinary','shim-applied-forward-full-session');$OrdinaryFullSession=$legacyFullSession -or [bool]$savedState.fullSession;$ShimForceCapture=$savedMode -eq 'shim-force-capture';$ShimHudOrdinary=$savedMode -eq 'shim-hud-ordinary';$ShimHudStopOnly=$savedMode -eq 'shim-hud-stop-only'
 }
 if($OrdinarySavedForward -and (!$ShimAppliedForwardCapture -or !$PrivateApply -or $ShimForceCapture -or $ShimHudOrdinary -or $ShimMenuTrial -or $ShimHudStopOnly)){throw 'Ordinary Saved forward requires only the private applied-forward route.'}
 if($OrdinaryFullSession -and !$OrdinarySavedForward){throw 'Full-session assertion requires the ordinary Saved forward route.'}
@@ -298,9 +300,9 @@ if($Recover) {
                    $metadata.nativeDefaultState -cne 'armed' -or $metadata.requiresExplicitArm -ne $false -or
                    (Get-Content -LiteralPath $automationMarker -Raw) -notmatch 'INTERNAL AUTOMATION ONLY'){throw 'Ordinary automation package identity differs.'}
                 if($OrdinaryFullSession){
-                    if($metadata.sourceCommit -cne '1963be45e44e016f5ccb86a93b81b7beff016261' -or
-                       $candidateHashes.plugin -ne 'A96BA20BCC7ADBBF41B5D920735BE818EF59D5E48FDBA7FC66C2D703AD218C02' -or
-                       $candidateHashes.core -ne 'B2518F579CC9CF9A913BE5BF56AD9758F2D0944B1CB16E5D3D6BEDC578676A02'){
+                    if($metadata.sourceCommit -cne '7978d19484d624d37455b5267b4cb0c18fd741df' -or
+                       $candidateHashes.plugin -ne 'DED286B4FAC613C3C56FC5DA7307FFBFA7DA0B735D0A6F29AD01A48C57D57431' -or
+                       $candidateHashes.core -ne '93691ABA55826513D9823DC1A64EEBE7E599EFC496E4AB5CFE1FCC54C50FD465'){
                         throw 'S1 ordinary automation managed payload differs.'
                     }
                 } elseif($metadata.sourceCommit -cne 'a9a255c3277cb0ae6e8ec11f18b2f0c17b3c22a9' -or

@@ -82,9 +82,9 @@ if($automation.schema -cne 'woden.automation-muted-native@1' -or $automation.nat
     throw 'Temporary package is not the reviewed load-muted automation flavor.'
 }
 if($FullSession){
-    if($automation.sourceCommit -cne '1963be45e44e016f5ccb86a93b81b7beff016261' -or
-       (Get-ControlHash (Join-Path $candidate 'WodenRallyEdgeWheel.dll')) -ne 'A96BA20BCC7ADBBF41B5D920735BE818EF59D5E48FDBA7FC66C2D703AD218C02' -or
-       (Get-ControlHash (Join-Path $candidate 'WodenRallyEdge.Core.dll')) -ne 'B2518F579CC9CF9A913BE5BF56AD9758F2D0944B1CB16E5D3D6BEDC578676A02'){
+    if($automation.sourceCommit -cne '7978d19484d624d37455b5267b4cb0c18fd741df' -or
+       (Get-ControlHash (Join-Path $candidate 'WodenRallyEdgeWheel.dll')) -ne 'DED286B4FAC613C3C56FC5DA7307FFBFA7DA0B735D0A6F29AD01A48C57D57431' -or
+       (Get-ControlHash (Join-Path $candidate 'WodenRallyEdge.Core.dll')) -ne '93691ABA55826513D9823DC1A64EEBE7E599EFC496E4AB5CFE1FCC54C50FD465'){
         throw 'S1 automation candidate source or managed payload differs.'
     }
 } elseif($automation.sourceCommit -cne 'a9a255c3277cb0ae6e8ec11f18b2f0c17b3c22a9' -or
