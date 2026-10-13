@@ -44,6 +44,9 @@ $Result = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPat
 $GameDir = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($GameDir)
 if ($Recording) { $Recording = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Recording) }
 if ($AdmittedPackage) { $AdmittedPackage = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($AdmittedPackage) }
+if ($AdmittedPackage -and $Result.StartsWith($AdmittedPackage.TrimEnd('\','/') + [IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Result must stay outside the admitted package.'
+}
 if (($RequestId -and (!$AdmittedPackage -or !$PackageSealSha256)) -or ($PackageSealSha256 -and !$RequestId)) {
     throw 'RequestId and PackageSealSha256 require an admitted playback package together.'
 }
@@ -127,6 +130,17 @@ function Write-TerminalResult {
     $stream = [IO.FileStream]::new((Join-Path $Result 'result.json'),[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
     try { $stream.Write($bytes,0,$bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
 }
+function Get-ObservedGameExitEvidence([object]$Process,[IntPtr]$ObservedHandle) {
+    if ($ObservedHandle -eq [IntPtr]::Zero) { throw 'The exact game process handle was unavailable while alive.' }
+    $exited = $false; $exitCode = $null
+    try {
+        $exited = $Process.HasExited
+        if ($exited) { $exitCode = $Process.ExitCode } # Preserve null; never coerce an unavailable code to zero.
+    } catch { $exited = $false; $exitCode = $null }
+    $evidence = New-StageGameExitEvidence -CloseMainWindowRequested:$false -Exited:$exited -ExitCode $exitCode -ProcessId $Process.Id
+    $evidence | Add-Member -NotePropertyName handleObservedWhileAlive -NotePropertyValue $true
+    return $evidence
+}
 function Save-Owner {
     [IO.Directory]::CreateDirectory($backup) | Out-Null
     $files = @(foreach ($file in Owner-Files) {
@@ -180,7 +194,7 @@ function Restore-Owner {
 $resultMayWrite = [bool]$RequestId -and !(Test-Path -LiteralPath $Result)
 $runFailure = $null; $sessionSucceeded = $false; $outputsMuted = $false
 $admittedSessionSha = $null; $verifiedPackageSeal = $null; $admittedSeal = $null; $exitEvidence = $null
-$gameProcess = $null
+$gameProcess = $null; $gameHandle = [IntPtr]::Zero
 $lease = [Threading.Mutex]::new($false,'Local\DbceStageReplayRunner')
 $held = $false
 try {
@@ -276,6 +290,8 @@ try {
             if (!$gameProcess) {
                 if (@($running).Count -ne 1) { throw 'Multiple Woden processes appeared during replay.' }
                 $gameProcess = @($running)[0] # Retain this handle for the numeric exit code after the process closes.
+                $gameHandle = $gameProcess.Handle
+                if ($gameHandle -eq [IntPtr]::Zero) { throw 'The exact game process handle was unavailable while alive.' }
             } elseif (@($running | Where-Object Id -NE $gameProcess.Id).Count) { throw 'Woden process identity changed during replay.' }
         }
         $statusPath = Join-Path $control 'status.txt'
@@ -297,10 +313,8 @@ try {
         if (!(Test-Path -LiteralPath (Join-Path $control 'request.txt'))) { & $command -Game woden -Action Stop | Write-Output }
         throw 'Replay deadline exceeded. Stop requested; close the game, then use -RestoreOnly with this Result.'
     }
-    $gameExited = $false; $gameExitCode = $null
     if ($gameProcess) {
-        try { $gameExited = $gameProcess.HasExited; if ($gameExited) { $gameExitCode = [int]$gameProcess.ExitCode } } catch { $gameExited = $false; $gameExitCode = $null }
-        $exitEvidence = New-StageGameExitEvidence -CloseMainWindowRequested:$false -Exited:$gameExited -ExitCode $gameExitCode -ProcessId $gameProcess.Id
+        $exitEvidence = Get-ObservedGameExitEvidence -Process $gameProcess -ObservedHandle $gameHandle
         $exitEvidence | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath (Join-Path $Result 'game-exit.json') -Encoding utf8
     }
     foreach ($file in @((Join-Path $GameDir 'BepInEx/LogOutput.log'),(Join-Path $data 'Player.log'))) {

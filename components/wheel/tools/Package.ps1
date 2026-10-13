@@ -97,6 +97,8 @@ if ($AutomationMutedNativePath) {
 }
 Copy-Item -LiteralPath (Join-Path $root 'lib\recording\provenance.json') -Destination (Join-Path $plugin 'recording-provenance.json')
 $playback = Join-Path $root '../../vendor/playback'
+if ((Get-FileHash -LiteralPath (Join-Path $playback 'Stage-RunnerLifecycle.ps1') -Algorithm SHA256).Hash -ne
+    '4BA9A38519C981E4B9D7CF3C9765C9DCB0ECB4C15F3720CDB197C6DF4A27F62C') { throw 'Vendored runner lifecycle differs from the reviewed source.' }
 Copy-Item -LiteralPath (Join-Path $playback 'provenance.json') -Destination (Join-Path $plugin 'playback-provenance.json')
 Copy-Item -LiteralPath (Join-Path $playback 'LICENSE') -Destination (Join-Path $plugin 'playback-LICENSE.txt')
 Copy-Item -LiteralPath (Join-Path $playback 'Stage-Session.ps1') -Destination $plugin

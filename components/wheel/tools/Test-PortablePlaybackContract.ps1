@@ -64,6 +64,16 @@ if (@($runnerErrors).Count) { throw 'Runner did not parse.' }
 $writer = @($runnerAst.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Write-TerminalResult'},$false))
 if ($writer.Count -ne 1) { throw 'Expected one terminal result writer.' }
 Invoke-Expression $writer[0].Extent.Text
+$exitReader = @($runnerAst.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-ObservedGameExitEvidence'},$false))
+if ($exitReader.Count -ne 1) { throw 'Expected one runner game-exit reader.' }
+Invoke-Expression $exitReader[0].Extent.Text
+$unknownExit = Get-ObservedGameExitEvidence -Process ([pscustomobject]@{HasExited=$true;ExitCode=$null;Id=1234}) -ObservedHandle ([IntPtr]::new(1))
+if (!$unknownExit.exited -or $null -ne $unknownExit.exitCode -or $unknownExit.shutdownPass -or !$unknownExit.handleObservedWhileAlive) {
+    throw 'Runner converted an unavailable exit code into a clean exit.'
+}
+$cleanExit = Get-ObservedGameExitEvidence -Process ([pscustomobject]@{HasExited=$true;ExitCode=[int]0;Id=1234}) -ObservedHandle ([IntPtr]::new(1))
+if (!$cleanExit.shutdownPass -or $cleanExit.exitCode -ne 0) { throw 'Runner missed an observed exit code 0.' }
+Refuses { Get-ObservedGameExitEvidence -Process ([pscustomobject]@{HasExited=$true;ExitCode=[int]0;Id=1234}) -ObservedHandle ([IntPtr]::Zero) }
 $RequestId = $requestId; $resultMayWrite = $true; $AdmittedPackage = Join-Path $fixtureRoot 'derived'
 $admittedSessionSha = 'c'*64; $verifiedPackageSeal = 'b'*64; $admittedSeal = 'd'*64
 $sessionSucceeded = $true; $outputsMuted = $true; $runFailure = $null
@@ -80,4 +90,4 @@ foreach ($code in 0,1) {
     }
     Refuses { Write-TerminalResult } # CreateNew keeps the first terminal result immutable.
 }
-Write-Host "PASS: revision-4/5 ownership, disabled capability, lifecycle pin, bounded failure result and numeric-exit terminal binding. Fixture: $fixtureRoot"
+Write-Host "PASS: revision-4/5 ownership, disabled capability, lifecycle pin, bounded failure result and retained-handle numeric-exit binding. Fixture: $fixtureRoot"
