@@ -42,6 +42,7 @@ $provenance='E:/Source/dbce-project-mgmt/artifacts/wheelffb-noforce-20261013/x64
 $nativeHash='088F1089BEB6D18D478F37582C59330C6BDA6BC37D5E365F6BA7EBF80040F567'
 $provenanceHash='6068B7A848F85FE42AE88EE8A86B10F1EF4C4E307B9C4235BE44C1A84BBEA8E5'
 $originalReceipt='F645FE983D7A313DF3C3BC7550A03F4AE9F0B6AC1C3184AF129F0B63FB5EF6B5'
+$prefsKey='HKCU:\Software\ViJuDa\Super Woden Rally Edge'
 Pin $manifestPath $PackageManifestSha256; Pin $receiptPath $originalReceipt
 Pin $PrivateWriter $PrivateWriterSha256; Pin $PrivateCatalog $PrivateCatalogSha256
 Pin $native $nativeHash; Pin $provenance $provenanceHash
