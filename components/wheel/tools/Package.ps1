@@ -2,6 +2,7 @@
 param(
     [ValidatePattern('^[a-z0-9][a-z0-9.-]*$')][string]$ArtifactLabel,
     [string]$PrivateShimPath,
+    [string]$AutomationMutedNativePath,
     [switch]$HudGuiDiagnostic,
     [switch]$HudDepthDiagnostic,
     [switch]$HudStateTrace
@@ -13,10 +14,29 @@ if ($HudGuiDiagnostic -and $ArtifactLabel -notmatch '^hudgui-') { throw 'HUD GUI
 if ($HudStateTrace -and $ArtifactLabel -notmatch '^hudstate-') { throw 'HUD state trace packages require a hudstate- artifact label.' }
 $root = Split-Path $PSScriptRoot -Parent
 $privateShimHash = '9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8'
+$automationNativeHash = '24A9B624E3F3C474383C64A0177019BFB0837DE70B311854C59EE692D7DB03F5'
+$baseNativeHash = 'F8361A08BBE08EAAB936B37800D308CF1FC7EDAB34E2839DB16A447FE34178C5'
 if ($PrivateShimPath) {
     if (-not [IO.Path]::IsPathFullyQualified($PrivateShimPath) -or -not (Test-Path -LiteralPath $PrivateShimPath -PathType Leaf)) { throw 'PrivateShimPath must be an existing absolute file.' }
     $PrivateShimPath = [IO.Path]::GetFullPath($PrivateShimPath)
     if ((Get-FileHash -LiteralPath $PrivateShimPath).Hash -ne $privateShimHash) { throw 'PrivateShimPath does not match the reviewed ABI 2 pin.' }
+}
+if ($AutomationMutedNativePath) {
+    if (-not $PrivateShimPath -or $ArtifactLabel -notmatch '^automation-muted-[a-z0-9.-]+$') {
+        throw 'Automation-muted native requires a private shim and an automation-muted- artifact label.'
+    }
+    if (-not [IO.Path]::IsPathFullyQualified($AutomationMutedNativePath) -or -not (Test-Path -LiteralPath $AutomationMutedNativePath -PathType Leaf)) {
+        throw 'AutomationMutedNativePath must be an existing absolute file.'
+    }
+    $AutomationMutedNativePath = [IO.Path]::GetFullPath($AutomationMutedNativePath)
+    if ((Get-FileHash -LiteralPath $AutomationMutedNativePath).Hash -ne $automationNativeHash) {
+        throw 'AutomationMutedNativePath does not match the proven no-force test native pin.'
+    }
+    $sourceCommit = (& git -C (Join-Path $root '..\..') rev-parse HEAD).Trim()
+    if ($LASTEXITCODE -ne 0 -or $sourceCommit -notmatch '^[a-f0-9]{40}$') { throw 'Automation package source commit could not be pinned.' }
+    if (@(& git -C (Join-Path $root '..\..') status --porcelain --untracked-files=no).Count -ne 0) {
+        throw 'Automation package requires a clean tracked source checkout.'
+    }
 }
 & (Join-Path $PSScriptRoot 'Verify-Dependencies.ps1')
 $buildArgs = @('build',(Join-Path $root 'WodenRallyEdgeWheel.sln'),'-c','Release','-warnaserror','-v','q')
@@ -40,6 +60,24 @@ $bin = Join-Path $root 'src\WodenRallyEdge.Plugin\bin\Release\net6.0'
 # Allowlist prevents game/interop/core/analysis assemblies entering a release.
 foreach ($name in 'WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Recording.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll','Dbce.Wheel.Playback.dll') {
     Copy-Item -LiteralPath (Join-Path $bin $name) -Destination $plugin
+}
+if ($AutomationMutedNativePath) {
+    if ((Get-FileHash -LiteralPath (Join-Path $plugin 'WheelFfb.dll')).Hash -ne $baseNativeHash) {
+        throw 'Automation package base native differs from the pinned v0.12.0 payload.'
+    }
+    Copy-Item -LiteralPath $AutomationMutedNativePath -Destination (Join-Path $plugin 'WheelFfb.dll') -Force
+    if ((Get-FileHash -LiteralPath (Join-Path $plugin 'WheelFfb.dll')).Hash -ne $automationNativeHash) {
+        throw 'Staged automation native differs from the proven no-force pin.'
+    }
+    [ordered]@{
+        schema='woden.automation-muted-native@1'; purpose='internal unattended test only; never an owner or public release candidate'
+        sourceCommit=$sourceCommit
+        baseToolkitVersion='v0.12.0'; baseNativeSha256=$baseNativeHash.ToLowerInvariant()
+        nativeSha256=$automationNativeHash.ToLowerInvariant()
+        provenance='raw-controls-20261010-07 reviewed native no-force test artifact; arm EnableTestInjection before any force path'
+    } | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath (Join-Path $stage 'automation-native-provenance.json') -Encoding utf8
+    'INTERNAL AUTOMATION ONLY. This package contains a test-native DLL; never install it as an owner or public candidate.' |
+        Set-Content -LiteralPath (Join-Path $stage 'AUTOMATION-ONLY.txt') -Encoding utf8
 }
 Copy-Item -LiteralPath (Join-Path $root 'lib\recording\provenance.json') -Destination (Join-Path $plugin 'recording-provenance.json')
 $playback = Join-Path $root '../../vendor/playback'
