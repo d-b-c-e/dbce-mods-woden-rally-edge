@@ -207,8 +207,8 @@ internal static class FrameRate {internal static string Summary=>"52 fps average
         internal bool TryAxis(AxisBinding? b,out float value){value=0;var d=Devices.FirstOrDefault(d=>d.Info.InstanceGuid==b?.DeviceGuid);if(b==null||d?.Ok!=true)return false;value=(float)b.Normalize(d.Axes[b.Axis]);return true;}
         internal IEnumerable<ButtonBinding> PressedButtons()=>Pressed;
           internal bool Button(ButtonBinding b,bool edge,string action="default")=>Pressed.Contains(b);
-        // As production DeviceHub: the follow-steering reason comes from WheelInput (pending or empty shared profile).
-        internal ForceTarget ResolveForceTarget(bool f,string id,Guid? s)=>ForceSelection.Resolve(f,id,s,Devices.Select(d=>new ForceCandidate(d.Info.InstanceGuid!.Value,d.Info.Name,d.Info.ForceFeedback)),Runtime.Wheel?.SteeringReason);
+        // As production DeviceHub: the caller passes the pending or empty shared-profile reason.
+        internal ForceTarget ResolveForceTarget(bool f,string id,Guid? s,string? reason)=>ForceSelection.Resolve(f,id,s,Devices.Select(d=>new ForceCandidate(d.Info.InstanceGuid!.Value,d.Info.Name,d.Info.ForceFeedback)),reason);
     }
     internal static class Runtime
     {

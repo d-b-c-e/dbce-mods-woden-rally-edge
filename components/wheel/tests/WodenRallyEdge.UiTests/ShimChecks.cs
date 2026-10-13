@@ -120,15 +120,15 @@ internal static partial class ShimChecks
         Reset(dir);Runtime.Wheel!.Bindings.Steer=new(legacy,0,new(0,65535,32768));
         Runtime.Devices!.Devices.Add(new DeviceHub.Device{Info=new(){InstanceGuid=legacy,Name="Legacy wheel"}});
         Runtime.Devices.Devices.Add(new DeviceHub.Device{Info=new(){InstanceGuid=steering,Name="Shared wheel"}});
-        var pendingTarget=Runtime.Devices.ResolveForceTarget(true,"",Runtime.Wheel.SteeringGuid);
+        var pendingTarget=Runtime.Devices.ResolveForceTarget(true,"",Runtime.Wheel.SteeringGuid,Runtime.Wheel.SteeringReason);
         Check(ShimInput.PendingShared&&Runtime.Wheel.SteeringGuid==null&&!pendingTarget.Ready&&pendingTarget.Reason.StartsWith("Waiting for the shared controls profile"),
             "pending shared profile: a stale legacy Steer is not a follow-steering FFB target");
-        Check(Runtime.Devices.ResolveForceTarget(false,legacy.ToString(),Runtime.Wheel.SteeringGuid).Guid==legacy,"pending shared profile: an explicit FFB wheel still wins");
+        Check(Runtime.Devices.ResolveForceTarget(false,legacy.ToString(),Runtime.Wheel.SteeringGuid,Runtime.Wheel.SteeringReason).Guid==legacy,"pending shared profile: an explicit FFB wheel still wins");
         Set("_terminal",true);
-        var stopped=Runtime.Devices.ResolveForceTarget(true,"",Runtime.Wheel.SteeringGuid);
+        var stopped=Runtime.Devices.ResolveForceTarget(true,"",Runtime.Wheel.SteeringGuid,Runtime.Wheel.SteeringReason);
         Check(ShimInput.StoppedBeforeOpen&&!stopped.Ready&&stopped.Reason.StartsWith("Shared input stopped before opening"),"stopped before opening (not refused): the legacy Steer stays blocked");
         Set("_terminal",false);Set("_refused",true);
-        Check(!ShimInput.PendingShared&&Runtime.Devices.ResolveForceTarget(true,"",Runtime.Wheel.SteeringGuid).Guid==legacy,"an actual refusal (Native retained) follows the native Steer binding");
+        Check(!ShimInput.PendingShared&&Runtime.Devices.ResolveForceTarget(true,"",Runtime.Wheel.SteeringGuid,Runtime.Wheel.SteeringReason).Guid==legacy,"an actual refusal (Native retained) follows the native Steer binding");
         Reset(dir);Runtime.Settings.InputBackend="Native";ShimInput.Start(AppContext.BaseDirectory,dir,Path.Combine(dir,"reports"));
         Runtime.Wheel!.Bindings.Steer=new(legacy,0,new(0,65535,32768));
         Check(!ShimInput.PendingShared&&Runtime.Wheel.SteeringGuid==legacy&&Runtime.Wheel.SteeringReason==null,"Native backend follows the native Steer binding as before");

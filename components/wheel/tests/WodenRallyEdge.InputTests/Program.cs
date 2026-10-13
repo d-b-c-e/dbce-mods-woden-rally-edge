@@ -15,6 +15,8 @@ var reader=new PovSnapshotReader((slot,axes,axisCount,buttons,buttonCount,pov,po
 });
 var hub=new DeviceHub(reader);
 hub.Devices.Add(new(){Slot=42,Info=new(){InstanceGuid=guid,Name="Synthetic wheel",Axes=8,Buttons=128}});
+Check(hub.ResolveForceTarget(true,"",null,"Shared steering pending").Reason=="Shared steering pending",
+    "production hub preserves caller's missing shared-steering reason");
 for(hat=0;hat<4;hat++) for(int direction=0;direction<8;direction++)
 {
     int binding=128+hat*8+direction;

@@ -422,7 +422,7 @@ internal static class Panel
         Label(250,156,160,"FFB:");
         if(Button(430,152,90,"Off",!cfg.FfbEnabled)) {try{force.SetEnabled(false);}catch(Exception ex){Message="Save failed: "+ex.Message;}}
         if(Button(532,152,90,"On",cfg.FfbEnabled)) {try{force.SetEnabled(true);}catch(Exception ex){Message="Save failed: "+ex.Message;}}
-        var target=Runtime.Devices!.ResolveForceTarget(cfg.FfbFollowSteering,cfg.FfbGuid,Runtime.Wheel!.SteeringGuid);
+        var target=Runtime.Devices!.ResolveForceTarget(cfg.FfbFollowSteering,cfg.FfbGuid,Runtime.Wheel!.SteeringGuid,Runtime.Wheel.SteeringReason);
         Label(250,208,690,"FFB device:",true);
         string chosen=cfg.FfbFollowSteering?"Use steering wheel":Guid.TryParse(cfg.FfbGuid,out var id)?Runtime.Devices.Describe(id):"Choose a wheel";
         if(chosen.Length>65)chosen=chosen[..62]+"…";
