@@ -4,6 +4,8 @@ October 13 STD-012 ordinary source candidate: the existing one-launch signal rec
 
 October 13 current install: HUD-stable private candidate source `d8df97b` is installed under receipt `F645FE98`, with Native still saved; rendered physical scanout and ordinary Shim FFB-open/shared-reader coexistence remain open. Older dated source-only notes below retain their historical meaning. The newly merged STD-037 is pending Woden's end-to-end schema-2 adoption. STD-016/017/020 remain unchecked and STD-031 remains pending.
 
+October 13 bounded STD-033/034/035 follow-up: the frozen Wheelkit 0.6.31 writer applied a copy of the owner's H-pattern profile to installed `d8df97b`; the native car consumed gear 1 to 2 to 1 and the tested steering, throttle, brake and handbrake plateaus. Original receipt, production native and owner state were restored after a muted run. This is a qualified software Apply-to-car path for those exact actions only. Other gates, physical shifter/FFB behavior, normalization and the newer uninstalled ordinary Stop source are outside that result. See the [live result](../../dbce-project-mgmt/artifacts/woden-private-apply-20261013/hpattern-d8df97b-result.md).
+
 October 12 force-analysis follow-up (STD-003/025/027): ordinary requested and
 stage captures now share a capture-local history helper with separate instances,
 the production load reference, explicit `woden.force-analysis@1` provenance and
