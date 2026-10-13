@@ -1,0 +1,411 @@
+{
+  "schema": "woden.stage-context@1",
+  "role": "observed launch context; native startup restoration is not yet qualified",
+  "scene": "Kenya SS1",
+  "gameAssemblySha256": "f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c",
+  "carId": 8,
+  "playerIndex": 0,
+  "playerCount": 1,
+  "gameMode": "Arcade",
+  "subMode": "Arcade",
+  "arcadeRoute": 0,
+  "arcadeRound": 0,
+  "competitionIndex": 9,
+  "competitionRound": 0,
+  "competitionAsset": "ARC_Easy",
+  "trackAsset": "Kenya SS1",
+  "trackName": "Kenya SS1",
+  "roundHour": 19,
+  "roundTimeSpeed": 0,
+  "roundLaps": 1,
+  "roundWeather": "Clear",
+  "raceLaps": 1,
+  "raceRivals": 0,
+  "reverseTrack": false,
+  "damage": true,
+  "rollingStart": false,
+  "ghostMode": false,
+  "fuelConsumptionScale": 0.5,
+  "selection": {
+    "gameMode": "Arcade",
+    "subMode": "Arcade",
+    "playerCount": 1,
+    "arcadeRoute": 0,
+    "arcadeRound": 0,
+    "arcadeCars": [
+      8,
+      0,
+      0,
+      0
+    ],
+    "arcadeSkins": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "arcadeAutoTransmission": [
+      false,
+      true,
+      true,
+      true
+    ],
+    "autoTransmission": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "playerCamera": [
+      1,
+      1,
+      1,
+      1
+    ],
+    "competitionIndex": 9,
+    "competitionRound": 0,
+    "competingCarSlotId": 1,
+    "difficulty": 0,
+    "gameMasterPlayerCount": 1,
+    "gameMasterCars": [
+      61,
+      0,
+      0,
+      0
+    ],
+    "gameMasterSkins": [
+      5,
+      0,
+      0,
+      0
+    ],
+    "demo": false
+  },
+  "observedScenes": [
+    "SplashScreen",
+    "DailyMessageScreen",
+    "Title Screen",
+    "MapScreen",
+    "StagePresentation",
+    "Kenya SS1"
+  ],
+  "nativeSceneRequests": [
+    {
+      "sceneFrom": "SplashScreen",
+      "sceneTo": "DailyMessageScreen",
+      "nativeMethod": "MenuCameraScript.LoadScene",
+      "loading": true,
+      "flag": false,
+      "selection": {
+        "gameMode": "Arcade",
+        "subMode": "Arcade",
+        "playerCount": 1,
+        "arcadeRoute": 0,
+        "arcadeRound": 1,
+        "arcadeCars": [
+          42,
+          0,
+          0,
+          0
+        ],
+        "arcadeSkins": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "arcadeAutoTransmission": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "autoTransmission": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "playerCamera": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "competitionIndex": 9,
+        "competitionRound": 0,
+        "competingCarSlotId": 1,
+        "difficulty": 0,
+        "gameMasterPlayerCount": 1,
+        "gameMasterCars": [
+          3,
+          0,
+          0,
+          0
+        ],
+        "gameMasterSkins": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "demo": false
+      },
+      "wallSeconds": 9.8377491
+    },
+    {
+      "sceneFrom": "DailyMessageScreen",
+      "sceneTo": "Title Screen",
+      "nativeMethod": "MenuCameraScript.LoadScene",
+      "loading": false,
+      "flag": false,
+      "selection": {
+        "gameMode": "Arcade",
+        "subMode": "Arcade",
+        "playerCount": 1,
+        "arcadeRoute": 0,
+        "arcadeRound": 1,
+        "arcadeCars": [
+          42,
+          0,
+          0,
+          0
+        ],
+        "arcadeSkins": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "arcadeAutoTransmission": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "autoTransmission": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "playerCamera": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "competitionIndex": 9,
+        "competitionRound": 0,
+        "competingCarSlotId": 1,
+        "difficulty": 0,
+        "gameMasterPlayerCount": 1,
+        "gameMasterCars": [
+          3,
+          0,
+          0,
+          0
+        ],
+        "gameMasterSkins": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "demo": false
+      },
+      "wallSeconds": 13.0483892
+    },
+    {
+      "sceneFrom": "Title Screen",
+      "sceneTo": "MapScreen",
+      "nativeMethod": "MenuCameraScript.LoadScene",
+      "loading": true,
+      "flag": false,
+      "selection": {
+        "gameMode": "Arcade",
+        "subMode": "Arcade",
+        "playerCount": 1,
+        "arcadeRoute": 0,
+        "arcadeRound": 1,
+        "arcadeCars": [
+          42,
+          0,
+          0,
+          0
+        ],
+        "arcadeSkins": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "arcadeAutoTransmission": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "autoTransmission": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "playerCamera": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "competitionIndex": 9,
+        "competitionRound": 0,
+        "competingCarSlotId": 1,
+        "difficulty": 0,
+        "gameMasterPlayerCount": 1,
+        "gameMasterCars": [
+          3,
+          0,
+          0,
+          0
+        ],
+        "gameMasterSkins": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "demo": false
+      },
+      "wallSeconds": 15.6301651
+    },
+    {
+      "sceneFrom": "MapScreen",
+      "sceneTo": "StagePresentation",
+      "nativeMethod": "MenuCameraScript.LoadScene",
+      "loading": true,
+      "flag": false,
+      "selection": {
+        "gameMode": "Arcade",
+        "subMode": "Arcade",
+        "playerCount": 1,
+        "arcadeRoute": 0,
+        "arcadeRound": 0,
+        "arcadeCars": [
+          8,
+          0,
+          0,
+          0
+        ],
+        "arcadeSkins": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "arcadeAutoTransmission": [
+          false,
+          true,
+          true,
+          true
+        ],
+        "autoTransmission": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "playerCamera": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "competitionIndex": 9,
+        "competitionRound": 0,
+        "competingCarSlotId": 1,
+        "difficulty": 0,
+        "gameMasterPlayerCount": 1,
+        "gameMasterCars": [
+          3,
+          0,
+          0,
+          0
+        ],
+        "gameMasterSkins": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "demo": false
+      },
+      "wallSeconds": 18.7835417
+    },
+    {
+      "sceneFrom": "StagePresentation",
+      "sceneTo": "Kenya SS1",
+      "nativeMethod": "MenuCameraScript.LoadScene",
+      "loading": true,
+      "flag": false,
+      "selection": {
+        "gameMode": "Arcade",
+        "subMode": "Arcade",
+        "playerCount": 1,
+        "arcadeRoute": 0,
+        "arcadeRound": 0,
+        "arcadeCars": [
+          8,
+          0,
+          0,
+          0
+        ],
+        "arcadeSkins": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "arcadeAutoTransmission": [
+          false,
+          true,
+          true,
+          true
+        ],
+        "autoTransmission": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "playerCamera": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "competitionIndex": 9,
+        "competitionRound": 0,
+        "competingCarSlotId": 1,
+        "difficulty": 0,
+        "gameMasterPlayerCount": 1,
+        "gameMasterCars": [
+          3,
+          0,
+          0,
+          0
+        ],
+        "gameMasterSkins": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "demo": false
+      },
+      "wallSeconds": 22.6661734
+    }
+  ],
+  "observedScenesTruncated": false,
+  "nativeSceneRequestsTruncated": false
+}

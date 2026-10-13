@@ -27,7 +27,17 @@ internal static class AdmissionChecks
         check(kenya.Admitted && kenya.LoadEvidence == "absent" && kenya.Route.SequenceEqual(new[] { "MapScreen", "StagePresentation", "Kenya SS1" }),
             "the archived Kenya original stays admitted, with absent native-load evidence: " + kenya.Reason);
 
-        void Admits(string label, Action<JsonObject> edit, string evidence = "absent")
+        // The real S1 original's context (Halo's muted automated capture, Woden 7978d19, results/full-session-s1-20261013-02):
+        // the observed native load MapScreen -> StagePresentation carries exactly the context selection (manual transmission).
+        using (var real = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "real-s1-kenya-stage-context.json"))))
+        {
+            var r = ArcadeRouteProof.Check(real.RootElement);
+            check(r.Admitted && r.LoadEvidence == "matched" && r.Route.SequenceEqual(new[] { "MapScreen", "StagePresentation", "Kenya SS1" }),
+                "the real S1 original's route is admitted with matched native-load evidence: " + r.Reason);
+            var mutated = JsonNode.Parse(real.RootElement.GetRawText())!.AsObject();
+            mutated["nativeSceneRequests"]![3]!["selection"]!["arcadeAutoTransmission"] = new JsonArray(true, true, true, true);
+            check(!Proof(mutated).Admitted, "the real route refuses a map selection whose transmission differs from the driven one");
+        }        void Admits(string label, Action<JsonObject> edit, string evidence = "absent")
         {
             var c = Kenya(); edit(c); var r = Proof(c);
             check(r.Admitted && r.LoadEvidence == evidence, label + ": " + r.Reason);

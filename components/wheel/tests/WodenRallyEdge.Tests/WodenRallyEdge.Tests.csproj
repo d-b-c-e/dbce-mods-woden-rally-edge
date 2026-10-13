@@ -3,6 +3,7 @@
   <ItemGroup>
     <None Update="Fixtures/ffb-reference-v1.json" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Fixtures/kenya-ss1-stage-context.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures/real-s1-kenya-stage-context.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/RuntimeActivityGate.cs" Link="Consumer/RuntimeActivityGate.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CommandProvenanceCapture.cs" Link="Consumer/CommandProvenanceCapture.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ForceController.cs" Link="Consumer/ForceController.cs" />
