@@ -75,7 +75,8 @@ internal static class FullSessionChecks
             ["roundHour"] = 12.0, ["roundTimeSpeed"] = 0, ["roundLaps"] = 1, ["roundWeather"] = "Clear", ["raceLaps"] = 1, ["raceRivals"] = 0,
             ["reverseTrack"] = false, ["damage"] = true, ["rollingStart"] = false, ["ghostMode"] = false, ["fuelConsumptionScale"] = 1.0,
             ["selection"] = new Dictionary<string, object?> { ["gameMode"] = "Arcade", ["subMode"] = "Arcade", ["playerCount"] = 1,
-                ["arcadeRoute"] = 0, ["arcadeRound"] = 0, ["arcadeCars"] = new[] { 8, 0, 0, 0 }, ["demo"] = false },
+                ["arcadeRoute"] = 0, ["arcadeRound"] = 0, ["arcadeCars"] = new[] { 8, 0, 0, 0 }, ["arcadeSkins"] = new[] { 0, 0, 0, 0 },
+                ["arcadeAutoTransmission"] = new[] { true, true, true, true }, ["playerCamera"] = new[] { 1, 1, 1, 1 }, ["demo"] = false },
             ["observedScenes"] = new[] { "SplashScreen", "Title Screen", "MapScreen", "Loading Screen", "StagePresentation", "Kenya SS1" },
             ["nativeSceneRequests"] = Array.Empty<object>(), ["observedScenesTruncated"] = false, ["nativeSceneRequestsTruncated"] = false,
             ["fixture"] = true };

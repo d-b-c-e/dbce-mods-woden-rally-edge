@@ -79,6 +79,18 @@ internal static class AdmissionChecks
         Refuses("two players", c => c["playerCount"] = 2, "not single-player");
         Refuses("car differs from the selection", c => c["carId"] = 9, "differs from the driven car");
         Refuses("demo", c => c["selection"]!["demo"] = true, "invalid single-player selection");
+        // Absent native-load evidence: the startup's own shapes are still enforced (sana 71540).
+        Refuses("three skins", c => c["selection"]!["arcadeSkins"] = new JsonArray(0, 0, 0), "invalid arcadeSkins");
+        Refuses("skin out of range", c => c["selection"]!["arcadeSkins"] = new JsonArray(600, 0, 0, 0), "invalid arcadeSkins");
+        Refuses("fractional camera", c => c["selection"]!["playerCamera"] = new JsonArray(1.5, 1, 1, 1), "invalid playerCamera");
+        Refuses("missing camera", c => c["selection"]!.AsObject().Remove("playerCamera"), "missing playerCamera");
+        Refuses("transmission as numbers", c => c["selection"]!["arcadeAutoTransmission"] = new JsonArray(1, 1, 1, 1), "invalid arcadeAutoTransmission");
+        Refuses("five cars", c => c["selection"]!["arcadeCars"] = new JsonArray(8, 0, 0, 0, 0), "invalid arcadeCars");
+        Refuses("negative car", c => { c["carId"] = -1; c["selection"]!["arcadeCars"] = new JsonArray(-1, 0, 0, 0); }, "invalid arcadeCars");
+        Refuses("negative route", c => { c["arcadeRoute"] = -1; c["selection"]!["arcadeRoute"] = -1; }, "negative route or car");
+        Refuses("missing competition", c => c.Remove("competitionAsset"), "missing competitionAsset");
+        Refuses("text hour", c => c["roundHour"] = "19", "missing number roundHour");
+        Refuses("missing damage rule", c => c.Remove("damage"), "missing damage");
         Refuses("unknown schema", c => c["schema"] = "woden.stage-context@2", "unknown stage context schema");
         Refuses("missing selection", c => c.Remove("selection"), "missing selection");
     }

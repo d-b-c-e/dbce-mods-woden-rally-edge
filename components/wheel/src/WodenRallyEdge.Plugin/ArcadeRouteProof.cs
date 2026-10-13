@@ -37,9 +37,17 @@ internal static class ArcadeRouteProof
         if (Text(selection, "gameMode") != "Arcade" || Text(selection, "subMode") != "Arcade" ||
             Int(selection, "arcadeRoute") != Int(c, "arcadeRoute") || Int(selection, "arcadeRound") != 0)
             throw new InvalidDataException("selection differs from the stage's mode, route or round");
-        var cars = Get(selection, "arcadeCars");
-        if (cars.ValueKind != JsonValueKind.Array || cars.GetArrayLength() == 0 || cars[0].GetInt32() != Int(c, "carId"))
+        // The startup's own shapes (StageStartup MapScreen step): four entries; ints 0..512; transmission booleans.
+        foreach (string key in new[] { "arcadeCars", "arcadeSkins", "playerCamera" }) Ints(selection, key);
+        Bools(selection, "arcadeAutoTransmission");
+        if (Int(c, "arcadeRoute") < 0 || Int(c, "carId") < 0) throw new InvalidDataException("negative route or car");
+        if (Get(selection, "arcadeCars")[0].GetInt32() != Int(c, "carId"))
             throw new InvalidDataException("selected Arcade car differs from the driven car");
+        // Every other field the startup and its round/race checks read must be present with its type.
+        foreach (string key in new[] { "competitionAsset", "trackAsset", "roundWeather" }) Text(c, key);
+        foreach (string key in new[] { "roundLaps", "roundTimeSpeed", "raceLaps" }) Int(c, key);
+        foreach (string key in new[] { "roundHour", "fuelConsumptionScale" }) Number(c, key);
+        foreach (string key in new[] { "reverseTrack", "damage" }) Bool(c, key);
 
         var scenes = List(c, "observedScenes").Select(x => x.GetString() ?? throw new InvalidDataException("unnamed scene")).ToArray();
         var requests = List(c, "nativeSceneRequests");
@@ -88,6 +96,21 @@ internal static class ArcadeRouteProof
         Get(c, name) is { ValueKind: JsonValueKind.String } value ? value.GetString()! : throw new InvalidDataException("missing text " + name);
     private static int Int(JsonElement c, string name) =>
         Get(c, name) is { ValueKind: JsonValueKind.Number } value && value.TryGetInt32(out int n) ? n : throw new InvalidDataException("missing integer " + name);
+    private static double Number(JsonElement c, string name) =>
+        Get(c, name) is { ValueKind: JsonValueKind.Number } value && double.IsFinite(value.GetDouble()) ? value.GetDouble() : throw new InvalidDataException("missing number " + name);
+    private static void Ints(JsonElement c, string name)
+    {
+        var a = Get(c, name);
+        if (a.ValueKind != JsonValueKind.Array || a.GetArrayLength() != 4 ||
+            a.EnumerateArray().Any(x => x.ValueKind != JsonValueKind.Number || !x.TryGetInt32(out int n) || n < 0 || n > 512))
+            throw new InvalidDataException("invalid " + name);
+    }
+    private static void Bools(JsonElement c, string name)
+    {
+        var a = Get(c, name);
+        if (a.ValueKind != JsonValueKind.Array || a.GetArrayLength() != 4 || a.EnumerateArray().Any(x => x.ValueKind is not (JsonValueKind.True or JsonValueKind.False)))
+            throw new InvalidDataException("invalid " + name);
+    }
     private static bool Bool(JsonElement c, string name) => Get(c, name).ValueKind switch
     {
         JsonValueKind.True => true, JsonValueKind.False => false, _ => throw new InvalidDataException("missing boolean " + name),
