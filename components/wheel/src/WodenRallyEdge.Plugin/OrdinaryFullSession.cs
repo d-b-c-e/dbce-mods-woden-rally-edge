@@ -11,8 +11,9 @@ namespace WodenRallyEdge;
 // One ordinary launch's first driven stage, in DRIVE's full-session package layout with Woden schema ids. Engine-free:
 // the plugin feeds observed scenes, native loads, prefix poses and postfix samples. This class owns only its new files
 // beside the ordinary capture. It never mutes, resets force state, changes input/physics/progress, or touches the
-// ordinary signal recorder or its case files. A failure ends only this capture and leaves full-session-incomplete.txt;
-// session.json exists only once its outer seal is written and verified. No playback adapter is ever declared here.
+// ordinary signal recorder or its case files. A failure ends only this capture and leaves full-session-incomplete.txt.
+// A valid package is session.json plus its verified outer seal; this class writes session.json only after the stage,
+// timeline and completed source verified, and removes it if the seal then fails. No playback adapter is declared here.
 internal sealed class OrdinaryFullSession
 {
     internal const string TimelineSchema = "woden.full-session@1", PackageSchema = "woden.full-session-package@1",
@@ -184,23 +185,26 @@ internal sealed class OrdinaryFullSession
 
     /// <summary>Fixture seam: runs on the package worker once the commit has begun (null in production).</summary>
     internal Action? CommitStarted { get; set; }
-    internal const double MaxHoldSeconds = 60;
+    internal const double MaxHoldSeconds = 60, MaxCommitHoldSeconds = 300;
     /// <summary>Whether the ordinary status should still read Stopping. Plugin close always releases it, so the last
     /// published status is the recorder's real state even if a slow commit is still running; readers require the
-    /// outer seal, so a descriptor left without it is never a package. Bounded at 60 s after packaging starts.</summary>
+    /// outer seal, so a descriptor left without it is never a package. Past 60 s after packaging starts it abandons
+    /// a package not yet committing; a commit already running is released at 300 s, like close.</summary>
     internal bool HoldStatus(bool closing, double packageStartedAt, double now)
     {
         if (Terminal || closing) return false;
-        if (!double.IsNaN(packageStartedAt) && now - packageStartedAt > MaxHoldSeconds)
-            return !Abandon("Package verification exceeded 60 seconds; the original capture files are retained.");
-        return true;
+        if (double.IsNaN(packageStartedAt) || now - packageStartedAt <= MaxHoldSeconds) return true;
+        if (Abandon("Package verification exceeded 60 seconds; the original capture files are retained.")) return false;
+        return now - packageStartedAt <= MaxCommitHoldSeconds;
     }
 
-    /// <summary>Gives up before the package commit begins (game closing, or a stalled verification). False once committing.</summary>
+    /// <summary>Gives up before the package commit begins (game closing, or a stalled verification). False only while a
+    /// commit is running; true once nothing further will be written (the marker is attempted if still pending).</summary>
     internal bool Abandon(string reason)
     {
-        if (Interlocked.CompareExchange(ref _state, Done, Pending) != Pending) return Terminal;
-        Incomplete(reason);
+        int previous = Interlocked.CompareExchange(ref _state, Done, Pending);
+        if (previous == Committing) return false;
+        if (previous == Pending) Incomplete(reason);
         return true;
     }
 
@@ -264,6 +268,8 @@ internal sealed class OrdinaryFullSession
             if (row.Marker?.Name == "capture-failed") throw new InvalidDataException("the ordinary source records a capture failure");
         }
         if (metadata == null || footer == null) throw new InvalidDataException("the ordinary source has no metadata or footer");
+        // As the case finalizer (RecordedForceReplay): a limit-reached or otherwise unfinished source is never packaged.
+        if (!footer.Completed) throw new InvalidDataException("the ordinary source did not complete (" + footer.StopReason + ")");
         if (!metadata.Properties.TryGetValue("gameAssemblySha256", out string? build) || build != gameHash)
             throw new InvalidDataException("the ordinary source names a different game build");
         var c = footer.Counts;
@@ -343,20 +349,28 @@ internal sealed class OrdinaryFullSession
         }
         WriteNew(Path.Combine(_root, _names.Observation), System.Text.Encoding.UTF8.GetBytes(text.ToString()));
     }
+    // Terminal only once the marker really exists. If it cannot be written, nothing claims an outcome: the status hold
+    // stays bounded (60/300 s, or plugin close) and readers see neither a valid package nor a marker.
     private void Incomplete(string reason)
     {
-        TryWrite(Path.Combine(_root, IncompleteFile), reason.Replace('\r', ' ').Replace('\n', ' ') + "\n");
-        _outcome = "incomplete";
+        string marker = Path.Combine(_root, IncompleteFile);
+        if (TryWrite(marker, reason.Replace('\r', ' ').Replace('\n', ' ') + "\n") || File.Exists(marker)) _outcome = "incomplete";
     }
     private static void WriteNew(string path, byte[] bytes)
     {
         using var output = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
         output.Write(bytes); output.Flush(true);
     }
-    private static void TryWrite(string path, string text)
+    private static bool TryWrite(string path, string text)
     {
-        try { if (Directory.Exists(Path.GetDirectoryName(path))) WriteNew(path, System.Text.Encoding.UTF8.GetBytes(text)); }
-        catch (IOException) { /* an existing marker is kept */ }
+        try
+        {
+            if (!Directory.Exists(Path.GetDirectoryName(path))) return false;
+            WriteNew(path, System.Text.Encoding.UTF8.GetBytes(text));
+            return true;
+        }
+        catch (IOException) { return false; } // an existing marker is kept
+        catch (UnauthorizedAccessException) { return false; }
     }
     private static void TryDelete(string path) { try { File.Delete(path); } catch (IOException) { } catch (UnauthorizedAccessException) { } }
 }

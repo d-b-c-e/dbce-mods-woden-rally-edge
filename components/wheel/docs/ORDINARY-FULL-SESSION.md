@@ -15,11 +15,13 @@ saved evidence until the cold-start route (S2) is qualified. Old flat captures a
 | `source.stage/` | The stage tool's own bundle, sealed by its `complete.tsv` over `trajectory.meta`, `trajectory.tsv`, `source.jsonl`, `force-config.json`, `channels.json`, `stage-context.json`. Poses come from the `MainCar.FixedUpdate` prefix and signals from the same tick's postfix, with `capture.trajectoryIndex` 0..n-1. The tape's `physicalOutput` says whether forces were allowed (not measured). |
 | `session.json` | `woden.full-session-package@1`: `game`, `gameBuildSha256`, `recordedUtc`, `origin`, `outcome` (`stopped` or `completed-stage`), `durationSeconds`, `car`, `biome`, the four payload names and `playbackUnavailableReason`. Never `playbackAdapter`. |
 | `complete.tsv` | Outer seal over `session.json`, `source.jsonl`, `source.session.jsonl`, `source.stage-session.json`, `source.stage/complete.tsv`. |
-| `full-session-incomplete.txt` | One line, written **instead of** `session.json` when the capture failed, recorded no sealed stage, the source failed, or the package could not be verified. |
+| `full-session-incomplete.txt` | One line, written **instead of** a package when the capture failed, recorded no sealed stage, the source did not complete (including a limit stop) or failed, or the package could not be verified. |
 
-`session.json` exists only after the stage, timeline and source footer were verified (nested seal, pose count,
-every stage row aligned to its pose, zero dropped/invalid/error/rejected records, no `capture-failed` marker,
-same game build) and the outer seal verified.
+A valid package is `session.json` with its verified outer `complete.tsv`. `session.json` is written only after the
+stage, timeline and source footer verified (nested seal, pose count, every stage row aligned to its pose, a
+completed footer, zero dropped/invalid/error/rejected records, no `capture-failed` marker, same game build); it is
+removed again if the outer seal then fails. The capture counts as finished only once the package or the marker
+really exists; if the marker cannot be written, nothing claims an outcome and the status hold stays bounded.
 
 ## Rules
 
@@ -34,8 +36,9 @@ same game build) and the outer seal verified.
 - **Unmuted.** The capture never calls `MuteOutputs`, never resets force state, and uses the stage writers
   directly rather than `StageSession.Record`.
 - **Status.** The ordinary `control/status.txt` shows `Stopping` (inactive) after the recorder closes until
-  `session.json` or `full-session-incomplete.txt` exists, bounded at 60 s after packaging starts, so the
-  companion's Saved finalization follows the package. On game close the package gets a bounded 10 s; then the
+  a valid package or `full-session-incomplete.txt` exists, so the companion's Saved finalization follows the
+  package. Bounds: 60 s after packaging starts for a package not yet committing (it is abandoned), 300 s for a
+  commit already running (released without claiming a package). On game close the package gets a bounded 10 s; then the
   hold is released so the last status is the recorder's real state, even if a slow commit is still running. A
   descriptor left without its outer seal is never a package: readers require `complete.tsv`.
 - **Origin** is `diagnostic`: the ordinary request carries no explicit owner-origin evidence (DRIVE's rule).

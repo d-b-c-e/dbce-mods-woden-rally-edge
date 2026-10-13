@@ -25,13 +25,13 @@ internal static class FullSessionChecks
         public readonly OrdinaryFullSession Session;
         public double Now = 1, Physics = 250;
         int _sequence;
-        public Fixture()
+        public Fixture(RecordingOptions? recording = null)
         {
             Temp = Path.Combine(Path.GetTempPath(), "woden-full-session-" + Guid.NewGuid().ToString("N"));
             Root = Path.Combine(Temp, "request-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(Root);
             Ordinary = new TelemetryOutput(new OutputOptions(ForzaPort: 0, DetailPort: 0, RecordingPath: Path.Combine(Root, "source.jsonl"), Enabled: false),
-                "fixture", "{\"fixture\":true}", "0.2.14", new Dictionary<string, string> { ["gameAssemblySha256"] = Hash });
+                "fixture", "{\"fixture\":true}", "0.2.14", new Dictionary<string, string> { ["gameAssemblySha256"] = Hash }, recording);
             Session = new OrdinaryFullSession(Root, "source.jsonl", Identity(), "diagnostic", 0);
         }
         public static StageSignalFiles.Identity Identity() => new(Hash, typeof(FullSessionChecks).Assembly.Location, "{\"fixture\":true}", "0.2.14", "fixture");
@@ -57,7 +57,20 @@ internal static class FullSessionChecks
             Ordinary.Publish(sample);
         }
         public void Open(bool physicalOutput = false) => Session.OpenStage(Selection(), "Kenya SS1|car=8", Dt, physicalOutput,
-            dir => File.WriteAllText(Path.Combine(dir, "stage-context.json"), "{\"schema\":\"woden.stage-context@1\",\"fixture\":true}\n"), Options, Now);
+            dir => File.WriteAllText(Path.Combine(dir, "stage-context.json"), Context()), Options, Now);
+        // StageCaptureContext.Write's field set with synthetic values, so consumers can test the context checks.
+        static string Context() => JsonSerializer.Serialize(new Dictionary<string, object?> {
+            ["schema"] = "woden.stage-context@1", ["role"] = "observed launch context; native startup restoration is not yet qualified",
+            ["scene"] = "Kenya SS1", ["gameAssemblySha256"] = Hash, ["carId"] = 8, ["playerIndex"] = 0, ["playerCount"] = 1,
+            ["gameMode"] = "Arcade", ["subMode"] = "Arcade", ["arcadeRoute"] = 0, ["arcadeRound"] = 0, ["competitionIndex"] = 0,
+            ["competitionRound"] = 0, ["competitionAsset"] = "Arcade Route 1", ["trackAsset"] = "Kenya SS1", ["trackName"] = "Kenya SS1",
+            ["roundHour"] = 12.0, ["roundTimeSpeed"] = 0, ["roundLaps"] = 1, ["roundWeather"] = "Clear", ["raceLaps"] = 1, ["raceRivals"] = 0,
+            ["reverseTrack"] = false, ["damage"] = true, ["rollingStart"] = false, ["ghostMode"] = false, ["fuelConsumptionScale"] = 1.0,
+            ["selection"] = new Dictionary<string, object?> { ["gameMode"] = "Arcade", ["subMode"] = "Arcade", ["playerCount"] = 1,
+                ["arcadeRoute"] = 0, ["arcadeRound"] = 0, ["arcadeCars"] = new[] { 8, 0, 0, 0 }, ["demo"] = false },
+            ["observedScenes"] = new[] { "SplashScreen", "Title Screen", "MapScreen", "Loading Screen", "StagePresentation", "Kenya SS1" },
+            ["nativeSceneRequests"] = Array.Empty<object>(), ["observedScenesTruncated"] = false, ["nativeSceneRequestsTruncated"] = false,
+            ["fixture"] = true }, new JsonSerializerOptions { WriteIndented = true });
         public void Menus()
         {
             foreach (var (scene, loading) in new[] { ("SplashScreen", false), ("Title Screen", false), ("MapScreen", false) })
@@ -217,6 +230,29 @@ internal static class FullSessionChecks
             f.CloseOrdinary(); f.Session.Stop(f.Now); f.Session.Package();
             check(!File.Exists(f.Path_("session.json")) && f.Session.Outcome == "incomplete", "an abandoned capture never commits a descriptor");
         }
+        using (var f = new Fixture(new RecordingOptions { QueueCapacity = 512, MaxDurationSeconds = 1, MaxFileBytes = 64L * 1024 * 1024, MaxChannelsPerSample = 512 }))
+        {
+            f.Menus(); f.Open();
+            for (int i = 0; i < 80; i++) f.Tick(); // 1.6 s of recorded time against a 1 s limit
+            f.CloseOrdinary();
+            check(f.Ordinary.RecordingStatus == "LimitReached", "the ordinary recorder stopped at its limit: " + f.Ordinary.RecordingStatus);
+            f.Session.Stop(f.Now); f.Session.Package();
+            check(f.Session.Outcome == "incomplete" && !File.Exists(f.Path_("session.json")) && !File.Exists(f.Path_("complete.tsv")) &&
+                Read(f.Path_(OrdinaryFullSession.IncompleteFile)).Contains("did not complete", StringComparison.Ordinal),
+                "a clean limit-reached footer is never packaged, as the case finalizer refuses it");
+        }
+        using (var f = new Fixture())
+        {
+            f.Menus();
+            Directory.CreateDirectory(f.Path_(OrdinaryFullSession.IncompleteFile)); // the marker path cannot become a file
+            f.CloseOrdinary(); f.Session.Stop(f.Now); f.Session.Package();
+            check(f.Session.Outcome == null && !f.Session.Terminal && !File.Exists(f.Path_("session.json")),
+                "a refused marker write claims no outcome and no package");
+            check(f.Session.HoldStatus(false, 10, 10 + OrdinaryFullSession.MaxHoldSeconds - 1), "the status hold continues within its bound");
+            check(!f.Session.HoldStatus(false, 10, 10 + OrdinaryFullSession.MaxHoldSeconds + 1) && !f.Session.Terminal,
+                "the bound releases it, still without claiming an outcome");
+            check(!f.Session.HoldStatus(true, double.NaN, 0), "plugin close releases it");
+        }
         using (var f = new Fixture())
         {
             File.WriteAllText(f.Path_("session.json"), "{}");
@@ -269,7 +305,9 @@ internal static class FullSessionChecks
         check(!f.Session.Abandon("fixture close") && !f.Session.Terminal, "a commit in progress cannot be abandoned or claimed terminal");
         now = startedAt + OrdinaryFullSession.MaxHoldSeconds + 1;
         control.Flush();
-        check(Status() == "status=Stopping", "past the bound, a committing package still holds while the game runs");
+        check(Status() == "status=Stopping", "past the 60 s bound, a committing package still holds while the game runs");
+        check(!f.Session.HoldStatus(false, startedAt, startedAt + OrdinaryFullSession.MaxCommitHoldSeconds + 1) && !f.Session.Terminal,
+            "a hung commit is released at 300 s without claiming a package");
         closing = true;
         control.Flush();
         check(Status() == "status=Completed" && !f.Session.Terminal, "plugin close releases the hold: the last status is the recorder's real state");
