@@ -48,3 +48,20 @@ really exists; if the marker cannot be written, nothing claims an outcome and th
 Fixtures: `tests/WodenRallyEdge.Tests/FullSessionChecks.cs` compiles the production coordinator and drives it like
 `CarHook` with the real recorders and seals. With `WODEN_FULL_SESSION_FIXTURE_OUT` set, the package suite copies its
 sealed package there for consumer tests.
+
+### Long-capture measurements (October 13)
+
+The 20-minute profile passed two synthetic 71,940-pose captures through the real
+writers, seals and force finalizer. Stop-in-game packaging took 20-24 seconds.
+Direct game close still exceeds the 10-second package wait at this size: original
+files are retained, but no playable package is claimed. Stage sealing stalled
+the game thread for 0.6-0.8 seconds. Moving that work and completing packages
+through the existing companion remain required before delivering long ordinary
+capture to the owner.
+
+The metadata/footer retention fix preserves full source validation and reduces
+measured finalizer peak managed memory from 3.2 GB to 2.0 GB; the 71,940 source,
+model and driving row counts are unchanged. These are warm-cache synthetic
+measurements, not a runtime performance guarantee. See the hub's
+`artifacts/woden-recording-capacity-20261013/README.md` for exact workloads and
+limits. No owner settings, installed payloads or force tuning changed.
