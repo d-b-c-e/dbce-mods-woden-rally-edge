@@ -32,14 +32,14 @@ internal static class FullSessionChecks
         public bool Reviewable;
         int _sequence, _delivery;
         /// <param name="properties">Ordinary recording properties for the capture root (default: the game build only).</param>
-        public Fixture(RecordingOptions? recording = null, Func<string, Dictionary<string, string>>? properties = null)
+        public Fixture(RecordingOptions? recording = null, Func<string, Dictionary<string, string>>? properties = null, string inputOrigin = "unknown")
         {
             Temp = Path.Combine(Path.GetTempPath(), "woden-full-session-" + Guid.NewGuid().ToString("N"));
             Root = Path.Combine(Temp, "request-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(Root);
             Ordinary = new TelemetryOutput(new OutputOptions(ForzaPort: 0, DetailPort: 0, RecordingPath: Path.Combine(Root, "source.jsonl"), Enabled: false),
                 "fixture", "{\"fixture\":true}", "0.2.14", properties?.Invoke(Root) ?? new Dictionary<string, string> { ["gameAssemblySha256"] = Hash }, recording);
-            Session = new OrdinaryFullSession(Root, "source.jsonl", Identity(), "diagnostic", 0);
+            Session = new OrdinaryFullSession(Root, "source.jsonl", Identity(), inputOrigin, 0);
         }
         public static StageSignalFiles.Identity Identity() => new(Hash, typeof(FullSessionChecks).Assembly.Location, "{\"fixture\":true}", "0.2.14", "fixture");
         public TelemetrySample Sample(string state = "driving")
@@ -288,8 +288,9 @@ internal static class FullSessionChecks
         using (var f = new Fixture())
         {
             File.WriteAllText(f.Path_("session.json"), "{}");
-            check(Throws(() => new OrdinaryFullSession(f.Root, "source.jsonl", Fixture.Identity(), "diagnostic", 0)), "existing package output refuses arming");
-            check(Throws(() => new OrdinaryFullSession(f.Root, "source.jsonl", Fixture.Identity(), "player", 0)), "unknown origin refused");
+            check(Throws(() => new OrdinaryFullSession(f.Root, "source.jsonl", Fixture.Identity(), "unknown", 0)), "existing package output refuses arming");
+            foreach (string bad in new[] { "player", "owner", "diagnostic", "Human", "" })
+                check(Throws(() => new OrdinaryFullSession(Path.Combine(f.Temp, "other"), "source.jsonl", Fixture.Identity(), bad, 0)), "input origin " + bad + " refused");
         }
     }
 

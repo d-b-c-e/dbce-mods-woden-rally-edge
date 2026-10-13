@@ -25,13 +25,13 @@ internal static partial class StagePlayback
     /// released at plugin close).</summary>
     internal static bool FullPackagePending => _full?.HoldStatus(_fullClosing, _fullTerminalAt, Runtime.Clock.Elapsed.TotalSeconds) == true;
 
-    internal static void ArmFullSession(string captureDirectory, StageSignalFiles.Identity identity)
+    internal static void ArmFullSession(string captureDirectory, StageSignalFiles.Identity identity, string inputOrigin)
     {
         try
         {
             if (Owner.OrdinaryOwns) throw new InvalidOperationException("already armed in this launch");
-            // Woden's ordinary request carries no explicit owner-origin evidence, so the package says diagnostic.
-            var full = new OrdinaryFullSession(captureDirectory, "source.jsonl", identity, "diagnostic", Runtime.Clock.Elapsed.TotalSeconds);
+            // The request's own statement (human, automated, or unknown when omitted); owner only for human input.
+            var full = new OrdinaryFullSession(captureDirectory, "source.jsonl", identity, inputOrigin, Runtime.Clock.Elapsed.TotalSeconds);
             if (!Owner.TryClaimOrdinary(Session.Active || StageRunLifecycle.ReplayPath != null ||
                 File.Exists(Path.Combine(ControlRoot, "request.txt"))))
                 throw new InvalidOperationException("supervised stage control is present in this launch");

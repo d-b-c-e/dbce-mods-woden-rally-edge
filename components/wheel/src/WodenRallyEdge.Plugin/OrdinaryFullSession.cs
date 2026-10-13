@@ -26,7 +26,7 @@ internal sealed class OrdinaryFullSession
     private readonly string _root;
     private readonly FullSessionPackageNames.Names _names;
     private readonly StageSignalFiles.Identity _id;
-    private readonly string _origin;
+    private readonly string _origin, _inputOrigin;
     private readonly double _clockOrigin;
     private readonly FullSessionCapture _capture;
     private readonly List<JsonObject> _journal = new();
@@ -53,18 +53,20 @@ internal sealed class OrdinaryFullSession
     internal int Poses => _poses;
     internal string Root => _root;
 
-    /// <param name="origin">"diagnostic" unless the producer has explicit evidence of an owner session (DRIVE's rule).</param>
-    internal OrdinaryFullSession(string root, string signalName, StageSignalFiles.Identity id, string origin, double now)
+    /// <param name="inputOrigin">"human", "automated" or "unknown", exactly as the request stated it (never inferred).
+    /// The DRIVE-shaped origin is "owner" only for human input, otherwise "diagnostic".</param>
+    internal OrdinaryFullSession(string root, string signalName, StageSignalFiles.Identity id, string inputOrigin, double now)
     {
-        if (origin is not ("owner" or "diagnostic")) throw new ArgumentException("Unknown recording origin");
-        _root = Path.GetFullPath(root); _names = FullSessionPackageNames.FromSignal(signalName); _id = id; _origin = origin; _clockOrigin = now;
+        if (inputOrigin is not ("human" or "automated" or "unknown")) throw new ArgumentException("Unknown recording input origin");
+        string origin = inputOrigin == "human" ? "owner" : "diagnostic";
+        _root = Path.GetFullPath(root); _names = FullSessionPackageNames.FromSignal(signalName); _id = id; _origin = origin; _inputOrigin = inputOrigin; _clockOrigin = now;
         if (!File.Exists(Path.Combine(_root, _names.Signals))) throw new IOException("The ordinary signal file is not in this capture");
         foreach (string name in new[] { _names.Observation, _names.Timeline, _names.Stage, FullSessionPackageNames.Descriptor, "complete.tsv", IncompleteFile })
             if (File.Exists(Path.Combine(_root, name)) || Directory.Exists(Path.Combine(_root, name))) throw new IOException("Full-session output already exists: " + name);
         _capture = new FullSessionCapture(TimelineSchema, id.GameHash, AdapterVersion);
         _capture.Observe(new FullSessionState { Phase = FullSessionPhase.Boot, Marker = "recording-start" }, 0, 0);
         Journal("header", 0, new JsonObject { ["schema"] = ObservationSchema, ["gameBuild"] = id.GameHash, ["bootRequested"] = true,
-            ["source"] = _names.Signals, ["diagnostic"] = origin == "diagnostic", ["capture"] = Path.GetFileName(_root) });
+            ["source"] = _names.Signals, ["diagnostic"] = origin == "diagnostic", ["inputOrigin"] = inputOrigin, ["capture"] = Path.GetFileName(_root) });
     }
 
     internal void Scene(string name, bool loading, double now) => Guard(() =>
@@ -218,6 +220,9 @@ internal sealed class OrdinaryFullSession
         {
             if (!_stopped || _timeline == null) throw new InvalidDataException("the capture did not stop cleanly");
             var (metadata, footer) = ReadSource(Path.Combine(_root, _names.Signals), _id.GameHash);
+            // One fact, read once from the request: the source and the package must state the same input origin.
+            string sourceOrigin = metadata.Properties.TryGetValue("inputOrigin", out var stated) ? stated : "unknown";
+            if (sourceOrigin != _inputOrigin) throw new InvalidDataException("the ordinary source states input origin " + sourceOrigin + ", the package " + _inputOrigin);
             var counts = footer.Counts;
             Journal("end", _timeline.DurationSeconds, new JsonObject { ["sourceStatus"] = footer.Completed ? "Completed" : "LimitReached",
                 ["sourceStop"] = footer.StopReason, ["complete"] = footer.Completed, ["sourceCounters"] = JsonSerializer.SerializeToNode(counts) });
@@ -234,7 +239,7 @@ internal sealed class OrdinaryFullSession
             var started = metadata.StartedUtc.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(metadata.StartedUtc, DateTimeKind.Utc) : metadata.StartedUtc;
             var document = new JsonObject {
                 ["schema"] = PackageSchema, ["game"] = Game, ["gameBuildSha256"] = _id.GameHash,
-                ["recordedUtc"] = started.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture), ["origin"] = _origin,
+                ["recordedUtc"] = started.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture), ["origin"] = _origin, ["inputOrigin"] = _inputOrigin,
                 ["outcome"] = _timeline.Outcome == FullSessionOutcome.CompletedStage ? "completed-stage" : "stopped",
                 ["durationSeconds"] = _timeline.DurationSeconds, ["car"] = selection.Car, ["biome"] = selection.Biome,
                 ["signals"] = _names.Signals, ["observation"] = _names.Observation, ["timeline"] = _names.Timeline, ["stage"] = _names.Stage,

@@ -41,7 +41,10 @@ really exists; if the marker cannot be written, nothing claims an outcome and th
   commit already running (released without claiming a package). On game close the package gets a bounded 10 s; then the
   hold is released so the last status is the recorder's real state, even if a slow commit is still running. A
   descriptor left without its outer seal is never a package: readers require `complete.tsv`.
-- **Origin** is `diagnostic`: the ordinary request carries no explicit owner-origin evidence (DRIVE's rule).
+- **Origin.** The request's optional `InputOrigin` (`human` or `automated`, exactly; omitted means `unknown`) is written
+  to the source metadata, the observation header and the descriptor's `inputOrigin`. The DRIVE-shaped `origin` is `owner`
+  only for `human` and `diagnostic` otherwise. It is never inferred from forces, injection or focus, the source and the
+  descriptor must agree, and it never gates admission or playback.
 - **Supported scope** is whatever the stage tool's eligibility admits. S2 decides which stages cold playback can
   start; S1 records without that judgment.
 

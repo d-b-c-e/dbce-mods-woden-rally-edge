@@ -130,7 +130,7 @@ internal static class AdmissionChecks
             descriptor["playbackUnavailableReason"] == null && (string?)descriptor["admission"] == "admission.json", "derived descriptor names the adapter and its evidence level");
         check((string?)descriptor["derivedFrom"]!["sessionSha256"] == ArtifactSeal.Hash(Path.Combine(original, "session.json")) &&
             (string?)descriptor["derivedFrom"]!["packageSealSha256"] == ArtifactSeal.Hash(Path.Combine(original, "complete.tsv")), "derived pins name the original");
-        foreach (string field in new[] { "schema", "game", "gameBuildSha256", "recordedUtc", "origin", "outcome", "car", "biome", "signals", "observation", "timeline", "stage" })
+        foreach (string field in new[] { "schema", "game", "gameBuildSha256", "recordedUtc", "origin", "inputOrigin", "outcome", "car", "biome", "signals", "observation", "timeline", "stage" })
             check(descriptor[field]?.ToJsonString() == source[field]?.ToJsonString(), "original identity kept: " + field);
         var admission = JsonNode.Parse(File.ReadAllText(Path.Combine(derived, "admission.json")))!.AsObject();
         check((string?)admission["evidence"] == "route-compatible" && (string?)admission["coldReplay"] == "not-qualified" &&

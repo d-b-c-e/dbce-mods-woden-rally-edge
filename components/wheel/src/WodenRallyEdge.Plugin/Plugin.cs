@@ -138,7 +138,7 @@ internal static class Runtime
                 using var process = Process.GetCurrentProcess();
                 RecordingControl = new DiagnosticRecordingControl(Path.GetDirectoryName(_recordingPath)!,
                     _recordLaunch.Id, process.Id, process.StartTime.ToUniversalTime().Ticks, Output);
-                StagePlayback.ArmFullSession(Path.GetDirectoryName(_recordingPath)!, StagePlayback.SignalIdentity);
+                StagePlayback.ArmFullSession(Path.GetDirectoryName(_recordingPath)!, StagePlayback.SignalIdentity, _recordLaunch.EffectiveInputOrigin);
                 RecordingControl.HoldTerminal = () => StagePlayback.FullPackagePending;
             }
             catch (Exception ex) { Log.LogWarning("Ordinary recording control unavailable; F6 Stop remains available: " + ex.Message); }
@@ -186,7 +186,7 @@ internal static class Runtime
         _recordingProperties = new()
         {
             ["recordingContract"] = "dbce.wheel.replay-case@1", ["capability"] = "signal-reprocess",
-            ["requestId"] = request.Id.ToString(), ["caseId"] = request.EffectiveCaseId,
+            ["requestId"] = request.Id.ToString(), ["caseId"] = request.EffectiveCaseId, ["inputOrigin"] = request.EffectiveInputOrigin,
             ["disableForces"] = request.DisableForces.ToString().ToLowerInvariant(), ["gameAssemblySha256"] = GameAssemblyHash,
             ["pluginSha256"] = pluginHash, ["pluginProductVersion"] = productVersion, ["runtimeSource"] = sourceRevision,
             ["forceConfigSha256"] = configHash, ["captureProfileSha256"] = profileHash,
