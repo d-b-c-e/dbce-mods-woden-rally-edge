@@ -78,21 +78,26 @@ It then runs the same stage review under the explicit `ordinary-output-retained`
   settings mid-stage, so it never truncates or refuses a stage by itself.
 - **Delivery counters** (`ffb.deliveryAttempts`, `ffb.connectionAttempts`) are the per-row delivery history.
   They must be truthful cumulative counts: nonnegative, whole and non-decreasing. Their deltas are reported as is,
-  and nothing replays them.
+  and nothing replays them. They are counted from the first stage row's value, so that row's own increments are
+  not included.
 
 The review then splits its result in two:
 - **Structure** stays required: the seals, the metadata, row alignment, clocks, driving rows, truthful delivery
   counters, and a complete, drop-free source. The review reports `trajectory: eligible`.
 - **Force analysis** is reported separately under `forceAnalysis`:
   - **Qualified:** the stage's own history replays exactly, the tune is stable, and coverage is enough.
-  - **Unqualified** (`partial`), with its first reason: a tune change mid-stage, zero strength, a car change, or
-    a history that does not reproduce. A valid recorded route is never lost to its force analysis.
+  - **Unqualified**, with its first reason: a tune change mid-stage, a car change,
+    a history that does not reproduce, a foreign analysis contract, or a malformed force config. A valid recorded
+    route is never lost to its force analysis. An unqualified analysis reports how many rows it covered
+    (`analyzedSamples`) and no force statistics. Strength scales delivery, not the analysis, so zero strength
+    still qualifies.
 
 The runner plays exactly the stage the review returns (`stage`). It pins that stage's `stageSealSha256` before
 arming, and runs the same admitted review after the run.
 
 The cold replay itself is always muted. The review claims `coldReplay: not-qualified`; a passed replay of the
 derived package is separate evidence.
+
 **Not yet admitted:**
 - later rounds and other modes;
 - results observation.

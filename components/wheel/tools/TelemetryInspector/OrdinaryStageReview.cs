@@ -4,9 +4,10 @@ using Dbce.Wheel.Sessions;
 using WodenRallyEdge;
 
 // S2b: the review an admitted ordinary package gets before muted cold playback. An owner drive may have had forces on,
-// so the capture's own output policy is accepted when it is consistent and its delivery counters are truthful; every
-// tune, alignment, clock and force-reprocess check of the stage review still applies, so the ordinary force history is
-// proven replayable. Raw stage recordings keep the muted-capture stage-review. Playback itself is always muted.
+// so the capture's own stage-start output flag is accepted when consistent and its per-row delivery counters are truthful.
+// The route's structure is required; the force analysis (tune, model, history replay, coverage) is reported as qualified or
+// unqualified with its reason, never refusing the route. Raw stage recordings keep the muted-capture stage-review.
+// Playback itself is always muted.
 internal static class OrdinaryStageReview
 {
     internal static object Run(string derived)

@@ -5,10 +5,10 @@ using WodenRallyEdge.Core;
 
 // Device-free validation of original signals. Kinematic playback cannot generate
 // a replacement tyre-force baseline; re-evaluate the actual model on this stream.
-// Muted (the default, unchanged) requires a physically muted capture. OrdinaryOutputRetained is used only for an
-// admitted ordinary package (OrdinaryStageReview): the stage-start output flag must agree between tape and source, and the
-// per-row delivery counters (the delivery history) must be truthful; every tune, alignment, clock and force-reprocess check is
-// the same. Playback itself is always muted.
+// Muted (the default, unchanged) requires a physically muted capture and refuses any force-analysis failure.
+// OrdinaryOutputRetained is used only for an admitted ordinary package (OrdinaryStageReview): the structure (seals, metadata,
+// alignment, clocks, driving rows, truthful per-row delivery counters, a complete source) is required, and the force analysis
+// (tune, model, history replay, coverage) is reported as qualified or unqualified with its reason. Playback is always muted.
 internal enum StageReviewPolicy { Muted, OrdinaryOutputRetained }
 
 internal static class StageCaptureReview
@@ -72,17 +72,24 @@ internal static class StageCaptureReview
         }
         double? firstDelivery = null, lastDelivery = null, firstConnection = null, lastConnection = null;
         ForceOptions? options = null;
-        Analyze(() => options = ReadOptions(directory));
+        Analyze(() =>
+        {
+            // A malformed force config is force-analysis metadata: unqualified under the ordinary policy (mufa F4).
+            try { options = ReadOptions(directory); }
+            catch (Exception ex) when (!muted && ex is System.Text.Json.JsonException or KeyNotFoundException or InvalidOperationException or FormatException)
+            { throw new IOException("Malformed force config: " + ex.Message); }
+        });
         var records = SessionReader.Read(Path.Combine(directory, "source.jsonl")).ToArray();
-        bool independent = ForceAnalysisHistory.Declared(records);
+        bool independent = false, declared = false;
+        Analyze(() => { independent = ForceAnalysisHistory.Declared(records); declared = true; }); // analysis metadata (mufa F1)
         IReadOnlyList<RecordedForceTrialSample>? analysis = null;
         Analyze(() => analysis = independent ? ForceAnalysisHistory.Replay(records, options!) : null);
         var signal = new ForceSignal(); signal.Reset();
         var grip = new GripSignal(); grip.NewCar();
         int count = 0, valid = 0, nonzero = 0; double? origin = null;
         double? carEpoch = null;
-        int qualified = 0;
-        double maxError = 0, minForce = 0, maxForce = 0, maxSpeed = 0;
+        int qualified = 0, analyzed = 0;
+        double maxError = 0, minForce = 0, maxForce = 0, maxSpeed = 0, routeSpeed = 0;
         SessionFooter? footer = null;
         foreach (var record in records)
         {
@@ -120,6 +127,8 @@ internal static class StageCaptureReview
                     delivery < (lastDelivery ?? 0) || connection < (lastConnection ?? 0))
                     throw new IOException("Delivery counters are not truthful cumulative counts at sample " + count);
                 firstDelivery ??= delivery; firstConnection ??= connection; lastDelivery = delivery; lastConnection = connection;
+                // A route statistic over every structural row, independent of the force analysis (mufa F2).
+                if (channels.TryGetValue("motion.speed", out double speed) && double.IsFinite(speed)) routeSpeed = Math.Max(routeSpeed, speed);
             }
             Analyze(() =>
             {
@@ -162,6 +171,7 @@ internal static class StageCaptureReview
                 if (result.Preview != 0) nonzero++;
                 minForce = Math.Min(minForce, result.Preview); maxForce = Math.Max(maxForce, result.Preview);
                 maxSpeed = Math.Max(maxSpeed, Get("motion.speed"));
+                analyzed++;
             });
             count++;
         }
@@ -174,17 +184,22 @@ internal static class StageCaptureReview
         ArtifactSeal.Verify(directory, "source.jsonl", "force-config.json", "stage-context.json", "channels.json");
         string contract = independent ? ForceAnalysisHistory.Contract : "legacy-stage-history";
         if (!muted)
+        {
+            // An analysis that stopped reports no force statistics, only how many rows it covered (mufa F2).
+            bool ok = analysisFailure == null;
             return new { schema = "woden.stage-review@1", passed = true, policy = "ordinary-output-retained", trajectory = "eligible",
                 physicalOutputAtStageStart = output == "true",
                 physicalDeliveryAttempts = (lastDelivery ?? 0) - (firstDelivery ?? 0), connectionAttempts = (lastConnection ?? 0) - (firstConnection ?? 0),
                 playback = "muted", scenario = tape.Metadata["scenario"], samples = count, seconds = tape.Frames[^1].Time - tape.Frames[0].Time,
-                source = tape.Metadata["captureSource"],
-                forceAnalysis = new { qualified = analysisFailure == null, partial = analysisFailure != null, reason = analysisFailure,
-                    validForceSamples = valid, nonzeroForceSamples = nonzero, qualifiedForceSamples = qualified,
-                    minimumPreview = minForce, maximumPreview = maxForce, maximumForceReprocessError = maxError, maximumPhysicsSpeedMps = maxSpeed,
-                    model = options == null ? "unavailable" : ForceObservationSemantics.ModelId(options.Model), analysisContract = contract,
+                maximumPhysicsSpeedMps = routeSpeed, source = tape.Metadata["captureSource"],
+                forceAnalysis = new { qualified = ok, reason = analysisFailure, analyzedSamples = analyzed,
+                    validForceSamples = ok ? valid : (int?)null, nonzeroForceSamples = ok ? nonzero : (int?)null, qualifiedForceSamples = ok ? qualified : (int?)null,
+                    minimumPreview = ok ? minForce : (double?)null, maximumPreview = ok ? maxForce : (double?)null,
+                    maximumForceReprocessError = ok ? maxError : (double?)null,
+                    model = options == null ? "unavailable" : ForceObservationSemantics.ModelId(options.Model), analysisContract = declared ? contract : "unavailable",
                     forceScope = "steering analysis only; crash cues and physical delivery are separate",
                     normalization = "software signal only; no measured wheel torque" } };
+        }
         return new { schema = "woden.stage-review@1", passed = true, scenario = tape.Metadata["scenario"],
             samples = count, seconds = tape.Frames[^1].Time - tape.Frames[0].Time, validForceSamples = valid,
             nonzeroForceSamples = nonzero, minimumPreview = minForce, maximumPreview = maxForce,

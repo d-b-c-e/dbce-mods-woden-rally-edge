@@ -17,8 +17,10 @@ void Refuses(Action action, string reason)
     throw new Exception("Expected refusal: " + reason);
 }
 
+bool Throws(Action action) { try { action(); return false; } catch (Exception) { return true; } }
+string WriteText(string path, string text) { File.WriteAllText(path, text); return ArtifactSeal.Hash(path); }
 string Capture(string name, bool gripModel, Action<int, Dictionary<string, double>>? change = null, bool legacy = false, int model = 4, bool flat = false, bool independent = false,
-    string physicalOutput = "false", string? recordedOutput = null, float? strength = null)
+    string physicalOutput = "false", string? recordedOutput = null, float? strength = null, string? contract = null, string? configJson = null)
 {
     string directory = Path.Combine(root, name);
     var options = new ForceOptions(Model: gripModel ? model : 3);
@@ -29,11 +31,12 @@ string Capture(string name, bool gripModel, Action<int, Dictionary<string, doubl
         ["scenario"] = "synthetic-model-fixture", ["fixedDeltaTime"] = ".02", ["captureSource"] = "synthetic-test",
         ["physicalOutput"] = physicalOutput
     });
-    string configHash = RecordingArtifacts.WriteForceConfig(Path.Combine(directory, "force-config.json"), options);
+    string configHash = configJson == null ? RecordingArtifacts.WriteForceConfig(Path.Combine(directory, "force-config.json"), options)
+        : WriteText(Path.Combine(directory, "force-config.json"), configJson);
     File.WriteAllText(Path.Combine(directory, "stage-context.json"), "{\"synthetic\":true}");
     File.WriteAllText(Path.Combine(directory, "channels.json"), "[]");
     var properties = new Dictionary<string, string> { ["forceConfigSha256"] = configHash, ["captureSource"] = "synthetic-test", ["physicalOutput"] = recordedOutput ?? physicalOutput };
-    if (independent) { properties["analysisForceContract"] = ForceAnalysisHistory.Contract; properties["analysisForce"] = ForceAnalysisHistory.Scope; }
+    if (independent) { properties["analysisForceContract"] = contract ?? ForceAnalysisHistory.Contract; properties["analysisForce"] = ForceAnalysisHistory.Scope; }
     var history = new ForceAnalysisHistory();
     using var recorder = new SessionRecorder(Path.Combine(directory, "source.jsonl"), new SessionMetadata
     {
@@ -226,19 +229,24 @@ var laterReview = Ordinary(later);
 Check(!laterReview.GetProperty("physicalOutputAtStageStart").GetBoolean() && laterReview.GetProperty("physicalDeliveryAttempts").GetDouble() == 104,
     "a force setting change mid-stage keeps the stage and reports its delivery history");
 // Force analysis that cannot qualify: the route stays eligible, the analysis says why. The muted review still refuses each.
-foreach (var (name, change, reason) in new (string, Action<int, Dictionary<string, double>>, string)[]
+foreach (var (name, change, reason, analyzed) in new (string, Action<int, Dictionary<string, double>>, string, int)[]
 {
-    ("owner-tune", (i, c) => { OwnerDelivery(i, c); if (i == 55) c["ffb.tuning.loadRatio"] = 1; }, "Capture tune changed"),
-    ("owner-history", (i, c) => { OwnerDelivery(i, c); if (i == 55) c["analysis.force.preview"] += 1; }, "analysis.force.preview"),
-    ("owner-car-change", (i, c) => { OwnerDelivery(i, c); if (i >= 55) c["ffb.grip.carEpoch"] = 8; }, "Capture car changed"),
+    ("owner-tune", (i, c) => { OwnerDelivery(i, c); if (i == 55) c["ffb.tuning.loadRatio"] = 1; }, "Capture tune changed", 55),
+    ("owner-history", (i, c) => { OwnerDelivery(i, c); if (i == 55) c["analysis.force.preview"] += 1; }, "analysis.force.preview", 0), // the replay fails before any row
+    ("owner-car-change", (i, c) => { OwnerDelivery(i, c); if (i >= 55) c["ffb.grip.carEpoch"] = 8; }, "Capture car changed", 55),
 })
 {
     // The car change is checked per row on the legacy stage history; the independent history would report it as a replay difference.
     string path = Capture(name, true, change, model: 6, flat: true, independent: name != "owner-car-change", physicalOutput: "true");
     var review = Ordinary(path); var force = review.GetProperty("forceAnalysis");
     Check(review.GetProperty("passed").GetBoolean() && review.GetProperty("trajectory").GetString() == "eligible" && review.GetProperty("samples").GetInt32() == 160 &&
-        !force.GetProperty("qualified").GetBoolean() && force.GetProperty("partial").GetBoolean() && force.GetProperty("reason").GetString()!.Contains(reason, StringComparison.Ordinal),
+        !force.GetProperty("qualified").GetBoolean() && force.GetProperty("reason").GetString()!.Contains(reason, StringComparison.Ordinal),
         name + ": route eligible, force analysis unqualified with its reason: " + force.GetProperty("reason"));
+    // mufa F2: a stopped analysis claims no statistics, only the rows it covered; the route speed covers every row.
+    Check(force.GetProperty("analyzedSamples").GetInt32() == analyzed && force.GetProperty("maximumForceReprocessError").ValueKind == JsonValueKind.Null &&
+        force.GetProperty("validForceSamples").ValueKind == JsonValueKind.Null && review.GetProperty("maximumPhysicsSpeedMps").GetDouble() == 20,
+        name + ": " + analyzed + " analyzed rows, no force statistics, full-route speed");
+    Check(Throws(() => StageCaptureReview.Run(path)), name + ": the muted review still refuses it");
 }
 string zero = Capture("owner-no-force", true, OwnerDelivery, model: 6, flat: true, independent: true, physicalOutput: "true", strength: 0);
 // Strength scales delivery, not the analysis preview, so a zero-strength owner capture keeps its route and its analysis.
@@ -246,6 +254,18 @@ var zeroReview = Ordinary(zero);
 Check(zeroReview.GetProperty("trajectory").GetString() == "eligible" && zeroReview.GetProperty("forceAnalysis").GetProperty("qualified").GetBoolean(),
     "a zero-strength capture keeps its route; its analysis is reported: " + zeroReview.GetProperty("forceAnalysis").GetProperty("reason"));
 Refuses(() => StageCaptureReview.Run(zero), "physically muted");
+// mufa F1/F4: analysis metadata (a foreign analysis contract) and a malformed force config are unqualified, not structural.
+string foreign = Capture("owner-foreign-contract", true, OwnerDelivery, model: 6, flat: true, independent: true, physicalOutput: "true", contract: "other.analysis@9");
+var foreignForce = Ordinary(foreign).GetProperty("forceAnalysis");
+Check(!foreignForce.GetProperty("qualified").GetBoolean() && foreignForce.GetProperty("analysisContract").GetString() == "unavailable" &&
+    foreignForce.GetProperty("analyzedSamples").GetInt32() == 0, "a foreign analysis contract keeps the route: " + foreignForce.GetProperty("reason"));
+Check(Throws(() => StageCaptureReview.Run(foreign)), "the muted review refuses a foreign analysis contract");
+string malformed = Capture("owner-malformed-config", true, OwnerDelivery, model: 6, flat: true, independent: true, physicalOutput: "true",
+    configJson: "{\"schema\":\"woden.force-config\"}");
+var malformedForce = Ordinary(malformed).GetProperty("forceAnalysis");
+Check(!malformedForce.GetProperty("qualified").GetBoolean() && malformedForce.GetProperty("reason").GetString()!.StartsWith("Malformed force config", StringComparison.Ordinal) &&
+    malformedForce.GetProperty("model").GetString() == "unavailable", "a malformed force config keeps the route: " + malformedForce.GetProperty("reason"));
+Check(Throws(() => StageCaptureReview.Run(malformed)), "the muted review refuses a malformed force config");
 // Structural failures still refuse the ordinary review.
 Refuses(() => StageCaptureReview.Run(Capture("owner-decreasing", true, (i, c) => { OwnerDelivery(i, c); if (i == 55) c["ffb.deliveryAttempts"] = 3; }, model: 6, flat: true, independent: true,
     physicalOutput: "true"), StageReviewPolicy.OrdinaryOutputRetained), "truthful cumulative");
