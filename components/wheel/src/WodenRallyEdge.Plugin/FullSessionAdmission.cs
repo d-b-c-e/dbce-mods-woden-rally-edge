@@ -29,10 +29,15 @@ internal static class FullSessionAdmission
         FullSessionPackageNames.Names names;
         try
         {
-            (descriptor, names, admission) = Verify(original, gameHash);
+            // Snapshot first, so every hash the admission records comes from these exact bytes (Rita F1).
             before = Inventory(original);
+            (descriptor, names, admission) = Verify(original, gameHash);
+            var source = admission["source"]!;
+            foreach (var (file, key) in new[] { (FullSessionPackageNames.Descriptor, "sessionSha256"), ("complete.tsv", "packageSealSha256"),
+                (names.Signals, "signalsSha256"), (names.Observation, "observationSha256"), (names.Timeline, "timelineSha256"), (names.Stage + Path.DirectorySeparatorChar + "complete.tsv", "stageSealSha256") })
+                if (!before.TryGetValue(file, out var hash) || hash != (string?)source[key]) throw new InvalidDataException("the original changed while it was verified: " + file);
         }
-        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException or JsonException or KeyNotFoundException or InvalidOperationException or FormatException)
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException or JsonException or KeyNotFoundException or InvalidOperationException or FormatException or ArgumentException)
         { return Refused(ex.Message); }
 
         string partial = output + ".partial-" + Guid.NewGuid().ToString("N");
@@ -40,7 +45,12 @@ internal static class FullSessionAdmission
         {
             Directory.CreateDirectory(partial);
             foreach (string file in new[] { names.Signals, names.Observation, names.Timeline }) CopyExact(Path.Combine(original, file), Path.Combine(partial, file));
-            CopyTree(Path.Combine(original, names.Stage), Path.Combine(partial, names.Stage));
+            Directory.CreateDirectory(Path.Combine(partial, names.Stage));
+            foreach (string file in StageFiles) CopyExact(Path.Combine(original, names.Stage, file), Path.Combine(partial, names.Stage, file));
+            // The copies are the verified bytes (Rita F1).
+            var verified = admission["source"]!;
+            foreach (var (file, key) in new[] { (names.Signals, "signalsSha256"), (names.Observation, "observationSha256"), (names.Timeline, "timelineSha256"), (names.Stage + "/complete.tsv", "stageSealSha256") })
+                if (ArtifactSeal.Hash(Path.Combine(partial, file)) != (string?)verified[key]) throw new InvalidDataException("copied " + file + " differs from the verified original");
             WriteNew(Path.Combine(partial, AdmissionFile), admission.ToJsonString(Indented));
             var derived = new JsonObject();
             foreach (var pair in descriptor) if (pair.Key != "playbackUnavailableReason") derived[pair.Key] = JsonNode.Parse(pair.Value?.ToJsonString() ?? "null");
@@ -69,6 +79,9 @@ internal static class FullSessionAdmission
     }
 
     /// <summary>The derived outer seal: the admission and every payload, with the copied nested stage seal.</summary>
+    /// <summary>The nested stage's exact inventory: the six sealed files and the seal itself (Rita F2).</summary>
+    internal static readonly string[] StageFiles = new[] { "trajectory.meta", "trajectory.tsv" }.Concat(StageSignalFiles.Files).Append("complete.tsv").ToArray();
+
     internal static string[] DerivedSealFiles(FullSessionPackageNames.Names names) =>
         new[] { FullSessionPackageNames.Descriptor, AdmissionFile, names.Signals, names.Observation, names.Timeline, names.Stage + "/complete.tsv" };
 
@@ -95,6 +108,11 @@ internal static class FullSessionAdmission
         if (timeline.GameBuild != gameHash || timeline.AdapterVersion != OrdinaryFullSession.AdapterVersion || stage.Directory != names.Stage)
             throw new InvalidDataException("timeline build, adapter or stage reference differs");
         string stageDirectory = Path.Combine(root, names.Stage);
+        if ((File.GetAttributes(stageDirectory) & FileAttributes.ReparsePoint) != 0 || Directory.GetDirectories(stageDirectory).Length != 0)
+            throw new InvalidDataException("linked stage or unexpected folder inside the stage");
+        var present = Directory.GetFiles(stageDirectory).Select(p => Path.GetFileName(p)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (present.Count != StageFiles.Length || !StageFiles.All(present.Contains)) throw new InvalidDataException("unexpected file in the stage: " + string.Join(", ", present.Except(StageFiles, StringComparer.OrdinalIgnoreCase)));
+        if (File.ReadAllLines(Path.Combine(stageDirectory, "complete.tsv")).Length != StageFiles.Length) throw new InvalidDataException("unexpected nested seal inventory");
         OrdinaryFullSession.VerifyStage(stageDirectory, stage, gameHash);
         OrdinaryFullSession.ReadSource(Path.Combine(root, names.Signals), gameHash);
 
@@ -146,13 +164,6 @@ internal static class FullSessionAdmission
         if ((File.GetAttributes(from) & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException("linked payload refused");
         File.Copy(from, to);
         if (ArtifactSeal.Hash(from) != ArtifactSeal.Hash(to)) throw new IOException("copy readback differs: " + Path.GetFileName(from));
-    }
-    private static void CopyTree(string from, string to)
-    {
-        if ((File.GetAttributes(from) & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException("linked stage refused");
-        Directory.CreateDirectory(to);
-        foreach (string file in Directory.GetFiles(from)) CopyExact(file, Path.Combine(to, Path.GetFileName(file)));
-        if (Directory.GetDirectories(from).Length != 0) throw new InvalidDataException("unexpected folder inside the stage");
     }
     private static void WriteNew(string path, string text)
     {

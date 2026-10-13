@@ -145,6 +145,29 @@ internal static class AdmissionChecks
         check(Refused(FullSessionAdmission.Admit(marked, marked + ".admitted", FullSessionChecks.Hash), "marked incomplete"), "an incomplete original is refused");
         check(Same(before, Hashes(original)), "refusals leave the original byte-identical");
         check(!Directory.Exists(copy + ".admitted") && !Directory.Exists(marked + ".admitted"), "refusals write no derived package");
+
+        // Rita F1: the copies are exactly the bytes whose hashes the admission records.
+        foreach (var (file, key) in new[] { (names.Signals, "signalsSha256"), (names.Observation, "observationSha256"), (names.Timeline, "timelineSha256"), ("source.stage/complete.tsv", "stageSealSha256") })
+            check(ArtifactSeal.Hash(Path.Combine(derived, file)) == (string?)admission["source"]![key], "derived " + file + " is the verified source byte for byte");
+        // Rita F2: the nested stage inventory is exact; files beside the package (the companion's case files) are not copied.
+        string stray = f.Root + ".stray";
+        Copy(original, stray);
+        File.WriteAllText(Path.Combine(stray, "source.stage", "notes.txt"), "unsealed\n");
+        check(Refused(FullSessionAdmission.Admit(stray, stray + ".admitted", FullSessionChecks.Hash), "unexpected file in the stage: notes.txt"), "an unsealed stage file is refused");
+        string beside = f.Root + ".beside";
+        Copy(original, beside);
+        File.WriteAllText(Path.Combine(beside, "case.json"), "{\"companion\":true}\n");
+        var besideOutcome = FullSessionAdmission.Admit(beside, beside + ".admitted", FullSessionChecks.Hash);
+        check(besideOutcome.Admitted && !File.Exists(Path.Combine(beside + ".admitted", "case.json")) &&
+            Directory.GetFiles(Path.Combine(beside + ".admitted", "source.stage")).Length == FullSessionAdmission.StageFiles.Length,
+            "only the named payloads and the exact stage files are copied: " + besideOutcome.Reason);
+        // Rita F3: duplicate keys or non-JSON are refusals, never an unhandled exception.
+        string duplicate = f.Root + ".duplicate";
+        Copy(original, duplicate);
+        File.WriteAllText(Path.Combine(duplicate, "session.json"), "{\"schema\":\"woden.full-session-package@1\",\"schema\":\"other\"}");
+        check(!FullSessionAdmission.Admit(duplicate, duplicate + ".admitted", FullSessionChecks.Hash).Admitted, "duplicate descriptor keys are refused");
+        File.WriteAllText(Path.Combine(duplicate, "session.json"), "not json");
+        check(!FullSessionAdmission.Admit(duplicate, duplicate + ".admitted2", FullSessionChecks.Hash).Admitted, "a non-JSON descriptor is refused");
     }
 
     public static void Scope(Action<bool, string> check)

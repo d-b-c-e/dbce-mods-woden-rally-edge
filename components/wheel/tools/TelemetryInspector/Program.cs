@@ -25,9 +25,14 @@ if (args.Length == 2 && args[0] == "stage-review")
 if (args.Length == 4 && args[0] == "admit")
 {
     // admit <original S1 package> <new derived package> <GameAssembly SHA-256>: route-compatible evidence only
-    var outcome = WodenRallyEdge.FullSessionAdmission.Admit(args[1], args[2], args[3].ToLowerInvariant());
-    Console.WriteLine(JsonSerializer.Serialize(outcome, json));
-    return outcome.Admitted ? 0 : 2;
+    try
+    {
+        var outcome = WodenRallyEdge.FullSessionAdmission.Admit(args[1], args[2], args[3].ToLowerInvariant());
+        Console.WriteLine(JsonSerializer.Serialize(outcome, json));
+        if (outcome.Admitted) return 0;
+        Console.Error.WriteLine("ADMISSION REFUSED: " + outcome.Reason); return 2;
+    }
+    catch (Exception ex) { Console.Error.WriteLine("ADMISSION REFUSED: " + ex.Message); return 2; }
 }if (args.Length == 2 && args[0] == "schema")
 {
     File.WriteAllText(args[1], JsonSerializer.Serialize(new { schema = TelemetrySchema.Name, version = TelemetrySchema.Version, channels = TelemetrySchema.Channels }, json));
