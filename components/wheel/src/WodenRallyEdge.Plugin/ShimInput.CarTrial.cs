@@ -11,7 +11,8 @@ internal static partial class ShimInput
     // One arm after native countdown and identity checks, then permanent neutral.
     internal static void CarTrialDelivery(bool enabled)
     {
-        if (!_carTrial || enabled && (!Ready || _carTrialDelivery || _carTrialEnded || !ShiftReady(Runtime.Local)))
+        if (!_carTrial || enabled && (!Ready || _carTrialDelivery || _carTrialEnded ||
+            !(ShiftReady(Runtime.Local) || HPatternReady(Runtime.Local) && Runtime.Local?.TransmissionSystem?.Changing==false)))
             throw new InvalidOperationException("Car trial delivery requires actual Manual car and cannot rearm");
         _carTrialDelivery=enabled;
         if (!enabled) _carTrialEnded=true;

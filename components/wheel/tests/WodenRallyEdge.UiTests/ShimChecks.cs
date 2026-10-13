@@ -102,6 +102,17 @@ internal static partial class ShimChecks
         Check(duplicate,"duplicate section refused");
         Check(new ShimAction(float.NaN,ShimStatus.Live).Applied==0 && new ShimAction(1,ShimStatus.Stale).Applied==0,"nonfinite/unavailable cannot deliver");
         Check(ShimActionMap.Compose(float.NaN,float.PositiveInfinity,0,1,0,.5f)==(1,0,.5f),"finite keyboard composition");
+        // The cold car-trial seam exposes only one transmission's bounded
+        // shift labels; clutch, reverse and menu actions remain unavailable.
+        Reset(dir);Set("_trialNonce",new string('a',32));Set("_carTrial",true);Set("_carTrialDelivery",true);
+        var delivers=typeof(ShimInput).GetMethod("TrialDelivers",BindingFlags.Static|BindingFlags.NonPublic)!;
+        bool Delivers(string label)=>(bool)delivers.Invoke(null,new object[]{label})!;
+        Set("_transmission","HPattern");
+        Check(Delivers("Gear 1")&&Delivers("Gear 2")&&!Delivers("Gear up")&&!Delivers("Gear down")&&
+            !Delivers("Gear R")&&!Delivers("Confirm"),"H-pattern car trial delivers only the bounded forward gates");
+        Set("_transmission","Sequential");
+        Check(Delivers("Gear up")&&Delivers("Gear down")&&!Delivers("Gear 1")&&!Delivers("Gear 2")&&
+            !Delivers("Clutch")&&!Delivers("Pause"),"Sequential car trial delivers only shift edges");
 
         var producer=new GamePadSystem();var pad=new GamePadSystem.Game_Pad();producer.Game_Pads.Add(pad);
         Reset(dir);Gamepad.all.Add(new());ShimInput.BeforeStock(producer);Next();

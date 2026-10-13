@@ -61,6 +61,12 @@ var forward=car with{Schema=6,Mode="shim-force-capture"};Check(Protocol.Admit(By
 foreach(var r in new[]{forward with{Schema=5},forward with{Mode="shim-car-trial"},car with{Schema=6},forward with{WorkloadDirectory=null}})
     Refuse(()=>Protocol.Admit(Bytes(r),now,nonce));
 Check(Protocol.ForceCapture(forward)&&Protocol.CarTrial(forward)&&Protocol.LatchedTrial(forward)&&!Protocol.MenuTrial(forward));
+var appliedCar=car with{Schema=7,Mode="shim-applied-car-trial",ProfileSha256=hash,WorkloadSha256=hash,ProfileRevision=hash};
+Check(Protocol.Admit(Bytes(appliedCar),now,nonce)==appliedCar && Protocol.DynamicCarTrial(appliedCar) &&
+    Protocol.CarTrial(appliedCar) && Protocol.ShimAdmission(appliedCar) && Protocol.LatchedTrial(appliedCar) && !Protocol.ForceCapture(appliedCar));
+foreach(var r in new[]{appliedCar with{Schema=5},appliedCar with{Mode="shim-car-trial"},appliedCar with{ProfileSha256=null},
+    appliedCar with{WorkloadSha256="bad"},appliedCar with{ProfileRevision=null},car with{ProfileSha256=hash}})
+    Refuse(()=>Protocol.Admit(Bytes(r),now,nonce));
 
 Dictionary<string,double> NativeValues(string action="neutral",double expected=0)=>new(){
     ["game.automatic"]=0,["game.locked"]=0,["game.paused"]=0,["game.respawning"]=0,["game.replay"]=0,
@@ -78,7 +84,7 @@ Check(!Observe("steer",.5,gap:.15).Passed);
 Check(!Observe("steer",.5,rows:4).Passed);
 Check(!Observe("steer",.5,v=>v["game.automatic"]=1).Passed);
 Console.WriteLine($"PASS: {count} total protocol/native plateau checks; requested action values alone cannot pass.");
-if(args.Length is 4 or 5) {
+if(args.Length is 4 or 5 && args[0]!="--applied") {
     var controls=File.ReadAllBytes(args[0]);var profile=File.ReadAllBytes(args[1]);var workload=File.ReadAllBytes(args[2]);
     var plan=CarWorkload.Read(controls,profile,workload);
     Check(plan.Pulses.Length==10 && plan.Neutral.Command.Split('\n').Length==6 && plan.Neutral.Command.Contains("value=1743"));
@@ -92,6 +98,26 @@ if(args.Length is 4 or 5) {
         output.WriteLine(p.Action+" "+p.Expected.ToString("R",System.Globalization.CultureInfo.InvariantCulture));output.WriteLine(p.Command);output.WriteLine("---");
     }
     Console.WriteLine($"PASS: immutable independent sources and six-action raw batch fixture exported; {count} checks.");
+}
+
+if(args.Length==5 && args[0]=="--applied") {
+    byte[] controls=File.ReadAllBytes(args[1]),profile=File.ReadAllBytes(args[2]),workload=File.ReadAllBytes(args[3]);
+    string Hash(byte[] bytes)=>Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes));
+    string revision=Encoding.UTF8.GetString(controls).Split('\n').Single(l=>l.StartsWith("Revision = ",StringComparison.Ordinal))[11..].Trim();
+    AppliedCarWorkload Read(byte[] c,byte[] p,byte[] w)=>AppliedCarWorkload.Read(c,p,w,Hash(c),Hash(p),Hash(w),revision);
+    var applied=Read(controls,profile,workload);
+    Check(applied.Transmission==args[4] && applied.Revision==revision && applied.Actions.Length==6 && applied.Devices.Count is >0 and <=4);
+    Check(applied.Neutral.Command.Split('\n').Length==6 && applied.Pulses.Length==10 && applied.Pulses.All(p=>p.DurationMs==700));
+    Check(applied.Gaps.Any(g=>g.StartsWith("clutch:",StringComparison.Ordinal)) &&
+        applied.Pulses.All(p=>p.Action is not ("clutch" or "select" or "gear7" or "gear8")));
+    Check(applied.Pulses.Take(2).Select(p=>p.Action).SequenceEqual(args[4]=="Sequential"?["shiftUp","shiftDown"]:["gear2","gear1"]));
+    Refuse(()=>AppliedCarWorkload.Read(controls,profile,workload,new string('0',64),Hash(profile),Hash(workload),revision));
+    Refuse(()=>AppliedCarWorkload.Read(controls,profile,workload,Hash(controls),Hash(profile),Hash(workload),new string('0',64)));
+    byte[] badControl=Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(controls).Replace("steer = axis 0 ","steer = axis 1 ",StringComparison.Ordinal));
+    if(!badControl.SequenceEqual(controls))Refuse(()=>Read(badControl,profile,workload));
+    byte[] badWorkload=Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(workload).Replace("ms=500","ms=501",StringComparison.Ordinal));
+    Refuse(()=>Read(controls,profile,badWorkload));
+    Console.WriteLine($"PASS: applied {applied.Transmission} car plan, 10 bounded pulses, unsupported gaps and hash/binding/command refusals; {count} checks.");
 }
 
 Dictionary<string,double> AnalysisValues()=>new(){["analysis.force.contractVersion"]=1,["analysis.force.modelVersion"]=6,

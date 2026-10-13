@@ -242,7 +242,9 @@ public sealed partial class ControlsProbe : BasePlugin
     }
     static void AfterButton(string __0,bool __1,bool __result)
     { if(Observing) {
-        if(Protocol.CarTrial(Request) && __result && (CarPulse?.Action=="shiftUp" && __0=="Gear up" || CarPulse?.Action=="shiftDown" && __0=="Gear down"))CarGearQuery=true;
+        if(Protocol.CarTrial(Request) && __result && (CarPulse?.Action=="shiftUp" && __0=="Gear up" ||
+            CarPulse?.Action=="shiftDown" && __0=="Gear down" || CarPulse?.Action=="gear1" && __0=="Gear 1" ||
+            CarPulse?.Action=="gear2" && __0=="Gear 2"))CarGearQuery=true;
         Changed("game-button",__0+"/"+__1,__0+" edge="+__1+" value="+(__result?1:0)); } }
     static void Changed(string kind,string key,string data)
     {

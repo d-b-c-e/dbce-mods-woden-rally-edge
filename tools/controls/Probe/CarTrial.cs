@@ -7,7 +7,7 @@ namespace Woden.ControlsTesting;
 
 public sealed partial class ControlsProbe
 {
-    static CarWorkload? CarWork;
+    static ICarWorkload? CarWork;
     static readonly Queue<CarPulse> CarPulses=new();
     static CarPulse? CarPulse;
     static CarPlateau CarValues=new();
@@ -17,13 +17,17 @@ public sealed partial class ControlsProbe
     static string CarVerdict="unclassified",CarEpochs="";
     static ForceCaptureCoverage ForceCoverage=new();
     static string CarRecording => Path.Combine(Paths.GameRootPath,"BepInEx","WodenRecordings","request-"+Request!.Nonce,"source.jsonl");
-    static CarWorkload ReadCarWorkload()
+    static ICarWorkload ReadCarWorkload()
     {
         string folder=Request!.WorkloadDirectory!;
         foreach(string path in new[]{folder,Request.StageReference!,Path.Combine(Paths.ConfigPath,"dbce-controls.ini")})Plain(path);
         foreach(string path in new[]{Path.Combine(folder,"profile.json"),Path.Combine(folder,"raw-workload.json"),Path.Combine(Request.StageReference!,"stage-context.json")})Plain(path);
-        var work=CarWorkload.Read(ReadBounded(Path.Combine(Paths.ConfigPath,"dbce-controls.ini"),1024*1024),
-            ReadBounded(Path.Combine(folder,"profile.json"),1024*1024),ReadBounded(Path.Combine(folder,"raw-workload.json"),1024*1024));
+        var controls=ReadBounded(Path.Combine(Paths.ConfigPath,"dbce-controls.ini"),1024*1024);
+        var profile=ReadBounded(Path.Combine(folder,"profile.json"),1024*1024);
+        var workload=ReadBounded(Path.Combine(folder,"raw-workload.json"),1024*1024);
+        ICarWorkload work=Protocol.DynamicCarTrial(Request) ? AppliedCarWorkload.Read(controls,profile,workload,
+            Request.ControlsSha256!,Request.ProfileSha256!,Request.WorkloadSha256!,Request.ProfileRevision!) :
+            CarWorkload.Read(controls,profile,workload);
         Match(Path.Combine(Request.StageReference!,"stage-context.json"),CarWorkload.StageHash);
         return work;
     }
@@ -54,6 +58,7 @@ public sealed partial class ControlsProbe
         CarChanged=Clock.Elapsed.TotalSeconds;CarActivated=CarNeutral=0;CarVerdict="pending";
         ObserveUntil=Deadline;TrialModules.Clear();
         Row("car-trial",Protocol.ForceCapture(Request)?"Synthetic original forward analysis capture: 8s accepted 50% throttle, neutral baseline/end, Manual gear1; no body/focus/force writes":
+            Protocol.DynamicCarTrial(Request)?"Frozen production Apply car qualification; temporary player0 Manual; finite raw actions from applied profile; no trajectory/body/background writes":
             "New original Kenya control qualification; temporary player0 Manual; no trajectory/body/background writes; six raw actions only");
     }
     static void VerifyCarDevices()
@@ -62,9 +67,10 @@ public sealed partial class ControlsProbe
         string report=(string)Method(Type("ShimNative"),"DeviceReports").Invoke(null,new[]{handle})!;
         using var doc=JsonDocument.Parse(report);
         var devices=doc.RootElement.EnumerateArray().ToArray();
-        if(devices.Length!=2)throw new InvalidDataException("Car trial needs exactly the two profile devices.");
-        var expected=new[]{("{d71b8350-61b7-11f1-8001-444553540000}","{0006346e-0000-0000-0000-504944564944}"),
-            ("{d9b1d890-6f3f-11f1-8002-444553540000}","{05310483-0000-0000-0000-504944564944}")};
+        var expected=CarWork!.DevicePins is {} pins ? pins.Select(p=>(p.Key.ToString("B"),p.Value.ToString("B"))).ToArray() :
+            new[]{("{d71b8350-61b7-11f1-8001-444553540000}","{0006346e-0000-0000-0000-504944564944}"),
+                ("{d9b1d890-6f3f-11f1-8002-444553540000}","{05310483-0000-0000-0000-504944564944}")};
+        if(devices.Length<expected.Length || devices.Length>8)throw new InvalidDataException("Car trial device count differs from the bounded profile.");
         var identities=new List<string>();
         foreach(var (instance,product) in expected)
         {
@@ -107,7 +113,7 @@ public sealed partial class ControlsProbe
         if(++CarBatch>(Protocol.ForceCapture(Request)?4:24))throw new InvalidOperationException("Car batch limit.");
         CarGear=car.MyGear;
         if(Protocol.ForceCapture(Request)&&CarGear!=1)throw new InvalidOperationException("Forward capture requires unchanged native gear1.");
-        if(pulse?.Action=="shiftUp" && (CarGear<1 || CarGear>=car.Gears))throw new InvalidOperationException("Native gear cannot increment exactly once.");
+        if((pulse?.Action is "shiftUp" or "gear2") && (CarGear<1 || CarGear>=car.Gears))throw new InvalidOperationException("Native gear cannot increment exactly once.");
         CarPulse=pulse;CarActivated=CarNeutral=0;CarValues=new();CarGearQuery=false;CarChanged=now;
         TrialBatchWriter.Replace(TrialBatchFile!,"nonce="+Request!.Nonce+"\nbatch="+CarBatch+"\n"+(pulse?.Command??"end")+"\n");
         Row("car-trial-batch",JsonSerializer.Serialize(new{batch=CarBatch,pulse,gearBefore=CarGear}));
@@ -142,18 +148,19 @@ public sealed partial class ControlsProbe
             if(Value(output,"RecordingStatus")?.ToString()!="Completed" || Convert.ToInt64(Value(output,"RecordingDrops"))!=0)
                 throw new InvalidOperationException("Original recorder did not complete without drops.");
             CarVerdict=Protocol.ForceCapture(Request)?"passed: bounded native forward capture; measured grounded speed/reference and valid independent analysis; no physical output":
+                Protocol.DynamicCarTrial(Request)?"passed: applied profile raw actions consumed by native car; Manual transmission and exact applied revision retained; no physical output":
                 "passed: six raw shared-Core actions consumed by native car; Manual gear +1/-1; original producer retained";
             Row("car-trial-verdict",CarVerdict);Close("bounded original car trial completed");return;
         }
-        bool injected=CarWorkload.Actions.All(id=>{var a=TrialAction(id);return (bool)Value(a,"Injected")!&&Value(a,"Status")!.ToString()=="Live";});
+        bool injected=CarWork!.SelectedActions.All(id=>{var a=TrialAction(id);return (bool)Value(a,"Injected")!&&Value(a,"Status")!.ToString()=="Live";});
         if(injected && CarActivated==0){CarActivated=now;Row("car-trial-active","batch="+CarBatch+" seq="+Static("ShimInput","Sequence"));}
-        bool neutral=CarWorkload.Actions.All(id=>{var a=TrialAction(id);return !(bool)Value(a,"Injected")!&&Value(a,"Status")!.ToString()=="TestNeutral"&&Convert.ToSingle(Value(a,"Value"))==0;});
+        bool neutral=CarWork!.SelectedActions.All(id=>{var a=TrialAction(id);return !(bool)Value(a,"Injected")!&&Value(a,"Status")!.ToString()=="TestNeutral"&&Convert.ToSingle(Value(a,"Value"))==0;});
         if(CarActivated==0 || !neutral || now-CarActivated<(CarPulse?.DurationMs??700)/1000d-.1){CarNeutral=0;return;}
         if(CarNeutral==0)CarNeutral=now;
         if(now-CarNeutral<.25 || car.TransmissionSystem!.Changing)return;
         if(!CarValues.PassedFor(CarPulse!))throw new InvalidOperationException("Native plateau unavailable/mismatched for "+CarPulse!.Action+"; rows="+CarValues.Samples);
-        int expectedGear=CarGear+(CarPulse!.Action=="shiftUp"?1:CarPulse.Action=="shiftDown"?-1:0);
-        if(car.MyGear!=expectedGear || CarPulse.Action is "shiftUp" or "shiftDown" && !CarGearQuery)
+        int expectedGear=CarGear+((CarPulse!.Action is "shiftUp" or "gear2")?1:(CarPulse.Action is "shiftDown" or "gear1")?-1:0);
+        if(car.MyGear!=expectedGear || (CarPulse.Action is "shiftUp" or "shiftDown" or "gear1" or "gear2") && !CarGearQuery)
             throw new InvalidOperationException("Native sequential consumption/gear differs for "+CarPulse.Action);
         Row("car-trial-consumed",JsonSerializer.Serialize(new{batch=CarBatch,CarPulse.Action,CarPulse.Expected,CarValues.Samples,gearBefore=CarGear,gearAfter=car.MyGear}));CarPulseCount++;
         if(CarPulses.Count>0){SendCarBatch(CarPulses.Dequeue(),now);return;}

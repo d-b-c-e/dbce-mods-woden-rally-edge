@@ -7,7 +7,17 @@ namespace Woden.ControlsTesting;
 // Private qualification uses independently retained original profile/workload
 // bytes. These hashes identify evidence, not a new user profile or mapper.
 public sealed record CarPulse(string Action,double Expected,string Command,int DurationMs=700);
-public sealed class CarWorkload
+public interface ICarWorkload
+{
+    string Transmission {get;}
+    string[] SelectedActions {get;}
+    IReadOnlyDictionary<Guid,Guid>? DevicePins {get;}
+    CarPulse Neutral {get;}
+    CarPulse[] Pulses {get;}
+    CarPulse Settle {get;}
+    CarPulse[] Forward {get;}
+}
+public sealed class CarWorkload : ICarWorkload
 {
     public const string ControlsHash="5206EDFBD1B400E5D6A41D91AE836485BBE27D63992AD6F7483B3BABB0E72B79";
     public const string ProfileHash="9317FAE5C8B029E71713EB7DD665D650EA1452C0E1CFEDA4C5E1335E33452279";
@@ -15,6 +25,9 @@ public sealed class CarWorkload
     public const string Revision="439A4118E99353997C8DF8555CA6B6C4F07DB89590C2B0A5EA60BA02B130D36C";
     public const string StageHash="711747D3021A6E95B600E8386DC149C79102F837D10B981642210F2A634B813F";
     public static readonly string[] Actions={"steer","throttle","brake","handbrake","shiftUp","shiftDown"};
+    public string Transmission=>"Sequential";
+    public string[] SelectedActions=>Actions;
+    public IReadOnlyDictionary<Guid,Guid>? DevicePins=>null;
     public const int Milliseconds=700;
     readonly Dictionary<string,CarPulse[]> Samples;
     CarWorkload(Dictionary<string,CarPulse[]> samples)=>Samples=samples;
