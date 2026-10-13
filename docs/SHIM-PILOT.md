@@ -1,5 +1,7 @@
 # Shared input shim: wheel-only source pilot
 
+Current install pointer (2026-10-13): the reviewed private HUD-stable candidate was installed closed-game from `d8df97b` under receipt `F645FE98`, with saved Backend still Native. The October 12 pilot evidence below is historical; this install did not qualify ordinary Shim FFB-open/shared-reader coexistence or rendered physical HUD scanout. See `components/wheel/docs/STATE.md` and the hub `artifacts/woden-private-apply-20261013/hudstable-candidate-handoff.md` for exact identity and limits.
+
 2026-10-12. Based on Woden `ff1c594`. Three private force-fenced launches restored
 exactly; run03 observed exact profile parsing, ordinary host ownership/ticks,
 native pad isolation and the active panel. Positive device epochs were not

@@ -1,5 +1,7 @@
 # Private Woden shim package candidate
 
+Current install pointer (2026-10-13): the reviewed HUD-stable successor from `d8df97b` was installed closed-game under receipt `F645FE98`; all 14 owned payload hashes matched, owner files/preferences stayed byte-exact, and saved Backend remains Native. The candidate/no-install statements below describe the earlier package fixture checkpoint. Ordinary Shim FFB-open/shared-reader coexistence and rendered physical HUD scanout remain unqualified. See `components/wheel/docs/STATE.md` and the hub `artifacts/woden-private-apply-20261013/hudstable-candidate-handoff.md`.
+
 This is a source and installer fixture path for the provisional ABI 2 shim. It does not change the installed game, ship in the ordinary public package, select `Backend = Shim`, or qualify wheel/FFB behavior. The private DLL remains subject to the source and redistribution review in `vendor/dbce-shim/PROVENANCE.md`.
 
 From `components/wheel`, `tools/Package.ps1` without extra arguments still stages the 13 ordinary Native payloads and writes no `sharedInputCandidate`. To make a separately named private development archive, pass the explicitly held, hash-pinned input:

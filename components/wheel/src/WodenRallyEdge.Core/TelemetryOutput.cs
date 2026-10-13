@@ -15,6 +15,7 @@ public sealed class TelemetryOutput : IDisposable
 {
     public static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private readonly AutoResetEvent _wake = new(false);
+    private readonly object _recordingGate = new();
     private readonly Thread _worker;
     private OutputOptions _options;
     private readonly object _networkGate = new();
@@ -22,15 +23,19 @@ public sealed class TelemetryOutput : IDisposable
     private UdpClient? _detail;
     public OutputOptions ActiveOptions { get { lock (_networkGate) return _options; } }
     public bool RecordingActive => RecordingStatus == "Recording";
-    public void StopRecording() => _recorder?.Stop(TimeSpan.FromMilliseconds(500));
+    public void StopRecording() { lock (_recordingGate) _recorder?.Stop(TimeSpan.FromMilliseconds(500)); }
     private string? _recordingFailure;
     public void FailRecording(double elapsedSeconds, string reason)
     {
         _recordingFailure = reason;
         // This semantic failure is part of the source, even if a complete prefix/footer can be saved.
         // A rejected marker is also refused by the existing dropped/invalid-counter checks.
-        _recorder?.TryMark(Math.Max(0, elapsedSeconds - (_recordOrigin ?? elapsedSeconds)), "capture-failed", reason.Length > 4096 ? reason[..4096] : reason);
-        _recorder?.Stop(TimeSpan.FromMilliseconds(500));
+        lock (_recordingGate)
+        {
+            if (_recorder?.Status == RecorderStatus.Recording)
+                _recorder.TryMark(Math.Max(0, elapsedSeconds - (_recordOrigin ?? elapsedSeconds)), "capture-failed", reason.Length > 4096 ? reason[..4096] : reason);
+            _recorder?.Stop(TimeSpan.FromMilliseconds(500));
+        }
     }
     private static void Validate(OutputOptions options)
     {
@@ -126,22 +131,34 @@ public sealed class TelemetryOutput : IDisposable
         sample.Add("sample.sequence", sample.Sequence);
         sample.Add("sample.driving", sample.Driving ? 1 : 0);
         sample.Add("sample.discontinuity", sample.Discontinuity == null ? 0 : 1);
-        _recordOrigin ??= sample.ElapsedSeconds;
-        double recordTime = sample.ElapsedSeconds - _recordOrigin.Value;
-        if (_recorder?.Status == RecorderStatus.Recording) Volatile.Write(ref _recordingElapsedSeconds, Math.Max(0, recordTime));
-        _recorder?.TryRecord(recordTime, sample.Channels);
-        if (_lastState != sample.State) _recorder?.TryMark(recordTime, "state", sample.State);
-        if (sample.Discontinuity != null && _lastDiscontinuity != sample.Discontinuity) _recorder?.TryMark(recordTime, "discontinuity", sample.Discontinuity);
-        if (sample.ForceStatus != null && sample.ForceStatus != _lastForceStatus) _recorder?.TryMark(recordTime, "ffb", sample.ForceStatus);
-        if (sample.ForceGate != null && sample.ForceGate != _lastForceGate) _recorder?.TryMark(recordTime, "ffb-gate", sample.ForceGate);
-        if (sample.ForceModelReason != null && sample.ForceModelReason != _lastForceModelReason) _recorder?.TryMark(recordTime, "ffb-model", sample.ForceModelReason);
-        _lastForceStatus = sample.ForceStatus;
-        _lastForceGate = sample.ForceGate; _lastForceModelReason = sample.ForceModelReason;
-        string unavailable = string.Join(",", sample.Unavailable);
-        if (unavailable != _lastUnavailable && (unavailable.Length > 0 || _lastUnavailable?.Length > 0))
-            _recorder?.TryMark(recordTime, "unavailable", unavailable.Length <= 4096 ? unavailable : unavailable[..4096]);
-        _lastUnavailable = unavailable;
-        _lastState = sample.State; _lastDiscontinuity = sample.Discontinuity;
+        lock (_recordingGate)
+        {
+            // Stop may arrive while the game keeps producing samples. Never offer a
+            // post-Stop record to SessionRecorder: it counts rejected-after-stop
+            // attempts and makes an otherwise complete source unusable.
+            if (_recorder?.Status == RecorderStatus.Recording)
+            {
+                _recordOrigin ??= sample.ElapsedSeconds;
+                double recordTime = sample.ElapsedSeconds - _recordOrigin.Value;
+                Volatile.Write(ref _recordingElapsedSeconds, Math.Max(0, recordTime));
+                _recorder.TryRecord(recordTime, sample.Channels);
+                if (_recorder.Status == RecorderStatus.Recording)
+                {
+                    if (_lastState != sample.State) _recorder.TryMark(recordTime, "state", sample.State);
+                    if (sample.Discontinuity != null && _lastDiscontinuity != sample.Discontinuity) _recorder.TryMark(recordTime, "discontinuity", sample.Discontinuity);
+                    if (sample.ForceStatus != null && sample.ForceStatus != _lastForceStatus) _recorder.TryMark(recordTime, "ffb", sample.ForceStatus);
+                    if (sample.ForceGate != null && sample.ForceGate != _lastForceGate) _recorder.TryMark(recordTime, "ffb-gate", sample.ForceGate);
+                    if (sample.ForceModelReason != null && sample.ForceModelReason != _lastForceModelReason) _recorder.TryMark(recordTime, "ffb-model", sample.ForceModelReason);
+                    string unavailable = string.Join(",", sample.Unavailable);
+                    if (unavailable != _lastUnavailable && (unavailable.Length > 0 || _lastUnavailable?.Length > 0))
+                        _recorder.TryMark(recordTime, "unavailable", unavailable.Length <= 4096 ? unavailable : unavailable[..4096]);
+                    _lastUnavailable = unavailable;
+                    _lastForceStatus = sample.ForceStatus;
+                    _lastForceGate = sample.ForceGate; _lastForceModelReason = sample.ForceModelReason;
+                    _lastState = sample.State; _lastDiscontinuity = sample.Discontinuity;
+                }
+            }
+        }
         if (Interlocked.Exchange(ref _pending, new(sample, Stopwatch.GetTimestamp())) != null) Interlocked.Increment(ref _overwrites);
         _wake.Set();
     }
@@ -203,6 +220,6 @@ public sealed class TelemetryOutput : IDisposable
         _wake.Set();
         // Keep the event alive if the OS is stalled; never dispose it under the worker.
         if (_worker.Join(500)) _wake.Dispose();
-        _recorder?.Stop(TimeSpan.FromMilliseconds(500));
+        StopRecording();
     }
 }

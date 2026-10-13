@@ -1,5 +1,7 @@
 # Shared-input H-pattern parity: source candidate
 
+Current install pointer (2026-10-13): private candidate source `d8df97b` is installed under receipt `F645FE98`; saved Backend remains Native. The source-only/no-install wording below describes the earlier H-pattern checkpoint. No new live H-pattern or ordinary Shim FFB coexistence qualification accompanied the HUD-stable install. Exact current evidence is in `components/wheel/docs/STATE.md` and the hub handoff.
+
 October 13, private candidate on top of `cdd8b0a`. No install or game run.
 
 The shared HPattern profile now delivers gates 1-6, reverse and explicit neutral

@@ -10,7 +10,7 @@ Run this only when the owner is seated and ready:
 .\tools\Start-RecordedGame.ps1 -CaseId corner-unwind-baseline -AttendedFfb
 ```
 
-Without `-AttendedFfb`, the requested launch records all available model inputs while suppressing physical force and preserving the saved FFB On/Off preference. The request expires after 15 minutes and is consumed once. The command waits a bounded time for Woden to start and exit, but never stops a live process on timeout. Normal exit is required for a completed source footer. It then reruns the model offline, validates driving coverage and prints the exact source, observation, manifest and hashes.
+Without `-AttendedFfb`, the requested launch records all available model inputs while suppressing physical force and preserving the saved FFB On/Off preference. An owner-clicked ordinary Wheelkit Record must explicitly opt into normal configured outputs; automated captures retain the labelled default mute. The request expires after 15 minutes and is consumed once. The command waits a bounded time for Woden to start and for a complete source footer. F6 Telemetry Stop, an exact `-Stop -RequestId <id>` companion call, or normal exit can close the source. Stop leaves Woden running; a timeout never stops the live process. The script then reruns the model offline, validates driving coverage and prints the exact source, observation, manifest and hashes.
 
 `-PrepareOnly` creates the expiring request and expected path without launching Woden, reading hardware or applying force. It is the fixture/review path. The menu can stop an active recording but intentionally has no Start action.
 
@@ -23,11 +23,14 @@ Each request writes under:
   capture-profile.json
   case.json
   force-observation.jsonl
+  control/request.txt       # one-attempt, expiring Stop command
+  control/status.txt        # request and process-start identity, recorder state
+  control/finalization.json # written only after case validation or refusal
 ```
 
 The first three files are created by the installed consumer. `case.json` and `force-observation.jsonl` are produced only after source validation and offline reprocessing. Existing files are never replaced.
 
-The in-game recording HUD reports **Recording data written | Finalization pending | Exit the game to finalize** when a prepared request's `source.jsonl` recorder reaches `Completed`. That status proves only that the source writer closed; `Start-RecordedGame.ps1` performs the case/observation finalizer after normal game exit, and it may still reject missing coverage or inconsistent source/config/profile identity. The HUD does not claim Saved for a prepared request. A plain recording whose source file is the complete artifact may show Saved after its clean footer. Sample or marker drops and invalid recorder counters instead show Incomplete.
+The in-game recording HUD reports **Recording data written | Finalization pending** when a prepared request's `source.jsonl` recorder reaches `Completed`. That status proves only that the source writer closed; `Start-RecordedGame.ps1` can finalize while Woden stays open, but may reject missing coverage or inconsistent source/config/profile identity. The HUD claims Saved only after the exact request's case/observation finalizer succeeds. A plain recording whose source file is the complete artifact may show Saved after its clean footer. Sample or marker drops and invalid recorder counters instead show Incomplete.
 
 ## Identity and evidence levels
 

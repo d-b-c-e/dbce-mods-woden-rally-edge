@@ -28,8 +28,12 @@ Test("shared recording HUD uses actual Woden recorder states and center viewport
     Check(!RecordingHudLine.Describe("Stopping", 65, clean, null, false, true)!.Text.Contains("saved"), "stopping is saving");
     Check(RecordingHudLine.Describe("Completed", 65, clean, null, false, false)!.Text.StartsWith("Recording saved"),
         "loose source completion is saved");
-    Check(RecordingHudLine.Describe("Completed", 65, clean, null, false, true)!.Text.Contains("Finalization pending  |  Exit the game to finalize"),
+    Check(RecordingHudLine.Describe("Completed", 65, clean, null, false, true)!.Text.Contains("Finalization pending  |  Keep recording companion open to finalize"),
         "prepared source completion is not a sealed package");
+    Check(RecordingHudLine.Describe("Completed", 65, clean, null, false, true, new(1, Guid.NewGuid(), "saved", null))!.Text.StartsWith("Recording saved"),
+        "only completed source plus verified finalizer notice shows saved");
+    Check(RecordingHudLine.Describe("Completed", 65, clean, null, false, true, new(1, Guid.NewGuid(), "incomplete", "case rejected"))!.Text.Contains("case rejected"),
+        "case validation failure remains incomplete");
     Check(RecordingHudLine.Describe("LimitReached", 65, clean, null, false, true)!.Tone == SessionDisplayTone.Problem,
         "limit cannot claim saved");
     Check(RecordingHudLine.Describe("Faulted", 65, clean, "capture failed", false, true)!.Text.StartsWith("Recording incomplete"),
@@ -546,7 +550,7 @@ Test("prepared recording source completion waits for the external case finalizer
             Check(output.RecordingStatus == "Completed" && output.RecordingRequiresFinalization,
                 "production prepared-request metadata identifies a completed source that still needs finalization");
             var line = RecordingHudLine.Describe(output, true)!;
-            Check(line.Text.Contains("Finalization pending  |  Exit the game to finalize") && !line.Text.Contains("saved") &&
+            Check(line.Text.Contains("Finalization pending  |  Keep recording companion open to finalize") && !line.Text.Contains("saved") &&
                 !File.Exists(Path.Combine(directory, "case.json")),
                 "completed source without external case manifest cannot claim a sealed package");
         }
@@ -557,6 +561,67 @@ Test("prepared recording source completion waits for the external case finalizer
                 "production recorder marker/invalid counters take precedence over finalization pending");
         }
     } finally { Directory.Delete(directory, true); }
+});
+Test("ordinary control accepts only fresh request identity and stops without closing output", () => {
+    Guid id = Guid.NewGuid();
+    string directory = Path.Combine(Path.GetTempPath(), "woden-control-" + Guid.NewGuid().ToString("N"), "request-" + id.ToString("N"));
+    Directory.CreateDirectory(directory);
+    try {
+        using var output = new TelemetryOutput(new(0, 0, 20, Path.Combine(directory, "source.jsonl")), "fixture", "synthetic");
+        var control = new DiagnosticRecordingControl(directory, id, 12345, 456789, output);
+        string root = Path.Combine(directory, "control"), request = Path.Combine(root, "request.txt");
+        DateTimeOffset tick = DateTimeOffset.UtcNow;
+        void Next() => control.Tick(tick = tick.AddMilliseconds(300));
+        string[] Status() => File.ReadAllLines(Path.Combine(root, "status.txt"));
+        Check(Status().Contains("id=" + id.ToString("N")) && Status().Contains("pid=12345") &&
+            Status().Contains("startedUtcTicks=456789"), "status binds exact request and process start identity");
+        void StopFile(Guid target, DateTimeOffset expires) => File.WriteAllLines(request,
+            new[] { "id=" + target.ToString("N"), "expiresUtc=" + expires.ToString("O"), "action=stop" });
+        output.Publish(Sample(1));
+        StopFile(Guid.NewGuid(), DateTimeOffset.UtcNow.AddMinutes(2)); Next();
+        Check(output.RecordingActive && !File.Exists(request), "wrong request consumed without stopping");
+        StopFile(id, DateTimeOffset.UtcNow.AddMinutes(-1)); Next();
+        Check(output.RecordingActive && !File.Exists(request), "expired request consumed without stopping");
+        string helper = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../tools/RecordedStopControl.ps1"));
+        var writer = new System.Diagnostics.ProcessStartInfo("powershell.exe") { UseShellExecute = false, CreateNoWindow = true };
+        foreach (string arg in new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", helper,
+            "-RequestId", id.ToString(), "-ControlRoot", root, "-ExpiresUtc", DateTimeOffset.UtcNow.AddMinutes(2).ToString("O") }) writer.ArgumentList.Add(arg);
+        using (var process = System.Diagnostics.Process.Start(writer)!) { process.WaitForExit(); Check(process.ExitCode == 0, "actual PowerShell Stop writer succeeded"); }
+        Check(File.ReadAllLines(request).Length == 3, "actual PowerShell writer emitted three control fields");
+        Next();
+        Check(!output.RecordingActive && !output.Stopped && Status().Contains("status=Completed"),
+            "accepted Stop closes source but keeps ordinary telemetry worker and game path available");
+        for (int i = 0; i < 20; i++) output.Publish(Sample(1.02 + i * .02));
+        Check(output.RecordingCounters?.RejectedAfterStop == 0, "continued game samples never reach closed recorder");
+        File.WriteAllText(Path.Combine(root, "finalization.json"), JsonSerializer.Serialize(new DiagnosticFinalization(1, Guid.NewGuid(), "saved", null)));
+        Next(); Check(control.Finalization == null, "different request cannot claim Saved");
+        File.WriteAllText(Path.Combine(root, "finalization.json"), JsonSerializer.Serialize(new DiagnosticFinalization(1, id, "saved", null)));
+        Next(); Check(control.Finalization == null, "notice without case and observation cannot claim Saved");
+        File.WriteAllText(Path.Combine(directory, "case.json"), "fixture");
+        File.WriteAllText(Path.Combine(directory, "force-observation.jsonl"), "fixture");
+        Next(); Check(control.Finalization?.State == "saved", "exact finalizer notice reaches HUD");
+    } finally { Directory.Delete(Path.GetDirectoryName(directory)!, true); }
+});
+Test("ordinary control storage failure cannot stop the recorder or interrupt input", () => {
+    Guid id = Guid.NewGuid();
+    string parent = Path.Combine(Path.GetTempPath(), "woden-control-locked-" + Guid.NewGuid().ToString("N"));
+    string directory = Path.Combine(parent, "request-" + id.ToString("N")); Directory.CreateDirectory(directory);
+    try {
+        using var output = new TelemetryOutput(new(0, 0, 20, Path.Combine(directory, "source.jsonl")), "fixture", "synthetic");
+        Guid missingId = Guid.NewGuid();
+        var absent = new DiagnosticRecordingControl(Path.Combine(parent, "request-" + missingId.ToString("N")),
+            missingId, 12345, 456789, output);
+        Check(absent.LastError != null && output.RecordingActive, "missing control directory is contained without stopping recorder");
+        var control = new DiagnosticRecordingControl(directory, id, 12345, 456789, output);
+        string root = Path.Combine(directory, "control"), status = Path.Combine(root, "status.txt");
+        File.WriteAllLines(Path.Combine(root, "request.txt"), new[] { "id=wrong", "action=stop", "expiresUtc=bad" });
+        using (File.Open(status, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            control.Tick(DateTimeOffset.UtcNow.AddSeconds(1));
+        Check(output.RecordingActive && !output.Stopped && control.LastError != null,
+            "status sharing violation cannot stop output or recorder and is visible");
+        control.Tick(DateTimeOffset.UtcNow.AddSeconds(2));
+        Check(File.ReadAllText(status).Contains("Recording control storage"), "status write retries after lock released");
+    } finally { Directory.Delete(parent, true); }
 });
 Test("camera button extends the stock cycle without saving invalid native indices and yields on takeover", () => {
     var cycle = new CameraCycle();
@@ -630,6 +695,10 @@ Test("recorded driving reruns actual ForceSignal into a bound observation case",
                 sample.Add("ffb.tuning.slipScale",options.SlipScale);sample.Add("ffb.tuning.smoothingMs",options.SmoothingMs);sample.Add("ffb.tuning.damping",options.Damping);
                 sample.Add("ffb.tuning.invert",options.Invert?1:0);sample.Add("ffb.tuning.modelVersion",3); output.Publish(sample);
             }
+            output.StopRecording(); // The owner pressed F6; Woden stays open.
+            for (int i=0;i<20;i++) output.Publish(Sample(3+i*.02));
+            Check(output.RecordingCounters?.RejectedAfterStop==0 && !output.Stopped,
+                "F6 Stop keeps game output alive without rejected recorder writes");
         }
         var prepared=RecordedForceReplay.Reprocess(directory);
         Check(prepared.DrivingSamples==100&&prepared.ModelSamples==100&&prepared.DrivingSeconds>1,"driving coverage retained");

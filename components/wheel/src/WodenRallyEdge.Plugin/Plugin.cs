@@ -106,6 +106,7 @@ internal static class Runtime
     internal static double LastLocal = -10;
     internal static bool DiagnosticNoForce;
     private static DiagnosticLaunch? _recordLaunch;
+    internal static DiagnosticRecordingControl? RecordingControl;
     private static string? _recordingPath;
     private static Dictionary<string, string>? _recordingProperties;
     private static ForceAnalysisHistory? _recordingAnalysis;
@@ -130,6 +131,16 @@ internal static class Runtime
         if (_recordLaunch != null) Log.LogInfo($"Diagnostic launch {_recordLaunch.Id}; physical FFB suppressed={DiagnosticNoForce}");
         StagePlayback.Initialize();
         ApplyOutputs();
+        if (_recordLaunch != null && Output != null && _recordingPath != null)
+        {
+            try
+            {
+                using var process = Process.GetCurrentProcess();
+                RecordingControl = new DiagnosticRecordingControl(Path.GetDirectoryName(_recordingPath)!,
+                    _recordLaunch.Id, process.Id, process.StartTime.ToUniversalTime().Ticks, Output);
+            }
+            catch (Exception ex) { Log.LogWarning("Ordinary recording control unavailable; F6 Stop remains available: " + ex.Message); }
+        }
         Wheel = new(Path.Combine(Paths.ConfigPath, "wheel-bindings.json"));
         try { Devices = new(directory); }
         catch (Exception ex) { Log.LogError("Wheel route unavailable; telemetry remains enabled: " + ex.Message); }
@@ -230,6 +241,7 @@ internal static class Runtime
         try
         {
             StagePlayback.Update(now);
+            RecordingControl?.Tick();
             InputPolling.OncePerFrame();
             DevInput.FrameTick(now);
             TripleView.FrameTick(now);
@@ -281,6 +293,7 @@ internal static class Runtime
         StockWheelOwner.Release(false);
         MountedCamera.Restore();
         Output?.Dispose();
+        RecordingControl?.Flush();
         _recordingAnalysis = null;
         Log.LogInfo($"Stopped; outputWorkerStopped={Output?.Stopped}, recording={Output?.RecordingStatus}, drops={Output?.RecordingDrops}");
     }

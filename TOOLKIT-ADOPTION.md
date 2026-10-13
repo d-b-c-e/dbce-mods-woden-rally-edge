@@ -1,5 +1,7 @@
 # Toolkit standards adoption
 
+October 13 STD-012 ordinary source candidate: the existing one-launch signal recorder now has a separate request-bound Stop and case finalization path that can leave the game open. It reuses the existing recorder/footer and center HUD, keeps the stage/Kenya trajectory replay untouched, and does not turn an ordinary signal case into playable gameplay. This is source-only until a reviewed package/install and attended qualification; the current installed `d8df97b` does not contain it.
+
 October 13 current install: HUD-stable private candidate source `d8df97b` is installed under receipt `F645FE98`, with Native still saved; rendered physical scanout and ordinary Shim FFB-open/shared-reader coexistence remain open. Older dated source-only notes below retain their historical meaning. The newly merged STD-037 is pending Woden's end-to-end schema-2 adoption. STD-016/017/020 remain unchecked and STD-031 remains pending.
 
 October 12 force-analysis follow-up (STD-003/025/027): ordinary requested and
