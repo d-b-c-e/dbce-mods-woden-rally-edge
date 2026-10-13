@@ -11,6 +11,8 @@ param(
     [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ProbeSha256,
     [Parameter(Mandatory)][string]$WheelkitCoreDll,
     [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$WheelkitCoreSha256,
+    [switch]$FullSession,
+    [switch]$VerifyOnly,
     [string]$GameDir='D:/Program Files (x86)/Steam/steamapps/common/Super Woden Rally Edge',
     [string]$Profiles=(Join-Path $env:LOCALAPPDATA 'Wheelkit/mapping-profiles.json')
 )
@@ -44,7 +46,7 @@ $native='E:/Source/dbce-project-mgmt/artifacts/wheelffb-noforce-20261013/x64/Whe
 $provenance='E:/Source/dbce-project-mgmt/artifacts/wheelffb-noforce-20261013/x64/WheelFfb.noforce.provenance.json'
 $nativeHash='088F1089BEB6D18D478F37582C59330C6BDA6BC37D5E365F6BA7EBF80040F567'
 $provenanceHash='6068B7A848F85FE42AE88EE8A86B10F1EF4C4E307B9C4235BE44C1A84BBEA8E5'
-$originalReceipt='FE2BABFA962467EC82C31C0D677476828AAA4C1125FB4882DB1AE8892D9BA440'
+$originalReceipt=if($FullSession){'CC7983451ACF140AC742A648D15253B98D3BFF0993815C38AB1D17D8810304A2'}else{'FE2BABFA962467EC82C31C0D677476828AAA4C1125FB4882DB1AE8892D9BA440'}
 $prefsKey='HKCU:\Software\ViJuDa\Super Woden Rally Edge'
 Pin $manifestPath $PackageManifestSha256; Pin $receiptPath $originalReceipt
 Pin $PrivateWriter $PrivateWriterSha256; Pin $PrivateCatalog $PrivateCatalogSha256
@@ -75,23 +77,35 @@ foreach($entry in $owner.files){Pin (Join-Path $GameDir $entry.path) $entry.sha2
 $automation=Get-Content -LiteralPath (Join-Path $PackageRoot 'automation-native-provenance.json') -Raw | ConvertFrom-Json
 if($automation.schema -cne 'woden.automation-muted-native@1' -or $automation.nativeSha256 -ne $nativeHash -or
    $automation.baseNativeSha256 -ne 'f8361a08bbe08eaab936b37800d308cf1fc7edab34e2839db16a447fe34178c5' -or
-   $automation.sourceCommit -cne 'a9a255c3277cb0ae6e8ec11f18b2f0c17b3c22a9' -or
-   $automation.managedPayloadSourceCommit -cne $automation.sourceCommit -or
-   $automation.baseManifestSha256 -ne '60397a0fdf7e26bf56a5ece2f166a19ff5c94befcbbe914eb8b4527091cf1c2c' -or
-   $automation.ownerReceiptSha256 -ne $originalReceipt -or
    $automation.nativeDefaultState -cne 'armed' -or $automation.requiresExplicitArm -ne $false -or
    !(Test-Path -LiteralPath (Join-Path $PackageRoot 'AUTOMATION-ONLY.txt') -PathType Leaf)){
     throw 'Temporary package is not the reviewed load-muted automation flavor.'
 }
+if($FullSession){
+    if($automation.sourceCommit -cne '1963be45e44e016f5ccb86a93b81b7beff016261' -or
+       (Get-ControlHash (Join-Path $candidate 'WodenRallyEdgeWheel.dll')) -ne 'A96BA20BCC7ADBBF41B5D920735BE818EF59D5E48FDBA7FC66C2D703AD218C02' -or
+       (Get-ControlHash (Join-Path $candidate 'WodenRallyEdge.Core.dll')) -ne 'B2518F579CC9CF9A913BE5BF56AD9758F2D0944B1CB16E5D3D6BEDC578676A02'){
+        throw 'S1 automation candidate source or managed payload differs.'
+    }
+} elseif($automation.sourceCommit -cne 'a9a255c3277cb0ae6e8ec11f18b2f0c17b3c22a9' -or
+         $automation.managedPayloadSourceCommit -cne $automation.sourceCommit -or
+         $automation.baseManifestSha256 -ne '60397a0fdf7e26bf56a5ece2f166a19ff5c94befcbbe914eb8b4527091cf1c2c' -or
+         $automation.ownerReceiptSha256 -ne $originalReceipt){throw 'Frozen-a9 automation provenance differs.'}
 Pin (Join-Path $candidate 'WheelFfb.dll') $nativeHash
 foreach($entry in $owner.files){
     $path=$entry.path.Replace('\','/')
     if($path -ceq 'BepInEx/plugins/WodenRallyEdgeWheel/WheelFfb.dll'){continue}
     $packageEntry=@($manifest | Where-Object { $_.path.Replace('\','/') -ceq $path })
-    if($packageEntry.Count -ne 1 -or $packageEntry[0].sha256 -ne $entry.sha256){
-        throw "Frozen-a9 package payload differs from current owner: $path"
+    if($packageEntry.Count -ne 1 -or (!$FullSession -and $packageEntry[0].sha256 -ne $entry.sha256)){
+        throw "Automation package payload membership or owner pin differs: $path"
     }
-    Pin (Join-Path $PackageRoot $path) $entry.sha256
+    Pin (Join-Path $PackageRoot $path) $packageEntry[0].sha256
+}
+if($VerifyOnly){
+    [pscustomobject]@{status='passed';fullSession=[bool]$FullSession;ownerReceiptSha256=$originalReceipt;
+        packageManifestSha256=$PackageManifestSha256;packageSource=$automation.sourceCommit;
+        ownedFiles=@($owner.files).Count;mutedNativeSha256=$nativeHash;noGameOrInstall=$true}
+    return
 }
 
 $roots=[ordered]@{
@@ -125,7 +139,7 @@ try {
     $installed=Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
     if($installed.mode -cne 'Install' -or $installed.installerRevision -ne 4 -or @($installed.files).Count -ne 17){throw 'Temporary candidate receipt differs.'}
     foreach($entry in $installed.files){Pin (Join-Path $GameDir $entry.path) $entry.sha256}
-    & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'Run-Controls.ps1') -ShimAppliedForwardCapture -OrdinarySavedForward -PrivateApply -Result (Join-Path $Result 'trial') -GameDir $GameDir -CandidateDirectory $candidate -NativeCandidate $native -NativeSha256 $nativeHash -NativeProvenancePath $provenance -PrivateWriter $PrivateWriter -PrivateCatalog $PrivateCatalog -ProbeSha256 $ProbeSha256 -WheelkitCoreDll $WheelkitCoreDll -WheelkitCoreSha256 $WheelkitCoreSha256 -Profiles $Profiles -RigLeaseToken $lease.token *> (Join-Path $Result 'trial.log')
+    & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'Run-Controls.ps1') -ShimAppliedForwardCapture -OrdinarySavedForward -OrdinaryFullSession:$FullSession -PrivateApply -Result (Join-Path $Result 'trial') -GameDir $GameDir -CandidateDirectory $candidate -NativeCandidate $native -NativeSha256 $nativeHash -NativeProvenancePath $provenance -PrivateWriter $PrivateWriter -PrivateCatalog $PrivateCatalog -ProbeSha256 $ProbeSha256 -WheelkitCoreDll $WheelkitCoreDll -WheelkitCoreSha256 $WheelkitCoreSha256 -Profiles $Profiles -RigLeaseToken $lease.token *> (Join-Path $Result 'trial.log')
     if($LASTEXITCODE -ne 0){throw "Ordinary forward Saved trial failed or was incomplete: $LASTEXITCODE"}
 } catch { $failure=$_.Exception.Message; if(Test-Path -LiteralPath $Result){$failure | Set-Content -LiteralPath (Join-Path $Result 'run-error.txt')} }
 finally {

@@ -12,6 +12,7 @@ param(
     [Parameter(ParameterSetName='Run')][switch]$ShimCarTrial,
     [Parameter(ParameterSetName='Run')][switch]$ShimAppliedForwardCapture,
     [Parameter(ParameterSetName='Run')][switch]$OrdinarySavedForward,
+    [Parameter(ParameterSetName='Run')][switch]$OrdinaryFullSession,
     [Parameter(ParameterSetName='Run')][switch]$ShimForceCapture,
     [Parameter(ParameterSetName='Run')][switch]$ShimHudOrdinary,
     [Parameter(ParameterSetName='Run')][switch]$ShimHudStopOnly,
@@ -77,9 +78,10 @@ if($Recover -and (Test-Path "$Result/recovery.json")){
             if($expected[$i].name -cne $actual[$i].name -or $expected[$i].sha256 -cne $actual[$i].sha256){throw 'Frozen private writer files changed.'}
         }
     }
-    $ShimAdmission=$savedMode -in @('shim-admission','shim-menu-trial','shim-car-trial','shim-applied-car-trial','shim-applied-forward-capture','shim-applied-forward-ordinary','shim-force-capture','shim-hud-ordinary','shim-hud-stop-only');$ShimMenuTrial=$savedMode -eq 'shim-menu-trial';$ShimCarTrial=$savedMode -in @('shim-car-trial','shim-applied-car-trial','shim-applied-forward-capture','shim-applied-forward-ordinary','shim-force-capture','shim-hud-ordinary');$ShimAppliedForwardCapture=$savedMode -in @('shim-applied-forward-capture','shim-applied-forward-ordinary');$OrdinarySavedForward=$savedMode -eq 'shim-applied-forward-ordinary';$ShimForceCapture=$savedMode -eq 'shim-force-capture';$ShimHudOrdinary=$savedMode -eq 'shim-hud-ordinary';$ShimHudStopOnly=$savedMode -eq 'shim-hud-stop-only'
+    $ShimAdmission=$savedMode -in @('shim-admission','shim-menu-trial','shim-car-trial','shim-applied-car-trial','shim-applied-forward-capture','shim-applied-forward-ordinary','shim-applied-forward-full-session','shim-force-capture','shim-hud-ordinary','shim-hud-stop-only');$ShimMenuTrial=$savedMode -eq 'shim-menu-trial';$ShimCarTrial=$savedMode -in @('shim-car-trial','shim-applied-car-trial','shim-applied-forward-capture','shim-applied-forward-ordinary','shim-applied-forward-full-session','shim-force-capture','shim-hud-ordinary');$ShimAppliedForwardCapture=$savedMode -in @('shim-applied-forward-capture','shim-applied-forward-ordinary','shim-applied-forward-full-session');$OrdinarySavedForward=$savedMode -in @('shim-applied-forward-ordinary','shim-applied-forward-full-session');$OrdinaryFullSession=$savedMode -eq 'shim-applied-forward-full-session';$ShimForceCapture=$savedMode -eq 'shim-force-capture';$ShimHudOrdinary=$savedMode -eq 'shim-hud-ordinary';$ShimHudStopOnly=$savedMode -eq 'shim-hud-stop-only'
 }
 if($OrdinarySavedForward -and (!$ShimAppliedForwardCapture -or !$PrivateApply -or $ShimForceCapture -or $ShimHudOrdinary -or $ShimMenuTrial -or $ShimHudStopOnly)){throw 'Ordinary Saved forward requires only the private applied-forward route.'}
+if($OrdinaryFullSession -and !$OrdinarySavedForward){throw 'Full-session assertion requires the ordinary Saved forward route.'}
 if($ShimHudStopOnly -and ($ShimMenuTrial -or $ShimCarTrial -or $ShimAppliedForwardCapture -or $ShimForceCapture -or $ShimHudOrdinary -or $PrivateApply)){throw 'HUD menu mode is isolated from car, menu-input and private Apply modes.'}
 if($HudGuiDiagnosticPluginSha256 -and !$ShimHudStopOnly){throw 'HUD GUI trace is only available in the menu-only stop trial.'}
 if($HudDepthDiagnosticPluginSha256 -and !$ShimHudOrdinary){throw 'HUD depth diagnostic is only available in the ordinary moving trial.'}
@@ -103,12 +105,12 @@ if($ShimAdmission) {
     $files.shim=Join-Path $plugin 'dbce_shim.dll'
     $roots.shimReports=Join-Path $GameDir 'BepInEx/WodenShim'
 }
-$mode=if($ShimHudStopOnly){'shim-hud-stop-only'}elseif($ShimHudOrdinary){'shim-hud-ordinary'}elseif($ShimForceCapture){'shim-force-capture'}elseif($OrdinarySavedForward){'shim-applied-forward-ordinary'}elseif($ShimAppliedForwardCapture){'shim-applied-forward-capture'}elseif($ShimCarTrial -and $PrivateApply){'shim-applied-car-trial'}elseif($ShimCarTrial){'shim-car-trial'}elseif($ShimMenuTrial){'shim-menu-trial'}elseif($ShimAdmission){'shim-admission'}else{'raw'}
+$mode=if($ShimHudStopOnly){'shim-hud-stop-only'}elseif($ShimHudOrdinary){'shim-hud-ordinary'}elseif($ShimForceCapture){'shim-force-capture'}elseif($OrdinaryFullSession){'shim-applied-forward-full-session'}elseif($OrdinarySavedForward){'shim-applied-forward-ordinary'}elseif($ShimAppliedForwardCapture){'shim-applied-forward-capture'}elseif($ShimCarTrial -and $PrivateApply){'shim-applied-car-trial'}elseif($ShimCarTrial){'shim-car-trial'}elseif($ShimMenuTrial){'shim-menu-trial'}elseif($ShimAdmission){'shim-admission'}else{'raw'}
 $blocked=@($request,$marker,(Join-Path $roots.config 'woden-record-next-launch.json'),(Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/woden/request.txt'))
 $probe=Join-Path $PSScriptRoot 'Probe/bin/Release/net6.0/Woden.ControlsProbe.dll'
 $configVerifier=Join-Path $PSScriptRoot 'VerifyConfig/bin/Release/net8.0/VerifyConfig.dll'
 $ordinaryGuard=Join-Path $Result 'ordinary-companion-guard.json'
-$ready=$false; $lease=$null; $borrowedLease=$false; $game=$null; $ownedGame=$false; $nonce=$null; $restored=$false; $applied=$false; $verificationError=$null; $finalizerError=$null; $captureError=''; $capture=$null; $postCapture=$null; $ordinaryCompanion=$null
+$ready=$false; $lease=$null; $borrowedLease=$false; $game=$null; $ownedGame=$false; $nonce=$null; $restored=$false; $applied=$false; $verificationError=$null; $finalizerError=$null; $captureError=''; $capture=$null; $postCapture=$null; $ordinaryCompanion=$null; $ordinaryStop=$null
 function Closed {if(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue){throw 'Woden is running; no preparation or restoration.'}}
 function Read-OrdinaryStatus([string]$Path) {
     if(!(Test-Path -LiteralPath $Path -PathType Leaf)){return $null}
@@ -141,6 +143,15 @@ function Start-OrdinaryCompanion([string]$Script,[string]$Id) {
     $started=$child.StartTime.ToUniversalTime().Ticks
     Write-OrdinaryCompanionGuard -Path $ordinaryGuard -State running -RequestId $Id -Executable $start.FileName -Script $Script -ProcessId $child.Id -StartedUtcTicks $started
     return [pscustomobject]@{process=$child;stdout=$child.StandardOutput.ReadToEndAsync();stderr=$child.StandardError.ReadToEndAsync();startedUtcTicks=$started;executable=$start.FileName;script=$Script;gameObserved=$false}
+}
+function Start-OrdinaryStop([string]$Script,[string]$Id) {
+    $start=[Diagnostics.ProcessStartInfo]::new((Get-Command pwsh).Source)
+    $start.UseShellExecute=$false;$start.CreateNoWindow=$true
+    $start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
+    foreach($arg in @('-NoProfile','-File',$Script,'-GameDir',$GameDir,'-Stop','-RequestId',([guid]::ParseExact($Id,'N').ToString()))){[void]$start.ArgumentList.Add($arg)}
+    $child=[Diagnostics.Process]::Start($start)
+    if(!$child){throw 'Installed request-bound Stop did not start.'}
+    return [pscustomobject]@{process=$child;stdout=$child.StandardOutput.ReadToEndAsync();stderr=$child.StandardError.ReadToEndAsync()}
 }
 function OwnerActivityAllowed {
     $policy=Join-Path $env:LOCALAPPDATA 'dbce/rig-activity-policy.json'
@@ -283,16 +294,24 @@ if($Recover) {
                 if(!(Test-Path -LiteralPath $automationMarker -PathType Leaf) -or !(Test-Path -LiteralPath $automation -PathType Leaf)){throw 'Ordinary automation package marker/provenance missing.'}
                 $metadata=Get-Content -LiteralPath $automation -Raw | ConvertFrom-Json
                 if($metadata.schema -cne 'woden.automation-muted-native@1' -or $metadata.nativeSha256 -ne $NativeSha256 -or
-                   $metadata.sourceCommit -cne 'a9a255c3277cb0ae6e8ec11f18b2f0c17b3c22a9' -or
-                   $metadata.managedPayloadSourceCommit -cne $metadata.sourceCommit -or
-                   $metadata.baseManifestSha256 -ne '60397a0fdf7e26bf56a5ece2f166a19ff5c94befcbbe914eb8b4527091cf1c2c' -or
-                   $metadata.ownerReceiptSha256 -ne 'FE2BABFA962467EC82C31C0D677476828AAA4C1125FB4882DB1AE8892D9BA440' -or
                    $metadata.nativeDefaultState -cne 'armed' -or $metadata.requiresExplicitArm -ne $false -or
                    (Get-Content -LiteralPath $automationMarker -Raw) -notmatch 'INTERNAL AUTOMATION ONLY'){throw 'Ordinary automation package identity differs.'}
-                if($candidateHashes.plugin -ne 'F96A40ED64E8806F1D6E2052F8F1EC58FBF275B49FCB6FA448AC90283A7E4255' -or
-                   $candidateHashes.core -ne '67CE4788BCB710BEA93288D6398A1B0BF3AE6CD29219DB56B6ED7CB2794E311C' -or
-                   (Get-ControlHash (Join-Path $CandidateDirectory 'Start-RecordedGame.ps1')) -ne '1A2A5F0649BA69FB89AB9A1CCC9F4C0DF5064B4730363BA7C4D98C51B42DF70A'){
-                    throw 'Ordinary automation managed payload differs from frozen a9 source.'
+                if($OrdinaryFullSession){
+                    if($metadata.sourceCommit -cne '1963be45e44e016f5ccb86a93b81b7beff016261' -or
+                       $candidateHashes.plugin -ne 'A96BA20BCC7ADBBF41B5D920735BE818EF59D5E48FDBA7FC66C2D703AD218C02' -or
+                       $candidateHashes.core -ne 'B2518F579CC9CF9A913BE5BF56AD9758F2D0944B1CB16E5D3D6BEDC578676A02'){
+                        throw 'S1 ordinary automation managed payload differs.'
+                    }
+                } elseif($metadata.sourceCommit -cne 'a9a255c3277cb0ae6e8ec11f18b2f0c17b3c22a9' -or
+                         $metadata.managedPayloadSourceCommit -cne $metadata.sourceCommit -or
+                         $metadata.baseManifestSha256 -ne '60397a0fdf7e26bf56a5ece2f166a19ff5c94befcbbe914eb8b4527091cf1c2c' -or
+                         $metadata.ownerReceiptSha256 -ne 'FE2BABFA962467EC82C31C0D677476828AAA4C1125FB4882DB1AE8892D9BA440' -or
+                         $candidateHashes.plugin -ne 'F96A40ED64E8806F1D6E2052F8F1EC58FBF275B49FCB6FA448AC90283A7E4255' -or
+                         $candidateHashes.core -ne '67CE4788BCB710BEA93288D6398A1B0BF3AE6CD29219DB56B6ED7CB2794E311C'){
+                    throw 'Frozen-a9 ordinary automation managed payload differs.'
+                }
+                if((Get-ControlHash (Join-Path $CandidateDirectory 'Start-RecordedGame.ps1')) -ne '1A2A5F0649BA69FB89AB9A1CCC9F4C0DF5064B4730363BA7C4D98C51B42DF70A'){
+                     throw 'Ordinary automation companion differs.'
                 }
                 if(!$WheelkitCoreDll -or !$WheelkitCoreSha256){throw 'Ordinary trial requires pinned Wheelkit 0.6.33 read-only contract.'}
                 $WheelkitCoreDll=Full $WheelkitCoreDll;Assert-ControlPlain $WheelkitCoreDll
@@ -508,17 +527,38 @@ try {
             throw 'Original ordinary source was not active before installed Stop.'
         }
         Assert-StageRigLease -Path $slot -Token $lease.token
-        & pwsh -NoProfile -File $companionPath -GameDir $GameDir -Stop -RequestId ([guid]::ParseExact($nonce,'N')) *> "$Result/ordinary-stop.log"
-        if($LASTEXITCODE -ne 0){throw 'Installed companion refused the exact ordinary Stop.'}
+        if($OrdinaryFullSession){$ordinaryStop=Start-OrdinaryStop $companionPath $nonce}
+        else {
+            & pwsh -NoProfile -File $companionPath -GameDir $GameDir -Stop -RequestId ([guid]::ParseExact($nonce,'N')) *> "$Result/ordinary-stop.log"
+            if($LASTEXITCODE -ne 0){throw 'Installed companion refused the exact ordinary Stop.'}
+        }
         $statusDeadline=[DateTime]::UtcNow.AddSeconds(30)
+        $stoppingSeen=$false;$lastStatus=''
+        $statusEvents=Join-Path $Result 'ordinary-status-observation.jsonl'
+        $finalizationPath=Join-Path $roots.recording 'control/finalization.json'
         do {
             $status=Read-OrdinaryStatus $statusPath
+            if($OrdinaryFullSession -and $status -and $status.status -cne $lastStatus){
+                $finalizationPresent=Test-Path -LiteralPath $finalizationPath -PathType Leaf
+                [ordered]@{utc=[DateTime]::UtcNow.ToString('o');status=$status.status;active=$status.active;finalizationPresent=$finalizationPresent} |
+                    ConvertTo-Json -Compress | Add-Content -LiteralPath $statusEvents
+                $lastStatus=$status.status
+                if($status.status -ceq 'Stopping' -and $status.active -ceq 'False' -and !$finalizationPresent){$stoppingSeen=$true}
+            }
             if($status -and $status.status -ceq 'Completed' -and $status.active -ceq 'False'){break}
-            Start-Sleep -Milliseconds 200
+            if($ordinaryStop -and $ordinaryStop.process.HasExited -and $ordinaryStop.process.ExitCode -ne 0){throw 'Installed companion refused the exact ordinary Stop.'}
+            Start-Sleep -Milliseconds $(if($OrdinaryFullSession){10}else{200})
         } while([DateTime]::UtcNow -lt $statusDeadline)
+        if($ordinaryStop){
+            if(!$ordinaryStop.process.WaitForExit(10000)){throw 'Installed Stop process did not exit.'}
+            $ordinaryStop.stdout.GetAwaiter().GetResult() | Set-Content -LiteralPath "$Result/ordinary-stop.stdout.txt"
+            $ordinaryStop.stderr.GetAwaiter().GetResult() | Set-Content -LiteralPath "$Result/ordinary-stop.stderr.txt"
+            if($ordinaryStop.process.ExitCode -ne 0){throw 'Installed companion refused the exact ordinary Stop.'}
+        }
         if(!$status -or $status.id -cne $nonce -or $status.status -cne 'Completed' -or $status.active -cne 'False'){
             throw 'Installed request-bound Stop did not complete the original source.'
         }
+        if($OrdinaryFullSession -and !$stoppingSeen){throw 'S1 Stopping/inactive was not observed before Saved finalization.'}
         if(!$ordinaryCompanion.process.WaitForExit(15000)){throw 'Installed companion did not finalize after Stop.'}
         $ordinaryCompanion.stdout.GetAwaiter().GetResult() | Set-Content -LiteralPath "$Result/companion.stdout.txt"
         $ordinaryCompanion.stderr.GetAwaiter().GetResult() | Set-Content -LiteralPath "$Result/companion.stderr.txt"
@@ -545,6 +585,16 @@ try {
         if($listed.State -notmatch '^Saved' -or $listed.Origin -ceq 'Human-driven' -or $listed.CanPlay){
             throw 'Wheelkit library did not list an honest analysis-only Saved case.'
         }
+        $fullSessionResult=$null
+        if($OrdinaryFullSession){
+            . "$PSScriptRoot/Assert-OrdinaryFullSession.ps1"
+            $fullSessionResult=Assert-OrdinaryFullSession -Directory $roots.recording
+            if([IO.File]::GetLastWriteTimeUtc((Join-Path $roots.recording 'complete.tsv')) -gt
+               [IO.File]::GetLastWriteTimeUtc($finalizationPath)){
+                throw 'S1 package outer seal was written after Saved finalization.'
+            }
+            $fullSessionResult | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath "$Result/full-session-result.json"
+        }
         $game.Refresh()
         if($game.HasExited -or $game.StartTime.ToUniversalTime().Ticks -ne [long]$status.startedUtcTicks -or $game.Id -ne [int]$status.pid){
             throw 'Exact Woden process was not alive at Saved.'
@@ -561,7 +611,8 @@ try {
             processId=$game.Id;startedUtcTicks=$game.StartTime.ToUniversalTime().Ticks;companionExit=$ordinaryCompanion.process.ExitCode;
             sourceSha256=(Get-ControlHash $source);caseSha256=(Get-ControlHash (Join-Path $roots.recording 'case.json'));
             observationSha256=(Get-ControlHash (Join-Path $roots.recording 'force-observation.jsonl'));
-            archive=$archive;archiveFiles=$archiveHashes;wheelkitState=$listed.State;wheelkitOrigin=$listed.Origin;gameAlive=$true} |
+            archive=$archive;archiveFiles=$archiveHashes;wheelkitState=$listed.State;wheelkitOrigin=$listed.Origin;gameAlive=$true;
+            fullSession=$fullSessionResult;stoppingBeforeFinalization=$(if($OrdinaryFullSession){$stoppingSeen}else{$null})} |
             ConvertTo-Json -Depth 5 | Set-Content -LiteralPath "$Result/ordinary-saved-result.json"
     }
 } finally {
@@ -577,13 +628,22 @@ try {
         $captureError=$captureError.Trim()
         [ordered]@{schema=1;status=$(if($captureError){'failed'}else{'captured'});reason=$captureError;movingCaptureProcess=$(if($capture){$capture.Id}else{$null});postStopCaptureProcess=$(if($postCapture){$postCapture.Id}else{$null});toolSha256=$WindowCaptureSha256} | ConvertTo-Json | Set-Content "$Result/hud-capture-verdict.json"
     }
-    if($ownedGame -and $game -and !$game.HasExited){$null=$game.CloseMainWindow();$null=$game.WaitForExit(20000)}
+    $closeRequested=$false
+    if($ownedGame -and $game -and !$game.HasExited){$closeRequested=$game.CloseMainWindow();$null=$game.WaitForExit(20000)}
+    if($OrdinaryFullSession -and $ownedGame -and $game){
+        $game.Refresh()
+        [ordered]@{schema=1;closeMainWindowRequested=$closeRequested;exited=$game.HasExited;
+            exitCode=$(if($game.HasExited){[int]$game.ExitCode}else{$null});processId=$game.Id} |
+            ConvertTo-Json | Set-Content -LiteralPath "$Result/game-exit.json"
+        if($game.HasExited -and $game.ExitCode -ne 0){$captureError+=" Game exited with code $($game.ExitCode); package result is retained separately."}
+    }
     if($ordinaryCompanion){
         if(!$ordinaryCompanion.process.WaitForExit(15000)){
             throw 'Installed companion can still launch or finalize Woden; retain the shared lease and owner state.'
         }
         Write-OrdinaryCompanionGuard -Path $ordinaryGuard -State exited -RequestId $nonce -Executable $ordinaryCompanion.executable -Script $ordinaryCompanion.script -ProcessId $ordinaryCompanion.process.Id -StartedUtcTicks $ordinaryCompanion.startedUtcTicks -GameObserved $ordinaryCompanion.gameObserved -ExitCode $ordinaryCompanion.process.ExitCode
     }
+    if($ordinaryStop -and !$ordinaryStop.process.HasExited){throw 'Installed Stop process is still running; retain the shared lease and owner state.'}
     if($OrdinarySavedForward){Assert-OrdinaryCompanionQuiescent -Path $ordinaryGuard -RequestId $nonce -ExpectedExecutable (Get-Command pwsh).Source -ExpectedScript (Join-Path $plugin 'Start-RecordedGame.ps1')}
     Closed # If any process remains, retain lease/recovery and never write into it.
     $errors=[Collections.Generic.List[string]]::new()
