@@ -203,7 +203,20 @@ if($Recover) {
             foreach($path in @($PrivateWriter,$PrivateCatalog,$Profiles)){Assert-ControlPlain $path;if(!(Test-Path -LiteralPath $path -PathType Leaf)){throw "Private Apply input missing: $path"}}
             $receiptPath=Join-Path $GameDir 'BepInEx/WodenWheel-install.json'
             $receipt=Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
-            if($receipt.mode -cne 'Install' -or @($receipt.files).Count -ne 14 -or $receipt.sharedInputCandidate.controls.adapter -cne 'woden-shim-ini-controls-1'){throw 'Installed private receipt differs.'}
+            if($receipt.mode -cne 'Install' -or $receipt.sharedInputCandidate.controls.adapter -cne 'woden-shim-ini-controls-1'){throw 'Installed private receipt differs.'}
+            if($ShimAppliedForwardCapture){
+                $packageRoot=[IO.Path]::GetFullPath((Join-Path $CandidateDirectory '../../..'))
+                $manifest=@(Get-Content -LiteralPath (Join-Path $packageRoot 'manifest.json') -Raw | ConvertFrom-Json)
+                $names=@('WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Recording.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll','recording-provenance.json','toolkit.version','telemetry-schema.json','Dbce.Wheel.Playback.dll','playback-provenance.json','playback-LICENSE.txt','Stage-Session.ps1','Start-RecordedGame.ps1','RecordedStopControl.ps1','WodenCaseFinalizer.exe','dbce_shim.dll')
+                $expected=@($names | ForEach-Object { 'BepInEx/plugins/WodenRallyEdgeWheel/' + $_ })
+                $owned=@($receipt.files)
+                if($receipt.installerRevision -ne 4 -or $owned.Count -ne $expected.Count -or @($owned.path | Select-Object -Unique).Count -ne $expected.Count){throw 'Applied forward receipt revision or owned file count differs.'}
+                foreach($path in $expected){
+                    $entry=@($owned | Where-Object { $_.path.Replace('\','/') -ceq $path })
+                    $pack=@($manifest | Where-Object { $_.path.Replace('\','/') -ceq $path })
+                    if($entry.Count -ne 1 -or $pack.Count -ne 1 -or $entry[0].sha256 -ne $pack[0].sha256 -or (Get-ControlHash (Join-Path $GameDir $path)) -ne $entry[0].sha256){throw "Applied forward receipt/package payload differs: $path"}
+                }
+            } elseif(@($receipt.files).Count -ne 14){throw 'Installed legacy private receipt file count differs.'}
         } else {
             if(!$ControlsSource -or $ControlsSha256 -notmatch '^[A-Fa-f0-9]{64}$'){throw 'Shim admission requires ControlsSource and its exact ControlsSha256.'}
             $ControlsSource=Full $ControlsSource;Assert-ControlPlain $ControlsSource
