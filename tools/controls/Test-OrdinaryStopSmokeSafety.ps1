@@ -44,6 +44,18 @@ try {
     $header.metadata.properties.disableForces='false'
     Refuses { Assert-OrdinarySourceMute $header $id $forceConfig $profile } 'does not prove this no-force request'
 
+    $config = Join-Path $sourceFixture 'temporary.cfg'
+    $ownerText = "[ForceFeedback]`r`nEnabled = true`r`n[Telemetry]`r`nEnabled = true`r`n[Diagnostics]`r`nRecordSession = true`r`n"
+    [IO.File]::WriteAllText($config,$ownerText)
+    Set-OrdinaryTelemetryDeliveryOff $config
+    if ([IO.File]::ReadAllText($config) -cne $ownerText.Replace("[Telemetry]`r`nEnabled = true", "[Telemetry]`r`nEnabled = false")) {
+        throw 'Temporary mute changed another config key.'
+    }
+    [IO.File]::WriteAllText($config,$ownerText) # The supervisor restores the whole saved config tree.
+    if ([IO.File]::ReadAllText($config) -cne $ownerText) { throw 'Owner config fixture did not restore exactly.' }
+    [IO.File]::WriteAllText($config,"[Telemetry]`nEnabled = true`n[Telemetry]`nEnabled = true`n")
+    Refuses { Set-OrdinaryTelemetryDeliveryOff $config } 'exactly one Telemetry section'
+
     $stuck = Fake-Process $false 0
     Refuses { Assert-OrdinaryGameExit $stuck } 'did not exit normally'
     $badExit = Fake-Process $true 9
@@ -55,7 +67,7 @@ try {
 } finally {
     if (Test-Path -LiteralPath $request) { Remove-Item -LiteralPath $request }
     if (Test-Path -LiteralPath $sourceFixture) {
-        foreach ($file in @('force-config.json','capture-profile.json')) {
+        foreach ($file in @('force-config.json','capture-profile.json','temporary.cfg')) {
             $path = Join-Path $sourceFixture $file
             if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path }
         }

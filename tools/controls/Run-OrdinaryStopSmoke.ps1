@@ -87,6 +87,7 @@ $metadataPath = Join-Path $PackageRoot 'automation-native-provenance.json'
 $idText = $RequestId.ToString('N')
 $recording = Join-Path $GameDir "BepInEx/WodenRecordings/request-$idText"
 $requestPath = Join-Path $GameDir 'BepInEx/config/woden-record-next-launch.json'
+$configPath = Join-Path $GameDir 'BepInEx/config/dbce.wodenrallyedgewheel.cfg'
 $companionPath = Join-Path $plugin 'Start-RecordedGame.ps1'
 $exe = Join-Path $GameDir 'Super Woden Rally Edge.exe'
 $roots = [ordered]@{
@@ -182,6 +183,11 @@ try {
         if ($entry.Count -ne 1 -or $installed.ordinarySession.$field -ne $entry[0].sha256) { throw "Installed ordinary capability differs: $field" }
     }
     if ($installed.sharedInputCandidate.controls.nativeSha256 -ne $NativeSha256) { throw 'Installed shared candidate native pin differs.' }
+    # The temporary config disables loopback telemetry delivery only. Publish,
+    # force analysis and the request-bound source recorder remain active.
+    Set-OrdinaryTelemetryDeliveryOff $configPath
+    [ordered]@{schema=1;config='Telemetry/Enabled = false';temporaryConfigSha256=(Get-ControlHash $configPath)} |
+        ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Result 'telemetry-delivery-mute.json')
     Assert-StageRigLease -Path $slot -Token $RigLeaseToken
     Closed
     $child = Start-Companion $companionPath $Result $RequestId

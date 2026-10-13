@@ -129,6 +129,21 @@ Test("loopback packet delivery, stale idle, bounded stop, completed recording", 
     Check(recorded.Channels["sample.driving"] == 1, "recorded validity"); Check(recorded.Channels["sample.simulationSeconds"] == .02, "recorded simulation clock");
     Console.WriteLine("  synthetic recording: " + path);
 });
+Test("disabled network delivery still records published ordinary samples", () => {
+    string path = Path.Combine(Path.GetTempPath(), "woden-network-off-" + Guid.NewGuid().ToString("N") + ".jsonl");
+    try {
+        using (var output = new TelemetryOutput(new(8000, 8001, 20, path, Enabled: false), "network-off-fixture", "synthetic")) {
+            output.Publish(Sample(.02));
+            output.StopRecording();
+            Check(output.RecordingStatus == "Completed", "Stop completes while network delivery is off");
+            Check(output.ForzaPackets == 0 && output.DetailPackets == 0, "no loopback packets are sent");
+        }
+        var records = SessionReader.Read(path).ToArray();
+        Check(records.Count(r => r.Kind == SessionRecordKind.Sample) == 1 && records.Last().Footer.Completed,
+            "Publish records one sample and a completed footer independent of network delivery");
+    }
+    finally { if (File.Exists(path)) File.Delete(path); }
+});
 Test("invalid clocks are reported without killing output", () => {
     using var output = new TelemetryOutput(new(0, 0), "synthetic", "fixture");
     output.Publish(Sample(double.NaN)); Check(output.SendErrors == 1, "invalid clock counted");

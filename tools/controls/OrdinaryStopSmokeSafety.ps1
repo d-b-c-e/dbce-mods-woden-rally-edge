@@ -1,4 +1,20 @@
 # Small gates shared by the supervisor and its fake-process refusal checks.
+function Set-OrdinaryTelemetryDeliveryOff([string]$Path) {
+    $text = [IO.File]::ReadAllText($Path)
+    $sections = [regex]::Matches($text, '(?ms)^\[Telemetry\][ \t]*\r?\n.*?(?=^\[|\z)')
+    if ($sections.Count -ne 1) { throw 'Expected exactly one Telemetry section.' }
+    $section = $sections[0].Value
+    $keys = [regex]::Matches($section, '(?m)^[ \t]*Enabled[ \t]*=[ \t]*[^\r\n]*')
+    if ($keys.Count -ne 1 -or $keys[0].Value -notmatch '^[ \t]*Enabled[ \t]*=[ \t]*(true|false)[ \t]*$') {
+        throw 'Expected exactly one boolean Telemetry/Enabled key.'
+    }
+    $updated = $section.Substring(0,$keys[0].Index) + 'Enabled = false' + $section.Substring($keys[0].Index + $keys[0].Length)
+    [IO.File]::WriteAllText($Path, $text.Substring(0,$sections[0].Index) + $updated + $text.Substring($sections[0].Index + $section.Length))
+    $check = [IO.File]::ReadAllText($Path)
+    if ($check -cne ($text.Substring(0,$sections[0].Index) + $updated + $text.Substring($sections[0].Index + $section.Length))) {
+        throw 'Temporary telemetry delivery mute did not persist.'
+    }
+}
 function Assert-OrdinaryCompanionStopped($Child,[string]$RequestPath) {
     if ($Child -and !$Child.process.WaitForExit(15000)) { throw 'Companion can still launch Woden; retain lease and owner state.' }
     if (Test-Path -LiteralPath $RequestPath) { throw 'One-shot launch request remains; retain lease and owner state.' }
