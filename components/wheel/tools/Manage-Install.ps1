@@ -23,13 +23,17 @@ $capabilityPath = 'private-shim-capability.json'
 $privateShimHash = '9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8'
 $basePaths = @($payloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
 $legacyBasePaths = @($legacyPayloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
-$reviewedCompanion = Join-Path $PSScriptRoot 'Start-RecordedGame.ps1'
-if (-not (Test-Path -LiteralPath $reviewedCompanion -PathType Leaf)) {
-    $reviewedCompanion = Join-Path $PSScriptRoot 'BepInEx/plugins/WodenRallyEdgeWheel/Start-RecordedGame.ps1'
+function Get-ReviewedCompanionHash {
+    # Only a new install needs the current package's reviewed companion. An
+    # uninstall validates its prior receipt without this source-side file.
+    $reviewedCompanion = Join-Path $PSScriptRoot 'Start-RecordedGame.ps1'
+    if (-not (Test-Path -LiteralPath $reviewedCompanion -PathType Leaf)) {
+        $reviewedCompanion = Join-Path $PSScriptRoot 'BepInEx/plugins/WodenRallyEdgeWheel/Start-RecordedGame.ps1'
+    }
+    if (-not (Test-Path -LiteralPath $reviewedCompanion -PathType Leaf)) { throw 'Reviewed ordinary companion is missing.' }
+    return (Get-FileHash -LiteralPath $reviewedCompanion -Algorithm SHA256).Hash.ToLowerInvariant()
 }
-if (-not (Test-Path -LiteralPath $reviewedCompanion -PathType Leaf)) { throw 'Reviewed ordinary companion is missing.' }
-$originCapableToolHash = (Get-FileHash -LiteralPath $reviewedCompanion -Algorithm SHA256).Hash.ToLowerInvariant()
-function Expected-OrdinarySession($Entries) {
+function Expected-OrdinarySession($Entries,[bool]$AdvertiseInputOrigin = $false) {
     $hashes = @{}
     foreach ($entry in @($Entries)) { $hashes[$entry.path.Replace('/','\').ToLowerInvariant()] = $entry.sha256.ToLowerInvariant() }
     $prefix = 'bepinex\plugins\wodenrallyedgewheel\'
@@ -42,13 +46,23 @@ function Expected-OrdinarySession($Entries) {
         recordingSha256=$hashes[$prefix + 'dbce.wheel.recording.dll']; sourceToolSha256=$hashes[$prefix + 'start-recordedgame.ps1']
         stopToolSha256=$hashes[$prefix + 'recordedstopcontrol.ps1']; finalizerSha256=$hashes[$prefix + 'wodencasefinalizer.exe']
     }
-    if ($capability.sourceToolSha256 -ceq $originCapableToolHash) { $capability.inputOrigin = @('human','automated') }
+    if ($AdvertiseInputOrigin) { $capability.inputOrigin = @('human','automated') }
     return $capability
 }
 function Assert-OrdinarySession($Actual,$Entries) {
     $expected = Expected-OrdinarySession $Entries
-    if ($null -eq $Actual -or ($Actual | ConvertTo-Json -Depth 8 -Compress) -cne ($expected | ConvertTo-Json -Depth 8 -Compress)) {
+    if ($null -eq $Actual) { throw 'Ordinary session capability does not match owned payloads and reviewed contract.' }
+    $actualBase = [ordered]@{}
+    foreach ($property in $Actual.PSObject.Properties) {
+        if ($property.Name -ne 'inputOrigin') { $actualBase[$property.Name] = $property.Value }
+    }
+    if (($actualBase | ConvertTo-Json -Depth 8 -Compress) -cne ($expected | ConvertTo-Json -Depth 8 -Compress)) {
         throw 'Ordinary session capability does not match owned payloads and reviewed contract.'
+    }
+    if ($null -ne $Actual.PSObject.Properties['inputOrigin'] -and
+        (@($Actual.inputOrigin).Count -ne 2 -or
+         $Actual.inputOrigin[0] -cne 'human' -or $Actual.inputOrigin[1] -cne 'automated')) {
+        throw 'Ordinary session inputOrigin declaration is invalid.'
     }
 }
 function Expected-Candidate($Entries) {
@@ -223,6 +237,10 @@ if ($Mode -eq 'Install') {
         $owned += [ordered]@{ path=$relative; sha256=$entry[0].sha256 }
     }
     if ($private) { $owned += [ordered]@{ path=$shimPath; sha256=$shimEntries[0].sha256 } }
+    # New receipts describe this reviewed package. Prior receipts are checked
+    # separately against their own owned-file hashes, even across tool updates.
+    $sourceHash = (Expected-OrdinarySession $owned).sourceToolSha256
+    $advertiseInputOrigin = $sourceHash -ceq (Get-ReviewedCompanionHash)
     # A filename and a backup do not establish ownership. Refuse unknown or
     # modified payloads before any loader preparation, backup or replacement.
     $priorPayloadHashes = @{}
@@ -359,7 +377,7 @@ try {
         $nextReceipt.adapter = 'woden-bindings-1'
         $nextReceipt.controlsProfileHatNeighbours = $true
         if ($private) { $nextReceipt.sharedInputCandidate = $privateMetadata }
-        $nextReceipt.ordinarySession = Expected-OrdinarySession $owned
+        $nextReceipt.ordinarySession = Expected-OrdinarySession $owned $advertiseInputOrigin
     }
     $nextReceipt | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $stagedReceipt -Encoding utf8
     Write-Owned $stagedReceipt $receiptPath (File-Hash $stagedReceipt)

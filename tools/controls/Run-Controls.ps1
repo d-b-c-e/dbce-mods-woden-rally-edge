@@ -446,8 +446,10 @@ try {
     if($ShimCarTrial -or $ShimHudStopOnly) {
         if($ShimCarTrial){$cold.stageReference=$StageReference;$cold.workloadDirectory=Join-Path $Result 'workload'}
         if($PrivateApply){$cold.profileSha256=Get-ControlHash "$Result/workload/profile.json";$cold.workloadSha256=Get-ControlHash "$Result/workload/raw-workload.json";$cold.profileRevision=$workload.ProfileHash;$cold.applyReadbackSha256=Get-ControlHash "$Result/private-apply-readback.json"}
-        # Existing ordinary diagnostic producer; recording modes require this
-        # exact nonce/case/expiry. No stage replay or pose request is made.
+        # Private diagnostic request: additive InputOrigin is ignored by the
+        # current frozen consumer and does not depend on a receipt declaration.
+        # Recording modes still require this exact nonce/case/expiry. No stage
+        # replay or pose request is made.
         if(!$OrdinarySavedForward){
             [ordered]@{Version=2;Id=([guid]::ParseExact($nonce,'N').ToString());ExpiresUtc=$cold.expiresUtc;DisableForces=$true;CaseId=$(if($ShimHudStopOnly){"woden-shim-hud-$nonce"}else{"woden-shim-car-$nonce"});InputOrigin='automated'} |
                 ConvertTo-Json | Set-Content (Join-Path $roots.config 'woden-record-next-launch.json')
