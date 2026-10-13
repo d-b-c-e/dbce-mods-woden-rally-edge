@@ -28,7 +28,9 @@ internal static class FullSessionChecks
         public double Now = 1, Physics = 250, Step = Dt;
         /// <summary>Runs on each tick's sample before the stage copy and the ordinary recorder see it.</summary>
         public Action<TelemetrySample>? Extend;
-        int _sequence;
+        /// <summary>Adds the production channels the stage review needs (tune, friction curves, delivery counters).</summary>
+        public bool Reviewable;
+        int _sequence, _delivery;
         /// <param name="properties">Ordinary recording properties for the capture root (default: the game build only).</param>
         public Fixture(RecordingOptions? recording = null, Func<string, Dictionary<string, string>>? properties = null)
         {
@@ -47,6 +49,24 @@ internal static class FullSessionChecks
             s.Add("motion.speed", 20); s.Add("motion.velocity.local.z", 20); s.Add("game.trueSpeed", 59 + (_sequence % 3));
             s.Add("camera.mode", 0); s.Add("camera.stockPreset", 2); s.Add("camera.mountedView", 0);
             s.Add("ffb.grip.reference", 10000); s.Add("ffb.grip.referenceKind", 2); s.Add("ffb.grip.carEpoch", 1);
+            if (Reviewable)
+            {
+                var o = Options;
+                s.Add("ffb.tuning.strengthPercent", o.Strength); s.Add("ffb.tuning.peakPercent", o.PeakPercent); s.Add("ffb.tuning.loadReference", o.LoadReference);
+                s.Add("ffb.tuning.slipScale", o.SlipScale); s.Add("ffb.tuning.smoothingMs", o.SmoothingMs); s.Add("ffb.tuning.damping", o.Damping);
+                s.Add("ffb.tuning.invert", o.Invert ? 1 : 0); s.Add("ffb.tuning.modelVersion", o.Model);
+                s.Add("ffb.tuning.loadRatio", o.LoadRatio); s.Add("ffb.tuning.gripSmoothing", o.GripSmoothing); s.Add("ffb.grip.curveEstimateVersion", 1);
+                s.Add("wheelInput.steer", Math.Sin(Physics) * .2);
+                foreach (string corner in new[] { "fl", "fr" })
+                {
+                    string p = "wheel." + corner + ".";
+                    s.Add(p + "grounded", 1); s.Add(p + "contactForce", 5000); s.Add(p + "sidewaysSlip", .3);
+                    s.Add(p + "sideFriction.extremumSlip", 2); s.Add(p + "sideFriction.asymptoteSlip", 2);
+                    s.Add(p + "sideFriction.extremumValue", 1); s.Add(p + "sideFriction.asymptoteValue", 1); s.Add(p + "sideFriction.stiffness", 1);
+                }
+                // Forces were on: the production cumulative counters advance once per sample.
+                s.Add("ffb.sent", .1); s.Add("ffb.connectionAttempts", 1); s.Add("ffb.deliveryAttempts", _delivery++);
+            }
             return s;
         }
         public static TrajectoryFrame Frame(double time) => new() { Time = time,

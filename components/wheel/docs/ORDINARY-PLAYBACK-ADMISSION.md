@@ -56,7 +56,33 @@ evidence, recorded by that run against the derived seal; the admission never cla
 
 Playback stays unavailable in Wheelkit until a receipt-owned capability declares the adapter.
 
+## Ordinary review of an admitted package (S2b)
+
+An owner drive may have had forces on. The supervised runner's `stage-review` requires a muted capture, and it
+stays the default for raw `-Recording` stages, unchanged in behavior and output. An admitted package instead
+gets:
+
+```
+TelemetryInspector ordinary-stage-review <derived-package>
+Run-StageSession.ps1 -AdmittedPackage <derived-package> -Result <new folder>
+```
+
+Before reviewing, the command checks the derived package:
+- the exact derived seal;
+- `playbackAdapter` and `admissionEvidence: route-compatible`;
+- that the admission's source hashes match `derivedFrom` and the nested stage seal.
+
+It then runs the same stage review under the explicit `ordinary-output-retained` policy, with two differences:
+- **`physicalOutput`** may be `true`, but the tape and the source metadata must agree. When `false`, the
+  delivery counters must still be zero.
+- **Delivery counters,** when output was allowed, must be truthful cumulative counts: nonnegative, whole and
+  non-decreasing. Their deltas are reported, and nothing replays them.
+
+Every tune, alignment, clock, coverage and force-reprocess check is unchanged, so the ordinary force history
+(`analysis.force.*` from the stage's own history, and the recorded `ffb.*`) is proven replayable byte for byte.
+The cold replay itself is always muted. The review claims `coldReplay: not-qualified`; a passed replay of the
+derived package is separate evidence.
+
 **Not yet admitted:**
-- originals with FFB on: the supervised runner's review still requires a muted capture (S2b);
 - later rounds and other modes;
 - results observation.

@@ -22,6 +22,12 @@ if (args.Length == 2 && args[0] == "stage-review")
     try { Console.WriteLine(JsonSerializer.Serialize(StageCaptureReview.Run(args[1]), json)); return 0; }
     catch (Exception ex) { Console.Error.WriteLine("STAGE REVIEW REFUSED: " + ex.Message); return 2; }
 }
+if (args.Length == 2 && args[0] == "ordinary-stage-review")
+{
+    // ordinary-stage-review <admitted derived package>: S2b review; raw recordings keep stage-review
+    try { Console.WriteLine(JsonSerializer.Serialize(OrdinaryStageReview.Run(args[1]), json)); return 0; }
+    catch (Exception ex) { Console.Error.WriteLine("ORDINARY STAGE REVIEW REFUSED: " + ex.Message); return 2; }
+}
 if (args.Length == 4 && args[0] == "admit")
 {
     // admit <original S1 package> <new derived package> <GameAssembly SHA-256>: route-compatible evidence only
@@ -68,7 +74,7 @@ if (args.Length is 3 or 4 && args[0] == "compare")
     }
     catch (Exception ex) { Console.Error.WriteLine("OBSERVATION INVALID: " + ex.Message); return 2; }
 }
-if (args.Length != 2 || args[0] != "inspect") { Console.Error.WriteLine("Usage: schema <output.json> | inspect <session.jsonl> | stage-review <recording-directory> | reprocess <case-directory> | trial <case-directory> <candidate-config.json> <new-observation.jsonl> [tolerance] | compare <baseline.jsonl> <candidate.jsonl> [tolerance] | ffb-export <stage-or-case> <new.csv> <strength> <peak> [grip <ratio>] | ffb-analysis-export <stage-or-case> <new.csv> <strength> <peak> [grip <ratio>] | devices <native DLL directory> | admit <original-package> <derived-package> <gameAssemblySha256>"); return 1; }
+if (args.Length != 2 || args[0] != "inspect") { Console.Error.WriteLine("Usage: schema <output.json> | inspect <session.jsonl> | stage-review <recording-directory> | reprocess <case-directory> | trial <case-directory> <candidate-config.json> <new-observation.jsonl> [tolerance] | compare <baseline.jsonl> <candidate.jsonl> [tolerance] | ffb-export <stage-or-case> <new.csv> <strength> <peak> [grip <ratio>] | ffb-analysis-export <stage-or-case> <new.csv> <strength> <peak> [grip <ratio>] | devices <native DLL directory> | admit <original-package> <derived-package> <gameAssemblySha256> | ordinary-stage-review <derived-package>"); return 1; }
 try
 {
     var stats = new Dictionary<string, (long count, double min, double max, double sum)>();

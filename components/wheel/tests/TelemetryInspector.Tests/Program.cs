@@ -17,7 +17,8 @@ void Refuses(Action action, string reason)
     throw new Exception("Expected refusal: " + reason);
 }
 
-string Capture(string name, bool gripModel, Action<int, Dictionary<string, double>>? change = null, bool legacy = false, int model = 4, bool flat = false, bool independent = false)
+string Capture(string name, bool gripModel, Action<int, Dictionary<string, double>>? change = null, bool legacy = false, int model = 4, bool flat = false, bool independent = false,
+    string physicalOutput = "false", string? recordedOutput = null)
 {
     string directory = Path.Combine(root, name);
     var options = new ForceOptions(Model: gripModel ? model : 3);
@@ -25,12 +26,12 @@ string Capture(string name, bool gripModel, Action<int, Dictionary<string, doubl
     {
         ["contract"] = "dbce.trajectory@1", ["game"] = "Super Woden Rally Edge", ["gameSha256"] = new string('0', 64),
         ["scenario"] = "synthetic-model-fixture", ["fixedDeltaTime"] = ".02", ["captureSource"] = "synthetic-test",
-        ["physicalOutput"] = "false"
+        ["physicalOutput"] = physicalOutput
     });
     string configHash = RecordingArtifacts.WriteForceConfig(Path.Combine(directory, "force-config.json"), options);
     File.WriteAllText(Path.Combine(directory, "stage-context.json"), "{\"synthetic\":true}");
     File.WriteAllText(Path.Combine(directory, "channels.json"), "[]");
-    var properties = new Dictionary<string, string> { ["forceConfigSha256"] = configHash, ["captureSource"] = "synthetic-test", ["physicalOutput"] = "false" };
+    var properties = new Dictionary<string, string> { ["forceConfigSha256"] = configHash, ["captureSource"] = "synthetic-test", ["physicalOutput"] = recordedOutput ?? physicalOutput };
     if (independent) { properties["analysisForceContract"] = ForceAnalysisHistory.Contract; properties["analysisForce"] = ForceAnalysisHistory.Scope; }
     var history = new ForceAnalysisHistory();
     using var recorder = new SessionRecorder(Path.Combine(directory, "source.jsonl"), new SessionMetadata
@@ -198,4 +199,29 @@ foreach (string field in new[] { "epoch", "carEpoch", "tuneEpoch", "boundary", "
     string path = Capture("independent-tamper-" + field, true, (i,c) => { if (i == 55) c[key] += 1; }, model: 6, flat: true, independent: true);
     Refuses(() => StageCaptureReview.Run(path), key);
 }
+// S2b: the muted default is unchanged; the explicit ordinary policy accepts a consistent output-retained capture with
+// truthful delivery counters and still enforces every tune, alignment and force-reprocess check.
+void OwnerDelivery(int i, Dictionary<string, double> c) { c["ffb.deliveryAttempts"] = i; c["ffb.connectionAttempts"] = 1; c["ffb.sent"] = .1 * Math.Sin(i * .1); }
+string owner = Capture("owner-ffb-on", true, OwnerDelivery, model: 6, flat: true, independent: true, physicalOutput: "true");
+Refuses(() => StageCaptureReview.Run(owner), "physically muted");
+var ordinary = JsonSerializer.SerializeToElement(StageCaptureReview.Run(owner, StageReviewPolicy.OrdinaryOutputRetained));
+Check(ordinary.GetProperty("policy").GetString() == "ordinary-output-retained" && ordinary.GetProperty("physicalOutput").GetBoolean() &&
+    ordinary.GetProperty("physicalDeliveryAttempts").GetDouble() == 159 && ordinary.GetProperty("playback").GetString() == "muted" &&
+    ordinary.GetProperty("maximumForceReprocessError").GetDouble() == 0 && ordinary.GetProperty("analysisContract").GetString() == ForceAnalysisHistory.Contract,
+    "ordinary policy reviews an FFB-on capture and reports its delivery; force history replays exactly");
+Check(!JsonSerializer.SerializeToElement(StageCaptureReview.Run(gripPath)).TryGetProperty("policy", out _), "the muted review output is unchanged");
+Check(!JsonSerializer.SerializeToElement(StageCaptureReview.Run(gripPath, StageReviewPolicy.OrdinaryOutputRetained)).GetProperty("physicalOutput").GetBoolean(),
+    "a muted capture under the ordinary policy reports no output");
+Refuses(() => StageCaptureReview.Run(Capture("owner-muted-delivery", true, (i, c) => { if (i == 55) c["ffb.deliveryAttempts"] = 1; }, model: 6, flat: true, independent: true),
+    StageReviewPolicy.OrdinaryOutputRetained), "physically muted");
+Refuses(() => StageCaptureReview.Run(Capture("owner-decreasing", true, (i, c) => { OwnerDelivery(i, c); if (i == 55) c["ffb.deliveryAttempts"] = 3; }, model: 6, flat: true, independent: true,
+    physicalOutput: "true"), StageReviewPolicy.OrdinaryOutputRetained), "truthful cumulative");
+Refuses(() => StageCaptureReview.Run(Capture("owner-fractional", true, (i, c) => { OwnerDelivery(i, c); if (i == 55) c["ffb.deliveryAttempts"] = 55.5; }, model: 6, flat: true, independent: true,
+    physicalOutput: "true"), StageReviewPolicy.OrdinaryOutputRetained), "truthful cumulative");
+Refuses(() => StageCaptureReview.Run(Capture("owner-mismatch", true, OwnerDelivery, model: 6, flat: true, independent: true, physicalOutput: "true", recordedOutput: "false"),
+    StageReviewPolicy.OrdinaryOutputRetained), "metadata differs");
+Refuses(() => StageCaptureReview.Run(Capture("owner-tamper", true, (i, c) => { OwnerDelivery(i, c); if (i == 55) c["analysis.force.preview"] += 1; }, model: 6, flat: true, independent: true,
+    physicalOutput: "true"), StageReviewPolicy.OrdinaryOutputRetained), "analysis.force.preview");
+Refuses(() => StageCaptureReview.Run(Capture("owner-tune", true, (i, c) => { OwnerDelivery(i, c); if (i == 55) c["ffb.tuning.loadRatio"] = 1; }, model: 6, flat: true, independent: true,
+    physicalOutput: "true"), StageReviewPolicy.OrdinaryOutputRetained), "Capture tune changed");
 Console.WriteLine($"PASS stage analysis/export: {checks} checks; Classic and Grip 4/5/6, legacy/independent history, reference eligibility, refusal and immutable-source cases. Evidence: {root}");

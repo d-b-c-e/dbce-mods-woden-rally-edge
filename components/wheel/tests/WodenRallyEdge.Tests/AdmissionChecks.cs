@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Dbce.Wheel.Playback;
 using Dbce.Wheel.Sessions;
+using WodenRallyEdge.Core;
 
 namespace WodenRallyEdge;
 
@@ -194,6 +195,43 @@ internal static class AdmissionChecks
         Refuses("not Arcade", c => c["gameMode"] = "Championship", "not an Arcade stage");
         Refuses("route without the presentation", c => c["observedScenes"] = new[] { "SplashScreen", "Title Screen", "MapScreen", "Kenya SS1" }, "presentation");
         Refuses("context of another build", c => c["gameAssemblySha256"] = new string('1', 64), "different build");
+    }
+
+    /// <summary>S2b: an FFB-on ordinary original from the production S1 writer, admitted, then reviewed with the ordinary
+    /// policy; the supervised muted review still refuses its raw stage. Playback output is muted regardless.</summary>
+    public static void OrdinaryReview(Action<bool, string> check)
+    {
+        using var f = new FullSessionChecks.Fixture { Reviewable = true };
+        f.Menus(); f.Open(physicalOutput: true);
+        for (int i = 0; i < 80; i++) f.Tick();
+        f.Session.Seal("finished", true, f.Now);
+        f.CloseOrdinary(); f.Session.Stop(f.Now += .1); f.Session.Package();
+        check(f.Session.Outcome == "package", "the FFB-on original is packaged");
+        string stage = Path.Combine(f.Root, "source.stage");
+        check(TrajectoryTape.Read(stage).Metadata["physicalOutput"] == "true", "the tape says forces were allowed");
+        check(Throws(() => StageCaptureReview.Run(stage), "physically muted"), "the supervised muted review still refuses an FFB-on stage");
+        var admitted = FullSessionAdmission.Admit(f.Root, f.Root + ".admitted", FullSessionChecks.Hash);
+        check(admitted.Admitted, "the FFB-on original is route-compatible: " + admitted.Reason);
+        var result = JsonSerializer.SerializeToElement(OrdinaryStageReview.Run(admitted.Output!));
+        var review = result.GetProperty("review");
+        check(result.GetProperty("passed").GetBoolean() && result.GetProperty("coldReplay").GetString() == "not-qualified" &&
+            result.GetProperty("derivedFrom").GetProperty("sessionSha256").GetString() == ArtifactSeal.Hash(Path.Combine(f.Root, "session.json")),
+            "the ordinary review names the derived package and its original, and claims no cold replay");
+        check(review.GetProperty("policy").GetString() == "ordinary-output-retained" && review.GetProperty("physicalOutput").GetBoolean() &&
+            review.GetProperty("physicalDeliveryAttempts").GetDouble() == 79 && review.GetProperty("playback").GetString() == "muted",
+            "the review reports the recorded delivery and keeps playback muted");
+        check(review.GetProperty("maximumForceReprocessError").GetDouble() == 0 && review.GetProperty("analysisContract").GetString() == ForceAnalysisHistory.Contract &&
+            review.GetProperty("samples").GetInt32() == 80, "the ordinary force history replays exactly for every pose");
+        check(Throws(() => OrdinaryStageReview.Run(f.Root), "Not an admitted ordinary package"), "a raw original is not reviewed as admitted");
+        string changed = f.Root + ".changed-admission";
+        Copy(admitted.Output!, changed);
+        File.AppendAllText(Path.Combine(changed, "admission.json"), " ");
+        check(Throws(() => OrdinaryStageReview.Run(changed), "changed"), "a changed admission fails the derived seal");
+    }
+    static bool Throws(Action action, string reason)
+    {
+        try { action(); return false; }
+        catch (Exception ex) { return ex.Message.Contains(reason, StringComparison.Ordinal); }
     }
 
     static void Original(FullSessionChecks.Fixture f, Action<Dictionary<string, object?>>? context = null)
