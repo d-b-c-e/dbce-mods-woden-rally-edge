@@ -11,11 +11,13 @@ param(
     [string]$GameDir = 'D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge',
     [ValidateRange(240,2400)][int]$TimeoutSeconds = 360,
     [switch]$RestoreOnly,
+    [string]$RigLeaseToken,
     [switch]$CheckEnvironment
 )
 $ErrorActionPreference = 'Stop'
 $slot = Join-Path $env:LOCALAPPDATA 'dbce/test-slot.txt'
 $rigLease = $null
+$borrowedLease = $false
 $rigScript = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../vendor/playback/Stage-RigLease.ps1'))
 $rigPin = Get-Content (Join-Path (Split-Path $rigScript -Parent) 'rig-lease-provenance.json') -Raw | ConvertFrom-Json
 if ($rigPin.schema -ne 'dbce.stage-rig-lease-pin@1' -or (Get-FileHash -LiteralPath $rigScript).Hash -ine $rigPin.sha256) { throw 'Rig lease source pin differs' }
@@ -129,13 +131,21 @@ try {
     try { $held = $lease.WaitOne(0) } catch [Threading.AbandonedMutexException] { $held = $true }
     if (!$held) { throw 'Another replay runner owns the test slot.' }
     if ($RestoreOnly) {
-        Restore-Owner
         $savedLease = Join-Path $Result 'rig-lease.json'
         if (Test-Path -LiteralPath $savedLease) {
             $restoredLease = Get-Content -LiteralPath $savedLease -Raw | ConvertFrom-Json
             if ($restoredLease.path -ine $slot) { throw 'Recovery rig lease path differs' }
-            $null = Exit-StageRigLease $restoredLease
+            if ($restoredLease.borrowed) {
+                if (!$RigLeaseToken -or $RigLeaseToken -cne $restoredLease.token) { throw 'Borrowed recovery requires the exact outer rig lease token.' }
+                Assert-StageRigLease -Path $slot -Token $RigLeaseToken
+            } else {
+                if ($RigLeaseToken) { throw 'An owned recovery lease cannot be borrowed.' }
+            }
+        } elseif ($RigLeaseToken) {
+            throw 'Borrowed recovery has no saved rig lease identity.'
         }
+        Restore-Owner
+        if ($restoredLease -and !$restoredLease.borrowed) { $null = Exit-StageRigLease $restoredLease }
         Write-Output 'Owner files and preferences restored and verified.'; return
     }
     if (Test-Path -LiteralPath $Result) { throw 'Choose a new result directory.' }
@@ -148,7 +158,13 @@ try {
     if (Test-Path -LiteralPath (Join-Path $control 'request.txt')) { throw 'An unconsumed stage request exists.' }
     $other = Get-Process -Name 'artofrally','iracing-arcade','DRIVERally','SonicRacingCrossWorldsSteam','OR2006C2C' -ErrorAction SilentlyContinue
     if ($other) { throw 'Another game owns the test slot.' }
-    $rigLease = Enter-StageRigLease -Path $slot -Owner 'codex woden-rally-edge' -Purpose 'supervised stage session'
+    if ($RigLeaseToken) {
+        Assert-StageRigLease -Path $slot -Token $RigLeaseToken
+        $rigLease = [pscustomobject]@{path=$slot;token=$RigLeaseToken;borrowed=$true}
+        $borrowedLease = $true
+    } else {
+        $rigLease = Enter-StageRigLease -Path $slot -Owner 'codex woden-rally-edge' -Purpose 'supervised stage session'
+    }
     $command = Join-Path $GameDir 'BepInEx/plugins/WodenRallyEdgeWheel/Stage-Session.ps1'
     Save-Owner
     $rigLease | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Result 'rig-lease.json') -Encoding utf8
@@ -173,6 +189,7 @@ try {
     $seen = $false; $last = ''; $passed = $false
     while ($clock.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
         Start-Sleep -Seconds 1
+        if ($borrowedLease) { Assert-StageRigLease -Path $slot -Token $RigLeaseToken }
         $running = Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue
         if ($running) { $seen = $true }
         $statusPath = Join-Path $control 'status.txt'
@@ -213,5 +230,5 @@ try {
     }
     if ($held) { $lease.ReleaseMutex() }
     $lease.Dispose()
-    if ($rigLease -and !(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue)) { $null = Exit-StageRigLease $rigLease }
+    if ($rigLease -and !$borrowedLease -and !(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue)) { $null = Exit-StageRigLease $rigLease }
 }
