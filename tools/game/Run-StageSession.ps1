@@ -149,7 +149,10 @@ try {
         Write-Output 'Owner files and preferences restored and verified.'; return
     }
     if (Test-Path -LiteralPath $Result) { throw 'Choose a new result directory.' }
-    if ($CheckEnvironment) { Save-Owner; Restore-Owner; Write-Output 'PASS: owner environment backup and exact readback.'; return }
+    if ($CheckEnvironment) {
+        if ($RigLeaseToken) { Assert-StageRigLease -Path $slot -Token $RigLeaseToken }
+        Save-Owner; Restore-Owner; Write-Output 'PASS: owner environment backup and exact readback.'; return
+    }
     if ($Record -and $Recording) { throw 'Choose either Record or a completed Recording.' }
     if ($Record -and $SpanSeparateMonitors) { throw 'The temporary span override is for replay qualification only.' }
     if (!$Record -and (!$Recording -or !(Test-Path -LiteralPath (Join-Path $Recording 'complete.tsv')))) { throw 'A completed recording is required.' }
@@ -214,6 +217,7 @@ try {
     foreach ($file in @((Join-Path $GameDir 'BepInEx/LogOutput.log'),(Join-Path $data 'Player.log'))) {
         if (Test-Path -LiteralPath $file) { Copy-Exact $file (Join-Path $Result ([IO.Path]::GetFileName($file))) }
     }
+    if ($borrowedLease) { Assert-StageRigLease -Path $slot -Token $RigLeaseToken }
     Restore-Owner
     if ($Record -and !(Test-Path -LiteralPath (Join-Path $Recording 'complete.tsv'))) { $passed = $false }
     if (!$seen -or !$passed) { throw 'Session did not complete; evidence saved and owner state restored.' }
@@ -225,7 +229,9 @@ try {
         $pending = Join-Path $control 'request.txt'
         if ((Test-Path -LiteralPath $pending) -and ((Get-Content -LiteralPath $pending) -contains ('id='+$id))) { Remove-Item -LiteralPath $pending }
     }
-    if ((Test-Path -LiteralPath (Join-Path $backup 'manifest.json')) -and !(Test-Path -LiteralPath (Join-Path $Result 'restored.txt')) -and !(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue)) {
+    if (!$RestoreOnly -and $rigLease -and (Test-Path -LiteralPath (Join-Path $backup 'manifest.json')) -and
+        !(Test-Path -LiteralPath (Join-Path $Result 'restored.txt')) -and !(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue)) {
+        if ($borrowedLease) { Assert-StageRigLease -Path $slot -Token $RigLeaseToken }
         Restore-Owner
     }
     if ($held) { $lease.ReleaseMutex() }

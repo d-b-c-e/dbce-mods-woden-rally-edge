@@ -7,6 +7,7 @@ param(
     [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$MutedManifestSha256,
     [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ReplayRunnerSha256,
     [Parameter(Mandatory)][string]$Recording,
+    [switch]$VerifyOnly,
     [string]$GameDir='D:/Program Files (x86)/Steam/steamapps/common/Super Woden Rally Edge'
 )
 $ErrorActionPreference='Stop'
@@ -114,6 +115,10 @@ $files=[ordered]@{
     receipt=$receiptPath;log=(Join-Path $GameDir 'BepInEx/LogOutput.log')
     winhttp=(Join-Path $GameDir 'winhttp.dll');doorstop=(Join-Path $GameDir 'doorstop_config.ini')
     doorstopVersion=(Join-Path $GameDir '.doorstop_version')
+}
+if($VerifyOnly){
+    Write-Output "PASS muted HUD replay preflight: production manifest $productionManifest; muted manifest $MutedManifestSha256; 17 candidate owner paths, sealed Kenya source, current owner receipt and Native config. No lease, install or game."
+    return
 }
 $slot=Join-Path $env:LOCALAPPDATA 'dbce/test-slot.txt'
 $lease=Enter-StageRigLease -Path $slot -Owner halo-woden-hudspeed-replay -Purpose 'one load-muted Kenya HUD-speed replay and exact owner restore'
