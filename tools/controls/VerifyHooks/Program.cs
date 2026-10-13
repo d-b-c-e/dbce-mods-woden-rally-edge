@@ -11,3 +11,4 @@ AssemblyLoadContext.Default.Resolving+=(_,name)=> {
 var mod=AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.Combine(root,dirs[0],"WodenRallyEdgeWheel.dll"));
 var native=AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.Combine(root,"components/wheel/lib/toolkit/dotnet/Dbce.Wheel.Ffb.dll"));
 Console.WriteLine($"PASS: {HookContract.Verify(mod,native)} exact metadata seams. No static initialization, hooks installed, engine, device or native calls.");
+Console.WriteLine($"PASS: {HookContract.VerifyShim(mod)} exact ordinary shim admission metadata seams, including overloaded Panel.Toggle().");

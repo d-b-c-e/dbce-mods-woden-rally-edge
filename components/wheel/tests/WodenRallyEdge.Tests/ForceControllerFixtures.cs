@@ -51,11 +51,12 @@ internal static class MountedCamera { internal static bool PlayerOwned = true; i
 internal sealed class FakeForceDevice : IForceDevice
 {
     internal int Opens, Closes, Zeros, Panics;
+    internal Guid? OpenedGuid;
     internal readonly List<float> Writes = new();
     internal bool AcceptOpen = true, AcceptWrite = true;
     public bool CanOpen { get; set; } = true;
     public string? Error => "Fake driver failure";
-    public bool Open(Guid guid) { Opens++; return AcceptOpen; }
+    public bool Open(Guid guid) { Opens++; OpenedGuid=guid; return AcceptOpen; }
     public bool Write(float value) { Writes.Add(value); return AcceptWrite; }
     public void ZeroAndStop() => Zeros++;
     public void Panic() => Panics++;

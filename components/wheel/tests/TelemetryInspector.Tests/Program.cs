@@ -17,10 +17,10 @@ void Refuses(Action action, string reason)
     throw new Exception("Expected refusal: " + reason);
 }
 
-string Capture(string name, bool gripModel, Action<int, Dictionary<string, double>>? change = null, bool legacy = false)
+string Capture(string name, bool gripModel, Action<int, Dictionary<string, double>>? change = null, bool legacy = false, int model = 4, bool flat = false, bool independent = false)
 {
     string directory = Path.Combine(root, name);
-    var options = new ForceOptions(Model: gripModel ? 4 : 3);
+    var options = new ForceOptions(Model: gripModel ? model : 3);
     using var tape = new TrajectoryRecorder(directory, new Dictionary<string, string>
     {
         ["contract"] = "dbce.trajectory@1", ["game"] = "Super Woden Rally Edge", ["gameSha256"] = new string('0', 64),
@@ -30,10 +30,13 @@ string Capture(string name, bool gripModel, Action<int, Dictionary<string, doubl
     string configHash = RecordingArtifacts.WriteForceConfig(Path.Combine(directory, "force-config.json"), options);
     File.WriteAllText(Path.Combine(directory, "stage-context.json"), "{\"synthetic\":true}");
     File.WriteAllText(Path.Combine(directory, "channels.json"), "[]");
+    var properties = new Dictionary<string, string> { ["forceConfigSha256"] = configHash, ["captureSource"] = "synthetic-test", ["physicalOutput"] = "false" };
+    if (independent) { properties["analysisForceContract"] = ForceAnalysisHistory.Contract; properties["analysisForce"] = ForceAnalysisHistory.Scope; }
+    var history = new ForceAnalysisHistory();
     using var recorder = new SessionRecorder(Path.Combine(directory, "source.jsonl"), new SessionMetadata
     {
         Game = "Super Woden Rally Edge", PluginVersion = "synthetic-test", ToolkitVersion = "vendored",
-        Properties = new() { ["forceConfigSha256"] = configHash, ["captureSource"] = "synthetic-test", ["physicalOutput"] = "false" }
+        Properties = properties
     });
     var classic = new ForceSignal(); classic.Reset();
     var grip = new GripSignal(); grip.NewCar();
@@ -63,6 +66,10 @@ string Capture(string name, bool gripModel, Action<int, Dictionary<string, doubl
                 c[p + "sideFriction.extremumSlip"] = .2; c[p + "sideFriction.extremumValue"] = 1;
                 c[p + "sideFriction.asymptoteSlip"] = .4; c[p + "sideFriction.asymptoteValue"] = .6;
                 c[p + "sideFriction.stiffness"] = i < 80 ? 1 : .8;
+                if (flat) {
+                    c[p + "sideFriction.extremumSlip"] = c[p + "sideFriction.asymptoteSlip"] = 2;
+                    c[p + "sideFriction.extremumValue"] = c[p + "sideFriction.asymptoteValue"] = 1;
+                }
             }
         }
         // Reference differs from the observed 10,000 N sum: it represents history before this tape.
@@ -78,6 +85,8 @@ string Capture(string name, bool gripModel, Action<int, Dictionary<string, doubl
         var result = gripModel ? grip.Evaluate(sample, options, reference) : classic.Evaluate(sample, options);
         c["analysis.force.preview"] = result.Preview; c["analysis.force.valid"] = result.Valid ? 1 : 0;
         c["analysis.force.reset"] = gripModel ? grip.ResetCount : classic.ResetCount;
+        if (gripModel && model >= 5) { c["analysis.force.steering"] = grip.LastSteering; c["analysis.force.dampingTerm"] = grip.LastDamping; }
+        if (independent) history.Record(sample, options);
         change?.Invoke(i, c);
         Check(recorder.TryRecord(i * .02, c), "Synthetic recorder dropped a row");
         var frame = new TrajectoryFrame { Time = i * .02 }; frame.Values[6] = 1; frame.Values[2] = i * .4f; frame.Values[9] = 20;
@@ -89,14 +98,28 @@ string Capture(string name, bool gripModel, Action<int, Dictionary<string, doubl
 }
 
 string classicPath = Capture("classic-legacy", false, legacy: true), gripPath = Capture("grip", true);
-foreach (string path in new[] { classicPath, gripPath })
+string grip5Path = Capture("grip5", true, model: 5), grip6Path = Capture("grip6-flat", true, model: 6, flat: true);
+foreach (string path in new[] { classicPath, gripPath, grip5Path, grip6Path })
 {
     var report = JsonSerializer.SerializeToElement(StageCaptureReview.Run(path));
     Check(report.GetProperty("passed").GetBoolean(), "Stage validation failed");
+    Check(report.GetProperty("model").GetString() == ForceObservationSemantics.ModelId(StageCaptureReview.ReadOptions(path).Model), "Report identifies exact Classic/Grip 4/5/6 model");
+    Check(report.GetProperty("analysisContract").GetString() == "legacy-stage-history", "Legacy stage history stays explicitly legacy");
     Check(report.GetProperty("source").GetString() == "synthetic-test", "Synthetic capture was labelled live");
     Check(report.GetProperty("maximumForceReprocessError").GetDouble() == 0, "Reprocessing differed");
     Check(report.GetProperty("forceScope").GetString()!.StartsWith("steering analysis only"), "Claimed full force qualification");
     File.WriteAllText(Path.Combine(root, Path.GetFileName(path) + "-review.json"), report.ToString());
+}
+foreach (int model in new[] { 5, 6 })
+{
+    foreach (string term in new[] { "analysis.force.steering", "analysis.force.dampingTerm" })
+    {
+        string absent = Capture("v" + model + "-missing-" + term, true, (i, c) => { if (i == 55) c.Remove(term); }, model: model, flat: model == 6);
+        Refuses(() => StageCaptureReview.Run(absent), term);
+    }
+    string path = model == 5 ? grip5Path : grip6Path, exported = Path.Combine(root, "v" + model + "-export.csv");
+    ForceExport.Run(path, exported, 50, 25, 2);
+    Check(File.ReadLines(exported).Skip(1).All(line => line.Split(',')[10] == model.ToString(CultureInfo.InvariantCulture)), "stage export retains recorded grip version " + model);
 }
 var originalHashes = Directory.GetFiles(gripPath).ToDictionary(p => p, ArtifactSeal.Hash);
 string csvPath = Path.Combine(root, "grip.csv");
@@ -145,4 +168,34 @@ foreach (var mutation in new (string Name, string Key, double? Value, string Rea
     Refuses(() => StageCaptureReview.Run(fixture), mutation.Reason);
     Refuses(() => ForceExport.Run(fixture, Path.Combine(root, mutation.Name + ".csv"), 50, 25, 2), mutation.Reason);
 }
-Console.WriteLine($"PASS stage analysis/export: {checks} checks; Classic and Grip, pre-capture reference, eligibility, reset, refusal and immutable-source cases. Evidence: {root}");
+Refuses(() => ForceExport.RunAnalysis(grip6Path, Path.Combine(root, "legacy-analysis.csv"), 50, 25, 2), "Independent analysis unavailable");
+Check(!File.Exists(Path.Combine(root, "legacy-analysis.csv")), "Old stage cannot be promoted into a new analysis capture");
+foreach (int model in new[] { 3, 4, 5, 6 })
+{
+    string path = Capture("independent-" + model, model >= 4, model: model, flat: model == 6, independent: true);
+    var pins = Directory.GetFiles(path).ToDictionary(p => p, ArtifactSeal.Hash);
+    var report = JsonSerializer.SerializeToElement(StageCaptureReview.Run(path));
+    Check(report.GetProperty("model").GetString() == ForceObservationSemantics.ModelId(model), "Independent stage report exact model " + model);
+    Check(report.GetProperty("analysisContract").GetString() == ForceAnalysisHistory.Contract, "Independent report contract");
+    string exported = Path.Combine(root, "independent-" + model + ".csv");
+    ForceExport.Run(path, exported, 50, 25, model >= 4 ? 2 : null);
+    var values = File.ReadLines(exported).Skip(1).Select(l => l.Split(',')).ToArray();
+    string sourceHash = ArtifactSeal.Hash(Path.Combine(path, "source.jsonl")), configHash = ArtifactSeal.Hash(Path.Combine(path, "force-config.json"));
+    var original = SessionReader.Read(Path.Combine(path, "source.jsonl")).Where(r => r.Kind == SessionRecordKind.Sample).Select(r => r.Sample).ToArray();
+    Check(values.Length == 160 && values.Any(v => double.Parse(v[4], CultureInfo.InvariantCulture) != 0), "New history exports all rows and nonzero signal");
+    for (int i = 0; i < values.Length; i++)
+    {
+        Check(double.Parse(values[i][4], CultureInfo.InvariantCulture) == original[i].Channels["analysis.force.preview"], "Independent stage exact preview");
+        Check(values[i][11] == "independent-analysis" && values[i][12] == ForceAnalysisHistory.Contract && values[i][18] == "false", "CSV separates analysis from physical output");
+        Check(values[i][13] == sourceHash && values[i][14] == configHash, "CSV retains source and original tune hashes");
+        if (model >= 4) Check(values[i][6] == (i >= 20 && i != 90 ? "1" : "0"), "Analysis still excludes unqualified reference and invalid rows");
+    }
+    foreach (var pin in pins) Check(ArtifactSeal.Hash(pin.Key) == pin.Value, "New export preserves sealed stage bytes");
+}
+foreach (string field in new[] { "epoch", "carEpoch", "tuneEpoch", "boundary", "reason", "contractVersion", "preview", "steering", "dampingTerm" })
+{
+    string key = "analysis.force." + field;
+    string path = Capture("independent-tamper-" + field, true, (i,c) => { if (i == 55) c[key] += 1; }, model: 6, flat: true, independent: true);
+    Refuses(() => StageCaptureReview.Run(path), key);
+}
+Console.WriteLine($"PASS stage analysis/export: {checks} checks; Classic and Grip 4/5/6, legacy/independent history, reference eligibility, refusal and immutable-source cases. Evidence: {root}");

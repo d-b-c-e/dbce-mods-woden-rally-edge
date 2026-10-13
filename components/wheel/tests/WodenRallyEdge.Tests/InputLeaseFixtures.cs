@@ -31,10 +31,18 @@ namespace WodenRallyEdge
     internal sealed class WheelInput
     {
         internal readonly Bindings Bindings = new();
+        internal Guid? SteeringGuid => ShimInput.Owns ? ShimInput.SteeringGuid : Bindings.Steer?.DeviceGuid;
         internal readonly HashSet<string> Pressed = new();
         internal MainCar? HandbrakeCar;
         internal float HandbrakeAmount;
-        internal bool Button(string action, bool edge = true) => Pressed.Contains(action);
+        internal bool Button(string action, bool edge = true, MainCar? car = null) => Pressed.Contains(action);
+    }
+    internal static class ShimInput
+    {
+        internal static bool Owns, Ready = true;
+        internal static Guid? SteeringGuid;
+        internal static string Status => "Fixture shim stopped";
+        internal static float Axis(string id) => 0;
     }
     internal static class TimingDiagnostics { internal static double ControlsMs; }
     internal static class InputLeaseChecks

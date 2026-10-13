@@ -18,7 +18,9 @@ internal static class InputPolling
         _frame = Time.frameCount;
         _failure = null;
         double started = Runtime.Clock.Elapsed.TotalMilliseconds;
-        try { Runtime.Devices?.Poll(); }
+        // Keep the existing reader lifecycle for force ownership and standalone
+        // setup. Its samples are never input fallback after the shim owns input.
+        try { Runtime.Devices?.Poll(); ShimInput.Poll(); }
         catch (Exception ex) { _failure = ex; throw; }
         TimingDiagnostics.PollMs = Runtime.Clock.Elapsed.TotalMilliseconds - started;
     }

@@ -16,7 +16,7 @@ namespace WodenRallyEdge;
 internal static class StageStartup
 {
     private static JsonElement _context;
-    private static bool _requested, _done, _raceVerified;
+    private static bool _requested, _done, _raceVerified, _inputTrial;
     private static string? _failure, _scene, _issuedFor;
     private static double _enteredAt;
     private static readonly List<(int Mode, int Preset, MountedView View)> Cameras = new();
@@ -78,6 +78,7 @@ internal static class StageStartup
     private static T? Find<T>() where T : UnityEngine.Object => UnityEngine.Object.FindObjectOfType<T>();
     internal static void Tick(bool active, bool replayActive, bool playing, double now)
     {
+        if (_inputTrial) return;
         if (!_requested || _done) return;
         if (_failure != null) { _done = true; throw new IOException(_failure); }
         if (!active) { _done = true; return; }
@@ -94,12 +95,38 @@ internal static class StageStartup
             Runtime.Log.LogInfo("Supervised muted replay: background simulation enabled; ordinary input/force focus gates retained.");
         }
         if (playing) { _done = true; Status = null; return; }
+        NativeStep(now);
+    }
+
+    // Separate original-input qualification. Reuses only sealed identity and
+    // native startup; never enters the trajectory player or enables background.
+    internal static void InitializeInputTrial(string source)
+    {
+        if (_requested || !StagePlayback.OutputMuted || !Runtime.DiagnosticNoForce || Runtime.Settings.Player != 0)
+            throw new IOException("Input trial requires a fresh, muted native startup");
+        Initialize(source);
+        if (!Validated || _failure != null) throw new IOException(_failure ?? "Invalid input trial identity");
+        if (Text("scene") != "Kenya SS1" || Number("carId") != 8 || Number("arcadeRoute") != 0)
+            throw new IOException("Input trial supports only the sealed Kenya original");
+        _inputTrial = true;
+        Status = "CONTROL TRIAL - original Kenya stage, temporary Manual";
+    }
+    internal static void TickInputTrial(double now)
+    {
+        if (!_inputTrial || _done) throw new IOException("Input startup is inactive");
+        if (!StagePlayback.OutputMuted || !Runtime.DiagnosticNoForce || !Runtime.Focused ||
+            !ShimInput.TrialNativeMenuAllowed()) throw new IOException("Input startup mute/focus/idle lost");
+        NativeStep(now);
+    }
+    internal static void StopInputTrial() { if (_inputTrial) { _done = true; Status = null; } }
+    private static void NativeStep(double now)
+    {
         string scene = SceneManager.GetActiveScene().name;
         if (scene != _scene) { _scene = scene; _enteredAt = now; _issuedFor = null; }
         if (now - _enteredAt > 55) throw new IOException("Startup timed out in " + scene);
         if (now - _enteredAt < 1 || _issuedFor == scene) return;
         if (scene == "SplashScreen" || scene == "LoadingScene" || scene == "Loading Screen") return;
-        if (scene == Text("scene")) { Status = "PLAYBACK - waiting for the native countdown"; return; }
+        if (scene == Text("scene")) { Status = _inputTrial ? "CONTROL TRIAL - native countdown / original inputs" : "PLAYBACK - waiting for the native countdown"; return; }
         if (Find<MenuCameraScript>() == null || MenuCameraScript.Exiting) return;
         if (scene == "DailyMessageScreen")
         {
@@ -143,6 +170,7 @@ internal static class StageStartup
             // Only transient Arcade choices. Progression, video, audio and tune stay owned by the player.
             var cars = Ints("arcadeCars"); var skins = Ints("arcadeSkins");
             var automatic = Bools("arcadeAutoTransmission"); var cameras = Ints("playerCamera");
+            if (_inputTrial) automatic[0] = false; // Explicit diagnostic choice; reference bytes remain immutable.
             var catalog = progress.CarContainer?.CarIndex;
             if (catalog == null || cars[0] >= catalog.Length || catalog[cars[0]] == null)
                 throw new IOException("Recorded Arcade car is absent");
@@ -184,7 +212,7 @@ internal static class StageStartup
     }
     internal static bool ValidateRace(MainCar car)
     {
-        if (!_requested || _raceVerified) return true;
+        if (!_requested || _raceVerified && !_inputTrial) return true;
         if (_failure != null) return false;
         var race = car.field_Private_RaceConditions_0;
         if (SceneManager.GetActiveScene().name != Text("scene") || car.CarId != Number("carId")) return false;
@@ -196,13 +224,15 @@ internal static class StageStartup
             RaceConditions.Damage != _context.GetProperty("damage").GetBoolean() || RaceConditions.Rollingstart || RaceConditions.GhostMode ||
             Math.Abs(RaceConditions.FuelConsumptionScale - _context.GetProperty("fuelConsumptionScale").GetSingle()) > .000001)
             throw new IOException("Native race rules differ from recording");
+        if (_inputTrial && (car.PlayerIndex != 0 || car.Aids?.Automatic != false))
+            throw new IOException("Input trial requires actual player zero Manual gearbox");
+        if (!_raceVerified) Runtime.Log.LogInfo("Stage startup: actual single-player car, stage and rules verified");
         _raceVerified = true;
-        Runtime.Log.LogInfo("Stage startup: actual single-player car, stage and rules verified");
         return true;
     }
     internal static void ApplyCamera(Car_Cam camera, int row)
     {
-        if (!_requested || row < 0 || row >= Cameras.Count) return;
+        if (!_requested || _inputTrial || row < 0 || row >= Cameras.Count) return;
         var desired = Cameras[row];
         MountedCamera.RecordedView(camera, desired.Mode, desired.Preset, desired.View);
     }

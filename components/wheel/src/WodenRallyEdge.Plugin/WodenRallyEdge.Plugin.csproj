@@ -12,4 +12,5 @@
     <Reference Include="Dbce.Wheel.Recording" HintPath="../../lib/recording/Dbce.Wheel.Recording.dll" />
     <None Include="../../lib/toolkit/native/WheelFfb.dll" CopyToOutputDirectory="PreserveNewest" Link="WheelFfb.dll" />
   </ItemGroup>
+  <Import Project="../../../../vendor/dbce-shim/PrivateShim.targets" />
 </Project>

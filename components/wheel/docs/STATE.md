@@ -1,3 +1,60 @@
+# Private shim H-pattern source checkpoint — 2026-10-13
+
+The shared HPattern profile now uses the existing native gearbox emulator for
+gates 1-6, reverse and neutral. Native Manual is required; native keyboard inputs
+are composed after wheel-only pedal emulation. Production-linked fixture: 899
+assertions / 85 shim checks; actual plugin build zero warnings/errors. Source
+only, no install or hardware/game test. See
+[H-pattern scope and remaining gaps](../../../docs/2026-10-13-shim-hpattern.md).
+
+## Previous private shim admission checkpoint — 2026-10-12
+
+The first muted forward-analysis original has a completed, exact-replayed source:
+375 qualified Driving-reference rows / 369 nonzero independent-analysis rows,
+while all actual output remains zero. The full input trial is **incomplete**:
+native respawning began after the three passed plateaus and Core Completed but
+before its final 300 ms wait elapsed. All 83 files/25 raw registry values restored;
+no permanent install. The requested WGC burst missed the transient start event,
+so HUD jitter has no new visual evidence. See
+[run01 evidence and limits](../../../docs/SHIM-FORCE-CAPTURE.md).
+
+The reviewed follow-up adds independent capture-local steering/damping history to
+requested ordinary and stage recordings, with explicit metadata/CLI provenance.
+The production-linked muted fixture records nonzero analysis while native
+opens/writes and actual preview remain zero. Old recordings are not reinterpreted;
+the first fresh reference evidence is above. Full trial completion, normalization
+and physical acceptance remain open. Exact contract, validation and limits:
+[independent force history](../../../docs/2026-10-12-independent-force-analysis.md).
+
+Offline follow-up: Grip 6 / force-config 4 admits the actual equal-positive-knot,
+equal-value curve. Model 5 replays every original row exactly; the explicit
+model 6 counterfactual accepts 1,151 curve-rejected rows while retaining the
+230 reverse / 315 discontinuity refusals and zero preview under recorded mute
+resets. No gains/tunes/Classic, installed payload or force gates changed. This
+does not qualify physical force or resolve HUD jitter. See
+[source contract and checks](../../../docs/2026-10-12-grip-flat-knots.md).
+
+Follow-up: schema 4 passed the focused native Garage → Workshop → Garage route
+and exact restoration ([evidence](../../../docs/SHIM-MENU-TRIAL.md)). Schema 5
+original car trial02 passed all six raw shared-Core actions in native Kenya/Manual,
+including DS-8X +1/-1, all 23 plateaus and final native neutral/Core Completed.
+The original producer completed 1,895 samples without drops but had no valid
+force-preview samples (0/1,696 observed). All 83 files/25 raw registry values
+were restored, with zero force or network delivery. Trial01's native-respawn
+interruption remains documented. The owner separately reported speedometer/other HUD jitter;
+investigate its rendering cause without assigning it to the input verdict.
+No permanent install or physical acceptance. See
+[evidence and limits](../../../docs/SHIM-CAR-TRIAL.md).
+
+Three reviewed no-force at-rest runs restored the installed owner state exactly.
+Run03 parsed the exact owner profile and admitted the ordinary shim with 507
+ready observations, native producer isolation and a rendered active panel. The
+verified Unity main-window path works behind the game's console while the actual
+Unity focus gate reports neutral delivery. Positive device epochs were missed by
+the startup-only report; focused action delivery, driving and FFB coexistence
+remain unqualified. Physical FFB keeps its foreground requirement. No permanent
+install or physical acceptance. See [shim evidence](../../../docs/SHIM-ADMISSION-TEST.md).
+
 # Current controls checkpoint — 2026-10-10
 
 Installed private candidate **0.2.14-controls.6**, runtime `ac308a6`, thirteen
@@ -343,3 +400,17 @@ Independent remote binding cleared exact capture6908443/treef382db for ordered f
 ## 2026-10-02 isolated asset-free hosted CI proposal
 
 Private main's reviewed CLI boundary fix340e677 is the base for an isolated, unpushed workflow proposal at .github/workflows/asset-free-checks.yml. It uses contents:read only, immutable official action pins, SDK10.0.401, cleared NuGet feeds, no secrets/artifact publication/deployment and original managed source plus fake context. Local asset-free checks passed36,804 managed assertions,22 geometry,18 handled fixed-CLI subprocess exit/preservation checks and17 synthetic metadata/ZIP/setup-refusal checks; zero-warning builds. No native compiler, game references/assets or old crashing executable was used. This intentionally excludes full solution/UI/private interop, native output adapter, shipped-package integrity and successful install/rollback. See tools/ci/README.md for exact coverage/security/limits. No hosted workflow was pushed or dispatched; independent review remains the gate.
+# 2026-10-12 shared Core menu trial passed
+
+After ordinary shim admission03, isolated source now supports a cold schema4
+developer trial through exact pinned Core Open2 and the existing production
+startup/menu consumers. One Confirm, one Start, Garage-right/Workshop-left, then
+neutral end; no later submit/start/car/online path. Actual Core 500-frame fixture,
+production query tests and bounded-addon lifecycle checks pass offline. Reviewed
+094f650 then passed trial01 at 05:17 Central: actual native Daily/Title and
+Garage/Workshop/Garage selection, Core Completed, observed exact R12 epoch 1,
+zero force/network and resolved host shutdown. All 83 file entries and 25 raw
+registry values independently matched after normal exit; lease released before
+EXIT. Driving/DS-8X/ordinary keyboard/physical FFB remain unqualified. No
+permanent install, force/tune/triples changes or Wheelkit promotion. See
+../../../docs/SHIM-MENU-TRIAL.md for exact scope, command, pins and limitations.

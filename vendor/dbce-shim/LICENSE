@@ -1,0 +1,10 @@
+dbce_shim.dll: private provisional DBCE input shim dependency.
+Source: d-b-c-e/outrun2-decomp, branch codex/shim-device-path, commit f49cfc559f065b778967a7c94068a75df538ec69.
+SHA256: 9b8a036f664cf8f45cccf82b98e5e4376f93215b60eac50b6db965bf498015d8
+See vendor/dbce-shim/PROVENANCE.md in the source candidate for the build.
+The target compiles windows/shim and windows/host with the vendored controls
+and session headers, independently of the game's reconstructed runtime.
+No redistribution grant for this provisional target is asserted here. The
+root mod MIT license does not license it. Extracting the shared shim into
+its reusable toolkit and settling its source/license notice is still required
+before public distribution. This package is for authorized private review.

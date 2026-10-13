@@ -1,9 +1,52 @@
 # Toolkit standards adoption
 
+October 12 force-analysis follow-up (STD-003/025/027): ordinary requested and
+stage captures now share a capture-local history helper with separate instances,
+the production load reference, explicit `woden.force-analysis@1` provenance and
+an offline exporter. Actual force gates/tunes, old actual replay and legacy stage
+history remain separate. The linked muted fixture proves zero native opens/writes
+alongside nonzero qualified software analysis. Fresh original normalization and
+attended force acceptance remain open; no install. See
+docs/2026-10-12-independent-force-analysis.md. Ledger review found no missing IDs;
+STD-016/017/020 remain unchecked and STD-031/032 remain pending.
+
+October 12 force follow-up (STD-025/027): additive Grip 6/config 4 accepts only
+finite positive coincident slip knots with exactly equal nonnegative values.
+Production controller, ordinary/stage replay and private original checks pass;
+model 4/5 replay, Classic and gains/tunes remain unchanged. The original trial02
+force-validity gap remains historical fact; the explicit offline counterfactual
+repairs 1,151 curve rows but retains muted zero output, reverse/discontinuity
+refusals, and all physical/normalization gaps. No install/force acceptance.
+See docs/2026-10-12-grip-flat-knots.md. The unrelated STD-016/017/020 unchecked
+items and STD-031/032 pending work remain open.
+
+October 12 car follow-up (STD-033/034/036): distinct schema 5 source candidate
+retains the exact accepted profile and provisional Core pin. Actual pure Core
+raw values feed production car consumers in device-free fixtures, including
+DS-8X sequential queries. Private trial02 passed native Kenya/Manual delivery of
+all six raw shared-Core actions, DS-8X +1/-1, 23 native plateaus and final neutral /
+Core Completed. Trial01's native-respawn interruption remains documented.
+Both devices reported epoch 1. The original producer completed with zero drops
+but no valid force-preview samples (0/1,696 observed). Exact 83-file/25-registry restoration passed,
+with zero force/network delivery. The schema 4 native menu PASS is unchanged.
+See docs/SHIM-CAR-TRIAL.md, including the separate owner HUD jitter observation.
+Existing STD-016/017/020 audit gaps,
+STD-031 force reference and STD-032 portfolio alignment are outside this slice.
+
 Which entries of the wheel toolkit's standards ledger
 (`E:\Source\toolkits\dbce-wheel-mod-toolkit\STANDARDS.md`) this mod has brought in.
 Update a row in the same commit that adopts it. Statuses: `adopted`, `partial`,
 `pending`, `n/a` (say why), `unchecked` (nobody has looked yet).
+
+October 12 HUD precision source follow-up for STD-019: a compile-time opt-in,
+existing-muted-run-only depth100/far110 experiment preserves normal depth1/far10.
+It retains camera position/mask/viewport and snapshots/restores original Canvas
+plane distance. Geometry/source checks do not establish native auto-layout,
+foreign UI culling or a jitter fix; those remain pending rendered comparison.
+Post-reboot review also makes original canvas plane/mode/camera restoration
+independent, so one failed setter cannot skip the other restoration attempts.
+The candidate still has no new rendered qualification or installed-default change.
+See [bounded review](docs/2026-10-12-hud-jitter-review.md). No installed change.
 Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 
 | Standard | Title | Status | Notes |
@@ -35,8 +78,25 @@ Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 | STD-025 | One toolkit force model for tyre games | partial | Grip v4 uses AxleForceCurve on a per-wheel force estimate and driving-load mean. Existing configs retain Classic. Low-speed damping, load/curve guards and stage replay/export fixes pass independent production-path tests; missing/provisional references are excluded. CrashStage remains sampled fallback, not Art native delivery. Original live Grip evidence and owner feel remain pending; see docs/2026-10-07-grip-stage-followup.md. |
 | STD-026 | One force model for players, no other-mod names | adopted in source (2026-10-08, Grip v5 commit; awaiting Astra review and install) | F6 FFB shows one model, no selector, and no other-mod names in F6 or config text. A saved Classic choice is kept and F6 says so until Grip is qualified for Woden; the owner's install moves to Grip by the owner's request. Previous note: F6 FFB still offered Grip/Classic and its text named art of rally. Existing installs (owner included) run Classic and Grip v4 is under Astra's review; drop the selector and move Classic configs to Grip once Grip v4 is qualified here (owner decision 2026-10-07). |
 | STD-027 | Independent steering and effect strengths | adopted in source (2026-10-08, Grip v5; awaiting review and install) | Grip v5: Steering strength scales the tyre force only; damping has its own gain; crash strength separate; both on the Simple FFB page. Classic still scales its damping with strength (kept for comparisons). Previous note: Crash strength is separate, but Strength also scales damping in the current models. Audit/isolate steering-only adjustment with versioned replay before claiming full centering-only independence; preserve the owner-selected model and saved tune. Toolkit docs/FFB-STRENGTH-CONTROLS.md. |
-| STD-033 | Rig-profile controls contract | partial | Installer declares woden-bindings-1 for the existing F6 JSON v1 store; Wheelkit candidate translates axes/buttons and clears obsolete gates. Independent file/consumer qualification is separate from live input. Native transmission, clutch/select/neutral and gears above six remain gaps. See docs/2026-10-10-profile-controls.md. |
+| STD-028 | Complete raw registry preservation | adopted for bounded shim admission | October 12 runs 01/02/03 independently restored 83 files and all 25 raw registry names/types/bytes, no extras, receipt unchanged. Process closed and lease released. See docs/SHIM-ADMISSION-TEST.md; broader lifecycle coverage remains separate. |
+| STD-029 | New functionality installed and on | deferred by explicit task scope | October 12 instructions authorize isolated source only, followed by review/live coordination. Native remains default; nothing installed. |
+| STD-030 | F6 comes first | partial | Run03 rendered active Shim/unfocused status, profile/restart scope and Live bars. Seven device-free panel checks cover pending/refusal too. Keyboard F6 response and input delivery remain unqualified; screenshot invoked the exact panel method. |
+| STD-031 | Updated Art reference level | pending | Owner-accepted Classic/Grip gains and saved tune deliberately preserved by the shim task. No normalization or physical acceptance claim. |
+| STD-032 | Wheelkit and portfolio records agree | pending | No Wheelkit or hub writes in this isolated source task; installed capability stays unchanged. |
+| STD-033 | Rig-profile controls contract | partial | Installer still declares woden-bindings-1. The private pilot consumes exact Controls bytes through pinned shared Core, with wheel-only admission. October 13 source adds H-pattern gates 1-6, reverse and neutral through the existing Manual gearbox emulator; 899 production-linked assertions pass. Clutch, Select and gates 7/8 remain unsupported. No new writer/installed capability advertised. See docs/2026-10-13-shim-hpattern.md and docs/SHIM-PILOT.md. |
+| STD-036 | Every binding from its own device | partial private pilot | Shared provider owns each bound device identity. Trial02 observed R12/DS-8X epoch 1 and passed all six raw shared-Core actions, native gear +1/-1 and terminal neutral/Completed. Physical device response, H-pattern and exclusive FFB coexistence remain unqualified. Steering GUID joins existing FFB selection; no Unity gamepads may coexist yet. |
 | STD-034 | Closed-loop Apply qualification | partial | controls.6 / raw-controls-20261010-06: production Apply repairs staged wrong indexes with fixture/live parity; raw profile inputs navigate from cold launch to Spain SS1 and reach the real car consumer (steer +/-0.5, throttle 0.5/1, brake/handbrake 0.5). Exact owner restoration passed. Aux shifters, complete menu/interruption matrix and physical feel remain open. See docs/2026-10-10-profile-controls.md. |
+
+October 12 shared-shim menu follow-up (STD-033/034/036): schema 4 developer-only
+latched trial preserves the exact profile and provisional ABI2 pin. Actual pure
+Core frames reach source-linked production startup/menu queries in device-free
+fixtures. October 12 trial01 then passed the actual native Garage/Workshop/return
+route with Core completion, zero force/network, exact 83-file/25-registry restore
+and observed R12 epoch 1. No driving, DS-8X delivery, keyboard response, FFB
+coexistence or installed capability promotion.
+See docs/SHIM-MENU-TRIAL.md. Existing STD-016/017/020 audit gaps, STD-031 force
+reference and STD-032 portfolio alignment remain outside this bounded task.
+
 October 10 STD-033 correction: profile hats explicitly use the shared circular
 4500-unit rule; old F6 eight-way bindings stay exact. `HatNeighbours` is per
 binding and the installer declares its capability. Vendored input source
@@ -87,3 +147,12 @@ every fleet injection mechanism matches the standard. The exact-restore Woden
 runner is authorized; per-game cloud convergence and full lifecycle matrix remain
 explicit separate checks. See docs/2026-10-10-profile-controls.md and
 tools/controls/README.md for scope and receipts.
+## October 12 private dependency correction
+
+The provisional input shim DLL is no longer tracked at this branch tip. Its
+notice does not grant public redistribution; the earlier public commits still
+contain it. Private plugin/UI builds require explicit `PrivateShimPath`, and
+the controls runner takes the unchanged pinned DLL from its selected candidate
+output. Source/license disposition and public shim packaging remain open; this
+does not change runtime qualification or any installed owner files. See
+`vendor/dbce-shim/PROVENANCE.md`.

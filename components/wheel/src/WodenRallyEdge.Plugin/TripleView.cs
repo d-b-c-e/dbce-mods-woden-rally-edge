@@ -44,7 +44,8 @@ internal static class TripleView
     private static PanelFrustum[]? _views;
     private static string _viewsKey = "";
     private static double _nextLog, _nextCanvasScan;
-    private static readonly List<(Canvas Canvas, RenderMode Mode, Camera? World)> MovedCanvases = new();
+    private static readonly List<(Canvas Canvas, RenderMode Mode, Camera? World, float Plane)> MovedCanvases = new();
+    private static TripleHudDepth _hudDepth = new(1f, 10f);
     private const int UiLayer = 5;
 
     internal static void Bind(ConfigFile cfg)
@@ -217,14 +218,17 @@ internal static class TripleView
 
     private static GameObject NewHudCamera(Camera source, out Camera camera)
     {
+        if (!TripleNative.CanvasAvailable) throw new InvalidOperationException("HUD canvas read/write bindings unavailable: " + TripleNative.Report);
+        _hudDepth = TripleHudDepth.ForRun(Runtime.DiagnosticNoForce, StagePlayback.OutputMuted);
         var go = NewCamera("Woden.Triple.Hud", out camera);
         TripleNative.SetClearFlags(camera, CameraClearFlags.Depth);
         TripleNative.SetCullingMask(camera, 1 << UiLayer);
         TripleNative.SetDepth(camera, source.depth + 10);
-        camera.fieldOfView = 60f;
-        TripleNative.SetNear(camera, 0.1f);
-        TripleNative.SetFar(camera, 10f);
-        go.transform.position = new Vector3(0f, -10000f, 0f); // away from the scene; it only sees canvases
+        camera.fieldOfView = TripleHudDepth.FieldOfView;
+        TripleNative.SetNear(camera, TripleHudDepth.Near);
+        TripleNative.SetFar(camera, _hudDepth.Far);
+        go.transform.position = new Vector3(0f, TripleHudDepth.CameraY, 0f); // isolated UI volume; never follows the car
+        Runtime.Log.LogInfo($"Triple HUD geometry: plane={_hudDepth.Plane}, far={_hudDepth.Far}, diagnosticBuild={TripleHudDepth.DiagnosticBuild}; rendered precision/layout unqualified");
         camera.enabled = true;
         return go;
     }
@@ -237,26 +241,46 @@ internal static class TripleView
             foreach (var canvas in Object.FindObjectsOfType<Canvas>(false))
             {
                 if (canvas == null || !canvas.isRootCanvas || canvas.renderMode != RenderMode.ScreenSpaceOverlay) continue;
-                MovedCanvases.Add((canvas, canvas.renderMode, canvas.worldCamera));
+                float originalPlane = TripleNative.GetPlaneDistance(canvas);
+                if (!float.IsFinite(originalPlane) || originalPlane < 0)
+                    throw new InvalidOperationException("HUD original plane distance unavailable: " + canvas.name);
+                MovedCanvases.Add((canvas, canvas.renderMode, canvas.worldCamera, originalPlane));
                 TripleNative.SetRenderMode(canvas, RenderMode.ScreenSpaceCamera);
                 TripleNative.SetWorldCamera(canvas, _hud);
-                TripleNative.SetPlaneDistance(canvas, 1f);
+                TripleNative.SetPlaneDistance(canvas, _hudDepth.Plane);
+                if (TripleNative.GetPlaneDistance(canvas) != _hudDepth.Plane)
+                    throw new InvalidOperationException("HUD plane distance readback differs: " + canvas.name);
                 Runtime.Log.LogInfo($"Triple HUD: '{canvas.name}' moved to the center screen");
             }
         }
-        catch (Exception ex) { Runtime.Log.LogWarning("Triple HUD: " + ex.Message); }
+        catch (Exception ex)
+        {
+            RestoreCanvases();
+            _failed = true; // do not repeatedly attempt a partial canvas migration
+            Runtime.Log.LogWarning("Triple HUD refused; original canvas rollback attempted: " + ex.Message);
+        }
     }
 
     private static void RestoreCanvases()
     {
-        foreach (var (canvas, mode, world) in MovedCanvases)
+        foreach (var (canvas, mode, world, plane) in MovedCanvases)
+        {
+            if (!Alive(canvas)) continue;
+            // Each original property gets its own restore attempt. A failed optional depth
+            // restore must not leave a canvas attached to the HUD camera we are destroying.
+            try { TripleNative.SetPlaneDistance(canvas, plane); }
+            catch (Exception ex) { Runtime.Log.LogWarning("Triple HUD plane restore failed: " + ex.Message); }
+            try { TripleNative.SetRenderMode(canvas, mode); }
+            catch (Exception ex) { Runtime.Log.LogWarning("Triple HUD mode restore failed: " + ex.Message); }
+            try { TripleNative.SetWorldCamera(canvas, world); }
+            catch (Exception ex) { Runtime.Log.LogWarning("Triple HUD camera restore failed: " + ex.Message); }
             try
             {
-                if (canvas == null || !Alive(canvas)) continue;
-                TripleNative.SetRenderMode(canvas, mode);
-                TripleNative.SetWorldCamera(canvas, world);
+                if (TripleNative.GetPlaneDistance(canvas) != plane)
+                    Runtime.Log.LogWarning("Triple HUD original plane readback differs: " + canvas.name);
             }
-            catch { }
+            catch (Exception ex) { Runtime.Log.LogWarning("Triple HUD plane readback failed: " + ex.Message); }
+        }
         MovedCanvases.Clear();
     }
 

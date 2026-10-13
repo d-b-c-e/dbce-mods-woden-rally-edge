@@ -1,6 +1,6 @@
 #Requires -Version 7.0
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$Result,[Parameter(Mandatory)][ValidateSet('status','raw','stop')][string]$Operation,[string]$Raw)
+param([Parameter(Mandatory)][string]$Result,[Parameter(Mandatory)][ValidateSet('status','raw','stop','panel','shot')][string]$Operation,[string]$Raw)
 $ErrorActionPreference='Stop'
 $Result=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Result)
 . "$PSScriptRoot/OwnerFiles.ps1"
@@ -8,6 +8,8 @@ $Result=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath(
 Assert-ControlPlain $Result
 $c=Get-Content -LiteralPath "$Result/context.json" -Raw | ConvertFrom-Json
 if($c.schema -ne 1 -or $c.nonce -notmatch '^[a-f0-9]{32}$' -or $c.nonce -eq ('0'*32)){throw 'Invalid command context.'}
+if(($c.mode -eq 'shim-admission' -and $Operation -eq 'raw') -or ($c.mode -ne 'shim-admission' -and $Operation -in @('panel','shot')) -or
+   ($c.mode -in @('shim-menu-trial','shim-car-trial','shim-force-capture') -and $Operation -notin @('status','stop'))){throw 'Operation unavailable in this test mode.'}
 if($Operation -eq 'raw') {
     if(!$Raw -or !$Raw.StartsWith('inject raw ') -or $Raw.Length -gt 512 -or $Raw -match '[^\x20-\x7e]'){throw 'Only bounded raw commands are supported.'}
 } elseif($Raw){throw 'Unexpected raw command.'}

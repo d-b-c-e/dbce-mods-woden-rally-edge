@@ -12,7 +12,7 @@ internal sealed class InputLease
     internal float Handbrake { get; }
     private static readonly (string, int)[] Buttons = { ("Gear down", 1), ("Respawn", 2), ("Gear up", 3), ("Lights", 4), ("Camera", 5), ("Next song", 8), ("Horn", 11), ("Records", 12) };
     internal InputLease(Il2CppReferenceArray<GamePadSystem.Actions> actions, float steer, float throttle, float brake, WheelInput input, MainCar car,
-        bool shiftUp = false, bool shiftDown = false)
+        bool shiftUp = false, bool shiftDown = false, bool shim = false)
     {
         _actions = actions; _input = input;
         void Set(int index, float value, bool merge = false)
@@ -28,13 +28,15 @@ internal sealed class InputLease
         try
         {
             Set(7, throttle); Set(6, brake); Set(16, Math.Max(0, steer)); Set(17, Math.Max(0, -steer));
-            bool available = Runtime.Devices!.TryAxis(input.Bindings.Handbrake, out float axis);
+            float axis = 0;
+            bool available = !shim && Runtime.Devices!.TryAxis(input.Bindings.Handbrake, out axis);
             var stock = actions[0];
-            Handbrake = HandbrakeInput.Amount(input.Bindings.HandbrakeUsesAxis, available, axis, input.Button("Handbrake", false), stock.Pressed || stock.value > .5f);
+            Handbrake = shim ? Math.Max(Math.Clamp(ShimInput.Axis("handbrake"), 0, 1), stock.Pressed || stock.value > .5f ? 1 : 0) :
+                HandbrakeInput.Amount(input.Bindings.HandbrakeUsesAxis, available, axis, input.Button("Handbrake", false), stock.Pressed || stock.value > .5f);
             Set(0, Handbrake > 0 ? 1 : 0, true);
-            if (input.Bindings.Handbrake?.Valid == true) { input.HandbrakeCar = car; input.HandbrakeAmount = Handbrake; }
+            if (shim || input.Bindings.Handbrake?.Valid == true) { input.HandbrakeCar = car; input.HandbrakeAmount = Handbrake; }
             foreach (var (name, index) in Buttons)
-                if (input.Bindings.Buttons.ContainsKey(name) || input.Bindings.CameraKeys.ContainsKey(name)) Set(index, input.Button(name, false) ? 1 : 0, true);
+                if (shim ? ShimActionMap.Buttons.ContainsKey(name) : input.Bindings.Buttons.ContainsKey(name) || input.Bindings.CameraKeys.ContainsKey(name)) Set(index, input.Button(name, false, car) ? 1 : 0, true);
             // H-pattern: the shifter's synthetic Shift up / Shift down presses join any held sequential button.
             if (shiftUp) Set(3, 1, true);
             if (shiftDown) Set(1, 1, true);

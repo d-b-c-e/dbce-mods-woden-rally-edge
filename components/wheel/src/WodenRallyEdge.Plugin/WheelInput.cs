@@ -11,10 +11,21 @@ internal sealed class WheelInput
     internal static readonly string[] GateActions = { "Gear 1", "Gear 2", "Gear 3", "Gear 4", "Gear 5", "Gear 6", "Gear R" };
     internal readonly HPatternShifter Shifter = new();
     /// <summary>Any gate is bound: the H-pattern drives the gearbox (sequential shift buttons still work out of gear).</summary>
-    internal bool HPatternBound => GateActions.Any(Bindings.Buttons.ContainsKey);
+    internal bool HPatternBound => ShimInput.Owns ? ShimInput.HPattern : GateActions.Any(Bindings.Buttons.ContainsKey);
+    internal Guid? SteeringGuid => ShimInput.Owns ? ShimInput.SteeringGuid : Bindings.Steer?.DeviceGuid;
     /// <summary>The held gate: 1..6, <see cref="HPatternShifter.Reverse"/>, or 0 out of gear.</summary>
-    internal int HeldGate()
+    internal int HeldGate(MainCar? car = null)
     {
+        if (ShimInput.Owns)
+        {
+            // Gear gates are physical levels. The native Manual selection uses
+            // the current stick position, as the existing Native backend does.
+            bool neutral = Button("Neutral", false, car);
+            int selected = 0, count = 0;
+            for (int i = 0; i < GateActions.Length; i++)
+                if (Button(GateActions[i], false, car)) { selected = i == 6 ? HPatternShifter.Reverse : i + 1; count++; }
+            return neutral || count != 1 ? 0 : selected;
+        }
         if (Button("Gear R", false)) return HPatternShifter.Reverse;
         for (int i = 0; i < HPatternShifter.MaxGates; i++) if (Button(GateActions[i], false)) return i + 1;
         return 0;
@@ -131,13 +142,16 @@ internal sealed class WheelInput
         if (TryCommit(proposed => proposed.SetAxis(action, b))) Cancel();
     }
     internal void Cancel() { if (SavePending) SaveError = null; _pendingEdit = null; Capture = null; CaptureAxis = null; CaptureButton = null; Runtime.Devices?.ClearPresses(); }
-    internal bool Button(string action, bool edge = true) => (Bindings.Buttons.TryGetValue(action, out var b) && Runtime.Devices?.Button(b, edge, action) == true) || CameraShortcuts.KeyPressed(action, edge);
+    internal bool Button(string action, bool edge = true, MainCar? car = null) => (ShimInput.Owns ? ShimInput.Button(action, edge, car) :
+        Bindings.Buttons.TryGetValue(action, out var b) && Runtime.Devices?.Button(b, edge, action) == true) || CameraShortcuts.KeyPressed(action, edge);
     internal InputLease? Apply(Controls controls)
     {
         _last = null; HandbrakeCar = null; HandbrakeAmount = 0;
         var car = controls.field_Private_MainCar_0;
         if (car == null || !Runtime.ControlState(car).WheelAvailable) return null;
-        if (!Runtime.Settings.WheelEnabled || car.MyControls == null || !Bindings.DrivingAxesReady || Runtime.Devices == null) return null;
+        if (!Runtime.Settings.WheelEnabled || car.MyControls == null) return null;
+        if (ShimInput.Owns) return ApplyShim(controls, car);
+        if (!Bindings.DrivingAxesReady || Runtime.Devices == null) return null;
         var hub = Runtime.Devices;
         if (!hub.TryAxis(Bindings.Steer, out float steer) || !hub.TryAxis(Bindings.Throttle, out float throttle) || !hub.TryAxis(Bindings.Brake, out float brake))
         { Status = "A bound device is not responding; stock controls retained. Use Refresh devices."; return null; }
@@ -156,6 +170,33 @@ internal sealed class WheelInput
         if (car.Status == MainCar.CarStatus.WARMING && ++PreRaceTicks == 1)
             Runtime.Log.LogInfo("Countdown wheel route active: throttle, steering and bound controls reach native input; game start-line lock retained, FFB remains gated");
         Status = "Wheel action table active; ticks " + AppliedTicks;
+        return lease;
+    }
+    private InputLease? ApplyShim(Controls controls, MainCar car)
+    {
+        ShimInput.Poll();
+        if (!ShimInput.Ready) { Status = ShimInput.Status; return null; }
+        var actions = ControlActions.For(controls);
+        if (actions == null || actions.Length < 18) return null;
+        // The wheel-only admission means these are native keyboard actions, not
+        // a duplicate reading of the wheel or an unrelated pad. Restore afterwards.
+        float wheelThrottle = ShimInput.Axis("throttle"), wheelBrake = ShimInput.Axis("brake");
+        bool shiftUp = false, shiftDown = false;
+        int gate = HeldGate(car);
+        if (ShimInput.HPatternReady(car) && ShimInput.AxesLive)
+        {
+            (wheelThrottle, wheelBrake) = HPatternShifter.Pedals(gate, wheelThrottle, wheelBrake);
+            (shiftUp, shiftDown) = Shifter.Step(gate, car.MyGear, car.Gears, false, car.TransmissionSystem?.Changing == true,
+                Runtime.Clock.Elapsed.TotalSeconds);
+        }
+        else Shifter.Stop();
+        // The gear emulator applies only to wheel pedals. Native keyboard input
+        // is composed afterward, retaining its own throttle, brake and shifting.
+        var (steer, throttle, brake) = ShimActionMap.Compose(ShimInput.Axis("steer"), wheelThrottle, wheelBrake,
+            actions[16].value - actions[17].value, actions[7].value, actions[6].value);
+        var lease = new InputLease(actions, steer, throttle, brake, this, car, shiftUp, shiftDown, shim: true);
+        if (ShimInput.AxesLive) _last = new(car.GetInstanceID(), Runtime.Clock.Elapsed.TotalSeconds, steer, throttle, brake, lease.Handbrake);
+        AppliedTicks++; Status = ShimInput.Status;
         return lease;
     }
 }

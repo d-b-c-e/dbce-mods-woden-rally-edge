@@ -1,0 +1,19 @@
+<Project>
+  <!-- Ordinary Native-backend builds do not require this experimental input.
+       Supplying it explicitly enables the additional real-DLL ABI fixture. -->
+  <PropertyGroup Condition="'$(PrivateShimPath)' != ''">
+    <DefineConstants>$(DefineConstants);PRIVATE_SHIM_ABI_TESTS</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(PrivateShimPath)' != ''">
+    <None Include="$(PrivateShimPath)" CopyToOutputDirectory="PreserveNewest" Link="dbce_shim.dll" />
+  </ItemGroup>
+  <Target Name="ValidatePrivateShim" BeforeTargets="PrepareForBuild" Condition="'$(PrivateShimPath)' != ''">
+    <Error Condition="!$([System.IO.Path]::IsPathFullyQualified('$(PrivateShimPath)')) or !Exists('$(PrivateShimPath)')"
+           Text="PrivateShimPath must name an existing absolute private dependency path. See vendor/dbce-shim/PROVENANCE.md; no public redistribution is granted." />
+    <GetFileHash Files="$(PrivateShimPath)" Algorithm="SHA256">
+      <Output TaskParameter="Hash" PropertyName="PrivateShimHash" />
+    </GetFileHash>
+    <Error Condition="'$(PrivateShimHash)' != '9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8'"
+           Text="PrivateShimPath does not match the reviewed provisional ABI 2 dependency." />
+  </Target>
+</Project>

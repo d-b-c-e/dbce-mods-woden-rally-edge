@@ -4,6 +4,12 @@ using Dbce.Wheel.Ffb;
 using WodenRallyEdge.Core;
 
 var json = new JsonSerializerOptions(TelemetryOutput.Json) { WriteIndented = true };
+if ((args.Length == 5 || args.Length == 7 && args[5] == "grip") && args[0] == "ffb-analysis-export")
+{
+    try { ForceExport.RunAnalysis(args[1], args[2], float.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture), float.Parse(args[4], System.Globalization.CultureInfo.InvariantCulture),
+        args.Length == 7 ? float.Parse(args[6], System.Globalization.CultureInfo.InvariantCulture) : null); return 0; }
+    catch (Exception ex) { Console.Error.WriteLine("ANALYSIS EXPORT REFUSED: " + ex.Message); return 2; }
+}
 if ((args.Length == 5 || args.Length == 7 && args[5] == "grip") && args[0] == "ffb-export")
 {
     // ffb-export <stage-or-case> <new.csv> <strength> <peak> [grip <loadRatio>]
@@ -51,7 +57,7 @@ if (args.Length is 3 or 4 && args[0] == "compare")
     }
     catch (Exception ex) { Console.Error.WriteLine("OBSERVATION INVALID: " + ex.Message); return 2; }
 }
-if (args.Length != 2 || args[0] != "inspect") { Console.Error.WriteLine("Usage: schema <output.json> | inspect <session.jsonl> | stage-review <recording-directory> | reprocess <case-directory> | trial <case-directory> <candidate-config.json> <new-observation.jsonl> [tolerance] | compare <baseline.jsonl> <candidate.jsonl> [tolerance] | devices <native DLL directory>"); return 1; }
+if (args.Length != 2 || args[0] != "inspect") { Console.Error.WriteLine("Usage: schema <output.json> | inspect <session.jsonl> | stage-review <recording-directory> | reprocess <case-directory> | trial <case-directory> <candidate-config.json> <new-observation.jsonl> [tolerance] | compare <baseline.jsonl> <candidate.jsonl> [tolerance] | ffb-export <stage-or-case> <new.csv> <strength> <peak> [grip <ratio>] | ffb-analysis-export <stage-or-case> <new.csv> <strength> <peak> [grip <ratio>] | devices <native DLL directory>"); return 1; }
 try
 {
     var stats = new Dictionary<string, (long count, double min, double max, double sum)>();

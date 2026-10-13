@@ -49,7 +49,7 @@ public sealed class FrontLoadReference
     }
 }
 /// <summary>
-/// The grip force model, versions 4 and 5: art of rally's model from the shared toolkit (<see cref="AxleForceCurve"/>, STD-025) on
+/// The grip force model, versions 4 through 6: art of rally's model from the shared toolkit (<see cref="AxleForceCurve"/>, STD-025) on
 /// Woden's front tyres. The front lateral force is rebuilt per grounded front wheel from what the game's own
 /// WheelCollider uses: contact load x the sideways friction curve at |sidewaysSlip| x its stiffness (the curve is read
 /// live, because the game varies it). The trail input is the slip relative to that curve's peak, so the wheel lightens
@@ -58,7 +58,9 @@ public sealed class FrontLoadReference
 /// the classic estimate (version 3), which stays behind the config key and unchanged.
 /// Version 5 (STD-027, 2026-10-08) is version 4 with one difference: Strength scales only the tyre force, so the
 /// steering damping keeps its own gain instead of also scaling with Strength. At Strength 50 the two are identical.
-/// Version 4 stays evaluable so its recordings replay exactly.
+/// Version 6 also admits coincident positive slip knots with exactly equal nonnegative values, as observed in Woden's
+/// native friction curve. The same estimate rises to that value and then stays flat. Versions 4 and 5 retain their
+/// strictly ordered knot requirement so their recordings replay exactly.
 /// </summary>
 /// <remarks>
 /// The friction curve is estimated through (0,0), the extremum and the asymptote (<see cref="Curve"/>); Unity's
@@ -66,11 +68,13 @@ public sealed class FrontLoadReference
 /// </remarks>
 public sealed class GripSignal
 {
-    /// <summary>The latest grip model: Strength scales only the tyre force (STD-027).</summary>
-    public const int ModelVersion = 5;
+    /// <summary>The latest grip model: also accepts equal positive slip knots with exactly equal nonnegative values.</summary>
+    public const int ModelVersion = 6;
+    /// <summary>Strength scales only the tyre force (STD-027); strictly ordered knots. Kept for exact replay.</summary>
+    public const int IndependentDampingVersion = 5;
     /// <summary>The first grip model: Strength also scaled the damping term. Kept for exact replay of its recordings.</summary>
     public const int CoupledDampingVersion = 4;
-    public static bool IsGripModel(int model) => model is CoupledDampingVersion or ModelVersion;
+    public static bool IsGripModel(int model) => model is CoupledDampingVersion or IndependentDampingVersion or ModelVersion;
     private const float PeakSlipDeg = 8f;
     public readonly FrontLoadReference Reference = new();
     /// <summary>Force ramps in over this long after a reset (unpause, stage start), as the classic shaper does.</summary>
@@ -147,7 +151,8 @@ public sealed class GripSignal
                 !double.IsFinite(force) || force < 0 || !double.IsFinite(slip)) return Stop("invalid front contact");
             if (!s.Channels.TryGetValue(p + "sideFriction.extremumSlip", out double es) || !s.Channels.TryGetValue(p + "sideFriction.extremumValue", out double ev) ||
                 !s.Channels.TryGetValue(p + "sideFriction.asymptoteSlip", out double asl) || !s.Channels.TryGetValue(p + "sideFriction.asymptoteValue", out double av) ||
-                !s.Channels.TryGetValue(p + "sideFriction.stiffness", out double st) || !double.IsFinite(es) || !double.IsFinite(asl) || !(es > 0) || !(asl > es) ||
+                !s.Channels.TryGetValue(p + "sideFriction.stiffness", out double st) || !double.IsFinite(es) || !double.IsFinite(asl) || !(es > 0) ||
+                !(asl > es || options.Model == ModelVersion && asl == es && av == ev) ||
                 !double.IsFinite(ev) || !double.IsFinite(av) || ev < 0 || av < 0 || !double.IsFinite(st) || st < 0)
                 return Stop("friction curve unavailable");
             load += force;
@@ -177,7 +182,7 @@ public sealed class GripSignal
         float fade = AxleForceCurve.SmoothStep01((float)((speed * 3.6 - AxleForceCurve.FadeStartKmh) / (AxleForceCurve.FadeFullKmh - AxleForceCurve.FadeStartKmh)));
         float d = (options.Invert ? -damping : damping) * fade;
         // Version 4 scaled the damping with Strength; from version 5 Strength is the steering (tyre) strength only, and a
-        // Classic-selected shadow evaluation (model 3) follows the latest grip model.
+        // Classic-selected shadow evaluation (model 3) keeps independent damping and strictly ordered knots.
         float dampingGain = options.Model == CoupledDampingVersion ? gain : 1f;
         LastSteering = _output * ramp; LastDamping = d * dampingGain * ramp;
         float preview = Math.Clamp((_output + d * dampingGain) * ramp, -1f, 1f);

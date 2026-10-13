@@ -449,3 +449,5 @@ FodyWeavers.xsd
 /components/wheel/lib/local-dependencies.json
 /components/wheel/artifacts/
 /components/wheel/dist/
+# The provisional shim is a privately supplied build input, not redistributable source.
+/vendor/dbce-shim/dbce_shim.dll

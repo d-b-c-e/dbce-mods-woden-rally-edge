@@ -7,7 +7,7 @@ using WodenRallyEdge.Core;
 namespace UnityEngine
 {
     public static class Object { public static T? FindObjectOfType<T>() where T:class => WodenRallyEdge.MenuCameraScript.Available ? new WodenRallyEdge.MenuCameraScript() as T : null; }
-    public sealed class GameObject { public bool activeInHierarchy=true; }
+    public sealed class GameObject { public bool activeInHierarchy=true; public GameObject? Left,Right; }
     public record struct Color(float r,float g,float b,float a=1) { public static Color white => new(1,1,1); }
     public record struct Rect(float x,float y,float width,float height);
     public record struct Vector2(float x,float y);
@@ -53,11 +53,15 @@ namespace UnityEngine.EventSystems
     public static class ExecuteEvents
     {
         public static readonly object submitHandler=new(),cancelHandler=new(),moveHandler=new();public static readonly List<string> Delivered=new();
-        public static UnityEngine.GameObject ExecuteHierarchy<T>(UnityEngine.GameObject g,BaseEventData data,object handler){Delivered.Add(typeof(T).Name);return g;}
+        public static UnityEngine.GameObject ExecuteHierarchy<T>(UnityEngine.GameObject g,BaseEventData data,object handler){Delivered.Add(typeof(T).Name);
+            if(data is AxisEventData axis && (axis.moveDir==MoveDirection.Right?g.Right:axis.moveDir==MoveDirection.Left?g.Left:null) is {} next)
+                data.Events.SetSelectedGameObject(next);
+            return g;}
     }
 }
 namespace UnityEngine.InputSystem
 {
+    public sealed class Gamepad { public static readonly List<Gamepad> all=new(); }
     public enum Key {None,F6,F8,Escape,A,B,C,U,J,LeftShift,RightShift,LeftCtrl,RightCtrl,LeftAlt,RightAlt,LeftMeta,RightMeta,Numpad8,Numpad2,Numpad9,Numpad7,Numpad4,Numpad6,Numpad1,Numpad3,NumpadPlus,NumpadMinus,Numpad0,Numpad5}
     public sealed class KeyControl { public bool wasPressedThisFrame,isPressed; }
     public sealed class Keyboard
@@ -67,7 +71,15 @@ namespace UnityEngine.InputSystem
 namespace WodenRallyEdge
 {
     internal static class Plugin {internal const string Version="0.2.12";}
-    internal static class TimingDiagnostics {internal static double PollMs;}
+    internal static class TimingDiagnostics {internal static double PollMs,ControlsMs;}
+    internal static class GameWindow
+    {
+        internal static int Window=123; internal static bool Valid=true, UnityFocused=true;
+        internal static int Capture()=>UnityFocused&&Valid?Window:0;
+        internal static int CaptureForShim()=>Valid?Window:0;
+        internal static bool IsOwned(int window)=>Valid&&window!=0&&window==Window;
+        internal static bool IsFocused(int window)=>IsOwned(window)&&UnityFocused;
+    }
     // Native-behavior fixtures from guarded GameAssembly: DailyMessage.Update
     // RVA 0x456090 (ready + flags/legacy anyKey), title FixedUpdate 0xAFB560
     // (autonomous frame timeout, Start/legacy Return with Escape exclusion).
@@ -137,10 +149,11 @@ namespace WodenRallyEdge
         internal readonly List<Game_Pad> Game_Pads=new();
         internal sealed class Game_Pad
         {
+            internal UnityEngine.InputSystem.Gamepad? Controller;
             internal bool AnyKey,A,B,X,Y,Back,Start,LB,RB,L3,R3,Dpad_Up,Dpad_Down,Dpad_Left,Dpad_Right;
             internal UnityEngine.Vector2 LS,RS;internal float LT,RT;
             internal float[]? InputFloats;
-            internal Actions[]? PadActions;
+            internal Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray<Actions>? PadActions;
         }
         internal record struct Actions(string name,float value,bool Pressed,int AssignedFloat=0,UnityEngine.KeyCode KeyBoard_Key=UnityEngine.KeyCode.None,bool Available=true);
     }
@@ -152,10 +165,7 @@ namespace WodenRallyEdge
     {internal enum CarStatus {WARMING,RACE,END,DESTROYED} internal CarStatus Status=CarStatus.RACE;internal Controls? MyControls;internal int GetInstanceID()=>1;internal int MyGear=1,Gears=5;internal DriveAssists? Aids=new();internal TransmissionSys? TransmissionSystem=new();}
 internal sealed class DriveAssists {internal bool Automatic;}
 internal sealed class TransmissionSys {internal bool Changing;}
-    internal sealed class Controls {internal MainCar? field_Private_MainCar_0;internal Pause? PauseScript;}
-    internal sealed class InputLease {internal float Handbrake;internal static bool LastUp,LastDown;internal static float LastThrottle,LastBrake;internal InputLease(GameAction[] a,float s,float t,float b,WheelInput i,MainCar car,bool up=false,bool down=false){i.HandbrakeCar=null;i.HandbrakeAmount=0;LastUp=up;LastDown=down;LastThrottle=t;LastBrake=b;} }
-    internal sealed class GameAction {internal string name="fixture";}
-    internal static class ControlActions {internal static GameAction[]? For(Controls c)=>null;}
+    internal sealed class Controls {internal MainCar? field_Private_MainCar_0;internal Pause? PauseScript;internal GamePadSystem? field_Private_GamePadSystem_0;internal GamePadSystem.Game_Pad? field_Private_Game_Pad_0;internal int Controller_Int;}
     internal static class CountdownTimerAssist {internal static string Status=>"Fixture: assist waiting for gameplay";}
     internal static class LeaderboardGuard {internal static string Status=>"Online times: uploaded as normal";}
 internal static class FrameRate {internal static string Summary=>"52 fps average, 1% low 31 fps, worst frame 40 ms";}
@@ -201,8 +211,8 @@ internal static class FrameRate {internal static string Summary=>"52 fps average
     internal static class Runtime
     {
         internal static Settings Settings=null!;internal static WheelInput? Wheel;internal static DeviceHub? Devices=new();internal static ForceController? Force=new();internal static TelemetryOutput? Output;
-        internal static bool Focused=true;internal static MainCar? Local;internal static readonly TestClock Clock=new();internal static Log Log=new();
-        internal static PlayerControlState ControlState(MainCar c)=>new(PlayerPhase.Racing,true,true,false,false,false,false,false,false);
+        internal static bool Focused=true,DiagnosticNoForce;internal static MainCar? Local;internal static readonly TestClock Clock=new();internal static Log Log=new();
+        internal static PlayerControlState ControlState(MainCar c)=>new(PlayerPhase.Racing,true,Focused,Panel.Open,Pause.Paused,false,false,false,false);
         internal static bool CameraAvailable(MainCar c)=>true;
     }
     internal sealed class TestClock {private readonly Stopwatch watch=Stopwatch.StartNew();private double offset;internal TimeSpan Elapsed=>watch.Elapsed+TimeSpan.FromSeconds(offset);internal void Advance(double seconds)=>offset+=seconds;}

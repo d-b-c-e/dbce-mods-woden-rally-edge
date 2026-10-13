@@ -20,8 +20,7 @@ internal static class StagePlayback
     private static FileSessionControl? _control;
     private static MainCar? _car;
     private static TelemetryOutput? _signals;
-    private static readonly ForceSignal AnalysisForce = new();
-    private static readonly GripSignal AnalysisGrip = new();
+    private static ForceAnalysisHistory _analysis = new();
     private static double _lastTick = -1;
     private static int _signalCount;
     private static int _unfocusedReplaySteps;
@@ -79,16 +78,12 @@ internal static class StagePlayback
         try
         {
             if (_signalCount != Session.Samples - 1) throw new IOException("Source sample does not match the next recorded pose");
-            sample.Add("capture.trajectoryIndex", _signalCount);
-            // The selected model (classic v3 or grip v4/v5), independent of the muted output gate.
+            // Own only one numeric sample, never the ordinary output worker's sample or capture artifacts.
+            var stageSample = ForceAnalysisHistory.CopySample(sample);
+            stageSample.Add("capture.trajectoryIndex", _signalCount);
             var options = Runtime.Settings.ForceOptions;
-            var analysis = options.Grip ? AnalysisGrip.Evaluate(sample, options, Runtime.Force?.GripReference) : AnalysisForce.Evaluate(sample, options);
-            sample.Add("analysis.force.preview", analysis.Preview);
-            sample.Add("analysis.force.valid", analysis.Valid ? 1 : 0);
-            sample.Add("analysis.force.reset", options.Grip ? AnalysisGrip.ResetCount : AnalysisForce.ResetCount);
-            sample.Add("analysis.force.modelVersion", options.Model);
-            if (options.Grip) { sample.Add("analysis.force.steering", AnalysisGrip.LastSteering); sample.Add("analysis.force.dampingTerm", AnalysisGrip.LastDamping); }
-            _signals.Publish(sample);
+            _analysis.Record(stageSample, options);
+            _signals.Publish(stageSample);
             _signalCount++;
         }
         catch (Exception ex) { Session.Abort("signal capture: " + ex.Message); }
@@ -143,15 +138,14 @@ internal static class StagePlayback
         }
         public void StartSignals(string directory)
         {
-            AnalysisForce.Reset(); AnalysisGrip.NewCar(); _signalCount = 0;
+            _analysis = new ForceAnalysisHistory(); _signalCount = 0;
             StageCaptureContext.Write(directory, _car ?? throw new InvalidOperationException("Player unavailable"));
             RecordingArtifacts.WriteForceConfig(Path.Combine(directory, "force-config.json"), Runtime.Settings.ForceOptions);
             File.WriteAllText(Path.Combine(directory, "channels.json"), JsonSerializer.Serialize(TelemetrySchema.Channels));
             var properties = new Dictionary<string, string> { ["capability"] = "signal-reprocess", ["physicalOutput"] = "false", ["captureSource"] = "live-physics",
                 ["gameAssemblySha256"] = GameHash, ["pluginSha256"] = RecordingArtifacts.Sha256(typeof(Plugin).Assembly.Location),
                 ["forceConfigSha256"] = RecordingArtifacts.Sha256(Path.Combine(directory, "force-config.json")),
-                ["analysisForce"] = (Runtime.Settings.ForceOptions.Grip ? $"Independent GripSignal@{Runtime.Settings.ForceOptions.Model} history, using the recorded production front-load reference" : "Independent ForceSignal@3 history") +
-                    "; combined steering and damping preview; no crash cues, delivery gates or device writes; actual ffb.* and crash.* streams remain separate",
+                ["analysisForceContract"] = ForceAnalysisHistory.Contract, ["analysisForce"] = ForceAnalysisHistory.Scope,
                 ["posePhase"] = "MainCar.FixedUpdate.prefix; signals from postfix before Unity solve",
                 ["alignment"] = "capture.trajectoryIndex is the zero-based trajectory row; sample.simulationSeconds is the absolute physics clock" };
             _signals = new TelemetryOutput(new OutputOptions(RecordingPath: Path.Combine(directory, "source.jsonl"), Enabled: false), Runtime.SessionId,

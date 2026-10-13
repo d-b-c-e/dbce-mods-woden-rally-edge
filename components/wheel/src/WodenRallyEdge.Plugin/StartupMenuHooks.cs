@@ -76,12 +76,19 @@ internal static class StartupWheelControls
         bool bound = false;
         foreach (string action in new[] { "Confirm", "Pause", "Back" })
         {
+            if (ShimInput.Owns)
+            {
+                if (!ShimInput.Ready) { Release.Reset(); return false; }
+                var state = ShimInput.Action(ShimActionMap.Buttons[action]).Status;
+                if (action != "Back" && (state == ShimStatus.Live || ShimInput.KnownNeutral(ShimActionMap.Buttons[action]))) bound = true;
+                continue;
+            }
             if (!wheel.Bindings.Buttons.TryGetValue(action, out var b)) continue;
             var matches = hub.Devices.Where(d => d.Info.InstanceGuid == b.DeviceGuid).ToArray();
             if (!b.Valid || matches.Length != 1 || !matches[0].Ok) { Release.Reset(); return false; }
             if (action != "Back") bound = true;
         }
-        bool Down(string action) => wheel.Bindings.Buttons.TryGetValue(action,out var b) && hub.Button(b,false,action);
+        bool Down(string action) => wheel.Button(action, false);
         if (!bound || Down("Back") || Input.GetKey(KeyCode.Escape)) { Release.Reset(); return false; }
         bool held = Down("Confirm") || Down("Pause");
         if (!held) { Release.Observe(true, false, Runtime.Clock.Elapsed.TotalSeconds); return false; }
@@ -137,6 +144,7 @@ internal static class StartupMenuGuard
     }
     internal static bool AllowNativeMenu()
     {
+        if(!ShimInput.TrialNativeMenuAllowed()) return false;
         bool known = true;
         try
         {

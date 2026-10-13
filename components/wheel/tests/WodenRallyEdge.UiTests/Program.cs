@@ -11,6 +11,7 @@ var dir=Path.Combine(outputDir,Guid.NewGuid().ToString("N"));Directory.CreateDir
 int checks=0;void Check(bool ok,string message){checks++;if(!ok)throw new Exception(message);}
 StageLifecycleChecks.Run(dir, Check);
 StageReplayChecks.Run(Check);
+ShimChecks.Run(dir, Check);
 void Draw(Event? e=null){GUI.Commands.Clear();Event.current=e??new();Panel.Draw();Check(Runtime.Log.Errors.Count==0,string.Join("\n",Runtime.Log.Errors));}
 DrawCommand? Find(string label,int index=0)=>GUI.Commands.Where(c=>c.Kind=="text"&&c.Text==label).Skip(index).FirstOrDefault();
 void Click(string label,int index=0)
@@ -213,4 +214,5 @@ foreach(int hat in new[]{128,130,132,134,129,131,133,135,159}) {
 }
 Check(Bindings.Load(bindingPath).Buttons["Menu up"].Button==159,"HAT binding persists without physical-button alias");
 if(!Panel.Open)Panel.Toggle();Click("Controls");Click("+ Shifter bindings");Draw();for(int i=0;Find("Gear R")==null&&i<30;i++)Click("Down");Check(Find("Gear R")!=null&&Find("Gear 6")!=null,"F6 Controls lists the H-pattern gates");Check(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text!=null&&c.Text.StartsWith("H-pattern: hold a gate")),"shifter help explains gates, out of gear and R");
+ShimChecks.PanelCheck(dir,Check);
 Console.WriteLine($"UI fixture: {checks} assertions passed. Actual Panel/WheelInput/Settings source, simulated Unity events/devices; no game or force output. Artifacts: {outputDir}");
