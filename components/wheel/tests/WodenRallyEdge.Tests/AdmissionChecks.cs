@@ -207,6 +207,8 @@ internal static class AdmissionChecks
         f.Session.Seal("finished", true, f.Now);
         f.CloseOrdinary(); f.Session.Stop(f.Now += .1); f.Session.Package();
         check(f.Session.Outcome == "package", "the FFB-on original is packaged");
+        // A consumer smoke (the S2b check's CLI run) can take these exact writer bytes.
+        if (Environment.GetEnvironmentVariable("WODEN_FFB_ON_FIXTURE_OUT") is { Length: > 0 } export) Copy(f.Root, Path.Combine(export, Path.GetFileName(f.Root)));
         string stage = Path.Combine(f.Root, "source.stage");
         check(TrajectoryTape.Read(stage).Metadata["physicalOutput"] == "true", "the tape says forces were allowed");
         check(Throws(() => StageCaptureReview.Run(stage), "physically muted"), "the supervised muted review still refuses an FFB-on stage");
