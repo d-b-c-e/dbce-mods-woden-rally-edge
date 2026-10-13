@@ -110,7 +110,7 @@ $blocked=@($request,$marker,(Join-Path $roots.config 'woden-record-next-launch.j
 $probe=Join-Path $PSScriptRoot 'Probe/bin/Release/net6.0/Woden.ControlsProbe.dll'
 $configVerifier=Join-Path $PSScriptRoot 'VerifyConfig/bin/Release/net8.0/VerifyConfig.dll'
 $ordinaryGuard=Join-Path $Result 'ordinary-companion-guard.json'
-$ready=$false; $lease=$null; $borrowedLease=$false; $game=$null; $ownedGame=$false; $nonce=$null; $restored=$false; $applied=$false; $verificationError=$null; $finalizerError=$null; $captureError=''; $capture=$null; $postCapture=$null; $ordinaryCompanion=$null; $ordinaryStop=$null
+$ready=$false; $lease=$null; $borrowedLease=$false; $game=$null; $gameHandle=$null; $ownedGame=$false; $nonce=$null; $restored=$false; $applied=$false; $verificationError=$null; $finalizerError=$null; $captureError=''; $capture=$null; $postCapture=$null; $ordinaryCompanion=$null; $ordinaryStop=$null
 function Closed {if(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue){throw 'Woden is running; no preparation or restoration.'}}
 function Read-OrdinaryStatus([string]$Path) {
     if(!(Test-Path -LiteralPath $Path -PathType Leaf)){return $null}
@@ -467,6 +467,9 @@ try {
     }
     if(!$game){throw 'No game launched; leave Steam session prompts untouched.'}
     if(![string]::Equals($game.MainModule.FileName,(Join-Path $GameDir 'Super Woden Rally Edge.exe'),[StringComparison]::OrdinalIgnoreCase)){throw 'Wrong executable launched.'}
+    # Open the process handle while this exact process is alive; retain the Process object through exit-code readback.
+    $gameHandle=$game.Handle
+    if($gameHandle -eq [IntPtr]::Zero){throw 'The exact game process handle was unavailable while alive.'}
     $ownedGame=$true
     if($OrdinarySavedForward){
         $ordinaryCompanion.gameObserved=$true
@@ -631,11 +634,14 @@ try {
     $closeRequested=$false
     if($ownedGame -and $game -and !$game.HasExited){$closeRequested=$game.CloseMainWindow();$null=$game.WaitForExit(20000)}
     if($OrdinaryFullSession -and $ownedGame -and $game){
-        $game.Refresh()
-        [ordered]@{schema=1;closeMainWindowRequested=$closeRequested;exited=$game.HasExited;
-            exitCode=$(if($game.HasExited){[int]$game.ExitCode}else{$null});processId=$game.Id} |
-            ConvertTo-Json | Set-Content -LiteralPath "$Result/game-exit.json"
-        if($game.HasExited -and $game.ExitCode -ne 0){$captureError+=" Game exited with code $($game.ExitCode); package result is retained separately."}
+        $exited=$game.HasExited;$exitCode=$null;$exitReadError=$null
+        if($exited){try{$exitCode=$game.ExitCode}catch{$exitReadError=$_.Exception.Message}}
+        . "$PSScriptRoot/GameExitEvidence.ps1"
+        $exitEvidence=New-GameExitEvidence -CloseMainWindowRequested $closeRequested -Exited $exited -ExitCode $exitCode -ProcessId $game.Id
+        $exitEvidence | Add-Member -NotePropertyName handleObservedWhileAlive -NotePropertyValue ($gameHandle -ne [IntPtr]::Zero)
+        $exitEvidence | Add-Member -NotePropertyName exitReadError -NotePropertyValue $exitReadError
+        $exitEvidence | ConvertTo-Json | Set-Content -LiteralPath "$Result/game-exit.json"
+        if(!$exitEvidence.shutdownPass){$captureError+=" Game shutdown did not prove numeric exit 0; package result is retained separately."}
     }
     if($ordinaryCompanion){
         if(!$ordinaryCompanion.process.WaitForExit(15000)){
