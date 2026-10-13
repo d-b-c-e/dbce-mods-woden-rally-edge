@@ -1,5 +1,21 @@
 # Combined row and playback qualification — 2026-10-13
 
+**Current private owner install, later October 13:** Exact clean-source `7c1e2870c47e6100e666ad6a4ecd0d6a3f23824e` production ZIP `D5587663...` was installed closed-game through its packaged `Manage-Install.ps1` under the shared lease. The revision-5 receipt is `66EC5A30D348B7F6086F56A39219B7196E8EDD4876716100A1606BF2C9155239`; all 22 owned payloads match the production manifest and installed bytes. Backup `WodenWheelBackups/before-install-20261013-182323-2d7e7447` retains the exact prior revision-4 receipt `CC798345...`, prior shim, and byte-exact saved config. All 302 files outside the union of old/new owned payloads matched the prior inventory; raw Unity preferences and all four displays matched preflight. Backend remains Native with the saved tune. Shipped Wheelkit 0.6.34 recognized ordinary Woden capability, the playback adapter, and native controls from this installed receipt. The game was not launched and no physical force was sent. [Readback and wrapper reconciliation](../../../../../dbce-project-mgmt/artifacts/woden-owner-install-7c-20261013/README.md).
+
+The original post-install wrapper printed `PASSED=False` after the packaged installer had completed. Its non-owned inventory excluded only new payload names, so it counted prior receipt-owned `dbce_shim.dll`; this production package intentionally retires that private shim and adds six runner/capability files. The corrected read-only comparison excludes both receipts' owned names and passes 302/302. The native production install does not claim shared-shim input. Wheelkit's separate public Woden release installer still needs revision-5 support before public packaging.
+
+**Wheelkit delivery update, later October 13:** Wheelkit v0.6.34 from `ddcb15f`
+is published, and the owner's running app was independently read as that version.
+Its revision-5 session adapter accepts this package's receipt and capability;
+receipt discovery and native settings/controls are revision-neutral. The exact
+production 7c ZIP and the temporary revision-5 receipt agree on 21 of 22 owned
+payload hashes; the sole difference is the trial's deliberately load-muted
+`WheelFfb.dll`. A lasting private install uses this mod's packaged
+`Manage-Install.ps1`, not Wheelkit's public release installer, which still
+supports only revisions 3/4. [Release and compatibility checkpoint](../../../../../dbce-project-mgmt/artifacts/wheelkit-0.6.34-20261013/README.md).
+The owner Woden revision-4 install remained unchanged at that earlier read-only check;
+the current private install is revision 5 as recorded above. No further game run was made.
+
 Clean source `7c1e287` packaged the row selector and `playback.enabled=true` capability, then passed one temporary load-muted, installed-runner cold replay of the same immutable admitted S1 derivative. All 749 poses passed (maximum `9.5367431640625E-07 m`, `9.035490975690204E-06°`), with numeric game exit 0, 171/188 exact racing-row client samples (102 pre-stage, 37 in-stage), zero diagnostic-display intersections and exact owner restoration. Two in-stage screenshots show gameplay across the racing row, centered HUD and changing scenery in all thirds. These are sampled visual observations; `tripleRenderedQualified=false` remains because independent angle-correct rendering, continuous physical scanout and attended acceptance are unproven. The prior revision-4 owner install remains unchanged, and lasting delivery awaits Wheelkit 0.6.34 capability support. [Changed-build evidence and limits](2026-10-13-row-cold-replay.md).
 
 # Earlier portable playback qualification — 2026-10-13
