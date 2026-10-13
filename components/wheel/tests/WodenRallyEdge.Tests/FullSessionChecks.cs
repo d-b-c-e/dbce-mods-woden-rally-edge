@@ -429,8 +429,9 @@ internal static class FullSessionChecks
         }
     }
 
-    /// <summary>Game close hands the package to the companion's finalizer without parsing or hashing a source, and the
-    /// finalizer's package is byte-identical to the one the in-game worker seals from the same capture.</summary>
+    /// <summary>Game close hands the package to the companion's finalizer without parsing or hashing a source. The
+    /// finalizer's package, and the S2 derived package admitted from it, are byte-identical to the worker's from the
+    /// same capture.</summary>
     public static void ExitHandoff(Action<bool, string> check)
     {
         using var f = new Fixture();
@@ -453,6 +454,15 @@ internal static class FullSessionChecks
         foreach (string name in PackageFiles)
             check(File.ReadAllBytes(f.Path_(name)).AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(copy, name))), name + " is byte-identical to the worker's");
         ArtifactSeal.Verify(copy, FullSessionPackageNames.FromSignal("source.jsonl").OuterSealFiles());
+        // Derived parity: S2 admits the worker's and the finalizer's originals into byte-identical derived packages.
+        string workerDerived = f.Root + ".admitted", finalizerDerived = copy + ".admitted";
+        var admittedWorker = FullSessionAdmission.Admit(f.Root, workerDerived, Hash);
+        var admittedFinalizer = FullSessionAdmission.Admit(copy, finalizerDerived, Hash);
+        check(admittedWorker.Admitted && admittedFinalizer.Admitted, "S2 admits both originals: " + admittedWorker.Reason + " " + admittedFinalizer.Reason);
+        string[] Files(string root) => Directory.GetFiles(root, "*", SearchOption.AllDirectories).Select(p => Path.GetRelativePath(root, p)).OrderBy(p => p, StringComparer.Ordinal).ToArray();
+        check(Files(workerDerived).SequenceEqual(Files(finalizerDerived)) &&
+            Files(workerDerived).All(name => File.ReadAllBytes(Path.Combine(workerDerived, name)).AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(finalizerDerived, name)))),
+            "the derived packages are byte-identical: " + string.Join(", ", Files(workerDerived)));
         var again = OrdinaryFullSession.PackageOffline(copy);
         check(again.Outcome == "refused" && again.Reason.Contains("already decided", StringComparison.Ordinal), "a second run refuses: " + again.Reason);
     }
