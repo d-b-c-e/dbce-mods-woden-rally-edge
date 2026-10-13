@@ -20,6 +20,48 @@ internal static class GripV6Checks
         return s;
     }
 
+    internal static void ReferenceDirection(Action<bool, string> check)
+    {
+        var options = new ForceOptions(Model: GripSignal.ModelVersion);
+        var boundary = new GripSignal();
+        var edge = Sample(0);
+        edge.Channels["motion.velocity.local.z"] = -.5;
+        check(boundary.Evaluate(edge, options).Valid, "signed reverse boundary is still admitted by the model");
+        edge = Sample(.02);
+        edge.Channels["motion.velocity.local.z"] = -.500001;
+        check(!boundary.Evaluate(edge, options).Valid && boundary.Reference.Kind == FrontLoadReferenceKind.None,
+            "a signed row just beyond the reverse boundary is refused before reference acquisition");
+        var grip = new GripSignal();
+        for (int i = 0; i < 120; i++)
+        {
+            var reverse = Sample(i * .02);
+            reverse.Channels["motion.speed"] = 25; // unsigned magnitude remains high in reverse
+            reverse.Channels["motion.velocity.local.z"] = -25;
+            var result = grip.Evaluate(reverse, options);
+            check(!result.Valid && result.Reason == "reverse: signal not validated", "model refuses signed reverse row");
+        }
+        check(grip.Reference.Kind == FrontLoadReferenceKind.None && grip.Reference.Load == 0,
+            "two seconds of fast reverse travel cannot qualify a live front-load reference");
+        for (int i = 120; i < 240; i++)
+        {
+            var forward = Sample(i * .02);
+            var result = grip.Evaluate(forward, options);
+            check(result.Valid, "forward row remains valid after reverse travel");
+        }
+        check(grip.Reference.Kind == FrontLoadReferenceKind.Driving && grip.Reference.Load == 10000,
+            "forward-only rows qualify the unchanged reference load");
+
+        var historical = new FrontLoadReference();
+        historical.Restore(12345, FrontLoadReferenceKind.Driving);
+        var replay = new GripSignal();
+        var recordedReverse = Sample(0);
+        recordedReverse.Channels["motion.velocity.local.z"] = -25;
+        replay.Evaluate(recordedReverse, options, historical);
+        check(historical.Kind == FrontLoadReferenceKind.Driving && historical.Load == 12345 &&
+            replay.Reference.Kind == FrontLoadReferenceKind.None,
+            "shared recorded reference remains exact and is never relearned during replay");
+    }
+
     internal static void Curves(Action<bool, string> check)
     {
         check(ForceObservationSemantics.ModelId(6) == "woden-grip-signal@6" &&

@@ -6,7 +6,7 @@ namespace WodenRallyEdge.Core;
 public enum FrontLoadReferenceKind { None = 0, Provisional = 1, Driving = 2 }
 
 /// <summary>
-/// The front axle's reference load for Woden's grip model: the duration-weighted mean front load while driving above
+/// The front axle's reference load for Woden's grip model: the duration-weighted mean front load while forward-valid and above
 /// <see cref="MinKmh"/> with both fronts grounded, provisional until <see cref="QualifiedSeconds"/> of such driving, then
 /// "driving". Kept for the car; a new car measures again.
 /// </summary>
@@ -68,6 +68,7 @@ public sealed class FrontLoadReference
 /// </remarks>
 public sealed class GripSignal
 {
+    private const double ReverseValidityLimit = -.5;
     /// <summary>The latest grip model: also accepts equal positive slip knots with exactly equal nonnegative values.</summary>
     public const int ModelVersion = 6;
     /// <summary>Strength scales only the tyre force (STD-027); strictly ordered knots. Kept for exact replay.</summary>
@@ -132,13 +133,17 @@ public sealed class GripSignal
             if (s.Channels.TryGetValue("wheel." + corner + ".contactForce", out double f) && double.IsFinite(f) && f >= 0) { observedLoad += f; grounded++; }
             else loadsUsable = false;
         }
-        if (shared == null && motion && loadsUsable && double.IsFinite(time)) Reference.Observe(time, observedLoad, grounded, speed, s.Driving && s.Discontinuity == null);
+        // motion.speed is unsigned. Apply the same signed reverse boundary as the
+        // force model before a live row can teach the front-load reference.
+        if (shared == null && motion && loadsUsable && double.IsFinite(time))
+            Reference.Observe(time, observedLoad, grounded, speed,
+                s.Driving && s.Discontinuity == null && s.Channels["motion.velocity.local.z"] >= ReverseValidityLimit);
         ReferenceUsed = reference.Load;
 
         if (!s.Driving) return Stop(s.State);
         if (s.Discontinuity != null) return Stop(s.Discontinuity);
         if (!double.IsFinite(time) || !motion) return Stop("motion unavailable");
-        if (s.Channels["motion.velocity.local.z"] < -.5) return Stop("reverse: signal not validated");
+        if (s.Channels["motion.velocity.local.z"] < ReverseValidityLimit) return Stop("reverse: signal not validated");
         float[] settings = { options.Strength, options.LoadRatio, options.GripSmoothing, options.Damping };
         if (settings.Any(x => !float.IsFinite(x)) || options.LoadRatio <= 0) return Stop("invalid tuning");
         double fy = 0, load = 0, relative = 0; int n = 0;
