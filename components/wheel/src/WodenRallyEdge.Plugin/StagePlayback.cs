@@ -113,7 +113,7 @@ internal static class StagePlayback
         private Rigidbody? _body;
         private MainCar? _ownedCar;
         private bool _kinematic, _collisions, _acquired;
-        private int _interpolation;
+        private int _interpolation, _row;
         private Vector3 _velocity, _angular;
         public string Game => "Super Woden Rally Edge";
         public string GameHash => Runtime.GameAssemblyHash;
@@ -178,6 +178,8 @@ internal static class StagePlayback
             _ownedCar = car;
             _kinematic = PlaybackBodyNative.Kinematic(_body); _collisions = PlaybackBodyNative.Collisions(_body); _interpolation = PlaybackBodyNative.Interpolation(_body);
             _velocity = _body.linearVelocity; _angular = _body.angularVelocity;
+            _row = 0;   // the next Apply is trajectory row 0
+            Runtime.Log.LogInfo("Stage replay HUD speed: " + (StageStartup.HudSpeed.Recorded ? "recorded game.trueSpeed per row" : "derived from the recorded velocity"));
             _acquired = true;
             _body.isKinematic = true; PlaybackBodyNative.Collisions(_body, false); PlaybackBodyNative.Interpolation(_body, 1);
         }
@@ -188,7 +190,9 @@ internal static class StagePlayback
             _velocity = new Vector3(a[7], a[8], a[9]); _angular = new Vector3(a[10], a[11], a[12]);
             _body.MovePosition(new Vector3(a[0], a[1], a[2])); _body.MoveRotation(new Quaternion(a[3], a[4], a[5], a[6]));
             _car.Steering_Wheel_Pos = a[13]; _car.Pedal_Acc_Value = a[14]; _car.Pedal_Brake_Value = a[15]; _car.Rpm = a[16]; _car.MyGear = (int)a[17];
-            _car.TrueSpeed = (int)(_velocity.magnitude * 3.6f);
+            // MainCar.FixedUpdate is skipped while playing (BeforeCar), so this is the only TrueSpeed write the game's
+            // HUD.FixedUpdate reads: the capture's own HUD value for this row. 3.6 * |v| reads ~22% high against it.
+            _car.TrueSpeed = StageStartup.HudSpeed.Value(_row++, (int)(_velocity.magnitude * 3.6f));
         }
         public void Release()
         {

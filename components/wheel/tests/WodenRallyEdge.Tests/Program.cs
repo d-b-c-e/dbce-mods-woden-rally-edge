@@ -1052,6 +1052,7 @@ Test("muted production controller keeps actual zero while independent history re
 Test("grip v6 admits only finite continuous equal-knot curves; legacy arithmetic and admission stay exact", () => GripV6Checks.Curves(Check));
 Test("grip v6 learns front load only from forward-valid rows; recorded replay reference stays exact", () => GripV6Checks.ReferenceDirection(Check));
 Test("ordinary HUD depth preserves ideal pixels and bounds isolated-world float precision", () => WodenRallyEdge.HudDepthChecks.Run(Check));
+Test("replay HUD speed uses the recorded game.trueSpeed per aligned row, derived only for captures without it", () => WodenRallyEdge.HudSpeedChecks.Run(Check));
 if (Environment.GetEnvironmentVariable("WODEN_GRIP_CAPTURE") is { Length: > 0 } gripCapture)
     Test("private native Grip5 capture: exact old replay and isolated Grip6 trial", () => GripV6Checks.NativeCapture(Check, gripCapture));
 Console.WriteLine($"{passed} suites passed; {failed} failed; {checks} assertions.");

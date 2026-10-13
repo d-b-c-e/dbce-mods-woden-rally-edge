@@ -20,6 +20,9 @@ internal static class StageStartup
     private static string? _failure, _scene, _issuedFor;
     private static double _enteredAt;
     private static readonly List<(int Mode, int Preset, MountedView View)> Cameras = new();
+    /// <summary>The HUD speed the replay writes per row (RecordedHudSpeed): the sealed capture's game.trueSpeed, or
+    /// velocity-derived only for a capture without that channel and for a low-level replay with no sealed startup.</summary>
+    internal static RecordedHudSpeedTable HudSpeed { get; private set; } = RecordedHudSpeedTable.Derived;
     internal static string? Status { get; private set; }
     internal static bool Validated { get; private set; }
     internal static bool BackgroundConfigured { get; private set; }
@@ -52,10 +55,12 @@ internal static class StageStartup
             var selection = _context.GetProperty("selection");
             if (selection.GetProperty("playerCount").GetInt32() != 1 || selection.GetProperty("demo").GetBoolean() ||
                 selection.GetProperty("arcadeCars")[0].GetInt32() != Number("carId")) throw new IOException("Invalid single-player selection");
+            var hudSpeed = new RecordedHudSpeed();
             foreach (var row in SessionReader.Read(Path.Combine(source, "source.jsonl")))
             {
                 if (row.Kind != SessionRecordKind.Sample) continue;
                 var c = row.Sample.Channels;
+                hudSpeed.Add(c);   // the game's own HUD speed for this row; refuses a partial, misaligned or malformed supply
                 int Integer(string name, int min, int max)
                 {
                     if (!c.TryGetValue(name, out double n) || !double.IsFinite(n) || n < min || n > max || n != Math.Truncate(n))
@@ -67,6 +72,9 @@ internal static class StageStartup
                     (MountedView)Integer("camera.mountedView", 0, 2)));
             }
             if (Cameras.Count != tape.Frames.Length) throw new IOException("Presentation sample count differs");
+            HudSpeed = hudSpeed.Finish(tape.Frames.Length);
+            Runtime.Log.LogInfo(HudSpeed.Recorded ? $"Replay HUD speed: the recorded {RecordedHudSpeed.Channel} for {HudSpeed.Rows} rows"
+                : $"Replay HUD speed: derived from the recorded velocity (this capture predates {RecordedHudSpeed.Channel})");
             Validated = true;
             Status = "PLAYBACK - starting recorded Arcade stage";
         }
