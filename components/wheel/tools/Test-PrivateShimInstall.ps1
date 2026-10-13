@@ -59,6 +59,7 @@ Check ((Receipt).files.Count -eq 16) 'Native-to-private rollback changed ownersh
 Private
 $private = Receipt
 Check ($private.files.Count -eq 17 -and $private.mode -eq 'Install') 'Private receipt must own 17 payloads'
+Check (($private.ordinarySession.inputOrigin -join ',') -ceq 'human,automated') 'Private companion declares exact input-origin capability'
 # A legitimate revision-3 private receipt carries 14 historical files and its
 # private Shim metadata. Upgrade must preserve the Shim pin while adding tools.
 $legacyPrivate = Receipt
@@ -71,6 +72,7 @@ Check ($legacyPrivate.files.Count -eq 14) 'Legacy private fixture owns exactly 1
 Private
 $private = Receipt
 Check ($private.installerRevision -eq 4 -and $private.files.Count -eq 17 -and $private.ordinarySession.schema -eq 'woden.signal-session@1') 'Legacy private receipt upgrades to revision-4 ordinary ownership'
+Check (($private.ordinarySession.inputOrigin -join ',') -ceq 'human,automated') 'Legacy private upgrade gains explicit-origin capability'
 Copy-Item -LiteralPath $receiptPath -Destination (Join-Path $fixture 'private-install-receipt.json')
 Check ((Hash $shimPath) -eq '9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8') 'Installed shim pin'
 Check (@($private.files | Where-Object { $_.path -like '*dbce_shim.dll' }).Count -eq 1) 'Private shim ownership entry'

@@ -57,6 +57,7 @@ $first = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
 Check ($first.files.Count -eq 16 -and $first.mode -eq 'Install' -and -not $first.gameLaunched) 'Install receipt owns the installed ordinary companion and finalizer'
 Check ($first.installerRevision -eq 4) 'Default-root player installer revision'
 Check ($first.ordinarySession.schema -eq 'woden.signal-session@1' -and $first.ordinarySession.record -and -not $first.ordinarySession.playback) 'Record-only ordinary session capability'
+Check (($first.ordinarySession.inputOrigin -join ',') -ceq 'human,automated') 'Origin-capable companion advertises only human and automated'
 foreach ($pair in @(@('Start-RecordedGame.ps1','sourceToolSha256'),@('RecordedStopControl.ps1','stopToolSha256'),@('WodenCaseFinalizer.exe','finalizerSha256'))) {
     Check ((Hash (Join-Path $plugin $pair[0])) -eq $first.ordinarySession.($pair[1])) ('Installed ordinary capability hash: ' + $pair[0])
 }
@@ -68,6 +69,22 @@ Check ($first.controlsProfileSchema -eq 1 -and $first.adapter -eq 'woden-binding
 Check ($first.controlsProfileHatNeighbours -eq $true) 'Installed circular profile hat capability'
 Check ((Hash (Join-Path $plugin 'WodenRallyEdgeWheel.dll')) -eq (Hash (Join-Path $PackageRoot 'BepInEx\plugins\WodenRallyEdgeWheel\WodenRallyEdgeWheel.dll'))) 'Default-root selected wrong package'
 foreach ($entry in $first.files) { Check ((Hash (Join-Path $fixture $entry.path)) -eq $entry.sha256) ('Payload ' + $entry.path) }
+# A prior revision-4 companion that did not accept InputOrigin keeps its old
+# capability shape and can be updated without inventing an origin for past captures.
+$oldModern = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
+$oldTool = Join-Path $plugin 'Start-RecordedGame.ps1'
+'param([string]$GameDirectory) # legacy companion without InputOrigin' | Set-Content -LiteralPath $oldTool
+$oldToolHash = Hash $oldTool
+$oldEntry = @($oldModern.files | Where-Object { $_.path -match 'Start-RecordedGame\.ps1$' })
+Check ($oldEntry.Count -eq 1) 'Prior companion ownership entry is unique'
+$oldEntry[0].sha256 = $oldToolHash
+$oldModern.ordinarySession.sourceToolSha256 = $oldToolHash.ToLowerInvariant()
+$oldModern.ordinarySession.PSObject.Properties.Remove('inputOrigin')
+$oldModern | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $receipt -Encoding utf8
+Install
+$originUpgrade = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
+Check (($originUpgrade.ordinarySession.inputOrigin -join ',') -ceq 'human,automated' -and
+       (Hash $oldTool) -eq $originUpgrade.ordinarySession.sourceToolSha256) 'Prior revision-4 companion upgraded to explicit-origin capability'
 # A revision-3 install owns only the historical allowlist. Updating it must
 # introduce the three tools transactionally without claiming prior ownership.
 $legacy = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
@@ -98,7 +115,7 @@ foreach ($file in @($settings,$bindings,$otherConfig,$unknown,$recording,(Join-P
 Install
 $updated = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
 $validReceiptBytes = [IO.File]::ReadAllBytes($receipt)
-foreach ($kind in 'incomplete','duplicate-alias','unknown-path','invalid-hash','wrong-game','forged-finalizer-capability') {
+foreach ($kind in 'incomplete','duplicate-alias','unknown-path','invalid-hash','wrong-game','forged-finalizer-capability','forged-input-origin') {
     $bad=[Text.Encoding]::UTF8.GetString($validReceiptBytes).TrimStart([char]0xFEFF) | ConvertFrom-Json
     switch($kind) {
         'incomplete' { $bad.files=@($bad.files | Select-Object -Skip 1) }
@@ -107,6 +124,7 @@ foreach ($kind in 'incomplete','duplicate-alias','unknown-path','invalid-hash','
         'invalid-hash' { $bad.files[0].sha256='unknown' }
         'wrong-game' { $bad.gameDirectory='C:\unrelated-game' }
         'forged-finalizer-capability' { $bad.ordinarySession.finalizerSha256='0'*64 }
+        'forged-input-origin' { $bad.ordinarySession.inputOrigin=@('automated','human') }
     }
     $bad | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $receipt -Encoding utf8
     $beforeHash=Hash $receipt
