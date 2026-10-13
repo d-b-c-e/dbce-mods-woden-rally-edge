@@ -50,9 +50,13 @@ public sealed partial class ControlsProbe
     }
     static void VerifyRecordingRequest(object? launch)
     {
-        string caseId=(Protocol.HudStopOnly(Request)?"woden-shim-hud-":"woden-shim-car-")+Request!.Nonce;
+        string caseId=(Protocol.OrdinaryForward(Request)?"woden-automated-forward-":Protocol.HudStopOnly(Request)?"woden-shim-hud-":"woden-shim-car-")+Request!.Nonce;
+        DateTimeOffset? expiry=launch is null?null:(DateTimeOffset)Value(launch,"ExpiresUtc")!;
+        bool expiryMatches=Protocol.OrdinaryForward(Request)
+            ? expiry>=Request.ExpiresUtc && expiry<=DateTimeOffset.UtcNow.AddMinutes(15)
+            : expiry==Request.ExpiresUtc;
         if(launch==null || Convert.ToInt32(Value(launch,"Version"))!=2 || (Guid)Value(launch,"Id")! != Guid.ParseExact(Request!.Nonce,"N") ||
-            (DateTimeOffset)Value(launch,"ExpiresUtc")! != Request.ExpiresUtc || !(bool)Value(launch,"DisableForces")! ||
+            !expiryMatches || !(bool)Value(launch,"DisableForces")! ||
             (string?)Value(launch,"CaseId")!=caseId ||
             !string.Equals(Runtime.GetField("_recordingPath",All)?.GetValue(null) as string,CarRecording,StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Capture requires its exact one-shot, force-disabled diagnostic recorder.");
@@ -166,6 +170,12 @@ public sealed partial class ControlsProbe
             if(CarStopped==0)
             {
                 if(Protocol.ForceCapture(Request)&&!ForceCoverage.Passed)throw new InvalidOperationException("Forward capture lacks 2s measured grounded forward speed and qualified production analysis rows.");
+                if(Protocol.OrdinaryForward(Request))
+                {
+                    CarVerdict="passed: bounded automated native forward plateaus ready for installed companion Stop; no physical output";
+                    Row("car-forward-ready","installed companion must own request-bound Stop; recorder remains active; utc="+DateTimeOffset.UtcNow.ToString("O"));
+                    Close("bounded automated forward input complete; ordinary recorder remains active");return;
+                }
                 var output=Field(Runtime,"Output")!;Method(output.GetType(),"StopRecording").Invoke(output,null);
                 if(Value(output,"RecordingStatus")?.ToString()!="Completed" || Convert.ToInt64(Value(output,"RecordingDrops"))!=0)
                     throw new InvalidOperationException("Original recorder did not complete without drops.");

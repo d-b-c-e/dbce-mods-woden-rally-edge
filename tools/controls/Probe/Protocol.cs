@@ -18,10 +18,11 @@ public static class Protocol
     public static bool MenuTrial(ColdRequest? request) => request?.Mode == "shim-menu-trial";
     public static bool HudOrdinary(ColdRequest? request) => request is {Schema:6, Mode:"shim-hud-ordinary"};
     public static bool HudStopOnly(ColdRequest? request) => request is {Schema:8, Mode:"shim-hud-stop-only"};
-    public static bool AppliedForwardCapture(ColdRequest? request) => request is {Schema:7, Mode:"shim-applied-forward-capture"};
+    public static bool OrdinaryForward(ColdRequest? request) => request is {Schema:7, Mode:"shim-applied-forward-ordinary"};
+    public static bool AppliedForwardCapture(ColdRequest? request) => request is {Schema:7, Mode:"shim-applied-forward-capture"} || OrdinaryForward(request);
     public static bool RecordingTrial(ColdRequest? request) => CarTrial(request) || HudStopOnly(request);
     public static bool ForceCapture(ColdRequest? request) => request?.Mode is "shim-force-capture" or "shim-hud-ordinary" || AppliedForwardCapture(request);
-    public static bool DynamicCarTrial(ColdRequest? request) => request?.Schema==7 && request.Mode is "shim-applied-car-trial" or "shim-applied-forward-capture";
+    public static bool DynamicCarTrial(ColdRequest? request) => request?.Schema==7 && request.Mode is "shim-applied-car-trial" or "shim-applied-forward-capture" or "shim-applied-forward-ordinary";
     public static bool CarTrial(ColdRequest? request) => request?.Mode is "shim-car-trial" or "shim-force-capture" or "shim-hud-ordinary" || DynamicCarTrial(request);
     public static bool LatchedTrial(ColdRequest? request) => MenuTrial(request) || CarTrial(request) || HudStopOnly(request);
     public static bool ShimAdmission(ColdRequest? request) => request?.Mode is "shim-admission" or "shim-menu-trial" or "shim-car-trial" or "shim-force-capture" or "shim-hud-ordinary" || DynamicCarTrial(request) || HudStopOnly(request);

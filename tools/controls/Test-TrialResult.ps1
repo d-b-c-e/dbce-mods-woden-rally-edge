@@ -41,6 +41,28 @@ Check-Case $true 'shim-applied-forward-capture'
 $case.carEvidence.forceCapture.qualifiedRows=0;Check-Case $false 'shim-applied-forward-capture'
 $case.carEvidence.forceCapture.qualifiedRows=12;$case.carEvidence.forceCapture.forwardGroundedSeconds=1.9;Check-Case $false 'shim-applied-forward-capture'
 $case.carEvidence.forceCapture.forwardGroundedSeconds=2.5;$case.carEvidence.recipe='six-actions@1';Check-Case $false 'shim-applied-forward-capture'
+Write-Case 'shim-applied-forward-ordinary'
+$case.reason='bounded automated forward input complete; ordinary recorder remains active'
+$case.carEvidence.nativePlateaus=3
+$case.carEvidence.recipe='applied-forward-50pct-8s@1'
+$case.carEvidence.forceCapture=@{forwardGroundedSeconds=2.5;qualifiedRows=12}
+$archive=Join-Path $temp 'ordinary-recording-original'
+[IO.Directory]::CreateDirectory((Join-Path $archive 'control')) | Out-Null
+$entries=@(foreach($name in @('source.jsonl','case.json','force-observation.jsonl','control/finalization.json')){
+    $path=Join-Path $archive $name
+    "fixture $name" | Set-Content -LiteralPath $path
+    @{path=$name;sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash}
+})
+$saved=@{status='saved-while-open';inputOrigin='automated diagnostic';gameAlive=$true;companionExit=0;
+    sourceSha256=$entries[0].sha256;caseSha256=$entries[1].sha256;observationSha256=$entries[2].sha256;
+    wheelkitState='Saved — signal analysis only';wheelkitOrigin='Input source unspecified';archive=$archive;archiveFiles=$entries}
+function Write-SavedFixture { $saved | ConvertTo-Json -Depth 5 | Set-Content "$temp/ordinary-saved-result.json" }
+Write-SavedFixture;Check-Case $true 'shim-applied-forward-ordinary'
+$saved.gameAlive=$false;Write-SavedFixture;Check-Case $false 'shim-applied-forward-ordinary';$saved.gameAlive=$true
+$saved.wheelkitOrigin='Human-driven';Write-SavedFixture;Check-Case $false 'shim-applied-forward-ordinary';$saved.wheelkitOrigin='Input source unspecified'
+$saved.archiveFiles=@($entries | Where-Object {$_.path -ne 'case.json'});Write-SavedFixture;Check-Case $false 'shim-applied-forward-ordinary';$saved.archiveFiles=$entries
+'tampered' | Add-Content -LiteralPath (Join-Path $archive 'source.jsonl')
+Write-SavedFixture;Check-Case $false 'shim-applied-forward-ordinary'
 Write-Case 'shim-hud-ordinary'
 $case.inputVerdict='passed: probe-direct-stop, 5s HUD dwell'
 $case.carEvidence.recipe='forward-50pct-8s@1'

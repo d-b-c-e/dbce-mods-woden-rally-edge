@@ -84,6 +84,13 @@ Check(Protocol.Admit(Bytes(appliedForward),now,nonce)==appliedForward && Protoco
     Protocol.DynamicCarTrial(appliedForward) && Protocol.ForceCapture(appliedForward) && Protocol.CarTrial(appliedForward));
 foreach(var r in new[]{appliedForward with{Schema=6},appliedForward with{ProfileSha256=null},appliedForward with{ApplyReadbackSha256=null}})
     Refuse(()=>Protocol.Admit(Bytes(r),now,nonce));
+var ordinaryForward=appliedForward with{Mode="shim-applied-forward-ordinary"};
+Check(Protocol.Admit(Bytes(ordinaryForward),now,nonce)==ordinaryForward && Protocol.OrdinaryForward(ordinaryForward) &&
+    Protocol.AppliedForwardCapture(ordinaryForward) && Protocol.ForceCapture(ordinaryForward) && Protocol.LatchedTrial(ordinaryForward) &&
+    !Protocol.OrdinaryForward(appliedForward));
+foreach(var r in new[]{ordinaryForward with{Schema=6},ordinaryForward with{Mode="shim-applied-car-trial",WorkloadSha256=null},
+    ordinaryForward with{ControlsSha256=null},ordinaryForward with{ProfileSha256=null},ordinaryForward with{StageReference=null}})
+    Refuse(()=>Protocol.Admit(Bytes(r),now,nonce));
 foreach(var r in new[]{appliedCar with{Schema=5},appliedCar with{Mode="shim-car-trial"},appliedCar with{ProfileSha256=null},
     appliedCar with{WorkloadSha256="bad"},appliedCar with{ProfileRevision=null},appliedCar with{ApplyReadbackSha256=null},car with{ProfileSha256=hash}})
     Refuse(()=>Protocol.Admit(Bytes(r),now,nonce));
