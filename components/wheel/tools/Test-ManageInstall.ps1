@@ -36,6 +36,14 @@ try {
     $start.WorkingDirectory = $fixture
     $start.UseShellExecute = $false; $start.CreateNoWindow = $true
     $start.RedirectStandardOutput = $true; $start.RedirectStandardError = $true
+    # ProcessStartInfo inherits PS 7's module search path, unlike a direct
+    # powershell.exe launch. Give this PS 5.1 batch child its own native module
+    # path so Microsoft.PowerShell.Utility (Get-FileHash) can autoload.
+    $start.Environment['PSModulePath'] = @(
+        (Join-Path $env:USERPROFILE 'Documents\WindowsPowerShell\Modules'),
+        (Join-Path $env:ProgramFiles 'WindowsPowerShell\Modules'),
+        (Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\Modules')
+    ) -join ';'
     $process = [Diagnostics.Process]::Start($start)
     try {
         $stdout = $process.StandardOutput.ReadToEndAsync(); $stderr = $process.StandardError.ReadToEndAsync()
