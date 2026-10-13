@@ -132,7 +132,7 @@ if ((& $inCapture 'full-session-pending.json') -or ((& $inCapture 'session.json'
     $packageNote = switch ($packageResult.Outcome) {
         'package' { 'First-stage package sealed by the companion.' }
         'incomplete' { "First-stage package not sealed: $($packageResult.Reason) (full-session-incomplete.txt)." }
-        'refused' { "First-stage package step refused: $($packageResult.Reason); the handoff is kept for a rerun." }
+        'refused' { "First-stage package step refused, nothing written: $($packageResult.Reason)." }
         default { 'First-stage package step gave no readable result; the capture files are kept.' }
     }
 }
