@@ -52,6 +52,12 @@ force was used in these checks.
 | dbce_shim.dll | 9b8a036f664cf8f45cccf82b98e5e4376f93215b60eac50b6db965bf498015d8 | outrun2-decomp `codex/shim-device-path` f49cfc559f065b778967a7c94068a75df538ec69, target `dbce_shim` (Release, Visual Studio 2022 ClangCL x64, `-DOR2_XBOX=ON`) |
 | dbce_shim.h | 3c63b472fc78770e8b9fc90ae92debbf979eedd7f8c68800f56b8690f4f65b74 | the same commit, `windows/shim_dll/dbce_shim.h` |
 
+The header hash identifies the upstream ABI source; the header itself is not
+vendored in this public source landing. The managed consumer declares the ABI
+it uses directly in `ShimNative.cs` and checks layout against the private DLL
+when explicitly supplied. Neither a C++ compiler nor the upstream header is
+needed for an ordinary Woden build.
+
 Based on input-shim `eea0660`, including the bounded sharing-violation retry in the
 control reader. The additive device report names the exact owned handle's HID
 interface path, published with its epoch and cleared on loss. No ABI structs or
