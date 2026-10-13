@@ -7,11 +7,10 @@ param(
     [switch]$HudStateTrace
 )
 $ErrorActionPreference = 'Stop'
-if ($HudGuiDiagnostic -and $HudDepthDiagnostic) { throw 'Use one HUD diagnostic at a time.' }
+if ($HudDepthDiagnostic) { throw 'HudDepthDiagnostic is retired; plane 100/far 110 is ordinary HUD geometry.' }
 if ($HudGuiDiagnostic -and $HudStateTrace) { throw 'HUD state trace is for the matched driving depth trial, not the menu GUI trial.' }
 if ($HudGuiDiagnostic -and $ArtifactLabel -notmatch '^hudgui-') { throw 'HUD GUI diagnostic packages require a hudgui- artifact label.' }
-if ($HudDepthDiagnostic -and $ArtifactLabel -notmatch '^huddepth-') { throw 'HUD depth diagnostic packages require a huddepth- artifact label.' }
-if ($HudStateTrace -and !$HudDepthDiagnostic -and $ArtifactLabel -notmatch '^hudstate-') { throw 'Normal HUD state trace packages require a hudstate- artifact label.' }
+if ($HudStateTrace -and $ArtifactLabel -notmatch '^hudstate-') { throw 'HUD state trace packages require a hudstate- artifact label.' }
 $root = Split-Path $PSScriptRoot -Parent
 $privateShimHash = '9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8'
 if ($PrivateShimPath) {
@@ -24,7 +23,6 @@ $buildArgs = @('build',(Join-Path $root 'WodenRallyEdgeWheel.sln'),'-c','Release
 if ($PrivateShimPath) { $buildArgs += ('-p:PrivateShimPath=' + $PrivateShimPath) }
 $diagnostics = @()
 if ($HudGuiDiagnostic) { $diagnostics += 'WODEN_HUD_GUI_DIAGNOSTIC' }
-if ($HudDepthDiagnostic) { $diagnostics += 'WODEN_HUD_DEPTH_DIAGNOSTIC' }
 if ($HudStateTrace) { $diagnostics += 'WODEN_HUD_STATE_TRACE' }
 if ($diagnostics.Count) { $buildArgs += ('-p:DefineConstants=' + ($diagnostics -join '%3B')) }
 & dotnet @buildArgs

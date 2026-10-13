@@ -4,17 +4,8 @@ internal static class HudDepthChecks
 {
     internal static void Run(Action<bool, string> check)
     {
-        foreach (bool build in new[] { false, true })
-        foreach (bool force in new[] { false, true })
-        foreach (bool output in new[] { false, true })
-        {
-            var p = TripleHudDepth.Select(build, force, output);
-            check(p == (build && force && output ? new TripleHudDepth(100, 110) : new TripleHudDepth(1, 10)),
-                "both existing output fences and explicit diagnostic build required");
-        }
-        check(TripleHudDepth.ForRun(false, true) == new TripleHudDepth(1, 10), "unmuted build retains owner geometry");
-        check(TripleHudDepth.ForRun(true, true) == TripleHudDepth.Select(TripleHudDepth.DiagnosticBuild, true, true),
-            "compiled production selector uses the tested rule");
+        check(TripleHudDepth.Production == new TripleHudDepth(100, 110),
+            "ordinary HUD depth uses the sampled plane and far clip without force or build gates");
         double tan = Math.Tan(TripleHudDepth.FieldOfView * Math.PI / 360);
         double worldQuantum = Math.Abs(MathF.BitIncrement(TripleHudDepth.CameraY) - TripleHudDepth.CameraY);
         check(worldQuantum == 1d / 1024, "actual float32 spacing at preserved isolated camera origin");
@@ -34,8 +25,8 @@ internal static class HudDepthChecks
                 double pixelX = (x / width + .5) * size.Item1, pixelY = (y / height + .5) * size.Item2;
                 check(Math.Abs(pixelX - u * size.Item1) < 1e-9 && Math.Abs(pixelY - v * size.Item2) < 1e-9,
                     "same ideal normalized point reaches same pixels at either plane depth");
-                // Deliberately model an explicit world-space rounding step. Unity's
-                // actual batching/shader path and auto-layout still need native evidence.
+                // Model an explicit world-space rounding step. Native crops
+                // sample static HUD edges, not every engine or scanout path.
                 float worldY = TripleHudDepth.CameraY + (float)y;
                 float cameraY = worldY - TripleHudDepth.CameraY;
                 maxError = Math.Max(maxError, Math.Abs((cameraY / height + .5) * size.Item2 - pixelY));

@@ -48,7 +48,7 @@ internal static class TripleView
     private static double _nextHudStateLog;
 #endif
     private static readonly List<(Canvas Canvas, RenderMode Mode, Camera? World, float Plane)> MovedCanvases = new();
-    private static TripleHudDepth _hudDepth = new(1f, 10f);
+    private static readonly TripleHudDepth HudDepth = TripleHudDepth.Production;
     private const int UiLayer = 5;
 
     internal static void Bind(ConfigFile cfg)
@@ -229,16 +229,15 @@ internal static class TripleView
     private static GameObject NewHudCamera(Camera source, out Camera camera)
     {
         if (!TripleNative.CanvasAvailable) throw new InvalidOperationException("HUD canvas read/write bindings unavailable: " + TripleNative.Report);
-        _hudDepth = TripleHudDepth.ForRun(Runtime.DiagnosticNoForce, StagePlayback.OutputMuted);
         var go = NewCamera("Woden.Triple.Hud", out camera);
         TripleNative.SetClearFlags(camera, CameraClearFlags.Depth);
         TripleNative.SetCullingMask(camera, 1 << UiLayer);
         TripleNative.SetDepth(camera, source.depth + 10);
         camera.fieldOfView = TripleHudDepth.FieldOfView;
         TripleNative.SetNear(camera, TripleHudDepth.Near);
-        TripleNative.SetFar(camera, _hudDepth.Far);
+        TripleNative.SetFar(camera, HudDepth.Far);
         go.transform.position = new Vector3(0f, TripleHudDepth.CameraY, 0f); // isolated UI volume; never follows the car
-        Runtime.Log.LogInfo($"Triple HUD geometry: plane={_hudDepth.Plane}, far={_hudDepth.Far}, diagnosticBuild={TripleHudDepth.DiagnosticBuild}; rendered precision/layout unqualified");
+        Runtime.Log.LogInfo($"Triple HUD geometry: plane={HudDepth.Plane}, far={HudDepth.Far}; center HUD depth, physical scanout unqualified");
         camera.enabled = true;
         return go;
     }
@@ -257,8 +256,8 @@ internal static class TripleView
                 MovedCanvases.Add((canvas, canvas.renderMode, canvas.worldCamera, originalPlane));
                 TripleNative.SetRenderMode(canvas, RenderMode.ScreenSpaceCamera);
                 TripleNative.SetWorldCamera(canvas, _hud);
-                TripleNative.SetPlaneDistance(canvas, _hudDepth.Plane);
-                if (TripleNative.GetPlaneDistance(canvas) != _hudDepth.Plane)
+                TripleNative.SetPlaneDistance(canvas, HudDepth.Plane);
+                if (TripleNative.GetPlaneDistance(canvas) != HudDepth.Plane)
                     throw new InvalidOperationException("HUD plane distance readback differs: " + canvas.name);
                 Runtime.Log.LogInfo($"Triple HUD: '{canvas.name}' moved to the center screen");
             }
