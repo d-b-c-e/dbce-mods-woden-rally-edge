@@ -22,7 +22,13 @@ if (args.Length == 2 && args[0] == "stage-review")
     try { Console.WriteLine(JsonSerializer.Serialize(StageCaptureReview.Run(args[1]), json)); return 0; }
     catch (Exception ex) { Console.Error.WriteLine("STAGE REVIEW REFUSED: " + ex.Message); return 2; }
 }
-if (args.Length == 2 && args[0] == "schema")
+if (args.Length == 4 && args[0] == "admit")
+{
+    // admit <original S1 package> <new derived package> <GameAssembly SHA-256>: route-compatible evidence only
+    var outcome = WodenRallyEdge.FullSessionAdmission.Admit(args[1], args[2], args[3].ToLowerInvariant());
+    Console.WriteLine(JsonSerializer.Serialize(outcome, json));
+    return outcome.Admitted ? 0 : 2;
+}if (args.Length == 2 && args[0] == "schema")
 {
     File.WriteAllText(args[1], JsonSerializer.Serialize(new { schema = TelemetrySchema.Name, version = TelemetrySchema.Version, channels = TelemetrySchema.Channels }, json));
     Console.WriteLine($"Wrote {TelemetrySchema.Channels.Count} channel definitions to {args[1]}"); return 0;
@@ -57,7 +63,7 @@ if (args.Length is 3 or 4 && args[0] == "compare")
     }
     catch (Exception ex) { Console.Error.WriteLine("OBSERVATION INVALID: " + ex.Message); return 2; }
 }
-if (args.Length != 2 || args[0] != "inspect") { Console.Error.WriteLine("Usage: schema <output.json> | inspect <session.jsonl> | stage-review <recording-directory> | reprocess <case-directory> | trial <case-directory> <candidate-config.json> <new-observation.jsonl> [tolerance] | compare <baseline.jsonl> <candidate.jsonl> [tolerance] | ffb-export <stage-or-case> <new.csv> <strength> <peak> [grip <ratio>] | ffb-analysis-export <stage-or-case> <new.csv> <strength> <peak> [grip <ratio>] | devices <native DLL directory>"); return 1; }
+if (args.Length != 2 || args[0] != "inspect") { Console.Error.WriteLine("Usage: schema <output.json> | inspect <session.jsonl> | stage-review <recording-directory> | reprocess <case-directory> | trial <case-directory> <candidate-config.json> <new-observation.jsonl> [tolerance] | compare <baseline.jsonl> <candidate.jsonl> [tolerance] | ffb-export <stage-or-case> <new.csv> <strength> <peak> [grip <ratio>] | ffb-analysis-export <stage-or-case> <new.csv> <strength> <peak> [grip <ratio>] | devices <native DLL directory> | admit <original-package> <derived-package> <gameAssemblySha256>"); return 1; }
 try
 {
     var stats = new Dictionary<string, (long count, double min, double max, double sum)>();

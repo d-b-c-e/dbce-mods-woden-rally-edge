@@ -3,6 +3,10 @@
   <ItemGroup>
     <Reference Include="Dbce.Wheel.Playback" HintPath="../../../../vendor/playback/Dbce.Wheel.Playback.dll" />
     <ProjectReference Include="../../src/WodenRallyEdge.Core/WodenRallyEdge.Core.csproj" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/FullSessionAdmission.cs" Link="Admission/FullSessionAdmission.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/ArcadeRouteProof.cs" Link="Admission/ArcadeRouteProof.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/OrdinaryFullSession.cs" Link="Admission/OrdinaryFullSession.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/StageSignalFiles.cs" Link="Admission/StageSignalFiles.cs" />
     <Reference Include="Dbce.Wheel.Recording" HintPath="../../lib/recording/Dbce.Wheel.Recording.dll" />
     <Reference Include="Dbce.Wheel.Ffb" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Ffb.dll" />
   </ItemGroup>

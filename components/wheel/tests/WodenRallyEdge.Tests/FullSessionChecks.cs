@@ -16,11 +16,11 @@ namespace WodenRallyEdge;
 // no game, device, network or owner file.
 internal static class FullSessionChecks
 {
-    const string Hash = "f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c";
+    internal const string Hash = "f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c";
     const double Dt = .02;
     static readonly ForceOptions Options = new(Model: 6);
 
-    sealed class Fixture : IDisposable
+    internal sealed class Fixture : IDisposable
     {
         public readonly string Temp, Root;
         public readonly TelemetryOutput Ordinary;
@@ -62,10 +62,12 @@ internal static class FullSessionChecks
             if (signal) Session.Signal(sample, Options);
             Ordinary.Publish(sample);
         }
-        public void Open(bool physicalOutput = false) => Session.OpenStage(Selection(Step), "Kenya SS1|car=8", Step, physicalOutput,
-            dir => File.WriteAllText(Path.Combine(dir, "stage-context.json"), Context()), Options, Now);
+        public void Open(bool physicalOutput = false, Action<Dictionary<string, object?>>? context = null) => Session.OpenStage(Selection(Step), "Kenya SS1|car=8", Step, physicalOutput,
+            dir => File.WriteAllText(Path.Combine(dir, "stage-context.json"), Context(context)), Options, Now);
         // StageCaptureContext.Write's field set with synthetic values, so consumers can test the context checks.
-        static string Context() => JsonSerializer.Serialize(new Dictionary<string, object?> {
+        internal static string Context(Action<Dictionary<string, object?>>? edit = null)
+        {
+            var context = new Dictionary<string, object?> {
             ["schema"] = "woden.stage-context@1", ["role"] = "observed launch context; native startup restoration is not yet qualified",
             ["scene"] = "Kenya SS1", ["gameAssemblySha256"] = Hash, ["carId"] = 8, ["playerIndex"] = 0, ["playerCount"] = 1,
             ["gameMode"] = "Arcade", ["subMode"] = "Arcade", ["arcadeRoute"] = 0, ["arcadeRound"] = 0, ["competitionIndex"] = 0,
@@ -76,7 +78,10 @@ internal static class FullSessionChecks
                 ["arcadeRoute"] = 0, ["arcadeRound"] = 0, ["arcadeCars"] = new[] { 8, 0, 0, 0 }, ["demo"] = false },
             ["observedScenes"] = new[] { "SplashScreen", "Title Screen", "MapScreen", "Loading Screen", "StagePresentation", "Kenya SS1" },
             ["nativeSceneRequests"] = Array.Empty<object>(), ["observedScenesTruncated"] = false, ["nativeSceneRequestsTruncated"] = false,
-            ["fixture"] = true }, new JsonSerializerOptions { WriteIndented = true });
+            ["fixture"] = true };
+            edit?.Invoke(context);
+            return JsonSerializer.Serialize(context, new JsonSerializerOptions { WriteIndented = true });
+        }
         public void Menus()
         {
             foreach (var (scene, loading) in new[] { ("SplashScreen", false), ("Title Screen", false), ("MapScreen", false) })

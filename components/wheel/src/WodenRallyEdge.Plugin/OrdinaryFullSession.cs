@@ -229,7 +229,7 @@ internal sealed class OrdinaryFullSession
                 return;
             }
             _timeline.Validate(TimelineSchema, forPlayback: true);
-            VerifyStage(_timeline.Stage);
+            VerifyStage(Path.Combine(_root, _timeline.Stage.Directory), _timeline.Stage, _id.GameHash);
             var selection = _timeline.Steps.First(s => s.State?.Phase == FullSessionPhase.Driving).State!.Selection!;
             var started = metadata.StartedUtc.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(metadata.StartedUtc, DateTimeKind.Utc) : metadata.StartedUtc;
             var document = new JsonObject {
@@ -259,7 +259,7 @@ internal sealed class OrdinaryFullSession
         }
     }
 
-    private static (SessionMetadata Metadata, SessionFooter Footer) ReadSource(string path, string gameHash)
+    internal static (SessionMetadata Metadata, SessionFooter Footer) ReadSource(string path, string gameHash)
     {
         SessionMetadata? metadata = null; SessionFooter? footer = null;
         foreach (var row in SessionReader.Read(path))
@@ -279,13 +279,12 @@ internal sealed class OrdinaryFullSession
         return (metadata, footer);
     }
 
-    private void VerifyStage(FullSessionArtifact stage)
+    internal static void VerifyStage(string directory, FullSessionArtifact stage, string gameHash)
     {
-        string directory = Path.Combine(_root, stage.Directory);
         var tape = TrajectoryTape.Read(directory); // verifies the nested seal
         ArtifactSeal.Verify(directory, new[] { "trajectory.meta", "trajectory.tsv" }.Concat(StageSignalFiles.Files).ToArray());
         if (ArtifactSeal.Hash(Path.Combine(directory, "complete.tsv")) != stage.SealSha256 || tape.Frames.Length != stage.PoseCount ||
-            tape.Metadata["gameSha256"] != _id.GameHash || tape.Metadata["game"] != Game)
+            tape.Metadata["gameSha256"] != gameHash || tape.Metadata["game"] != Game)
             throw new InvalidDataException("the sealed stage differs from its timeline reference");
         int row = 0; bool closed = false;
         foreach (var record in SessionReader.Read(Path.Combine(directory, "source.jsonl")))

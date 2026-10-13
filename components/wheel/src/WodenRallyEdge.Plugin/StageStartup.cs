@@ -49,9 +49,11 @@ internal static class StageStartup
             if (Text("scene") != Text("trackName") || tape.Metadata["scenario"] != Text("scene") + "|car=" + Number("carId") ||
                 tape.Metadata["gameSha256"] != Runtime.GameAssemblyHash)
                 throw new IOException("Stage identity differs between sealed artifacts");
-            string[] required = { "SplashScreen", "DailyMessageScreen", "Title Screen", "MapScreen", "StagePresentation", Text("scene") };
-            if (!_context.GetProperty("observedScenes").EnumerateArray().Select(x => x.GetString()).SequenceEqual(required))
-                throw new IOException("Unsupported recorded scene path");
+            // Restores the recorded stage choice, not every menu input: the observed route must end at the Arcade map,
+            // the presentation and the stage (ArcadeRouteProof); earlier menu scenes are evidence only.
+            var route = ArcadeRouteProof.Check(_context);
+            if (!route.Admitted) throw new IOException("Unsupported recorded route: " + route.Reason);
+            Runtime.Log.LogInfo("Stage startup route: " + string.Join(" > ", route.Route) + "; native load evidence " + route.LoadEvidence);
             var selection = _context.GetProperty("selection");
             if (selection.GetProperty("playerCount").GetInt32() != 1 || selection.GetProperty("demo").GetBoolean() ||
                 selection.GetProperty("arcadeCars")[0].GetInt32() != Number("carId")) throw new IOException("Invalid single-player selection");

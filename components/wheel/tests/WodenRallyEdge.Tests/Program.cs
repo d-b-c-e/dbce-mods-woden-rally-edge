@@ -1064,6 +1064,9 @@ Test("the capacity budget is the real recorder's arithmetic: header, rows and fo
 if (Environment.GetEnvironmentVariable("WODEN_LONG_SESSION_SECONDS") is { Length: > 0 } longSeconds)
     Test("measurement only: a long ordinary full session's stage seal, package and case reprocess", () => WodenRallyEdge.FullSessionChecks.LongSession(Check,
         double.Parse(longSeconds, System.Globalization.CultureInfo.InvariantCulture), Environment.GetEnvironmentVariable("WODEN_LONG_SESSION_TEXT") == "longest"));
+Test("S2 route proof: the archived Kenya original and owner-path variants restore the recorded stage choice; scope and mismatches refused", () => WodenRallyEdge.AdmissionChecks.Route(Check));
+Test("S2 admission writes a route-compatible derived package and never changes the S1 original", () => WodenRallyEdge.AdmissionChecks.Admission(Check));
+Test("S2 admission refuses originals outside the native-arcade-v1 first-stage scope", () => WodenRallyEdge.AdmissionChecks.Scope(Check));
 if (Environment.GetEnvironmentVariable("WODEN_GRIP_CAPTURE") is { Length: > 0 } gripCapture)
     Test("private native Grip5 capture: exact old replay and isolated Grip6 trial", () => GripV6Checks.NativeCapture(Check, gripCapture));
 Console.WriteLine($"{passed} suites passed; {failed} failed; {checks} assertions.");
