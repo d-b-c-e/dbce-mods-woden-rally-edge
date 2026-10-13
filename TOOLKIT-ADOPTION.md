@@ -1,5 +1,20 @@
 # Toolkit standards adoption
 
+October 13, 17:15 CT STD-012 source checkpoint: `cf4d26f` integrates the portable
+installed playback supervisor (`ca34dc2`) and long-close finalization. The runner
+retains the exact process handle while alive and requires an observed numeric
+zero exit. Receipt revision 5 owns its helpers; playback remains disabled pending
+one installed-runner cold replay. The 1199-second synthetic recording now takes
+4 ms to detach the stage seal and 39 ms for the game-close handoff; the companion
+then packages in 25.41 s and reprocesses in 41.61 s (1,976 MB peak). Production
+fixtures passed 84 suites / 51,336 assertions, 10,757 inspector checks and seven
+negative controls. Worker/offline finalization produces identical original and
+derived packages, with explicit human/automated/unknown input origin. See hub
+`artifacts/woden-long-close-20261013/README.md`. This closes the measured offline
+long-close gaps, not live playback or physical acceptance. Combined package checks
+are next; the owner install remains `0ed0292`, revision 4. STD-016/017/020 remain
+unchecked, STD-031 and end-to-end STD-037 remain pending, and STD-032 stays partial.
+
 October 13 STD-012 follow-up: source `7978d19` captured an original ordinary session with 749 aligned stage poses, Saved while open, observed exit 0 and exact owner restoration. Its first-stage package is retained for admission and cold playback; this is not yet a replay pass. Ordinary recording now has a separate 20-minute / 1.75 GiB profile (`db3ab80`), leaving supervised-stage limits unchanged. `e44773f` reduces the measured 20-minute finalizer peak from 3.2 GB to 2.0 GB while retaining full reader validation. Long-close finalization and game-thread sealing remain open before owner delivery. Evidence: hub `artifacts/woden-full-session-s1-20261013/repair-02/CAPTURE-RESULT.md` and `artifacts/woden-recording-capacity-20261013/README.md`. Owner install remains `0ed0292`; unrelated unchecked/pending standards below remain open.
 
 October 13 STD-012 ordinary source: the one-launch signal recorder has a separate request-bound Stop and case finalization path that can leave the game open. It reuses the recorder/footer and center HUD; it does not turn an ordinary signal case into playable gameplay. The current `0ed0292` install retains the self-contained finalizer/companion and revision-4 record-only receipt. One automated muted forward/Stop case reached Saved for signal analysis while the game remained open, then restored exact owner state. An owner-driven ordinary Saved case and playback remain separate. The stage/Kenya trajectory replay subsequently passed 3,601 poses using recorded `game.trueSpeed` in a temporary muted install, then restored exact owner state. See `components/wheel/docs/STATE.md` for scope and evidence.
