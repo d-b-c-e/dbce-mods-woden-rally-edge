@@ -51,6 +51,19 @@ if (args.Length == 2 && args[0] == "devices")
     Console.WriteLine(JsonSerializer.Serialize(devices, json));
     WheelFfbNative.ShutdownAll(); return 0;
 }
+if (args.Length == 2 && args[0] == "package")
+{
+    // package <capture-directory>: completes a full-session package the plugin handed off at game close
+    // (full-session-pending.json). 0 sealed; 2 incomplete (marker written) or refused (nothing written).
+    try
+    {
+        var outcome = WodenRallyEdge.OrdinaryFullSession.PackageOffline(args[1]);
+        Console.WriteLine(JsonSerializer.Serialize(outcome, json));
+        if (outcome.Outcome == "package") return 0;
+        Console.Error.WriteLine("PACKAGE " + outcome.Outcome.ToUpperInvariant() + ": " + outcome.Reason); return 2;
+    }
+    catch (Exception ex) { Console.Error.WriteLine("PACKAGE REFUSED: " + ex.Message); return 2; }
+}
 if (args.Length == 2 && args[0] == "reprocess")
 {
     try { Console.WriteLine(JsonSerializer.Serialize(RecordedForceReplay.Reprocess(args[1]), json)); return 0; }
@@ -74,7 +87,7 @@ if (args.Length is 3 or 4 && args[0] == "compare")
     }
     catch (Exception ex) { Console.Error.WriteLine("OBSERVATION INVALID: " + ex.Message); return 2; }
 }
-if (args.Length != 2 || args[0] != "inspect") { Console.Error.WriteLine("Usage: schema <output.json> | inspect <session.jsonl> | stage-review <recording-directory> | reprocess <case-directory> | trial <case-directory> <candidate-config.json> <new-observation.jsonl> [tolerance] | compare <baseline.jsonl> <candidate.jsonl> [tolerance] | ffb-export <stage-or-case> <new.csv> <strength> <peak> [grip <ratio>] | ffb-analysis-export <stage-or-case> <new.csv> <strength> <peak> [grip <ratio>] | devices <native DLL directory> | admit <original-package> <derived-package> <gameAssemblySha256> | ordinary-stage-review <derived-package>"); return 1; }
+if (args.Length != 2 || args[0] != "inspect") { Console.Error.WriteLine("Usage: schema <output.json> | inspect <session.jsonl> | stage-review <recording-directory> | reprocess <case-directory> | trial <case-directory> <candidate-config.json> <new-observation.jsonl> [tolerance] | compare <baseline.jsonl> <candidate.jsonl> [tolerance] | ffb-export <stage-or-case> <new.csv> <strength> <peak> [grip <ratio>] | ffb-analysis-export <stage-or-case> <new.csv> <strength> <peak> [grip <ratio>] | devices <native DLL directory> | admit <original-package> <derived-package> <gameAssemblySha256> | ordinary-stage-review <derived-package> | package <capture-directory>"); return 1; }
 try
 {
     var stats = new Dictionary<string, (long count, double min, double max, double sum)>();

@@ -3,6 +3,8 @@
   <ItemGroup>
     <Reference Include="Dbce.Wheel.Playback" HintPath="../../../../vendor/playback/Dbce.Wheel.Playback.dll" />
     <ProjectReference Include="../../src/WodenRallyEdge.Core/WodenRallyEdge.Core.csproj" />
+    <!-- OrdinaryFullSession also completes the package handed off at game close (the package verb), with the plugin's
+         own verification and commit. -->
     <Compile Include="../../src/WodenRallyEdge.Plugin/FullSessionAdmission.cs" Link="Admission/FullSessionAdmission.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ArcadeRouteProof.cs" Link="Admission/ArcadeRouteProof.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/OrdinaryFullSession.cs" Link="Admission/OrdinaryFullSession.cs" />

@@ -1059,11 +1059,16 @@ Test("ordinary status shows Completed only after the full-session package or its
 Test("plugin close releases the status hold even with a package commit already begun", () => WodenRallyEdge.FullSessionChecks.ClosingHold(Check));
 Test("an ordinary-owned launch ignores later stage requests: no mute, no supervised commands", () => WodenRallyEdge.FullSessionChecks.Ownership(Check));
 Test("the ordinary full session's stage copy records with the ordinary profile", () => WodenRallyEdge.FullSessionChecks.StageProfile(Check));
+Test("the ordinary stage seals detached from the game thread; its journal row and finish keep the stage-end place and time", () => WodenRallyEdge.FullSessionChecks.DetachedSeal(Check));
+Test("game close hands the package to the companion's finalizer, whose package is byte-identical to the worker's", () => WodenRallyEdge.FullSessionChecks.ExitHandoff(Check));
+Test("game close and the package worker: one owner of the outcome; the loser writes nothing", () => WodenRallyEdge.FullSessionChecks.ExitRaces(Check));
+Test("the companion's package step refuses without writing, and never packages a changed handoff", () => WodenRallyEdge.FullSessionChecks.FinalizerRefusals(Check));
 Test("ordinary recording holds its full 20 minutes: the largest row at the budgeted 70 Hz fits the cap (real recorder)", () => WodenRallyEdge.RecordingCapacityChecks.Capacity(Check));
 Test("the capacity budget is the real recorder's arithmetic: header, rows and footer reserve stop it exactly there", () => WodenRallyEdge.RecordingCapacityChecks.Boundary(Check));
 if (Environment.GetEnvironmentVariable("WODEN_LONG_SESSION_SECONDS") is { Length: > 0 } longSeconds)
     Test("measurement only: a long ordinary full session's stage seal, package and case reprocess", () => WodenRallyEdge.FullSessionChecks.LongSession(Check,
-        double.Parse(longSeconds, System.Globalization.CultureInfo.InvariantCulture), Environment.GetEnvironmentVariable("WODEN_LONG_SESSION_TEXT") == "longest"));
+        double.Parse(longSeconds, System.Globalization.CultureInfo.InvariantCulture), Environment.GetEnvironmentVariable("WODEN_LONG_SESSION_TEXT") == "longest",
+        Environment.GetEnvironmentVariable("WODEN_LONG_SESSION_EXIT") == "1"));
 Test("S2 route proof: the archived Kenya original and owner-path variants restore the recorded stage choice; scope and mismatches refused", () => WodenRallyEdge.AdmissionChecks.Route(Check));
 Test("S2 admission writes a route-compatible derived package and never changes the S1 original", () => WodenRallyEdge.AdmissionChecks.Admission(Check));
 Test("S2 admission refuses originals outside the native-arcade-v1 first-stage scope", () => WodenRallyEdge.AdmissionChecks.Scope(Check));

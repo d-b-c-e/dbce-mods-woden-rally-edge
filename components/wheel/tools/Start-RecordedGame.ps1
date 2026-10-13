@@ -118,11 +118,22 @@ if (!(Test-Path -LiteralPath $source)) { throw "The correlated source recording 
 $finalizer = Join-Path $PSScriptRoot 'WodenCaseFinalizer.exe'
 if (!(Test-Path -LiteralPath $finalizer -PathType Leaf)) { throw "Installed case finalizer is missing: $finalizer" }
 & $finalizer reprocess $captureDirectory
-if ($LASTEXITCODE -ne 0) {
+$reprocessed = $LASTEXITCODE -eq 0
+# A first-stage package the game handed off at close is completed before any finalization notice, whether or not the
+# force case qualified. The two outcomes stay separate: the notice's State is the force case only, and the package's
+# own files (session.json + complete.tsv, or full-session-incomplete.txt) say how the package ended.
+$packageNote = $null
+if (Test-Path -LiteralPath (Join-Path $captureDirectory 'full-session-pending.json') -PathType Leaf) {
+    & $finalizer package $captureDirectory
+    $packageNote = if ($LASTEXITCODE -eq 0) { 'First-stage package sealed by the companion.' } else { 'First-stage package not sealed; see full-session-incomplete.txt in the capture.' }
+}
+if (!$reprocessed) {
     Write-Finalization $controlRoot $requestId 'incomplete' 'Source or driving signal validation failed; original source retained.'
+    if ($packageNote) { Write-Host $packageNote }
     throw "Recording source closed but driving readiness/signal reprocessing failed. Source retained unchanged: $source"
 }
 Write-Finalization $controlRoot $requestId 'saved' ''
+if ($packageNote) { Write-Host $packageNote }
 $observation = Join-Path $captureDirectory 'force-observation.jsonl'
 Write-Host "Source: $source"
 Write-Host "Source SHA-256: $((Get-FileHash -LiteralPath $source).Hash.ToLowerInvariant())"

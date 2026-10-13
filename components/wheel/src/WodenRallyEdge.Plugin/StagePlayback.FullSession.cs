@@ -119,7 +119,9 @@ internal static partial class StagePlayback
         catch (Exception ex) { full.Fail("update: " + ex.Message); }
     }
 
-    /// <summary>Plugin stop, after the ordinary recorder closed: finish the package within a bounded wait.</summary>
+    /// <summary>Plugin stop, after the ordinary recorder closed. Never parses or hashes a source on this thread: within
+    /// 10 s it waits only for the detached stage seal or a commit already begun, otherwise it hands the package to the
+    /// companion's finalizer (full-session-pending.json).</summary>
     internal static void FinishFullOnExit()
     {
         var full = _full;
@@ -128,10 +130,7 @@ internal static partial class StagePlayback
         {
             full.Stop(Runtime.Clock.Elapsed.TotalSeconds);
             if (!full.Terminal && full.Failure == null && TerminalSource(Runtime.Output?.RecordingStatus))
-            {
-                var task = _fullPackage ?? Task.Run(full.Package);
-                if (!task.Wait(TimeSpan.FromSeconds(10))) full.Abandon("Game closed before package verification finished; the original capture files are retained.");
-            }
+                full.CloseForExit(TimeSpan.FromSeconds(10), _fullPackage);
             else if (!full.Terminal) full.Abandon("Game closed before the ordinary signal file was closed; the original capture files are retained.");
             Report(full);
         }
@@ -146,6 +145,7 @@ internal static partial class StagePlayback
         if (state == null || state == _fullReported) return;
         _fullReported = state;
         if (state == "package") Runtime.Log.LogInfo($"Ordinary full-session package sealed: {full.Poses} poses; playback not admitted yet | {full.Root}");
+        else if (state == "pending") Runtime.Log.LogInfo($"Ordinary full-session package handed to the companion's finalizer: {full.Poses} poses | {full.Root}");
         else Runtime.Log.LogWarning("Ordinary full-session capture incomplete: " + (full.Failure ?? "see " + OrdinaryFullSession.IncompleteFile) + " | " + full.Root);
     }
 }

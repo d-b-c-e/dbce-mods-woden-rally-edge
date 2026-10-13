@@ -120,6 +120,7 @@ internal static class FullSessionChecks
         public string Path_(string name) => Path.Combine(Root, name);
         public void Dispose()
         {
+            try { Session.WaitStageSeal(TimeSpan.FromSeconds(30)); } catch { } // the detached seal still writes into Temp
             try { Ordinary.Dispose(); } catch { }
             try { Directory.Delete(Temp, true); } catch { }
         }
@@ -372,6 +373,186 @@ internal static class FullSessionChecks
             "the stage-open physical-output flag reflects every current output gate");
     }
 
+    // A finished stage and the ordinary recorder closed: Stop is next.
+    static void Capture(Fixture f, int poses = 40)
+    {
+        f.Menus(); f.Open();
+        for (int i = 0; i < poses; i++) f.Tick();
+        f.Session.Seal("finished", true, f.Now);
+        f.Session.Scene("StagePresentation", false, f.Now += 1);
+        f.CloseOrdinary();
+    }
+    static readonly string[] PackageFiles = { "session.json", "complete.tsv", "source.session.jsonl", "source.stage-session.json" };
+    static string[] Kinds(string root) => File.ReadAllLines(Path.Combine(root, "source.session.jsonl")).Select(l => (string)JsonNode.Parse(l)!["kind"]!).ToArray();
+
+    /// <summary>The stage seal runs detached from the game thread; its journal row and the observed finish keep their
+    /// place and time at the stage end, and a failed detached seal is recorded in that same row.</summary>
+    public static void DetachedSeal(Action<bool, string> check)
+    {
+        using (var f = new Fixture())
+        {
+            f.Menus(); f.Open();
+            for (int i = 0; i < 40; i++) f.Tick();
+            using var running = new ManualResetEventSlim(); using var release = new ManualResetEventSlim();
+            f.Session.StageSealRunning = () => { running.Set(); release.Wait(TimeSpan.FromSeconds(30)); };
+            double stageEnd = f.Now;
+            var clock = Stopwatch.StartNew();
+            f.Session.Seal("finished", true, f.Now);
+            double returned = clock.Elapsed.TotalSeconds;
+            check(running.Wait(TimeSpan.FromSeconds(30)) && returned < 2 && !f.Session.StageOpen &&
+                !File.Exists(Path.Combine(f.Root, "source.stage", "complete.tsv")), $"Seal returned in {returned:0.000} s while the drain and hash wait detached");
+            check(!f.Session.WaitStageSeal(TimeSpan.Zero), "the detached seal is still running");
+            f.Session.Scene("StagePresentation", false, f.Now += 1); // an event after the stage end, before the seal resolves
+            release.Set();
+            f.CloseOrdinary(); f.Session.Stop(f.Now += .1); f.Session.Package();
+            check(f.Session.Outcome == "package", "package sealed after the detached seal: " + Read(f.Path_(OrdinaryFullSession.IncompleteFile)));
+            var kinds = Kinds(f.Root);
+            int sealedAt = Array.IndexOf(kinds, "stage-sealed");
+            check(sealedAt > 0 && kinds[sealedAt + 1] == "scene" && kinds[^2] == "stop" && kinds[^1] == "end",
+                "journal order is the order of events: " + string.Join(",", kinds));
+            var timeline = JsonSerializer.Deserialize<FullSessionTimeline>(File.ReadAllBytes(f.Path_("source.stage-session.json")))!;
+            var finish = timeline.Steps.First(s => s.State?.Phase == FullSessionPhase.Finish);
+            var scene = timeline.Steps.Last(s => s.State?.Marker == "scene:StagePresentation");
+            check(finish.AtSeconds == stageEnd && finish.AtSeconds < scene.AtSeconds, $"the finish is observed at the true stage end ({finish.AtSeconds} s), before the later scene");
+        }
+        using (var f = new Fixture())
+        {
+            f.Menus(); f.Open();
+            f.Tick(); // one pose: the detached seal refuses it
+            f.Session.Seal("driving eligibility ended", false, f.Now);
+            f.Session.Scene("StagePresentation", false, f.Now += 1);
+            f.CloseOrdinary(); f.Session.Stop(f.Now += .1); f.Session.Package();
+            var kinds = Kinds(f.Root);
+            check(f.Session.Outcome == "incomplete" && File.Exists(Path.Combine(f.Root, "source.stage", "incomplete.txt")) &&
+                Array.IndexOf(kinds, "stage-incomplete") is > 0 and var at && kinds[at + 1] == "scene" && !kinds.Contains("stage-sealed"),
+                "a failed detached seal is recorded in its reserved row and leaves the capture incomplete: " + string.Join(",", kinds));
+        }
+    }
+
+    /// <summary>Game close hands the package to the companion's finalizer without parsing or hashing a source, and the
+    /// finalizer's package is byte-identical to the one the in-game worker seals from the same capture.</summary>
+    public static void ExitHandoff(Action<bool, string> check)
+    {
+        using var f = new Fixture();
+        Capture(f);
+        f.Session.Stop(f.Now += .1);
+        check(f.Session.WaitStageSeal(TimeSpan.FromSeconds(30)), "stage sealed");
+        string copy = Path.Combine(f.Temp, Path.GetFileName(f.Root) + "-closed");
+        CopyTree(f.Root, copy); // the same capture, before any package output
+        f.Session.Package();
+        check(f.Session.Outcome == "package", "the worker sealed the original: " + Read(f.Path_(OrdinaryFullSession.IncompleteFile)));
+        f.Session.HandOff(copy); // what game close writes, into the copy
+        check(File.Exists(Path.Combine(copy, OrdinaryFullSession.PendingFile)) && File.Exists(Path.Combine(copy, "source.stage-session.json")) &&
+            !File.Exists(Path.Combine(copy, "source.session.jsonl")) && !File.Exists(Path.Combine(copy, "session.json")),
+            "the handoff writes only the timeline and itself (no observation: its end row needs the parsed source)");
+        var pending = JsonNode.Parse(File.ReadAllText(Path.Combine(copy, OrdinaryFullSession.PendingFile)))!;
+        check((string?)pending["schema"] == OrdinaryFullSession.PendingSchema && (string?)pending["origin"] == "diagnostic" &&
+            pending["journal"]!.AsArray().Count == Kinds(f.Root).Length - 1, "handoff schema, origin and every journal row but the end");
+        var outcome = OrdinaryFullSession.PackageOffline(copy);
+        check(outcome.Outcome == "package" && !File.Exists(Path.Combine(copy, OrdinaryFullSession.PackagingLock)), "the finalizer sealed the copy: " + outcome.Reason);
+        foreach (string name in PackageFiles)
+            check(File.ReadAllBytes(f.Path_(name)).AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(copy, name))), name + " is byte-identical to the worker's");
+        ArtifactSeal.Verify(copy, FullSessionPackageNames.FromSignal("source.jsonl").OuterSealFiles());
+        var again = OrdinaryFullSession.PackageOffline(copy);
+        check(again.Outcome == "refused" && again.Reason.Contains("already decided", StringComparison.Ordinal), "a second run refuses: " + again.Reason);
+    }
+
+    /// <summary>Who owns the outcome when the game closes during packaging. A worker that has not begun its commit loses
+    /// and writes nothing; a commit already begun is waited for (bounded) and keeps the outcome; a stage seal still
+    /// running when the budget ends leaves the capture incomplete, and the late worker writes nothing either.</summary>
+    public static void ExitRaces(Action<bool, string> check)
+    {
+        using (var f = new Fixture())
+        {
+            Capture(f); f.Session.Stop(f.Now += .1);
+            using var verified = new ManualResetEventSlim(); using var release = new ManualResetEventSlim();
+            f.Session.PrepareFinished = () => { verified.Set(); release.Wait(TimeSpan.FromSeconds(30)); };
+            var worker = Task.Run(f.Session.Package);
+            check(verified.Wait(TimeSpan.FromSeconds(30)), "the worker verified the capture");
+            f.Session.CloseForExit(TimeSpan.FromSeconds(10), worker);
+            check(f.Session.Outcome == "pending" && File.Exists(f.Path_(OrdinaryFullSession.PendingFile)), "game close won the outcome and handed off");
+            release.Set();
+            check(worker.Wait(TimeSpan.FromSeconds(30)) && !File.Exists(f.Path_("source.session.jsonl")) && !File.Exists(f.Path_("session.json")) &&
+                !File.Exists(f.Path_(OrdinaryFullSession.IncompleteFile)) && f.Session.Outcome == "pending", "the losing worker wrote nothing");
+            check(OrdinaryFullSession.PackageOffline(f.Root).Outcome == "package", "the finalizer completes the handoff");
+        }
+        using (var f = new Fixture())
+        {
+            Capture(f); f.Session.Stop(f.Now += .1);
+            using var started = new ManualResetEventSlim(); using var release = new ManualResetEventSlim();
+            f.Session.CommitStarted = () => { started.Set(); release.Wait(TimeSpan.FromSeconds(30)); };
+            var worker = Task.Run(f.Session.Package);
+            check(started.Wait(TimeSpan.FromSeconds(30)), "the worker began its commit");
+            var clock = Stopwatch.StartNew();
+            f.Session.CloseForExit(TimeSpan.FromMilliseconds(300), worker);
+            check(clock.Elapsed < TimeSpan.FromSeconds(5) && !f.Session.Terminal && !File.Exists(f.Path_(OrdinaryFullSession.PendingFile)),
+                "a running commit keeps the outcome: close waits within its budget and hands nothing off");
+            release.Set();
+            check(worker.Wait(TimeSpan.FromSeconds(30)) && f.Session.Outcome == "package" && !File.Exists(f.Path_(OrdinaryFullSession.PendingFile)), "the commit completes");
+        }
+        using (var f = new Fixture(new RecordingOptions { QueueCapacity = 512, MaxDurationSeconds = 1, MaxFileBytes = 64L * 1024 * 1024, MaxChannelsPerSample = 512 }))
+        {
+            f.Menus(); f.Open();
+            for (int i = 0; i < 80; i++) f.Tick(); // past the 1 s limit: this worker's verification will fail
+            using var running = new ManualResetEventSlim(); using var release = new ManualResetEventSlim();
+            f.Session.StageSealRunning = () => { running.Set(); release.Wait(TimeSpan.FromSeconds(30)); };
+            f.CloseOrdinary(); f.Session.Stop(f.Now += .1); // seals the open stage, detached
+            check(running.Wait(TimeSpan.FromSeconds(30)), "the stage seal is running");
+            using var packaging = new ManualResetEventSlim();
+            f.Session.VerificationStarted = packaging.Set;
+            var worker = Task.Run(f.Session.Package);           // then waits for the seal inside its verification
+            check(packaging.Wait(TimeSpan.FromSeconds(30)), "the worker is packaging before the game closes");
+            f.Session.CloseForExit(TimeSpan.FromMilliseconds(300), worker);
+            check(f.Session.Outcome == "incomplete" && Read(f.Path_(OrdinaryFullSession.IncompleteFile)).Contains("stage seal finished", StringComparison.Ordinal) &&
+                !File.Exists(f.Path_(OrdinaryFullSession.PendingFile)), "a stage seal still running at the end of the budget leaves the capture incomplete");
+            release.Set();
+            check(worker.Wait(TimeSpan.FromSeconds(30)) && !File.Exists(f.Path_("source.stage-session.json")) &&
+                Read(f.Path_(OrdinaryFullSession.IncompleteFile)).Contains("stage seal finished", StringComparison.Ordinal),
+                "the late worker's failure writes neither its timeline nor its marker");
+        }
+    }
+
+    /// <summary>The finalizer refuses, writing nothing, without a handoff, while another finalizer holds the lock, or when
+    /// the outcome is decided; a timeline changed after the handoff ends in the marker, never a package.</summary>
+    public static void FinalizerRefusals(Action<bool, string> check)
+    {
+        using var f = new Fixture();
+        Capture(f); f.Session.Stop(f.Now += .1);
+        f.Session.CloseForExit(TimeSpan.FromSeconds(10), null);
+        check(f.Session.Outcome == "pending", "the production close path wrote the handoff");
+        string Variant(string name) { string path = Path.Combine(f.Temp, name); CopyTree(f.Root, path); return path; }
+        string[] Listing(string root) => Directory.GetFiles(root, "*", SearchOption.AllDirectories).Select(p => p[root.Length..]).OrderBy(p => p, StringComparer.Ordinal).ToArray();
+
+        string none = Variant("no-handoff");
+        File.Delete(Path.Combine(none, OrdinaryFullSession.PendingFile));
+        var before = Listing(none);
+        var r = OrdinaryFullSession.PackageOffline(none);
+        check(r.Outcome == "refused" && Listing(none).SequenceEqual(before), "no handoff: refused, nothing written (" + r.Reason + ")");
+
+        string locked = Variant("locked");
+        before = Listing(locked);
+        using (new FileStream(Path.Combine(locked, OrdinaryFullSession.PackagingLock), FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose))
+        {
+            r = OrdinaryFullSession.PackageOffline(locked);
+            check(r.Outcome == "refused" && r.Reason.Contains("lock", StringComparison.Ordinal), "another finalizer holds the lock: refused (" + r.Reason + ")");
+        }
+        check(Listing(locked).SequenceEqual(before), "the refused run wrote nothing");
+
+        string decided = Variant("decided");
+        File.WriteAllText(Path.Combine(decided, OrdinaryFullSession.IncompleteFile), "decided elsewhere\n");
+        r = OrdinaryFullSession.PackageOffline(decided);
+        check(r.Outcome == "refused" && !File.Exists(Path.Combine(decided, "session.json")), "an existing marker: refused (" + r.Reason + ")");
+
+        string changed = Variant("changed");
+        File.AppendAllText(Path.Combine(changed, "source.stage-session.json"), " ");
+        r = OrdinaryFullSession.PackageOffline(changed);
+        check(r.Outcome == "incomplete" && !File.Exists(Path.Combine(changed, "session.json")) &&
+            Read(Path.Combine(changed, OrdinaryFullSession.IncompleteFile)).Contains("timeline differs", StringComparison.Ordinal), "a changed timeline ends in the marker");
+
+        r = OrdinaryFullSession.PackageOffline(f.Root);
+        check(r.Outcome == "package", "the untouched capture packages: " + r.Reason);
+    }
+
     /// <summary>The stage copy records for as long as the ordinary capture, so it takes the ordinary profile, as the
     /// ordinary source does by default. Read from the live recorders' own option snapshots.</summary>
     public static void StageProfile(Action<bool, string> check)
@@ -395,7 +576,7 @@ internal static class FullSessionChecks
     /// force controller, with rows widened by channels no force, crash or replay path reads. Prints the stage seal (game
     /// thread), the package (worker) and the case finalizer's reprocess, with memory. Asserts only that each completes;
     /// the existing bounds are compared in the report, not here.</summary>
-    public static void LongSession(Action<bool, string> check, double seconds, bool longestText)
+    public static void LongSession(Action<bool, string> check, double seconds, bool longestText, bool exitPath = false)
     {
         var (controller, _) = ForceControllerChecks.Create(); controller.Prepare();
         var force = new ForceOptions();
@@ -427,13 +608,27 @@ internal static class FullSessionChecks
         double produced = clock.Elapsed.TotalSeconds;
 
         double seal = Time(() => f.Session.Seal("finished", true, f.Now));
+        double detached = Time(() => f.Session.WaitStageSeal(Timeout.InfiniteTimeSpan));
         check(!f.Session.StageOpen && f.Session.Failure == null && File.Exists(Path.Combine(f.Root, "source.stage", "complete.tsv")), "stage sealed: " + f.Session.Failure);
         f.Session.Scene("StagePresentation", false, f.Now += 1);
         f.CloseOrdinary();
         check(f.Ordinary.RecordingStatus == "Completed" && f.Ordinary.RecordingDrops == 0, "ordinary source completed without drops: " + f.Ordinary.RecordingStatus);
         f.Session.Stop(f.Now += .1);
-        double package = Time(f.Session.Package);
-        check(f.Session.Outcome == "package", "package sealed: " + f.Session.Failure + " " + Read(f.Path_(OrdinaryFullSession.IncompleteFile)));
+        // WODEN_LONG_SESSION_EXIT=1: game close as the stop. The close hands off; the companion's finalizer packages.
+        double package, close = double.NaN;
+        if (exitPath)
+        {
+            close = Time(() => f.Session.CloseForExit(TimeSpan.FromSeconds(10), null));
+            check(f.Session.Outcome == "pending", "game close handed the package off: " + Read(f.Path_(OrdinaryFullSession.IncompleteFile)));
+            OrdinaryFullSession.OfflineOutcome? offline = null;
+            package = Time(() => offline = OrdinaryFullSession.PackageOffline(f.Root));
+            check(offline?.Outcome == "package", "the finalizer sealed the package: " + offline?.Reason);
+        }
+        else
+        {
+            package = Time(f.Session.Package);
+            check(f.Session.Outcome == "package", "package sealed: " + f.Session.Failure + " " + Read(f.Path_(OrdinaryFullSession.IncompleteFile)));
+        }
 
         // The package's reads and hashes again, now from the OS cache, to attribute its time.
         string outer = f.Path_("source.jsonl"), stage = Path.Combine(f.Root, "source.stage", "source.jsonl");
@@ -455,8 +650,11 @@ internal static class FullSessionChecks
         long outerBytes = new FileInfo(outer).Length, stageBytes = new FileInfo(stage).Length;
         Console.WriteLine($"  long session: {seconds:0.#} s at {RecordingProfiles.PhysicsHz} Hz, {(longestText ? "longest-text" : "measured-like")} filler; produced in {produced:0.0} s");
         Console.WriteLine($"  ordinary source {Mb(outerBytes)} MB, {outerRows} rows, {outerBytes / Math.Max(1, outerRows)} B/row; stage copy {Mb(stageBytes)} MB, {stageRows} rows, {stageBytes / Math.Max(1, stageRows)} B/row");
-        Console.WriteLine($"  stage seal (game thread): {seal:0.00} s");
-        Console.WriteLine($"  package (worker): {package:0.00} s [bounds: 60 s to reach the commit, 300 s for a running commit, 10 s at game close]");
+        Console.WriteLine($"  stage seal: game thread {seal:0.000} s; detached drain + seal {detached:0.00} s");
+        if (exitPath)
+            Console.WriteLine($"  game close (game thread, hand-off): {close:0.000} s; companion finalizer package: {package:0.00} s [bound: 10 s at game close, finalizer unbounded]");
+        else
+            Console.WriteLine($"  package (worker): {package:0.00} s [bounds: 60 s to reach the commit, 300 s for a running commit]");
         Console.WriteLine($"    cached re-reads: ordinary source stream {readOuter:0.00} s, stage copy stream {readStage:0.00} s; SHA-256 {hashOuter:0.00} s and {hashStage:0.00} s");
         Console.WriteLine($"  case reprocess (after exit): {reprocess:0.00} s; {result!.SourceSamples} source, {result.ModelSamples} model and {result.DrivingSamples} driving samples over {result.DrivingSeconds:0.###} s");
         long Size(params string[] parts) => new FileInfo(Path.Combine(new[] { f.Root }.Concat(parts).ToArray())).Length;

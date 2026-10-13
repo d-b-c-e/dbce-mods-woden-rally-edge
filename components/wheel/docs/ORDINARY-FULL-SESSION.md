@@ -16,6 +16,8 @@ saved evidence until the cold-start route (S2) is qualified. Old flat captures a
 | `session.json` | `woden.full-session-package@1`: `game`, `gameBuildSha256`, `recordedUtc`, `origin`, `outcome` (`stopped` or `completed-stage`), `durationSeconds`, `car`, `biome`, the four payload names and `playbackUnavailableReason`. Never `playbackAdapter`. |
 | `complete.tsv` | Outer seal over `session.json`, `source.jsonl`, `source.session.jsonl`, `source.stage-session.json`, `source.stage/complete.tsv`. |
 | `full-session-incomplete.txt` | One line, written **instead of** a package when the capture failed, recorded no sealed stage, the source did not complete (including a limit stop) or failed, or the package could not be verified. |
+| `full-session-pending.json` | `woden.full-session-pending@1`, at most 1 MiB, written only at game close when the package was not finished in the game: game build, `origin` and `inputOrigin` (the finalizer refuses an origin that does not follow from it, and ends in the marker if the source states another), signal name, the timeline's SHA-256, the stage seal, pose count and the observation rows so far (each exactly as it will be written, without `end`). The companion's finalizer turns it into the package or the marker; it is never removed and is history once either exists. |
+| `full-session-packaging.lock` | Transient: held (delete-on-close) only while the finalizer packages. |
 
 A valid package is `session.json` with its verified outer `complete.tsv`. `session.json` is written only after the
 stage, timeline and source footer verified (nested seal, pose count, every stage row aligned to its pose, a
@@ -38,9 +40,24 @@ really exists; if the marker cannot be written, nothing claims an outcome and th
 - **Status.** The ordinary `control/status.txt` shows `Stopping` (inactive) after the recorder closes until
   a valid package or `full-session-incomplete.txt` exists, so the companion's Saved finalization follows the
   package. Bounds: 60 s after packaging starts for a package not yet committing (it is abandoned), 300 s for a
-  commit already running (released without claiming a package). On game close the package gets a bounded 10 s; then the
-  hold is released so the last status is the recorder's real state, even if a slow commit is still running. A
-  descriptor left without its outer seal is never a package: readers require `complete.tsv`.
+  commit already running (released without claiming a package). On game close the hold is released so the last status
+  is the recorder's real state. A descriptor left without its outer seal is never a package: readers require
+  `complete.tsv`.
+- **One owner of the outcome.** The package worker, game close and the status hold race for a single state. Whoever
+  wins it writes every package output (timeline, observation, descriptor, seal, marker, handoff); a loser writes
+  nothing. The worker's verification is read-only, so it can lose until it begins its commit.
+- **Detached stage seal.** At the stage end the game thread only reserves the stage's journal row, observes the finish
+  at that time and detaches the writers. The signal drain, the tape seal and its SHA-256 run on a worker. The row
+  reads `stage-sealed`, or `stage-incomplete` if that seal fails (then the capture is incomplete, as before).
+- **Game close.** No source is parsed or hashed on the game thread. Within 10 s the close waits only for the
+  detached stage seal or a commit the worker already began; otherwise it claims the outcome, writes the timeline
+  and `full-session-pending.json`, and the companion completes the package after the game exits
+  (`WodenCaseFinalizer package <capture>`): the same verification and commit as the worker, so the same bytes. A
+  stage seal still running at the end of the 10 s leaves the capture incomplete. Stop in the game is unchanged: the
+  worker packages within the 60 s hold.
+- **Companion order.** `Start-RecordedGame.ps1` runs the force-case reprocess, then the package step when a handoff
+  exists (also when the force case failed), and only then writes `control/finalization.json`. Its `State` is the force
+  case alone; the package's own files say how the package ended.
 - **Origin.** The request's optional `InputOrigin` (`human` or `automated`, exactly; omitted means `unknown`) is written
   to the source metadata, the observation header and the descriptor's `inputOrigin`. The DRIVE-shaped `origin` is `owner`
   only for `human` and `diagnostic` otherwise. It is never inferred from forces, injection or focus, the source and the
@@ -56,11 +73,11 @@ sealed package there for consumer tests.
 
 The 20-minute profile passed two synthetic 71,940-pose captures through the real
 writers, seals and force finalizer. Stop-in-game packaging took 20-24 seconds.
-Direct game close still exceeds the 10-second package wait at this size: original
-files are retained, but no playable package is claimed. Stage sealing stalled
-the game thread for 0.6-0.8 seconds. Moving that work and completing packages
-through the existing companion remain required before delivering long ordinary
-capture to the owner.
+Direct game close exceeded the 10-second package wait at this size, and stage
+sealing stalled the game thread for 0.6-0.8 seconds. Both are addressed by the
+detached stage seal and the game-close handoff above (Rules); remeasure with
+`WODEN_LONG_SESSION_EXIT=1`, which runs the close and the finalizer's package step
+instead of the in-game worker.
 
 The metadata/footer retention fix preserves full source validation and reduces
 measured finalizer peak managed memory from 3.2 GB to 2.0 GB; the 71,940 source,
