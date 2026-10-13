@@ -78,7 +78,7 @@ internal sealed class OrdinaryFullSession
     {
         double s = Seconds(now);
         if (_tape != null) SealCore("native load to " + to, false, s);
-        Journal("load", s, new JsonObject { ["from"] = from, ["to"] = to, ["method"] = method, ["selection"] = selection?.DeepClone() });
+        Journal("load", s, new JsonObject { ["from"] = from, ["to"] = to, ["method"] = method, ["selection"] = Clone(selection) });
         _capture.Observe(new FullSessionState { Phase = FullSessionPhase.Loading, Marker = "load:" + to }, _poses, s);
     });
 
@@ -309,6 +309,8 @@ internal sealed class OrdinaryFullSession
         catch (Exception ex) { Fail(ex.Message); }
     }
     private double Seconds(double now) => _lastSeconds = Math.Max(_lastSeconds, now - _clockOrigin);
+    // net6's System.Text.Json has no JsonNode.DeepClone; a node can have only one parent.
+    private static JsonNode? Clone(JsonNode? node) => node == null ? null : JsonNode.Parse(node.ToJsonString());
     private void Journal(string kind, double seconds, JsonObject detail)
     {
         // Reserve the end row; a longer observation is incomplete rather than silently truncated.
@@ -321,7 +323,7 @@ internal sealed class OrdinaryFullSession
         for (int i = 0; i < _journal.Count; i++)
         {
             var row = new JsonObject { ["seq"] = i };
-            foreach (var pair in _journal[i]) row[pair.Key] = pair.Value?.DeepClone();
+            foreach (var pair in _journal[i]) row[pair.Key] = Clone(pair.Value);
             text.Append(row.ToJsonString()).Append('\n');
         }
         WriteNew(Path.Combine(_root, _names.Observation), System.Text.Encoding.UTF8.GetBytes(text.ToString()));
