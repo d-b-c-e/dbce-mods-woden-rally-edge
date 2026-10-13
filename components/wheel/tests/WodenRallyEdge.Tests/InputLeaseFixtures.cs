@@ -31,7 +31,13 @@ namespace WodenRallyEdge
     internal sealed class WheelInput
     {
         internal readonly Bindings Bindings = new();
-        internal Guid? SteeringGuid => ShimInput.Owns ? ShimInput.SteeringGuid : Bindings.Steer?.DeviceGuid;
+        // Mirrors production WheelInput (the UI fixture compiles the real file and checks each state).
+        internal Guid? SteeringGuid => ShimInput.Owns ? ShimInput.SteeringGuid : ShimInput.PendingShared ? null : Bindings.Steer?.DeviceGuid;
+        internal string? SteeringReason =>
+            ShimInput.Owns ? (ShimInput.SteeringGuid.HasValue ? null : "The shared controls profile has no usable steering binding. Check it and restart.")
+            : ShimInput.StoppedBeforeOpen ? "Shared input stopped before opening; the force wheel follows its steering after a restart."
+            : ShimInput.PendingShared ? "Waiting for the shared controls profile to open; the force wheel follows its steering binding."
+            : null;
         internal readonly HashSet<string> Pressed = new();
         internal MainCar? HandbrakeCar;
         internal float HandbrakeAmount;
@@ -39,7 +45,7 @@ namespace WodenRallyEdge
     }
     internal static class ShimInput
     {
-        internal static bool Owns, Ready = true;
+        internal static bool Owns, Ready = true, PendingShared, StoppedBeforeOpen;
         internal static Guid? SteeringGuid;
         internal static string Status => "Fixture shim stopped";
         internal static float Axis(string id) => 0;

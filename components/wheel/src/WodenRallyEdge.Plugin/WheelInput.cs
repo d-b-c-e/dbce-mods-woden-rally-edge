@@ -12,7 +12,15 @@ internal sealed class WheelInput
     internal readonly HPatternShifter Shifter = new();
     /// <summary>Any gate is bound: the H-pattern drives the gearbox (sequential shift buttons still work out of gear).</summary>
     internal bool HPatternBound => ShimInput.Owns ? ShimInput.HPattern : GateActions.Any(Bindings.Buttons.ContainsKey);
-    internal Guid? SteeringGuid => ShimInput.Owns ? ShimInput.SteeringGuid : Bindings.Steer?.DeviceGuid;
+    // The force wheel's follow-steering identity: the shared profile's steering once the shim owns input; none while
+    // shared input is requested but not owning and not actually refused (a stale legacy wheel never opens); the native
+    // Steer binding otherwise (Native backend, or the shim refused with Native retained).
+    internal Guid? SteeringGuid => ShimInput.Owns ? ShimInput.SteeringGuid : ShimInput.PendingShared ? null : Bindings.Steer?.DeviceGuid;
+    internal string? SteeringReason =>
+        ShimInput.Owns ? (ShimInput.SteeringGuid.HasValue ? null : "The shared controls profile has no usable steering binding. Check it and restart.")
+        : ShimInput.StoppedBeforeOpen ? "Shared input stopped before opening; the force wheel follows its steering after a restart."
+        : ShimInput.PendingShared ? "Waiting for the shared controls profile to open; the force wheel follows its steering binding."
+        : null;
     /// <summary>The held gate: 1..6, <see cref="HPatternShifter.Reverse"/>, or 0 out of gear.</summary>
     internal int HeldGate(MainCar? car = null)
     {

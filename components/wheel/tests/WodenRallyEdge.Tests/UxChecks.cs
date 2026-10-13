@@ -39,6 +39,9 @@ internal static class UxChecks
         check(ForceSelection.Resolve(true,b.ToString(),a,list).Guid==a,"follow uses saved Steering GUID even with explicit history");
         check(ForceSelection.Resolve(false,b.ToString(),a,list.Reverse()).Guid==b,"override survives enumeration reorder and Steering change");
         check(!ForceSelection.Resolve(true,b.ToString(),null,list).Ready,"unbound steering cannot fall back to old override");
+        check(ForceSelection.Resolve(true,"",null,list,"Waiting for the shared controls profile").Reason=="Waiting for the shared controls profile"&&
+            ForceSelection.Resolve(true,"",null,list).Reason.StartsWith("Bind Steering"),"follow-steering without identity carries the caller's reason, else the Native one");
+        check(ForceSelection.Resolve(false,b.ToString(),null,list,"Waiting for the shared controls profile").Guid==b,"an explicit selection ignores the follow-steering reason");
         check(!ForceSelection.Resolve(false,a.ToString(),b,list.Skip(1)).Ready,"missing exact override cannot use different wheel");
         check(!ForceSelection.Resolve(true,"",a,new[]{list[0],list[0]}).Ready,"duplicate identity is ambiguous");
         check(!ForceSelection.Resolve(true,"",a,new[]{list[0] with {ForceFeedback=false}}).Ready,"non-FFB Steering is inactive");

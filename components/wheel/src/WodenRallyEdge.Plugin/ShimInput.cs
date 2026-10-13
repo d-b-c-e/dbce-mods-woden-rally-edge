@@ -22,6 +22,10 @@ internal static partial class ShimInput
     internal static bool Owns { get; private set; }
     internal static bool Ready => Owns && !_terminal;
     internal static Guid? SteeringGuid { get; private set; }
+    /// <summary>Shared input is requested and not actually refused, but does not own input (yet, or it stopped before
+    /// opening). The force wheel then has no follow-steering identity: never the legacy native Steer binding.</summary>
+    internal static bool PendingShared => _requested && !_refused && !Owns;
+    internal static bool StoppedBeforeOpen => PendingShared && _terminal;
     internal static string Status { get; private set; } = "Native backend (standalone bindings)";
     // The shared native profile reports Wheelkit's persisted H-pattern label;
     // earlier fixtures and profiles can also report the compact legacy token.

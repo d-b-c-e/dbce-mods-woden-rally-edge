@@ -101,7 +101,8 @@ internal sealed class DeviceHub : IDisposable
         .Where(i => d.Buttons[i] != 0 && d.Previous[i] == 0).Select(i => new ButtonBinding(d.Info.InstanceGuid!.Value, i)));
     internal string Describe(Guid guid) => Devices.FirstOrDefault(x => x.Info.InstanceGuid == guid)?.Info.Name ?? "Disconnected " + guid.ToString("D")[..8];
     internal ForceTarget ResolveForceTarget(bool follow, string guid, Guid? steering) => ForceSelection.Resolve(follow, guid, steering,
-        Devices.Where(d => d.Info.InstanceGuid.HasValue).Select(d => new ForceCandidate(d.Info.InstanceGuid!.Value, d.Info.Name, d.Info.ForceFeedback, DevicePreference.IsVirtualDevice(d.Info.Name))));
+        Devices.Where(d => d.Info.InstanceGuid.HasValue).Select(d => new ForceCandidate(d.Info.InstanceGuid!.Value, d.Info.Name, d.Info.ForceFeedback, DevicePreference.IsVirtualDevice(d.Info.Name))),
+        Runtime.Wheel?.SteeringReason);
     internal bool IsReading(Guid guid) => Devices.Any(x => x.Info.InstanceGuid == guid && x.Ok);
     public void Dispose() => CloseReaders();
 }

@@ -114,6 +114,27 @@ internal static partial class ShimChecks
         Check(Delivers("Gear up")&&Delivers("Gear down")&&!Delivers("Gear 1")&&!Delivers("Gear 2")&&
             !Delivers("Clutch")&&!Delivers("Pause"),"Sequential car trial delivers only shift edges");
 
+        // The force wheel never follows a stale native Steer binding while shared input is requested and has not
+        // actually been refused (pending, or stopped before opening). An explicit FFB wheel always wins.
+        var legacy=Guid.Parse("cccccccc-1111-2222-3333-444444444444");
+        Reset(dir);Runtime.Wheel!.Bindings.Steer=new(legacy,0,new(0,65535,32768));
+        Runtime.Devices!.Devices.Add(new DeviceHub.Device{Info=new(){InstanceGuid=legacy,Name="Legacy wheel"}});
+        Runtime.Devices.Devices.Add(new DeviceHub.Device{Info=new(){InstanceGuid=steering,Name="Shared wheel"}});
+        var pendingTarget=Runtime.Devices.ResolveForceTarget(true,"",Runtime.Wheel.SteeringGuid);
+        Check(ShimInput.PendingShared&&Runtime.Wheel.SteeringGuid==null&&!pendingTarget.Ready&&pendingTarget.Reason.StartsWith("Waiting for the shared controls profile"),
+            "pending shared profile: a stale legacy Steer is not a follow-steering FFB target");
+        Check(Runtime.Devices.ResolveForceTarget(false,legacy.ToString(),Runtime.Wheel.SteeringGuid).Guid==legacy,"pending shared profile: an explicit FFB wheel still wins");
+        Set("_terminal",true);
+        var stopped=Runtime.Devices.ResolveForceTarget(true,"",Runtime.Wheel.SteeringGuid);
+        Check(ShimInput.StoppedBeforeOpen&&!stopped.Ready&&stopped.Reason.StartsWith("Shared input stopped before opening"),"stopped before opening (not refused): the legacy Steer stays blocked");
+        Set("_terminal",false);Set("_refused",true);
+        Check(!ShimInput.PendingShared&&Runtime.Devices.ResolveForceTarget(true,"",Runtime.Wheel.SteeringGuid).Guid==legacy,"an actual refusal (Native retained) follows the native Steer binding");
+        Reset(dir);Runtime.Settings.InputBackend="Native";ShimInput.Start(AppContext.BaseDirectory,dir,Path.Combine(dir,"reports"));
+        Runtime.Wheel!.Bindings.Steer=new(legacy,0,new(0,65535,32768));
+        Check(!ShimInput.PendingShared&&Runtime.Wheel.SteeringGuid==legacy&&Runtime.Wheel.SteeringReason==null,"Native backend follows the native Steer binding as before");
+        Set("<Owns>k__BackingField",true);Set("<SteeringGuid>k__BackingField",null!);
+        Check(Runtime.Wheel.SteeringGuid==null&&Runtime.Wheel.SteeringReason!.StartsWith("The shared controls profile has no usable steering"),"owning without a steering identity names the shared profile, never the native Steer");
+
         var producer=new GamePadSystem();var pad=new GamePadSystem.Game_Pad();producer.Game_Pads.Add(pad);
         Reset(dir);Gamepad.all.Add(new());ShimInput.BeforeStock(producer);Next();
         Check(!ShimInput.Owns&&_opens==0&&Gamepad.all.Count==1,"unrelated current gamepad refuses before open and remains enabled/present");
@@ -126,6 +147,11 @@ internal static partial class ShimChecks
         GameWindow.Window=123;Frame("steer",.4f);Frame("throttle",.7f);Frame("brake",.2f);Next();
         Check(ShimInput.Owns&&ShimInput.Ready&&_opens==1&&_profile.SequenceEqual(exact),"ordinary open owns exact bytes once");
         Check(Runtime.Wheel!.SteeringGuid==steering,"FFB follows shared profile exact GUID, not legacy JSON or product/name");
+        Runtime.Wheel.Bindings.Steer=new(legacy,0,new(0,65535,32768));
+        Check(Runtime.Wheel.SteeringGuid==steering&&Runtime.Wheel.SteeringReason==null,"owning: a stale legacy Steer never replaces the shared steering identity");
+        Set("_terminal",true);
+        Check(ShimInput.Owns&&!ShimInput.Ready&&!ShimInput.PendingShared&&Runtime.Wheel.SteeringGuid==steering,"stopped after owning: ownership stays sticky and never returns to the legacy Steer");
+        Set("_terminal",false);
         Check(ShimActionMap.UnsupportedNames.All(id=>_unsupported.Contains(id+"=")),"unsupported action reasons supplied to Core");
         MenuCameraScript.Available=true;MenuCameraScript.Exiting=false;
         var daily=new DailyMessage();StartupWheelControls.Daily(daily)?.Restore();Runtime.Clock.Advance(.11);Next();StartupWheelControls.Daily(daily)?.Restore();

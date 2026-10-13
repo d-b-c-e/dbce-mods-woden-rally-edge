@@ -17,12 +17,15 @@ public sealed record ForceTarget(Guid? Guid, string Reason)
 public sealed record ForceCandidate(Guid Guid, string Name, bool ForceFeedback, bool Virtual = false);
 public static class ForceSelection
 {
-    public static ForceTarget Resolve(bool followSteering, string explicitGuid, Guid? steering, IEnumerable<ForceCandidate> candidates)
+    /// <param name="steeringReason">Why following steering has no identity, when the caller knows better than an unbound
+    /// Native Steering (a pending or empty shared controls profile).</param>
+    public static ForceTarget Resolve(bool followSteering, string explicitGuid, Guid? steering, IEnumerable<ForceCandidate> candidates,
+        string? steeringReason = null)
     {
         Guid guid;
         if (followSteering)
         {
-            if (!steering.HasValue || steering == Guid.Empty) return new(null, "Bind Steering in Controls to select its wheel.");
+            if (!steering.HasValue || steering == Guid.Empty) return new(null, steeringReason ?? "Bind Steering in Controls to select its wheel.");
             guid = steering.Value;
         }
         else if (!Guid.TryParse(explicitGuid, out guid) || guid == Guid.Empty) return new(null, "Select an FFB device.");
