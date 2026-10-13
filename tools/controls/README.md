@@ -181,3 +181,12 @@ separate frame/identity evidence. Eighteen adversarial tests run with
 `py -3 tools/controls/test_native_verdict.py` (including a downstream MainCar
 override despite a correct Controls value). This is a bounded input-observation
 verdict, not a complete physical-controls or force qualification.
+
+Automatic menu/car trials now require their probe's successful terminal result,
+native car plateaus where applicable, runtime configuration verification and
+completed restoration before `Run-Controls.ps1` returns success. A successful
+restore alone is not an input pass. The result is written to `trial-verdict.json`
+after cleanup; incomplete, timed-out or failed trials return an error with the
+owner state already restored. The `commands` field counts the separate raw
+observer commands and may correctly be zero during shared-Core trials.
+`Test-TrialResult.ps1` checks these outcomes without launching a game.

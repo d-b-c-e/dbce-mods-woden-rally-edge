@@ -379,3 +379,14 @@ try {
     $null=Exit-StageRigLease -Lease $lease
     if($verificationError){throw "$verificationError Owner state restored and lease released."}
 }
+# Evaluate input only after the finally block has restored owner state and
+# released the lease. Raw/admission runs retain their separate observer verdict.
+if($ShimMenuTrial -or $ShimCarTrial){
+    . "$PSScriptRoot/Trial-Result.ps1"
+    try {
+        Assert-ControlTrialResult -Result $Result -Mode $mode | ConvertTo-Json | Set-Content "$Result/trial-verdict.json"
+    } catch {
+        [ordered]@{schema=1;mode=$mode;status='failed';reason=$_.Exception.Message} | ConvertTo-Json | Set-Content "$Result/trial-verdict.json"
+        throw "$($_.Exception.Message) Owner state restored and lease released."
+    }
+}
