@@ -21,6 +21,19 @@ damping 0.05 and saved peak 25%. This synthetic straight-throttle workload prove
 useful recorded history/reference plumbing. It does not qualify normalization,
 representative steering feel, physical torque or input/FFB-reader coexistence.
 
+FFB-open coexistence with the shared input shim is **NOT TESTED** by these
+automated runs. `Run-Controls.ps1` writes `DisableForces=$true` for car trials
+(line 325), so `Runtime.DiagnosticNoForce` makes `ForceController.PrepareCore`
+return before target resolution or device Open (line 136). The latched shim
+trial also requires diagnostic no-force with FFB disabled
+(`ShimInput.Trial.cs`, line 17), and its observer requires zero force opens and
+attempts. The no-force native test DLL cannot demonstrate that wheel input
+continues after an FFB device opens. Sana selected an owner-attended ordinary
+launch with Backend = Shim and FFB enabled for that check: observe continuing
+wheel input and shim ticks after the log records FFB Open and the shared
+steering target. Until that attended observation, record coexistence as
+**NOT TESTED**, never PASS; the installed FFB tune is unchanged.
+
 The archived ordinary producer has a completed footer: 1,164 samples, 26 markers,
 zero drops, errors, contention or limits. `reprocess` accepted 964 model rows and
 630 driving rows over 10.484 s. A freshly built inspector from reviewed source

@@ -28,6 +28,7 @@ param(
     [Parameter(ParameterSetName='Run')][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ProbeSha256,
     [Parameter(ParameterSetName='Run')][string]$WindowCaptureDll,
     [Parameter(ParameterSetName='Run')][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$WindowCaptureSha256,
+    [Parameter(ParameterSetName='Run')][ValidatePattern('^[0-9]+,[0-9]+,[1-9][0-9]*,[1-9][0-9]*$')][string]$HudBurstCrop,
     [Parameter(ParameterSetName='Run')][string]$InspectorDll,
     [Parameter(ParameterSetName='Run')][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$InspectorSha256,
     [Parameter(ParameterSetName='Run')][ValidatePattern('^[^\r\n]+$')][string]$RigLeaseToken,
@@ -78,6 +79,7 @@ if($HudDepthDiagnosticPluginSha256 -and !$ShimHudOrdinary){throw 'HUD depth diag
 if($HudStateTracePluginSha256 -and !$ShimHudOrdinary){throw 'HUD state trace is only available in the ordinary moving trial.'}
 if($HudGuiDiagnosticPluginSha256 -and $HudDepthDiagnosticPluginSha256){throw 'Use one HUD diagnostic at a time.'}
 if($HudStateTracePluginSha256 -and ($HudGuiDiagnosticPluginSha256 -or $HudDepthDiagnosticPluginSha256)){throw 'Use one HUD diagnostic plugin pin at a time.'}
+if($HudBurstCrop -and !$ShimHudOrdinary){throw 'HUD burst crop is only available in the ordinary moving trial.'}
 if([bool]$HudDiagnosticCoreSha256 -ne [bool]($HudGuiDiagnosticPluginSha256 -or $HudDepthDiagnosticPluginSha256 -or $HudStateTracePluginSha256)){throw 'HUD diagnostic plugin and Core pins must be supplied together.'}
 if(($ShimForceCapture -or $ShimHudOrdinary) -and ($ShimMenuTrial -or ($ShimForceCapture -and $ShimHudOrdinary))){throw 'Choose one bounded trial mode.'}
 if($ShimForceCapture -or $ShimHudOrdinary){$ShimCarTrial=$true}
@@ -162,7 +164,9 @@ if($Recover) {
         # A hash alone cannot prove that a retained executable implements the
         # current burst CLI. A deliberately absent process must reach FindProcess
         # after parsing, without opening a window, device or game.
-        $cliOutput=(& dotnet $WindowCaptureDll dbce-wgc-cli-absent (Join-Path $env:TEMP 'woden-wgc-cli-preflight') --duration 3 --max-frames 60 2>&1 | Out-String)
+        $cliArgs=@($WindowCaptureDll,'dbce-wgc-cli-absent',(Join-Path $env:TEMP 'woden-wgc-cli-preflight'),'--duration','3','--max-frames','60')
+        if($HudBurstCrop){$cliArgs+=@('--crop',$HudBurstCrop)}
+        $cliOutput=(& dotnet @cliArgs 2>&1 | Out-String)
         if($LASTEXITCODE -ne 3 -or $cliOutput -notmatch 'no process dbce-wgc-cli-absent'){throw 'Pinned WGC binary does not support the bounded burst CLI.'}
     }
     if($ProbeSha256 -and (Get-ControlHash $probe) -ne $ProbeSha256){throw 'Developer probe differs from its reviewed SHA-256.'}
@@ -356,7 +360,9 @@ try {
         if($ShimHudOrdinary -and !$capture -and (Test-Path "$Result/trace/observations.tsv") -and
             (Select-String -LiteralPath "$Result/trace/observations.tsv" -Pattern 'car-trial-active.*batch=2' -Quiet)) {
             if((Get-ControlHash $WindowCaptureDll) -ne $WindowCaptureSha256){throw 'Capture tool changed before launch.'}
-            $capture=Start-Process dotnet -ArgumentList @($WindowCaptureDll,$game.Id,(Join-Path $Result 'hud-burst'),'--duration','3','--max-frames','60') -PassThru -NoNewWindow -RedirectStandardOutput "$Result/hud-capture.log" -RedirectStandardError "$Result/hud-capture-error.log"
+            $burstArgs=@($WindowCaptureDll,$game.Id,(Join-Path $Result 'hud-burst'),'--duration','3','--max-frames','60')
+            if($HudBurstCrop){$burstArgs=@($WindowCaptureDll,$game.Id,(Join-Path $Result 'hud-burst'),'--duration','5','--max-frames','300','--crop',$HudBurstCrop)}
+            $capture=Start-Process dotnet -ArgumentList $burstArgs -PassThru -NoNewWindow -RedirectStandardOutput "$Result/hud-capture.log" -RedirectStandardError "$Result/hud-capture-error.log"
         }
         if(($ShimHudOrdinary -or $ShimHudStopOnly) -and !$postCapture -and (Test-Path "$Result/trace/observations.tsv") -and
             (Select-String -LiteralPath "$Result/trace/observations.tsv" -Pattern '(car|hud)-recorder-stop.*probe-direct-stop' -Quiet)) {
