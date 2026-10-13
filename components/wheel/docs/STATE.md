@@ -1,4 +1,8 @@
-# Portable playback qualification — 2026-10-13
+# Combined row and playback qualification — 2026-10-13
+
+Clean source `7c1e287` packaged the row selector and `playback.enabled=true` capability, then passed one temporary load-muted, installed-runner cold replay of the same immutable admitted S1 derivative. All 749 poses passed (maximum `9.5367431640625E-07 m`, `9.035490975690204E-06°`), with numeric game exit 0, 171/188 exact racing-row client samples (102 pre-stage, 37 in-stage), zero diagnostic-display intersections and exact owner restoration. Two in-stage screenshots show gameplay across the racing row, centered HUD and changing scenery in all thirds. These are sampled visual observations; `tripleRenderedQualified=false` remains because independent angle-correct rendering, continuous physical scanout and attended acceptance are unproven. The prior revision-4 owner install remains unchanged, and lasting delivery awaits Wheelkit 0.6.34 capability support. [Changed-build evidence and limits](2026-10-13-row-cold-replay.md).
+
+# Earlier portable playback qualification — 2026-10-13
 
 The frozen `0e21fcc` revision-5 installed runner passed one internal, load-muted cold replay of the immutable admitted S1 derivative: 749 poses, maximum `3.0517578125E-05 m` position and `9.659346157805868E-06°` angular error, terminal pass/normal game exit, zero diagnostic-display intersections, and exact owner restoration. The window settled on the right racing panel only; this is functional playback, not triple-screen qualification. Source-only promotion enables the exact playback adapter in newly built packages while leaving the separate ordinary signal-recording contract unchanged. The current owner installation below remains revision 4 and was restored after the trial. [Adjudication, pins, refusals and limits](2026-10-13-portable-cold-replay.md).
 
