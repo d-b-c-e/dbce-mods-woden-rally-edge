@@ -63,6 +63,10 @@ var forward=car with{Schema=6,Mode="shim-force-capture"};Check(Protocol.Admit(By
 foreach(var r in new[]{forward with{Schema=5},forward with{Mode="shim-car-trial"},car with{Schema=6},forward with{WorkloadDirectory=null}})
     Refuse(()=>Protocol.Admit(Bytes(r),now,nonce));
 Check(Protocol.ForceCapture(forward)&&Protocol.CarTrial(forward)&&Protocol.LatchedTrial(forward)&&!Protocol.MenuTrial(forward));
+var hud=forward with{Mode="shim-hud-ordinary"};
+Check(Protocol.Admit(Bytes(hud),now,nonce)==hud && Protocol.HudOrdinary(hud) && Protocol.ForceCapture(hud) && Protocol.CarTrial(hud) && Protocol.LatchedTrial(hud));
+foreach(var r in new[]{hud with{Schema=5},hud with{Schema=7},hud with{WorkloadDirectory=null},hud with{ControlsSha256=null}})
+    Refuse(()=>Protocol.Admit(Bytes(r),now,nonce));
 var appliedCar=car with{Schema=7,Mode="shim-applied-car-trial",ProfileSha256=hash,WorkloadSha256=hash,ProfileRevision=hash,ApplyReadbackSha256=hash};
 Check(Protocol.Admit(Bytes(appliedCar),now,nonce)==appliedCar && Protocol.DynamicCarTrial(appliedCar) &&
     Protocol.CarTrial(appliedCar) && Protocol.ShimAdmission(appliedCar) && Protocol.LatchedTrial(appliedCar) && !Protocol.ForceCapture(appliedCar));

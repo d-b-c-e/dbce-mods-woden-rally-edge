@@ -16,11 +16,12 @@ public sealed record RawRequest(int Sequence, string Nonce, string Operation, st
 public static class Protocol
 {
     public static bool MenuTrial(ColdRequest? request) => request?.Mode == "shim-menu-trial";
-    public static bool ForceCapture(ColdRequest? request) => request?.Mode == "shim-force-capture";
+    public static bool HudOrdinary(ColdRequest? request) => request is {Schema:6, Mode:"shim-hud-ordinary"};
+    public static bool ForceCapture(ColdRequest? request) => request?.Mode is "shim-force-capture" or "shim-hud-ordinary";
     public static bool DynamicCarTrial(ColdRequest? request) => request?.Schema==7 && request.Mode=="shim-applied-car-trial";
-    public static bool CarTrial(ColdRequest? request) => request?.Mode is "shim-car-trial" or "shim-force-capture" || DynamicCarTrial(request);
+    public static bool CarTrial(ColdRequest? request) => request?.Mode is "shim-car-trial" or "shim-force-capture" or "shim-hud-ordinary" || DynamicCarTrial(request);
     public static bool LatchedTrial(ColdRequest? request) => MenuTrial(request) || CarTrial(request);
-    public static bool ShimAdmission(ColdRequest? request) => request?.Mode is "shim-admission" or "shim-menu-trial" or "shim-car-trial" or "shim-force-capture" || DynamicCarTrial(request);
+    public static bool ShimAdmission(ColdRequest? request) => request?.Mode is "shim-admission" or "shim-menu-trial" or "shim-car-trial" or "shim-force-capture" or "shim-hud-ordinary" || DynamicCarTrial(request);
     public static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     static readonly Regex Hash = new("^[a-fA-F0-9]{64}$", RegexOptions.CultureInvariant);
     static readonly Regex Nonce = new("^[a-f0-9]{32}$", RegexOptions.CultureInvariant);

@@ -8,12 +8,12 @@ static partial class Test
         string? original=Environment.GetEnvironmentVariable("WODEN_CAR_ORIGINAL"),controls=Environment.GetEnvironmentVariable("WODEN_CORE_MENU_PROFILE");
         if(original==null||controls==null)return;
         string reference=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Dbce","StagePlayback","references","woden-kenya-20261005");
-        void Begin(string name,bool forward=false)
+        void Begin(string name,bool forward=false,bool hud=false)
         {
             Reset(name);BepInEx.Paths.GameRootPath=Path.Combine(Dir,"game");BepInEx.Paths.ConfigPath=Path.Combine(Dir,"config");Directory.CreateDirectory(BepInEx.Paths.ConfigPath);
             File.Copy(controls,Path.Combine(BepInEx.Paths.ConfigPath,"dbce-controls.ini"));
             string workload=Path.Combine(Dir,"workload");Directory.CreateDirectory(workload);File.Copy(Path.Combine(original,"raw-workload.json"),Path.Combine(workload,"raw-workload.json"));File.Copy(Path.Combine(original,"apply","profile.json"),Path.Combine(workload,"profile.json"));
-            Set("Request",Get<ColdRequest>("Request") with{Schema=forward?6:5,Mode=forward?"shim-force-capture":"shim-car-trial",WorkloadDirectory=workload,StageReference=reference});
+            Set("Request",Get<ColdRequest>("Request") with{Schema=forward||hud?6:5,Mode=hud?"shim-hud-ordinary":forward?"shim-force-capture":"shim-car-trial",WorkloadDirectory=workload,StageReference=reference});
             WodenRallyEdge.StagePlayback.Session.Active=false;WodenRallyEdge.StageStartup.Valid=true;WodenRallyEdge.Runtime.RaceReady=true;WodenRallyEdge.ShimInput.CarDelivery=false;
             WodenRallyEdge.ShimNative.Report="[{\"instance\":\"{d71b8350-61b7-11f1-8001-444553540000}\",\"product\":\"{0006346e-0000-0000-0000-504944564944}\",\"interfacePath\":\"exact-wheel\",\"epoch\":1,\"opened\":true,\"status\":\"live\"},{\"instance\":\"{d9b1d890-6f3f-11f1-8002-444553540000}\",\"product\":\"{05310483-0000-0000-0000-504944564944}\",\"interfacePath\":\"exact-shifter\",\"epoch\":3,\"opened\":true,\"status\":\"live\"}]";
             Call("StartCarTrial");
@@ -90,6 +90,16 @@ static partial class Test
             Check(Get<string>("CarVerdict").StartsWith("passed:")==observed,"forward success requires observed speed/load/reference, not just accepted inputs");
             if(observed)Check(Get<ForceCaptureCoverage>("ForceCoverage").NonzeroRows==0,"straight zero analysis remains an honest capture-plumbing result");
         }
+        Begin("hud-probe-stop-dwell",hud:true);WodenRallyEdge.Runtime.Local=new MainCar();Call("AfterTick");FinishPulse();
+        for(int i=0;i<130;i++)Call("AfterForceAnalysis",new ForceSample(1,i*.02,"driving",null,new(){
+            ["analysis.force.contractVersion"]=1,["analysis.force.modelVersion"]=6,["analysis.force.valid"]=1,["analysis.force.preview"]=0,
+            ["ffb.gate"]=1,["ffb.sent"]=0,["ffb.deliveryAttempts"]=0,["ffb.connectionAttempts"]=0,["ffb.grip.referenceKind"]=2,["ffb.grip.reference"]=10000,
+            ["motion.speed"]=5,["motion.velocity.local.z"]=5,["wheel.fl.grounded"]=1,["wheel.fr.grounded"]=1,["wheel.fl.contactForce"]=5000,["wheel.fr.contactForce"]=5000}));
+        FinishPulse();FinishPulse();WodenRallyEdge.ShimInput.Run=4;Set("CarNeutral",Now-1);Call("AfterTick");
+        Check(Get<bool>("Armed")&&Get<double>("CarStopped")>0&&WodenRallyEdge.Runtime.Output.RecordingStatus=="Completed","HUD mode stops ordinary producer but remains armed for dwell");
+        Call("AfterTick");Check(Get<bool>("Armed"),"HUD dwell cannot complete early");
+        Thread.Sleep(5100);Call("AfterTick");Stopped("HUD dwell complete");
+        Check(Get<string>("CarVerdict").Contains("probe-direct-stop, 5s HUD dwell"),"HUD verdict names actual stop path and dwell");
         Begin("car-recorder-identity");
         var request=Get<ColdRequest>("Request");string recording=Path.Combine(BepInEx.Paths.GameRootPath,"BepInEx","WodenRecordings","request-"+request.Nonce,"source.jsonl");
         Directory.CreateDirectory(Path.GetDirectoryName(recording)!);File.WriteAllText(recording,"fixture producer");WodenRallyEdge.Runtime._recordingPath=recording;

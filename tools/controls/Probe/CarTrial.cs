@@ -12,7 +12,7 @@ public sealed partial class ControlsProbe
     static CarPulse? CarPulse;
     static CarPlateau CarValues=new();
     static int CarId,CarGear,CarBatch,CarPulseCount;
-    static double CarChanged,CarActivated,CarNeutral;
+    static double CarChanged,CarActivated,CarNeutral,CarStopped;
     static bool CarStarted,CarDelivery,CarEnding,CarGearQuery;
     static string CarVerdict="unclassified",CarEpochs="";
     static ForceCaptureCoverage ForceCoverage=new();
@@ -72,7 +72,7 @@ public sealed partial class ControlsProbe
             CarPulses.Enqueue(CarWork.Settle);CarPulses.Enqueue(CarWork.Neutral);
         }
         CarId=CarBatch=CarPulseCount=0;CarStarted=CarDelivery=CarEnding=false;CarPulse=null;CarEpochs="";
-        CarChanged=Clock.Elapsed.TotalSeconds;CarActivated=CarNeutral=0;CarVerdict="pending";
+        CarChanged=Clock.Elapsed.TotalSeconds;CarActivated=CarNeutral=CarStopped=0;CarVerdict="pending";
         ObserveUntil=Deadline;TrialModules.Clear();
         Row("car-trial",Protocol.ForceCapture(Request)?"Synthetic original forward analysis capture: 8s accepted 50% throttle, neutral baseline/end, Manual gear1; no body/focus/force writes":
             Protocol.DynamicCarTrial(Request)?"Frozen production Apply car qualification; temporary player0 Manual; finite raw actions from applied profile; no trajectory/body/background writes":
@@ -119,7 +119,8 @@ public sealed partial class ControlsProbe
         var session=Field(Type("StagePlayback"),"Session")!;
         if((bool)Value(session,"Active")! || !(bool)Static("StagePlayback","OutputMuted")!)throw new InvalidOperationException("Car trial must remain muted and outside stage replay.");
         var output=Field(Runtime,"Output")!;
-        if(Value(output,"RecordingStatus")?.ToString()!="Recording" || Convert.ToInt64(Value(output,"RecordingDrops"))!=0)
+        string expected=Protocol.HudOrdinary(Request)&&CarStopped>0 ? "Completed" : "Recording";
+        if(Value(output,"RecordingStatus")?.ToString()!=expected || Convert.ToInt64(Value(output,"RecordingDrops"))!=0)
             throw new InvalidOperationException("Original recording is unavailable or dropped samples.");
         ObserveShim();
     }
@@ -161,11 +162,28 @@ public sealed partial class ControlsProbe
             if(run!=4)return;
             if(CarNeutral==0)CarNeutral=now;
             if(now-CarNeutral<.3)return;
-            if(Protocol.ForceCapture(Request)&&!ForceCoverage.Passed)throw new InvalidOperationException("Forward capture lacks 2s measured grounded forward speed and qualified production analysis rows.");
-            var output=Field(Runtime,"Output")!;Method(output.GetType(),"StopRecording").Invoke(output,null);
-            if(Value(output,"RecordingStatus")?.ToString()!="Completed" || Convert.ToInt64(Value(output,"RecordingDrops"))!=0)
-                throw new InvalidOperationException("Original recorder did not complete without drops.");
-            CarVerdict=Protocol.ForceCapture(Request)?"passed: bounded native forward capture; measured grounded speed/reference and valid independent analysis; no physical output":
+            if(CarStopped==0)
+            {
+                if(Protocol.ForceCapture(Request)&&!ForceCoverage.Passed)throw new InvalidOperationException("Forward capture lacks 2s measured grounded forward speed and qualified production analysis rows.");
+                var output=Field(Runtime,"Output")!;Method(output.GetType(),"StopRecording").Invoke(output,null);
+                if(Value(output,"RecordingStatus")?.ToString()!="Completed" || Convert.ToInt64(Value(output,"RecordingDrops"))!=0)
+                    throw new InvalidOperationException("Original recorder did not complete without drops.");
+                CarStopped=now;Row("car-recorder-stop","probe-direct-stop; completed; drops=0; utc="+DateTimeOffset.UtcNow.ToString("O"));
+                if(Protocol.HudOrdinary(Request))return;
+            }
+            if(Protocol.HudOrdinary(Request) && now-CarStopped<5)return;
+            if(Protocol.HudOrdinary(Request))
+            {
+                var output=Field(Runtime,"Output")!;
+                var counters=Value(output,"RecordingCounters") ?? throw new InvalidDataException("Completed recording counters unavailable.");
+                foreach(string key in new[]{"DroppedSamples","DroppedMarkers","InvalidCount","ErrorCount","LimitCount","QueueFullCount","ContentionCount"})
+                    if(Convert.ToInt64(Value(counters,key))!=0)throw new InvalidDataException("HUD recording has nonzero "+key+"; DataWritten unavailable.");
+                if(!(bool)Value(output,"RecordingRequiresFinalization")! || output.GetType().GetProperty("RecordingError",All)?.GetValue(output) is not null)
+                    throw new InvalidDataException("Ordinary recording cannot show DataWritten before finalization.");
+                Row("car-hud-dwell","5s after probe-direct-stop; Completed and DataWritten source state; rendered HUD unverified until WGC review");
+            }
+            CarVerdict=Protocol.HudOrdinary(Request)?"passed: bounded native forward capture; probe-direct-stop, 5s HUD dwell and completed original source; no physical output":
+                Protocol.ForceCapture(Request)?"passed: bounded native forward capture; measured grounded speed/reference and valid independent analysis; no physical output":
                 Protocol.DynamicCarTrial(Request)?"passed: applied profile raw actions consumed by native car; Manual transmission and exact applied revision retained; no physical output":
                 "passed: six raw shared-Core actions consumed by native car; Manual gear +1/-1; original producer retained";
             Row("car-trial-verdict",CarVerdict);Close("bounded original car trial completed");return;

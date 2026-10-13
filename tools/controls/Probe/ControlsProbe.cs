@@ -301,7 +301,7 @@ public sealed partial class ControlsProbe : BasePlugin
         if(Trace is null) return;
         if(++Rows>200000) { RequestStop("trace row limit"); return; }
         if(data.Length>4096) { RequestStop("trace value limit"); return; }
-        try { Trace.WriteLine(Clock.Elapsed.TotalSeconds.ToString("R",CultureInfo.InvariantCulture)+"\t"+Time.frameCount+"\t"+kind+"\t"+data.Replace('\t',' ').Replace('\r',' ').Replace('\n',' ')); }
+        try { Trace.WriteLine(Clock.Elapsed.TotalSeconds.ToString("R",CultureInfo.InvariantCulture)+"\t"+Time.frameCount+"\t"+kind+"\t"+data.Replace('\t',' ').Replace('\r',' ').Replace('\n',' ')); if(kind is "car-trial-active" or "car-recorder-stop")Trace.Flush(); }
         catch(Exception ex) { RequestStop("trace write failed: "+ex.Message); }
     }
     // Observation runs inside device/car enumerations. Do not close their readers

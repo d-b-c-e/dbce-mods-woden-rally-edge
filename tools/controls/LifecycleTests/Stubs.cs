@@ -48,7 +48,8 @@ namespace WodenRallyEdge {
         public static object? _recordLaunch;public static string? _recordingPath;public static bool RaceReady=true;
         public static bool Driving(MainCar car)=>RaceReady;}
     public class Force {public long Attempts,Opens,Failures;public bool Connected;public float Sent;}
-    public class Output {public long ForzaPackets,RecordingDrops;public string RecordingStatus="Recording";public bool Complete=true;public void StopRecording(){RecordingStatus=Complete?"Completed":"Failed";}}
+    public class Output {public long ForzaPackets,RecordingDrops;public string RecordingStatus="Recording";public bool Complete=true;public bool RecordingRequiresFinalization=true;public string? RecordingError;public RecordingCounts RecordingCounters=new();public void StopRecording(){RecordingStatus=Complete?"Completed":"Failed";}}
+    public class RecordingCounts {public long DroppedSamples,DroppedMarkers,InvalidCount,ErrorCount,LimitCount,QueueFullCount,ContentionCount;}
     public class Settings {public string UiPage="Setup";}
     public static class Panel {public static bool Open{get;set;}public static void Toggle(){Open=!Open;}
         private static void Toggle(float x,float y,float width,string text,ref bool value)=>throw new Exception("Renderer widget is not the panel entry point");}
