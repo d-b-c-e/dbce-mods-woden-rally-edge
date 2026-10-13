@@ -69,6 +69,30 @@ Check ($first.controlsProfileSchema -eq 1 -and $first.adapter -eq 'woden-binding
 Check ($first.controlsProfileHatNeighbours -eq $true) 'Installed circular profile hat capability'
 Check ((Hash (Join-Path $plugin 'WodenRallyEdgeWheel.dll')) -eq (Hash (Join-Path $PackageRoot 'BepInEx\plugins\WodenRallyEdgeWheel\WodenRallyEdgeWheel.dll'))) 'Default-root selected wrong package'
 foreach ($entry in $first.files) { Check ((Hash (Join-Path $fixture $entry.path)) -eq $entry.sha256) ('Payload ' + $entry.path) }
+# A already declares origin, but its owned companion hash differs from this
+# package B. Updating and uninstalling B must not reinterpret A as legacy.
+$tool = Join-Path $plugin 'Start-RecordedGame.ps1'
+$originA = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
+Add-Content -LiteralPath $tool -Value '# fixture revision A; still accepts InputOrigin'
+$originAHash = Hash $tool
+$originAEntry = @($originA.files | Where-Object { $_.path -match 'Start-RecordedGame\.ps1$' })
+Check ($originAEntry.Count -eq 1) 'Origin-capable A companion ownership entry is unique'
+$originAEntry[0].sha256 = $originAHash
+$originA.ordinarySession.sourceToolSha256 = $originAHash.ToLowerInvariant()
+$originA | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $receipt -Encoding utf8
+Install
+$originB = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
+Check (($originB.ordinarySession.inputOrigin -join ',') -ceq 'human,automated' -and
+       $originB.ordinarySession.sourceToolSha256 -eq (Hash $tool).ToLowerInvariant() -and
+       $originB.ordinarySession.sourceToolSha256 -ne $originAHash.ToLowerInvariant()) 'Origin-capable A updated to changed companion B'
+$detached = Join-Path $fixture 'detached-installer'
+$null = New-Item -ItemType Directory -Path $detached
+$detachedInstaller = Join-Path $detached 'Manage-Install.ps1'
+Copy-Item -LiteralPath $installer -Destination $detachedInstaller
+Check (-not (Test-Path -LiteralPath (Join-Path $detached 'Start-RecordedGame.ps1'))) 'Detached uninstall has no local companion'
+& $detachedInstaller -Mode Uninstall -GameDir $fixture
+Check ((Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json).mode -eq 'Uninstall') 'Changed-companion B uninstalled without local reviewed companion'
+Install
 # A prior revision-4 companion that did not accept InputOrigin keeps its old
 # capability shape and can be updated without inventing an origin for past captures.
 $oldModern = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
