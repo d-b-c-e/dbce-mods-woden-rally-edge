@@ -100,6 +100,17 @@ $playback = Join-Path $root '../../vendor/playback'
 Copy-Item -LiteralPath (Join-Path $playback 'provenance.json') -Destination (Join-Path $plugin 'playback-provenance.json')
 Copy-Item -LiteralPath (Join-Path $playback 'LICENSE') -Destination (Join-Path $plugin 'playback-LICENSE.txt')
 Copy-Item -LiteralPath (Join-Path $playback 'Stage-Session.ps1') -Destination $plugin
+Copy-Item -LiteralPath (Join-Path $playback 'Stage-RigLease.ps1') -Destination $plugin
+Copy-Item -LiteralPath (Join-Path $playback 'rig-lease-provenance.json') -Destination $plugin
+Copy-Item -LiteralPath (Join-Path $playback 'Stage-RunnerLifecycle.ps1') -Destination $plugin
+Copy-Item -LiteralPath (Join-Path $root '../../tools/game/Run-StageSession.ps1') -Destination (Join-Path $plugin 'WodenFullSession.ps1')
+Copy-Item -LiteralPath (Join-Path $root '../../tools/game/ReplayEnvironment.ps1') -Destination $plugin
+[ordered]@{
+    schema='dbce.session-capabilities@1'; game='Super Woden Rally Edge'; protocol='woden.full-session-package@1'
+    runner='WodenFullSession.ps1'; gameBuildSha256='f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c'
+    record=[ordered]@{enabled=$false}
+    playback=[ordered]@{enabled=$false;adapters=@('woden.native-arcade-v1@1')}
+} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $plugin 'session-capabilities.json') -Encoding utf8
 Copy-Item -LiteralPath (Join-Path $root 'lib\toolkit\VERSION') -Destination (Join-Path $plugin 'toolkit.version')
 foreach ($name in 'Start-RecordedGame.ps1','RecordedStopControl.ps1') {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination $plugin

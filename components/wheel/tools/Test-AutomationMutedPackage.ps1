@@ -38,7 +38,7 @@ $receiptPath = Join-Path $fixture 'BepInEx\WodenWheel-install.json'
 $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
 $installedNative = Join-Path $fixture $pluginRelative
 $ownedNative = @($receipt.files | Where-Object { $_.path.Replace('/','\') -eq $pluginRelative })
-Check ($receipt.installerRevision -eq 4 -and $receipt.files.Count -eq 17) 'Revision-4 private ownership'
+Check ($receipt.installerRevision -eq 5 -and $receipt.files.Count -eq 23) 'Revision-5 private ownership'
 Check ($ownedNative.Count -eq 1 -and $ownedNative[0].sha256 -eq $pin -and (Hash $installedNative) -eq $pin) 'Installed native owned by receipt'
 Check ($receipt.sharedInputCandidate.controls.nativeSha256 -eq $pin.ToLowerInvariant()) 'Installed private capability binds muted native'
 Check ($receipt.ordinarySession.schema -eq 'woden.signal-session@1' -and $receipt.ordinarySession.record -and -not $receipt.ordinarySession.playback) 'Installed ordinary record capability'

@@ -577,7 +577,10 @@ try {
             throw 'Installed request-bound Stop did not complete the original source.'
         }
         if($OrdinaryFullSession -and !$stoppingSeen){throw 'S1 Stopping/inactive was not observed before Saved finalization.'}
-        if(!$ordinaryCompanion.process.WaitForExit(15000)){throw 'Installed companion did not finalize after Stop.'}
+        # Long ordinary captures have measured reprocess (up to 47 s) plus
+        # packaging (up to 26 s) after Stop; keep the child supervised under
+        # the shared lease for a bounded 120 s before declaring a timeout.
+        if(!$ordinaryCompanion.process.WaitForExit(120000)){throw 'Installed companion did not finalize after Stop.'}
         $ordinaryCompanion.stdout.GetAwaiter().GetResult() | Set-Content -LiteralPath "$Result/companion.stdout.txt"
         $ordinaryCompanion.stderr.GetAwaiter().GetResult() | Set-Content -LiteralPath "$Result/companion.stderr.txt"
         if($ordinaryCompanion.process.ExitCode -ne 0){throw 'Installed companion finalizer failed; original source retained.'}
@@ -659,7 +662,7 @@ try {
         if(!$exitEvidence.shutdownPass){$captureError+=" Game shutdown did not prove numeric exit 0; package result is retained separately."}
     }
     if($ordinaryCompanion){
-        if(!$ordinaryCompanion.process.WaitForExit(15000)){
+        if(!$ordinaryCompanion.process.WaitForExit(120000)){
             throw 'Installed companion can still launch or finalize Woden; retain the shared lease and owner state.'
         }
         Write-OrdinaryCompanionGuard -Path $ordinaryGuard -State exited -RequestId $nonce -Executable $ordinaryCompanion.executable -Script $ordinaryCompanion.script -ProcessId $ordinaryCompanion.process.Id -StartedUtcTicks $ordinaryCompanion.startedUtcTicks -GameObserved $ordinaryCompanion.gameObserved -ExitCode $ordinaryCompanion.process.ExitCode

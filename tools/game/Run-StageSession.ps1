@@ -9,6 +9,8 @@ param(
     # An admitted ordinary package (TelemetryInspector admit): reviewed with ordinary-stage-review instead of the
     # muted-capture stage-review; its nested stage is replayed. Playback stays muted either way.
     [string]$AdmittedPackage,
+    [ValidatePattern('^[a-fA-F0-9]{32}$')][string]$RequestId,
+    [ValidatePattern('^[a-fA-F0-9]{64}$')][string]$PackageSealSha256,
     [switch]$SpanSeparateMonitors,
     [Parameter(Mandatory)][string]$Result,
     [string]$GameDir = 'D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge',
@@ -21,17 +23,34 @@ $ErrorActionPreference = 'Stop'
 $slot = Join-Path $env:LOCALAPPDATA 'dbce/test-slot.txt'
 $rigLease = $null
 $borrowedLease = $false
-$rigScript = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../vendor/playback/Stage-RigLease.ps1'))
+function Runner-File([string]$Name,[string]$SourceRelative) {
+    $installed = Join-Path $PSScriptRoot $Name
+    if (Test-Path -LiteralPath $installed -PathType Leaf) { return $installed }
+    $source = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot $SourceRelative))
+    if (Test-Path -LiteralPath $source -PathType Leaf) { return $source }
+    throw "Missing runner helper: $Name"
+}
+$rigScript = Runner-File 'Stage-RigLease.ps1' '../../vendor/playback/Stage-RigLease.ps1'
 $rigPin = Get-Content (Join-Path (Split-Path $rigScript -Parent) 'rig-lease-provenance.json') -Raw | ConvertFrom-Json
 if ($rigPin.schema -ne 'dbce.stage-rig-lease-pin@1' -or (Get-FileHash -LiteralPath $rigScript).Hash -ine $rigPin.sha256) { throw 'Rig lease source pin differs' }
 . $rigScript
-. (Join-Path $PSScriptRoot 'ReplayEnvironment.ps1')
+$lifecycle = Runner-File 'Stage-RunnerLifecycle.ps1' '../../vendor/playback/Stage-RunnerLifecycle.ps1'
+if ((Get-FileHash -LiteralPath $lifecycle).Hash -ine '4BA9A38519C981E4B9D7CF3C9765C9DCB0ECB4C15F3720CDB197C6DF4A27F62C') { throw 'Runner lifecycle source pin differs' }
+. $lifecycle
+. (Runner-File 'ReplayEnvironment.ps1' 'ReplayEnvironment.ps1')
 # PowerShell's location can differ from the process CWD (especially Start-Job).
 # Resolve caller paths here before passing them to .NET or the native inspector.
 $Result = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Result)
 $GameDir = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($GameDir)
 if ($Recording) { $Recording = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Recording) }
 if ($AdmittedPackage) { $AdmittedPackage = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($AdmittedPackage) }
+if (($RequestId -and (!$AdmittedPackage -or !$PackageSealSha256)) -or ($PackageSealSha256 -and !$RequestId)) {
+    throw 'RequestId and PackageSealSha256 require an admitted playback package together.'
+}
+if ($RequestId -and ($Record -or $Recording -or $RestoreOnly -or $CheckEnvironment -or $SpanSeparateMonitors)) {
+    throw 'A pinned playback request cannot record, restore or change display settings.'
+}
+if ($RequestId) { $RequestId = $RequestId.ToLowerInvariant(); $PackageSealSha256 = $PackageSealSha256.ToLowerInvariant() }
 $control = Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/woden'
 $data = Join-Path $env:USERPROFILE 'AppData/LocalLow/ViJuDa/Super Woden Rally Edge'
 $backup = Join-Path $Result 'owner-before'
@@ -72,18 +91,41 @@ function Read-Status([string]$Path) {
     finally { if ($reader) { $reader.Dispose() } elseif ($stream) { $stream.Dispose() } }
 }
 function Review-Recording([string]$Path) {
-    $inspector = Join-Path $PSScriptRoot '../../components/wheel/tools/TelemetryInspector/bin/Release/net10.0/TelemetryInspector.dll'
+    $inspector = Join-Path $PSScriptRoot 'WodenCaseFinalizer.exe'
+    if (!(Test-Path -LiteralPath $inspector)) { $inspector = Join-Path $PSScriptRoot '../../components/wheel/tools/TelemetryInspector/bin/Release/net10.0/TelemetryInspector.dll' }
     if (!(Test-Path -LiteralPath $inspector)) { throw 'Build TelemetryInspector before running a stage session.' }
-    $report = & dotnet $inspector stage-review $Path
+    $report = if ($inspector.EndsWith('.exe',[StringComparison]::OrdinalIgnoreCase)) { & $inspector stage-review $Path } else { & dotnet $inspector stage-review $Path }
     if ($LASTEXITCODE -ne 0) { throw 'Original recording validation failed.' }
     return ($report -join [Environment]::NewLine)
 }
 function Review-AdmittedPackage([string]$Path) {
-    $inspector = Join-Path $PSScriptRoot '../../components/wheel/tools/TelemetryInspector/bin/Release/net10.0/TelemetryInspector.dll'
+    $inspector = Join-Path $PSScriptRoot 'WodenCaseFinalizer.exe'
+    if (!(Test-Path -LiteralPath $inspector)) { $inspector = Join-Path $PSScriptRoot '../../components/wheel/tools/TelemetryInspector/bin/Release/net10.0/TelemetryInspector.dll' }
     if (!(Test-Path -LiteralPath $inspector)) { throw 'Build TelemetryInspector before running a stage session.' }
-    $report = & dotnet $inspector ordinary-stage-review $Path
+    $report = if ($inspector.EndsWith('.exe',[StringComparison]::OrdinalIgnoreCase)) { & $inspector ordinary-stage-review $Path } else { & dotnet $inspector ordinary-stage-review $Path }
     if ($LASTEXITCODE -ne 0) { throw 'Admitted ordinary package validation failed.' }
     return ($report -join [Environment]::NewLine)
+}
+function Write-TerminalResult {
+    if (!$RequestId -or !$resultMayWrite) { return }
+    if (!(Test-Path -LiteralPath $Result)) { [IO.Directory]::CreateDirectory($Result) | Out-Null }
+    $restored = Test-Path -LiteralPath (Join-Path $Result 'restored.txt') -PathType Leaf
+    $closed = $null -ne $exitEvidence -and $exitEvidence.exited
+    $exitCode = if ($null -ne $exitEvidence) { $exitEvidence.exitCode } else { $null }
+    $passed = $sessionSucceeded -and $restored -and $outputsMuted -and $closed -and $exitCode -eq 0
+    $message = if ($passed) { 'Muted cold replay passed; owner state restored.' } elseif ($runFailure) { $runFailure } else { 'Muted cold replay did not qualify.' }
+    $message = ([string]$message -replace '[\r\n\x00-\x1f]+',' ').Trim()
+    if ($message.Length -gt 512) { $message = $message.Substring(0,512).TrimEnd() }
+    $document = [ordered]@{
+        schema='woden.full-session-result@1'; requestId=$RequestId; action='playback'; recording=$AdmittedPackage
+        sessionSha256=$admittedSessionSha; packageSealSha256=$verifiedPackageSeal; stageSealSha256=$admittedSeal
+        passed=[bool]$passed; ownerRestored=[bool]$restored; outputsMuted=[bool]$outputsMuted; closed=[bool]$closed
+        gameExitCode=$exitCode; completedUtc=[DateTime]::UtcNow.ToString('o'); message=$message
+    }
+    $bytes = [Text.UTF8Encoding]::new($false).GetBytes(($document | ConvertTo-Json -Depth 5 -Compress))
+    if ($bytes.Length -gt 65536) { throw 'Terminal result exceeds 64 KiB.' }
+    $stream = [IO.FileStream]::new((Join-Path $Result 'result.json'),[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try { $stream.Write($bytes,0,$bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
 }
 function Save-Owner {
     [IO.Directory]::CreateDirectory($backup) | Out-Null
@@ -135,10 +177,14 @@ function Restore-Owner {
     }
     [DateTime]::UtcNow.ToString('O') | Set-Content -LiteralPath (Join-Path $Result 'restored.txt')
 }
-Assert-Closed
+$resultMayWrite = [bool]$RequestId -and !(Test-Path -LiteralPath $Result)
+$runFailure = $null; $sessionSucceeded = $false; $outputsMuted = $false
+$admittedSessionSha = $null; $verifiedPackageSeal = $null; $admittedSeal = $null; $exitEvidence = $null
+$gameProcess = $null
 $lease = [Threading.Mutex]::new($false,'Local\DbceStageReplayRunner')
 $held = $false
 try {
+    Assert-Closed
     try { $held = $lease.WaitOne(0) } catch [Threading.AbandonedMutexException] { $held = $true }
     if (!$held) { throw 'Another replay runner owns the test slot.' }
     if ($RestoreOnly) {
@@ -172,6 +218,10 @@ try {
         $Recording = Child $AdmittedPackage ([string]$admitted.stage)
         $admittedSeal = ([string]$admitted.stageSealSha256).ToLowerInvariant()
         if ($admittedSeal -notmatch '^[0-9a-f]{64}$') { throw 'Admitted review did not pin its stage seal.' }
+        $admittedSessionSha = ([string]$admitted.sessionSha256).ToLowerInvariant()
+        $verifiedPackageSeal = ([string]$admitted.packageSealSha256).ToLowerInvariant()
+        if ($admittedSessionSha -notmatch '^[0-9a-f]{64}$' -or $verifiedPackageSeal -notmatch '^[0-9a-f]{64}$') { throw 'Admitted review lacks exact package hashes.' }
+        if ($RequestId -and $verifiedPackageSeal -cne $PackageSealSha256) { throw 'The admitted outer package seal differs from the pinned request.' }
     }
     if ($Record -and $Recording) { throw 'Choose either Record or a completed Recording.' }
     if ($Record -and $SpanSeparateMonitors) { throw 'The temporary span override is for replay qualification only.' }
@@ -202,10 +252,14 @@ try {
     if ($AdmittedPackage -and (Get-FileHash -LiteralPath (Join-Path $Recording 'complete.tsv')).Hash.ToLowerInvariant() -ne $admittedSeal) {
         throw 'The admitted stage seal changed before replay.'
     }
+    if ($AdmittedPackage -and (Get-FileHash -LiteralPath (Join-Path $AdmittedPackage 'complete.tsv')).Hash.ToLowerInvariant() -ne $verifiedPackageSeal) {
+        throw 'The admitted outer package seal changed before replay.'
+    }
     if ($Record) { & $command -Game woden -Action Record -Path $Recording -Seconds $Seconds | Out-Null }
     else { & $command -Game woden -Action Replay -Path $Recording -Output (Join-Path $Result 'playback') | Out-Null }
     Add-Content -LiteralPath (Join-Path $control 'request.txt') -Value 'autoExit=true'
     if (!$Record) { Add-Content -LiteralPath (Join-Path $control 'request.txt') -Value 'coldStart=native-arcade-v1' }
+    if ($AdmittedPackage) { $outputsMuted = $true } # Stage-Session replay is muted by the game adapter.
     $request = Get-Content -LiteralPath (Join-Path $control 'request.txt')
     $request | Set-Content -LiteralPath (Join-Path $Result 'request.txt')
     $id = ($request | Where-Object { $_ -like 'id=*' }).Substring(3)
@@ -217,7 +271,13 @@ try {
         Start-Sleep -Seconds 1
         if ($borrowedLease) { Assert-StageRigLease -Path $slot -Token $RigLeaseToken }
         $running = Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue
-        if ($running) { $seen = $true }
+        if ($running) {
+            $seen = $true
+            if (!$gameProcess) {
+                if (@($running).Count -ne 1) { throw 'Multiple Woden processes appeared during replay.' }
+                $gameProcess = @($running)[0] # Retain this handle for the numeric exit code after the process closes.
+            } elseif (@($running | Where-Object Id -NE $gameProcess.Id).Count) { throw 'Woden process identity changed during replay.' }
+        }
         $statusPath = Join-Path $control 'status.txt'
         if (Test-Path -LiteralPath $statusPath) {
             # The adapter replaces its status while physics is running. A brief
@@ -237,6 +297,12 @@ try {
         if (!(Test-Path -LiteralPath (Join-Path $control 'request.txt'))) { & $command -Game woden -Action Stop | Write-Output }
         throw 'Replay deadline exceeded. Stop requested; close the game, then use -RestoreOnly with this Result.'
     }
+    $gameExited = $false; $gameExitCode = $null
+    if ($gameProcess) {
+        try { $gameExited = $gameProcess.HasExited; if ($gameExited) { $gameExitCode = [int]$gameProcess.ExitCode } } catch { $gameExited = $false; $gameExitCode = $null }
+        $exitEvidence = New-StageGameExitEvidence -CloseMainWindowRequested:$false -Exited:$gameExited -ExitCode $gameExitCode -ProcessId $gameProcess.Id
+        $exitEvidence | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath (Join-Path $Result 'game-exit.json') -Encoding utf8
+    }
     foreach ($file in @((Join-Path $GameDir 'BepInEx/LogOutput.log'),(Join-Path $data 'Player.log'))) {
         if (Test-Path -LiteralPath $file) { Copy-Exact $file (Join-Path $Result ([IO.Path]::GetFileName($file))) }
     }
@@ -244,25 +310,46 @@ try {
     Restore-Owner
     if ($Record -and !(Test-Path -LiteralPath (Join-Path $Recording 'complete.tsv'))) { $passed = $false }
     if (!$seen -or !$passed) { throw 'Session did not complete; evidence saved and owner state restored.' }
+    if (!$exitEvidence -or !$exitEvidence.shutdownPass) { throw 'Game exit was not observed with numeric code 0.' }
     if ($AdmittedPackage) {
         # The same admitted review after the run: the package and its pinned stage are unchanged.
         $after = Review-AdmittedPackage $AdmittedPackage
-        if (([string]($after | ConvertFrom-Json).stageSealSha256).ToLowerInvariant() -ne $admittedSeal) { throw 'The admitted stage seal changed during replay.' }
+        $afterPins = $after | ConvertFrom-Json
+        if (([string]$afterPins.stageSealSha256).ToLowerInvariant() -ne $admittedSeal -or
+            ([string]$afterPins.sessionSha256).ToLowerInvariant() -ne $admittedSessionSha -or
+            ([string]$afterPins.packageSealSha256).ToLowerInvariant() -ne $verifiedPackageSeal) {
+            throw 'The admitted package or stage changed during replay.'
+        }
         $after | Set-Content -LiteralPath (Join-Path $Result 'source-review.json') -Encoding utf8
     } else { Review-Recording $Recording | Set-Content -LiteralPath (Join-Path $Result 'source-review.json') -Encoding utf8 }
-    Write-Output ('PASS: requested session completed, game closed and owner state restored. '+$Result)
+    $sessionSucceeded = $true
+} catch {
+    $runFailure = $_.Exception.Message
+    throw
 } finally {
-    # A failed launch must not leave this recording/replay armed for ordinary play.
-    if ($id -and !(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue)) {
-        $pending = Join-Path $control 'request.txt'
-        if ((Test-Path -LiteralPath $pending) -and ((Get-Content -LiteralPath $pending) -contains ('id='+$id))) { Remove-Item -LiteralPath $pending }
+    $cleanupProblem = $null
+    try {
+        # A failed launch must not leave this recording/replay armed for ordinary play.
+        if ($id -and !(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue)) {
+            $pending = Join-Path $control 'request.txt'
+            if ((Test-Path -LiteralPath $pending) -and ((Get-Content -LiteralPath $pending) -contains ('id='+$id))) { Remove-Item -LiteralPath $pending }
+        }
+        if (!$RestoreOnly -and $rigLease -and (Test-Path -LiteralPath (Join-Path $backup 'manifest.json')) -and
+            !(Test-Path -LiteralPath (Join-Path $Result 'restored.txt')) -and !(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue)) {
+            if ($borrowedLease) { Assert-StageRigLease -Path $slot -Token $RigLeaseToken }
+            Restore-Owner
+        }
+        if ($held) { $lease.ReleaseMutex() }
+        $lease.Dispose()
+        if ($rigLease -and !$borrowedLease -and !(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue)) { $null = Exit-StageRigLease $rigLease }
+    } catch {
+        $cleanupProblem = $_.Exception.Message
+        $sessionSucceeded = $false
+        if (!$runFailure) { $runFailure = $cleanupProblem }
+    } finally {
+        if ($gameProcess) { $gameProcess.Dispose() }
+        try { Write-TerminalResult } catch { if (!$cleanupProblem) { $cleanupProblem = $_.Exception.Message } }
     }
-    if (!$RestoreOnly -and $rigLease -and (Test-Path -LiteralPath (Join-Path $backup 'manifest.json')) -and
-        !(Test-Path -LiteralPath (Join-Path $Result 'restored.txt')) -and !(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue)) {
-        if ($borrowedLease) { Assert-StageRigLease -Path $slot -Token $RigLeaseToken }
-        Restore-Owner
-    }
-    if ($held) { $lease.ReleaseMutex() }
-    $lease.Dispose()
-    if ($rigLease -and !$borrowedLease -and !(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue)) { $null = Exit-StageRigLease $rigLease }
+    if ($cleanupProblem) { throw $cleanupProblem }
 }
+if ($sessionSucceeded) { Write-Output ('PASS: requested session completed, game exited with code 0 and owner state restored. '+$Result) }
