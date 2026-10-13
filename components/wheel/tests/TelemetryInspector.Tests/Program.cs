@@ -241,9 +241,10 @@ foreach (var (name, change, reason) in new (string, Action<int, Dictionary<strin
         name + ": route eligible, force analysis unqualified with its reason: " + force.GetProperty("reason"));
 }
 string zero = Capture("owner-no-force", true, OwnerDelivery, model: 6, flat: true, independent: true, physicalOutput: "true", strength: 0);
-var zeroForce = Ordinary(zero).GetProperty("forceAnalysis");
-Check(!zeroForce.GetProperty("qualified").GetBoolean() && zeroForce.GetProperty("reason").GetString() == "Insufficient driving/force coverage",
-    "a zero-strength capture keeps its route; its analysis has no coverage");
+// Strength scales delivery, not the analysis preview, so a zero-strength owner capture keeps its route and its analysis.
+var zeroReview = Ordinary(zero);
+Check(zeroReview.GetProperty("trajectory").GetString() == "eligible" && zeroReview.GetProperty("forceAnalysis").GetProperty("qualified").GetBoolean(),
+    "a zero-strength capture keeps its route; its analysis is reported: " + zeroReview.GetProperty("forceAnalysis").GetProperty("reason"));
 Refuses(() => StageCaptureReview.Run(zero), "physically muted");
 // Structural failures still refuse the ordinary review.
 Refuses(() => StageCaptureReview.Run(Capture("owner-decreasing", true, (i, c) => { OwnerDelivery(i, c); if (i == 55) c["ffb.deliveryAttempts"] = 3; }, model: 6, flat: true, independent: true,
