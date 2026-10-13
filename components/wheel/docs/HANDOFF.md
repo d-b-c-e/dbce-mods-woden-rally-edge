@@ -17,6 +17,10 @@ The newer `3c174c9` private package passed a temporary, muted applied-profile fo
 
 Current installed source also corrects the ordinary `status.txt` replacement under a shared reader, bounds the companion's delete-sharing read, and defaults an omitted request ID to empty. Targeted writer, reader and parameter fixtures passed without a game or device. The remaining owner-facing steps are to update the owner's installed Wheelkit from the main branch and observe one attended driving case finalized Saved. The completed automated diagnostic above does not qualify an owner-driven ordinary case.
 
+# Current playback handoff — 2026-10-13
+
+The frozen revision-5 installed runner passed a 749-pose muted cold replay of the immutable admitted S1 derivative, with normal exit and exact restoration. Source-only capability promotion now prepares `playback.enabled=true` for `woden.native-arcade-v1@1` in a future package; `dbce.session-capabilities@1` record remains false and the separate ordinary signal capability remains record-only. The owner still has the prior revision-4 package installed. The observed game window settled on the right racing panel, so three-view placement/rendering is not qualified. [Full adjudication](2026-10-13-portable-cold-replay.md). The older dated handoffs below describe their historical checkouts.
+
 # Session handoff — 2026-10-04 (Claude → Codex)
 
 **Installed now:** the `claude/triple-screens` build (this worktree,

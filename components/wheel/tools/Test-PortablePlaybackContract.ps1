@@ -39,11 +39,15 @@ $capability = [pscustomobject]@{
     schema='dbce.session-capabilities@1';game='Super Woden Rally Edge';protocol='woden.full-session-package@1'
     runner='WodenFullSession.ps1';gameBuildSha256=$gameHash.ToLowerInvariant()
     record=[pscustomobject]@{enabled=$false}
-    playback=[pscustomobject]@{enabled=$false;adapters=@('woden.native-arcade-v1@1')}
+    playback=[pscustomobject]@{enabled=$true;adapters=@('woden.native-arcade-v1@1')}
 }
 Assert-PlaybackCapabilities $capability
-$capability.playback.enabled = $true
+$capability.playback.enabled = $false
 Refuses { Assert-PlaybackCapabilities $capability }
+$capability.playback.enabled = $true
+$capability.record.enabled = $true
+Refuses { Assert-PlaybackCapabilities $capability }
+$capability.record.enabled = $false
 $lifecycle = Join-Path $PSScriptRoot '../../../vendor/playback/Stage-RunnerLifecycle.ps1'
 if ((Get-FileHash -LiteralPath $lifecycle -Algorithm SHA256).Hash -ne '4BA9A38519C981E4B9D7CF3C9765C9DCB0ECB4C15F3720CDB197C6DF4A27F62C') { throw 'Vendored lifecycle differs from reviewed source.' }
 $fixtureRoot = Join-Path (Split-Path $PSScriptRoot -Parent) ('artifacts/portable-playback-contract-' + [guid]::NewGuid().ToString('N'))
@@ -90,4 +94,4 @@ foreach ($code in 0,1) {
     }
     Refuses { Write-TerminalResult } # CreateNew keeps the first terminal result immutable.
 }
-Write-Host "PASS: revision-4/5 ownership, disabled capability, lifecycle pin, bounded failure result and retained-handle numeric-exit binding. Fixture: $fixtureRoot"
+Write-Host "PASS: revision-4/5 ownership, qualified playback capability, lifecycle pin, bounded failure result and retained-handle numeric-exit binding. Fixture: $fixtureRoot"

@@ -73,10 +73,10 @@ function Assert-PlaybackCapabilities($Actual) {
         schema='dbce.session-capabilities@1'; game='Super Woden Rally Edge'; protocol='woden.full-session-package@1'
         runner='WodenFullSession.ps1'; gameBuildSha256=$gameHash.ToLowerInvariant()
         record=[ordered]@{enabled=$false}
-        playback=[ordered]@{enabled=$false;adapters=@('woden.native-arcade-v1@1')}
+        playback=[ordered]@{enabled=$true;adapters=@('woden.native-arcade-v1@1')}
     }
     if ($null -eq $Actual -or ($Actual | ConvertTo-Json -Depth 8 -Compress) -cne ($expected | ConvertTo-Json -Depth 8 -Compress)) {
-        throw 'Playback capability must remain disabled in this unqualified package.'
+        throw 'Playback capability differs from the qualified package contract.'
     }
 }
 function Expected-Candidate($Entries) {

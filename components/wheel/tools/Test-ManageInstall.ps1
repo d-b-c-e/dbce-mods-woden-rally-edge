@@ -71,8 +71,9 @@ Check ((Hash (Join-Path $plugin 'WodenRallyEdgeWheel.dll')) -eq (Hash (Join-Path
 foreach ($entry in $first.files) { Check ((Hash (Join-Path $fixture $entry.path)) -eq $entry.sha256) ('Payload ' + $entry.path) }
 $playbackFiles = @('WodenFullSession.ps1','ReplayEnvironment.ps1','Stage-RigLease.ps1','rig-lease-provenance.json','Stage-RunnerLifecycle.ps1','session-capabilities.json')
 $capability = Get-Content -LiteralPath (Join-Path $plugin 'session-capabilities.json') -Raw | ConvertFrom-Json
-Check ($capability.schema -eq 'dbce.session-capabilities@1' -and !$capability.playback.enabled -and
-       ($capability.playback.adapters -join ',') -ceq 'woden.native-arcade-v1@1') 'Packaged playback stays disabled until an installed cold replay qualifies'
+Check ($capability.schema -eq 'dbce.session-capabilities@1' -and $capability.record.enabled -eq $false -and
+       $capability.playback.enabled -eq $true -and
+       ($capability.playback.adapters -join ',') -ceq 'woden.native-arcade-v1@1') 'Packaged playback matches qualified cold-replay contract'
 # A already declares origin, but its owned companion hash differs from this
 # package B. Updating and uninstalling B must not reinterpret A as legacy.
 $tool = Join-Path $plugin 'Start-RecordedGame.ps1'

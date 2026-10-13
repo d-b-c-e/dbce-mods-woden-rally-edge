@@ -111,7 +111,8 @@ Copy-Item -LiteralPath (Join-Path $root '../../tools/game/ReplayEnvironment.ps1'
     schema='dbce.session-capabilities@1'; game='Super Woden Rally Edge'; protocol='woden.full-session-package@1'
     runner='WodenFullSession.ps1'; gameBuildSha256='f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c'
     record=[ordered]@{enabled=$false}
-    playback=[ordered]@{enabled=$false;adapters=@('woden.native-arcade-v1@1')}
+    # Exact muted cold-replay pass: docs/2026-10-13-portable-cold-replay.md; terminal SHA-256 0BF09459EE66F12FC68B87B2143EEC5A61C0E2EB071898E12A9C01F8847A85F5.
+    playback=[ordered]@{enabled=$true;adapters=@('woden.native-arcade-v1@1')}
 } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $plugin 'session-capabilities.json') -Encoding utf8
 Copy-Item -LiteralPath (Join-Path $root 'lib\toolkit\VERSION') -Destination (Join-Path $plugin 'toolkit.version')
 foreach ($name in 'Start-RecordedGame.ps1','RecordedStopControl.ps1') {

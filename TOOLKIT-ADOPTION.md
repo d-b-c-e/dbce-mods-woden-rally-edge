@@ -1,5 +1,7 @@
 # Toolkit standards adoption
 
+October 13 STD-012/032 follow-up: one frozen revision-5 installed-runner cold replay of the exact admitted ordinary S1 derivative passed 749 poses with terminal pass, muted outputs, numeric game exit 0 and exact owner restoration. The window settled on the right racing panel only; no triple-render or physical-force claim follows. A source-only package/installer capability promotion now advertises `playback.enabled=true` for `woden.native-arcade-v1@1` based on that exact result. `record.enabled=false` in this full-session capability is retained because the distinct verified ordinary `woden.signal-session@1` record-only contract remains the capture entry point. The owner install is still the prior revision-4 candidate; Wheelkit/owner delivery awaits a combined row-selector package and review. See `components/wheel/docs/2026-10-13-portable-cold-replay.md`. Earlier source checkpoints below retain their historical meaning.
+
 October 13, 17:15 CT STD-012 source checkpoint: `cf4d26f` integrates the portable
 installed playback supervisor (`ca34dc2`) and long-close finalization. The runner
 retains the exact process handle while alive and requires an observed numeric
