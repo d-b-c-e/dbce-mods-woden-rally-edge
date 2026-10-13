@@ -69,6 +69,7 @@ public sealed class TelemetryOutput : IDisposable
     private string? _lastForceGate;
     private string? _lastForceModelReason;
     private double? _recordOrigin;
+    private double _recordingElapsedSeconds;
     private volatile bool _stop;
     private long _overwrites, _sent, _errors, _detailSent, _lastSentAt;
     public long OverwrittenTicks => Interlocked.Read(ref _overwrites);
@@ -82,6 +83,7 @@ public sealed class TelemetryOutput : IDisposable
     public string? RecordingError => _recordingFailure ?? _recorder?.LastError;
     public string RecordingStatus => _recordingFailure != null ? "Faulted" : _recorder?.Status.ToString() ?? "Disabled";
     public long RecordingDrops => _recorder?.DroppedSamples ?? 0;
+    public double RecordingElapsedSeconds => Volatile.Read(ref _recordingElapsedSeconds);
 
     public TelemetryOutput(OutputOptions options, string sessionId, string recordingSource, string pluginVersion = "unknown",
         IReadOnlyDictionary<string, string>? recordingProperties = null, RecordingOptions? recordingOptions = null)
@@ -122,6 +124,7 @@ public sealed class TelemetryOutput : IDisposable
         sample.Add("sample.discontinuity", sample.Discontinuity == null ? 0 : 1);
         _recordOrigin ??= sample.ElapsedSeconds;
         double recordTime = sample.ElapsedSeconds - _recordOrigin.Value;
+        if (_recorder?.Status == RecorderStatus.Recording) Volatile.Write(ref _recordingElapsedSeconds, Math.Max(0, recordTime));
         _recorder?.TryRecord(recordTime, sample.Channels);
         if (_lastState != sample.State) _recorder?.TryMark(recordTime, "state", sample.State);
         if (sample.Discontinuity != null && _lastDiscontinuity != sample.Discontinuity) _recorder?.TryMark(recordTime, "discontinuity", sample.Discontinuity);

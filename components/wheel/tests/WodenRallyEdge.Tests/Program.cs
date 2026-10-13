@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Text.Json;
 using Dbce.Wheel.Telemetry;
 using Dbce.Wheel.Recording;
+using Dbce.Wheel.Ui;
 using WodenRallyEdge.Core;
 
 if (args.Length > 0 && args[0] == "--ffb-summary")
@@ -16,6 +17,24 @@ TelemetrySample Sample(double time, float velocity = 10, float position = 0, int
     var s = new TelemetrySample { SessionId = "synthetic-fixture", ElapsedSeconds = wall ?? time, SimulationSeconds = time, CarInstanceId = car, State = state };
     s.Vector("motion.position.world", new(position, 0, 0)); s.Vector("motion.velocity.world", new(velocity, 0, 0)); return s;
 }
+
+Test("shared recording HUD uses actual Woden recorder states and center viewport", () => {
+    Check(RecordingHudLine.Describe("Disabled", 0, 0, null, false) == null, "no prepared recorder has no HUD");
+    var active = RecordingHudLine.Describe("Recording", 65, 0, null, true)!;
+    Check(active.Text.Contains("REC  01:05") && active.Text.Contains("F6 > Telemetry > Stop recording") &&
+        active.Text.Contains("Outputs muted"), "actual Stop route and mute are truthful");
+    Check(!RecordingHudLine.Describe("Stopping", 65, 0, null, false)!.Text.Contains("saved"), "stopping is saving");
+    Check(RecordingHudLine.Describe("Completed", 65, 0, null, false)!.Text.StartsWith("Recording saved"), "completed is saved");
+    Check(RecordingHudLine.Describe("LimitReached", 65, 0, null, false)!.Tone == SessionDisplayTone.Problem,
+        "limit cannot claim saved");
+    Check(RecordingHudLine.Describe("Faulted", 65, 0, "capture failed", false)!.Text.StartsWith("Recording incomplete"),
+        "failure cannot claim saved");
+    Check(RecordingHudLine.Describe("Completed", 65, 2, null, false)!.Text.Contains("2 dropped"),
+        "dropped rows invalidate saved claim");
+    var box = SessionStatusPresentation.Layout(7680, 1440, true, 112);
+    Check(box.X > 2560 && box.X + box.Width < 5120 && box.Y > 100,
+        "shared renderer layout stays below stage banner on center screen");
+});
 
 Test("calibration endpoints, asymmetric centre, inverted pedals and deadzone", () => {
     var steer = new AxisCalibration(0, 65535, 30000, .02);
@@ -496,7 +515,13 @@ Test("force rejects stale, paused, replay, reverse, airborne and incomplete or n
 });
 Test("live capture starts at zero even hours after game launch", () => {
     string path = Path.Combine(Path.GetTempPath(), "woden-late-capture-" + Guid.NewGuid() + ".jsonl");
-    using (var output = new TelemetryOutput(new(0, 0, 20, path), "fixture", "synthetic")) { output.Publish(Sample(7200)); output.Publish(Sample(7200.02)); }
+    using (var output = new TelemetryOutput(new(0, 0, 20, path), "fixture", "synthetic")) {
+        output.Publish(Sample(7200)); output.Publish(Sample(7200.02));
+        Near(output.RecordingElapsedSeconds, .02, "HUD clock uses recording-relative elapsed time");
+        output.StopRecording();
+        output.Publish(Sample(7200.04));
+        Near(output.RecordingElapsedSeconds, .02, "HUD clock freezes after recorder stop");
+    }
     var rows = SessionReader.Read(path).ToArray(); Check(rows.Count(x => x.Kind == SessionRecordKind.Sample) == 2, "late recording is not instantly duration-limited");
     Check(rows.Last().Footer.Completed, "late capture complete"); File.Delete(path);
 });

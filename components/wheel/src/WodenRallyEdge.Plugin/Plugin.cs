@@ -61,6 +61,7 @@ public sealed class Lifecycle : MonoBehaviour
         Panel.Draw();
         StagePlayback.OnGui();
         FrameRate.Draw(Runtime.Settings.ShowFrameRate);
+        RecordingStatusOverlay.Draw();
     }
     private void OnApplicationQuit() => Runtime.Stop();
     private void OnDestroy() => Runtime.Stop();

@@ -19,6 +19,7 @@
     <Compile Include="../../src/WodenRallyEdge.Plugin/WheelInput.cs" Link="Consumer/WheelInput.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CameraShortcuts.cs" Link="Consumer/CameraShortcuts.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Settings.cs" Link="Consumer/Settings.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/Toolkit/Ui/StrippedSessionStatusHud.cs" Link="Consumer/StrippedSessionStatusHud.cs" />
     <Compile Include="../../../../tools/controls/Probe/CarWorkload.cs" Link="Qualification/CarWorkload.cs" />
     <Compile Include="../../../../tools/controls/Probe/AppliedCarWorkload.cs" Link="Qualification/AppliedCarWorkload.cs" />
     <ProjectReference Include="../../src/WodenRallyEdge.Core/WodenRallyEdge.Core.csproj" />

@@ -26,6 +26,7 @@ namespace UnityEngine
     public sealed class Event
     { public static Event current=new(); public EventType type=EventType.Repaint; public int button; public Vector2 mousePosition,delta; public KeyCode keyCode; public bool shift; public void Use()=>type=EventType.Used; }
     public sealed class GUIContent(string text) { public string text=text; }
+    public struct Matrix4x4 { public static readonly Matrix4x4 identity=new(); }
     public sealed class GUIStyle { public int fontSize; public bool wordWrap; public State normal=new(); public sealed class State { public Color textColor; } }
     public static class Screen { public static int width=1280,height=720; }
     public enum CursorLockMode { None, Locked }
@@ -35,7 +36,7 @@ namespace UnityEngine
     public sealed record DrawCommand(string Kind,Rect Rect,string Text,Color Color,int FontSize=0,bool Wrap=false);
     public static class GUI
     {
-        public static Color color=Color.white;public static bool enabled=true;
+        public static Color color=Color.white;public static bool enabled=true;public static Matrix4x4 matrix=Matrix4x4.identity;
         public static readonly List<DrawCommand> Commands=new();
         public static string? TextReplacement;
         public static void DrawTexture(Rect r,Texture2D t)=>Commands.Add(new("rect",r,"",color));

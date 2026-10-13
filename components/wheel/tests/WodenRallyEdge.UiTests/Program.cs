@@ -5,10 +5,21 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using WodenRallyEdge;
 using WodenRallyEdge.Core;
+using Dbce.Wheel.Ui.Unity;
 
 var outputDir=Path.GetFullPath("artifacts/ux-ui-fixture");Directory.CreateDirectory(outputDir);
 var dir=Path.Combine(outputDir,Guid.NewGuid().ToString("N"));Directory.CreateDirectory(dir);
 int checks=0;void Check(bool ok,string message){checks++;if(!ok)throw new Exception(message);}
+Screen.width=7680;Screen.height=1440;GUI.Commands.Clear();Event.current.type=EventType.Repaint;
+var hudColor=GUI.color;var hudEnabled=GUI.enabled;var hudMatrix=GUI.matrix;
+new StrippedSessionStatusHud(UiNative.Style).Draw(RecordingHudLine.Describe("Recording",65,0,null,true)!,true,112);
+Check(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.Contains("REC  01:05")&&c.Text.Contains("F6 > Telemetry > Stop recording")&&c.FontSize>0&&c.Wrap),
+    "source-linked shared recording renderer shows the actual Woden stop route");
+Check(GUI.Commands.Count(c=>c.Kind=="rect")==2&&GUI.Commands.Where(c=>c.Kind=="rect").All(c=>c.Rect.x>2560&&c.Rect.x+c.Rect.width<5120&&c.Rect.y>100),
+    "source-linked recording renderer stays below stage banner on center display");
+Check(GUI.color.Equals(hudColor)&&GUI.enabled==hudEnabled&&GUI.matrix.Equals(hudMatrix),
+    "source-linked recording renderer restores IMGUI state");
+Screen.width=1280;Screen.height=720;GUI.Commands.Clear();
 StageLifecycleChecks.Run(dir, Check);
 StageReplayChecks.Run(Check);
 ShimChecks.Run(dir, Check);
