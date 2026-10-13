@@ -123,7 +123,8 @@ public sealed class DiagnosticRecordingControl
                 "startedUtcTicks=" + _processStartUtcTicks.ToString(CultureInfo.InvariantCulture),
                 "active=" + _output.RecordingActive,
                 "status=" + state, "error=" + error.Replace('\r', ' ').Replace('\n', ' ') });
-            File.Move(temporary, path, true);
+            if (File.Exists(path)) File.Replace(temporary, path, null);
+            else File.Move(temporary, path);
             _lastPublished = key;
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }

@@ -4,7 +4,7 @@ param(
     [switch]$AttendedFfb,
     [switch]$PrepareOnly,
     [switch]$Stop,
-    [guid]$RequestId,
+    [guid]$RequestId = [guid]::Empty,
     [ValidateRange(15,600)][int]$StartupTimeoutSeconds = 180,
     [ValidateRange(1,30)][int]$SessionTimeoutMinutes = 25
 )
@@ -13,13 +13,34 @@ $gameRoot = (Resolve-Path -LiteralPath $GameDirectory).Path
 $exe = Join-Path $gameRoot 'Super Woden Rally Edge.exe'
 if (!(Test-Path -LiteralPath $exe)) { throw 'Woden executable not found.' }
 function Read-ControlStatus([string]$Path) {
-    if (!(Test-Path -LiteralPath $Path)) { return $null }
+    if (!(Test-Path -LiteralPath $Path -PathType Leaf)) { return $null }
+    $share = [IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete
+    $stream = [IO.FileStream]::new($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, $share)
+    try {
+        if ($stream.Length -gt 8192) { throw 'Malformed recording status.' }
+        $bytes = [byte[]]::new([int]$stream.Length)
+        $offset = 0
+        while ($offset -lt $bytes.Length) {
+            $read = $stream.Read($bytes, $offset, $bytes.Length - $offset)
+            if ($read -le 0) { throw 'Malformed recording status.' }
+            $offset += $read
+        }
+        if ($stream.ReadByte() -ne -1) { throw 'Malformed recording status.' }
+    } finally { $stream.Dispose() }
+    try { $text = [Text.UTF8Encoding]::new($false, $true).GetString($bytes) }
+    catch [Text.DecoderFallbackException] { throw 'Malformed recording status.' }
+    if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }
     $fields = @{}
-    foreach ($line in [IO.File]::ReadAllLines($Path)) {
+    $lines = @($text -split "`n")
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i]
+        if ($line.EndsWith("`r")) { $line = $line.Substring(0, $line.Length - 1) }
+        if ($line.Length -eq 0 -and $i -eq $lines.Count - 1) { continue }
         $equal = $line.IndexOf('=')
         if ($equal -le 0 -or $fields.ContainsKey($line.Substring(0, $equal))) { throw 'Malformed recording status.' }
         $fields[$line.Substring(0, $equal)] = $line.Substring($equal + 1)
     }
+    if ($fields.Count -eq 0) { throw 'Malformed recording status.' }
     return $fields
 }
 function Write-Finalization([string]$ControlRoot, [guid]$Id, [string]$State, [string]$ErrorText) {

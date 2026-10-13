@@ -9,10 +9,12 @@ using WodenRallyEdge.Core;
 
 if (args.Length > 0 && args[0] == "--ffb-summary")
     return WodenRallyEdge.FfbSummaryCommand.Run(args, Console.Error);
+string? only = args.Length == 2 && args[0] == "--only" ? args[1] : null;
+if (args.Length > 0 && only == null) { Console.Error.WriteLine("Use --only with one exact suite name."); return 2; }
 int passed = 0, failed = 0, checks = 0;
 void Check(bool value, string message) { checks++; if (!value) throw new Exception(message); }
 void Near(double actual, double expected, string name, double tolerance = .0001) => Check(Math.Abs(actual - expected) < tolerance, $"{name}: {actual} != {expected}");
-void Test(string name, Action action) { try { action(); passed++; Console.WriteLine("PASS " + name); } catch (Exception ex) { failed++; Console.WriteLine("FAIL " + name + ": " + ex); } }
+void Test(string name, Action action) { if (only != null && name != only) return; try { action(); passed++; Console.WriteLine("PASS " + name); } catch (Exception ex) { failed++; Console.WriteLine("FAIL " + name + ": " + ex); } }
 TelemetrySample Sample(double time, float velocity = 10, float position = 0, int car = 1, string state = "driving", double? wall = null) {
     var s = new TelemetrySample { SessionId = "synthetic-fixture", ElapsedSeconds = wall ?? time, SimulationSeconds = time, CarInstanceId = car, State = state };
     s.Vector("motion.position.world", new(position, 0, 0)); s.Vector("motion.velocity.world", new(velocity, 0, 0)); return s;
@@ -638,6 +640,24 @@ Test("ordinary control storage failure cannot stop the recorder or interrupt inp
         Check(File.ReadAllText(status).Contains("Recording control storage"), "status write retries after lock released");
     } finally { Directory.Delete(parent, true); }
 });
+Test("ordinary status replaces atomically while a delete-sharing reader holds the old file", () => {
+    Guid id = Guid.NewGuid();
+    string parent = Path.Combine(Path.GetTempPath(), "woden-status-reader-" + Guid.NewGuid().ToString("N"));
+    string directory = Path.Combine(parent, "request-" + id.ToString("N")); Directory.CreateDirectory(directory);
+    try {
+        using var output = new TelemetryOutput(new(0, 0, 20, Path.Combine(directory, "source.jsonl")), "fixture", "synthetic");
+        var control = new DiagnosticRecordingControl(directory, id, 12345, 456789, output);
+        string status = Path.Combine(directory, "control", "status.txt");
+        using var held = new FileStream(status, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        output.StopRecording();
+        control.Flush();
+        Check(control.LastError == null && File.ReadAllLines(status).Contains("status=Completed"),
+            "production status writer publishes Completed through a held shared reader");
+        byte[] previous = new byte[(int)held.Length];
+        Check(held.Read(previous) == previous.Length && System.Text.Encoding.UTF8.GetString(previous).Contains("status=Recording"),
+            "held reader keeps a complete old status while a new status becomes visible");
+    } finally { Directory.Delete(parent, true); }
+});
 Test("camera button extends the stock cycle without saving invalid native indices and yields on takeover", () => {
     var cycle = new CameraCycle();
     cycle.StockChanged(0, 1, true, true); Check(cycle.View == MountedView.Stock, "stock intermediate view retained");
@@ -1035,4 +1055,5 @@ Test("ordinary HUD depth preserves ideal pixels and bounds isolated-world float 
 if (Environment.GetEnvironmentVariable("WODEN_GRIP_CAPTURE") is { Length: > 0 } gripCapture)
     Test("private native Grip5 capture: exact old replay and isolated Grip6 trial", () => GripV6Checks.NativeCapture(Check, gripCapture));
 Console.WriteLine($"{passed} suites passed; {failed} failed; {checks} assertions.");
+if (only != null && passed + failed != 1) { Console.Error.WriteLine("Exact suite was not found."); return 2; }
 return failed == 0 ? 0 : 1;
