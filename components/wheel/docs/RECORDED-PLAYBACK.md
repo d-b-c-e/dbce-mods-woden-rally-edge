@@ -27,7 +27,7 @@ Each request writes under:
 
 The first three files are created by the installed consumer. `case.json` and `force-observation.jsonl` are produced only after source validation and offline reprocessing. Existing files are never replaced.
 
-The in-game recording HUD reports **Recording data written | Finalization pending** when a prepared request's `source.jsonl` recorder reaches `Completed`. That status proves only that the source writer closed; `Start-RecordedGame.ps1` performs the case/observation finalizer after normal game exit, and it may still reject missing coverage or inconsistent source/config/profile identity. The HUD does not claim Saved for a prepared request. A plain recording whose source file is the complete artifact may show Saved after its clean footer. Sample or marker drops and invalid recorder counters instead show Incomplete.
+The in-game recording HUD reports **Recording data written | Finalization pending | Exit the game to finalize** when a prepared request's `source.jsonl` recorder reaches `Completed`. That status proves only that the source writer closed; `Start-RecordedGame.ps1` performs the case/observation finalizer after normal game exit, and it may still reject missing coverage or inconsistent source/config/profile identity. The HUD does not claim Saved for a prepared request. A plain recording whose source file is the complete artifact may show Saved after its clean footer. Sample or marker drops and invalid recorder counters instead show Incomplete.
 
 ## Identity and evidence levels
 

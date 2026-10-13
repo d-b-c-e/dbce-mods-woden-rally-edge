@@ -34,6 +34,8 @@ public static class RecordingHudLine
         var line = SessionStatusPresentation.Describe(state, elapsedSeconds, outputsMuted,
             stopKey: "F6 > Telemetry > Stop recording",
             recordingStopHint: requiresFinalization ? "F6 > Telemetry > Stop recording" : null)!;
+        if (state == SessionDisplayState.DataWritten)
+            line = new SessionStatusLine(line.Text + "  |  Exit the game to finalize", line.Tone);
         if (!rejected) return line;
         string detail = droppedSamples + droppedMarkers > 0 ? "  |  " + (droppedSamples + droppedMarkers) + " dropped" : "";
         if (invalid > 0) detail += "  |  " + invalid + " invalid";

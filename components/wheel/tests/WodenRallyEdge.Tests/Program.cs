@@ -28,7 +28,7 @@ Test("shared recording HUD uses actual Woden recorder states and center viewport
     Check(!RecordingHudLine.Describe("Stopping", 65, clean, null, false, true)!.Text.Contains("saved"), "stopping is saving");
     Check(RecordingHudLine.Describe("Completed", 65, clean, null, false, false)!.Text.StartsWith("Recording saved"),
         "loose source completion is saved");
-    Check(RecordingHudLine.Describe("Completed", 65, clean, null, false, true)!.Text.Contains("Finalization pending"),
+    Check(RecordingHudLine.Describe("Completed", 65, clean, null, false, true)!.Text.Contains("Finalization pending  |  Exit the game to finalize"),
         "prepared source completion is not a sealed package");
     Check(RecordingHudLine.Describe("LimitReached", 65, clean, null, false, true)!.Tone == SessionDisplayTone.Problem,
         "limit cannot claim saved");
@@ -546,7 +546,7 @@ Test("prepared recording source completion waits for the external case finalizer
             Check(output.RecordingStatus == "Completed" && output.RecordingRequiresFinalization,
                 "production prepared-request metadata identifies a completed source that still needs finalization");
             var line = RecordingHudLine.Describe(output, true)!;
-            Check(line.Text.Contains("Finalization pending") && !line.Text.Contains("saved") &&
+            Check(line.Text.Contains("Finalization pending  |  Exit the game to finalize") && !line.Text.Contains("saved") &&
                 !File.Exists(Path.Combine(directory, "case.json")),
                 "completed source without external case manifest cannot claim a sealed package");
         }
