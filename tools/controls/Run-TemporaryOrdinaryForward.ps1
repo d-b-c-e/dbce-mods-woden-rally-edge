@@ -17,6 +17,7 @@ param(
 $ErrorActionPreference='Stop'
 . "$PSScriptRoot/OwnerFiles.ps1"
 . "$PSScriptRoot/Environment.ps1"
+. "$PSScriptRoot/OrdinaryCompanionGuard.ps1"
 . "$PSScriptRoot/../../vendor/playback/Stage-RigLease.ps1"
 function Full([string]$Path) { [IO.Path]::GetFullPath($Path).TrimEnd('\','/') }
 function Closed { if(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue){throw 'Woden must be closed; retain owner state and lease.'} }
@@ -74,16 +75,23 @@ foreach($entry in $owner.files){Pin (Join-Path $GameDir $entry.path) $entry.sha2
 $automation=Get-Content -LiteralPath (Join-Path $PackageRoot 'automation-native-provenance.json') -Raw | ConvertFrom-Json
 if($automation.schema -cne 'woden.automation-muted-native@1' -or $automation.nativeSha256 -ne $nativeHash -or
    $automation.baseNativeSha256 -ne 'f8361a08bbe08eaab936b37800d308cf1fc7edab34e2839db16a447fe34178c5' -or
+   $automation.sourceCommit -cne 'a9a255c3277cb0ae6e8ec11f18b2f0c17b3c22a9' -or
+   $automation.managedPayloadSourceCommit -cne $automation.sourceCommit -or
+   $automation.baseManifestSha256 -ne '60397a0fdf7e26bf56a5ece2f166a19ff5c94befcbbe914eb8b4527091cf1c2c' -or
+   $automation.ownerReceiptSha256 -ne $originalReceipt -or
    $automation.nativeDefaultState -cne 'armed' -or $automation.requiresExplicitArm -ne $false -or
    !(Test-Path -LiteralPath (Join-Path $PackageRoot 'AUTOMATION-ONLY.txt') -PathType Leaf)){
     throw 'Temporary package is not the reviewed load-muted automation flavor.'
 }
 Pin (Join-Path $candidate 'WheelFfb.dll') $nativeHash
-foreach($name in @('WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Start-RecordedGame.ps1','RecordedStopControl.ps1','WodenCaseFinalizer.exe')){
-    $path='BepInEx/plugins/WodenRallyEdgeWheel/'+$name
-    $prior=@($owner.files | Where-Object {$_.path.Replace('\','/') -ceq $path})
-    if($prior.Count -ne 1){throw "Original ordinary payload missing: $name"}
-    Pin (Join-Path $PackageRoot $path) $prior[0].sha256
+foreach($entry in $owner.files){
+    $path=$entry.path.Replace('\','/')
+    if($path -ceq 'BepInEx/plugins/WodenRallyEdgeWheel/WheelFfb.dll'){continue}
+    $packageEntry=@($manifest | Where-Object { $_.path.Replace('\','/') -ceq $path })
+    if($packageEntry.Count -ne 1 -or $packageEntry[0].sha256 -ne $entry.sha256){
+        throw "Frozen-a9 package payload differs from current owner: $path"
+    }
+    Pin (Join-Path $PackageRoot $path) $entry.sha256
 }
 
 $roots=[ordered]@{
@@ -123,6 +131,13 @@ try {
 finally {
     if($mutated){
         try {
+            $guardPath=Join-Path $Result 'trial/ordinary-companion-guard.json'
+            if(Test-Path -LiteralPath $guardPath){
+                $trialRecoveryPath=Join-Path $Result 'trial/recovery.json'
+                if(!(Test-Path -LiteralPath $trialRecoveryPath -PathType Leaf)){throw 'Companion guard exists without the exact trial recovery identity; retain lease and owner state.'}
+                $trialRecovery=Get-Content -LiteralPath $trialRecoveryPath -Raw | ConvertFrom-Json
+                Assert-OrdinaryCompanionQuiescent -Path $guardPath -RequestId ([string]$trialRecovery.nonce) -ExpectedExecutable (Get-Command pwsh).Source -ExpectedScript (Join-Path $plugin 'Start-RecordedGame.ps1')
+            }
             Closed; Assert-StageRigLease -Path $slot -Token $lease.token
             Restore-ControlFiles (Join-Path $Result 'owner-before') (Join-Path $Result 'candidate-after') $roots $files
             if((Get-ControlHash (Join-Path $Result 'preferences.json')) -ne $prefsHash){throw 'Preference snapshot changed.'}

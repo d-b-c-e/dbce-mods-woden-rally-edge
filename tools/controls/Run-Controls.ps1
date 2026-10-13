@@ -49,6 +49,7 @@ $Result=Full $Result; $GameDir=Full $GameDir
 . "$PSScriptRoot/OwnerFiles.ps1"
 . "$PSScriptRoot/Environment.ps1"
 . "$PSScriptRoot/Apply-Check.ps1"
+. "$PSScriptRoot/OrdinaryCompanionGuard.ps1"
 . "$PSScriptRoot/../../vendor/playback/Stage-RigLease.ps1"
 $slot=Join-Path $env:LOCALAPPDATA 'dbce/test-slot.txt'
 $prefsKey='HKCU:\Software\ViJuDa\Super Woden Rally Edge'
@@ -106,6 +107,7 @@ $mode=if($ShimHudStopOnly){'shim-hud-stop-only'}elseif($ShimHudOrdinary){'shim-h
 $blocked=@($request,$marker,(Join-Path $roots.config 'woden-record-next-launch.json'),(Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/woden/request.txt'))
 $probe=Join-Path $PSScriptRoot 'Probe/bin/Release/net6.0/Woden.ControlsProbe.dll'
 $configVerifier=Join-Path $PSScriptRoot 'VerifyConfig/bin/Release/net8.0/VerifyConfig.dll'
+$ordinaryGuard=Join-Path $Result 'ordinary-companion-guard.json'
 $ready=$false; $lease=$null; $borrowedLease=$false; $game=$null; $ownedGame=$false; $nonce=$null; $restored=$false; $applied=$false; $verificationError=$null; $finalizerError=$null; $captureError=''; $capture=$null; $postCapture=$null; $ordinaryCompanion=$null
 function Closed {if(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue){throw 'Woden is running; no preparation or restoration.'}}
 function Read-OrdinaryStatus([string]$Path) {
@@ -130,9 +132,15 @@ function Start-OrdinaryCompanion([string]$Script,[string]$Id) {
     $start.UseShellExecute=$false;$start.CreateNoWindow=$true
     $start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
     foreach($arg in @('-NoProfile','-File',$Script,'-GameDir',$GameDir,'-RequestId',$Id,'-CaseId',('woden-automated-forward-'+$Id),'-StartupTimeoutSeconds','180','-SessionTimeoutMinutes','5')){[void]$start.ArgumentList.Add($arg)}
+    Write-OrdinaryCompanionGuard -Path $ordinaryGuard -State pending -RequestId $Id -Executable $start.FileName -Script $Script
     $child=[Diagnostics.Process]::Start($start)
     if(!$child){throw 'Installed ordinary companion did not start.'}
-    return [pscustomobject]@{process=$child;stdout=$child.StandardOutput.ReadToEndAsync();stderr=$child.StandardError.ReadToEndAsync()}
+    if(![string]::Equals($child.MainModule.FileName,$start.FileName,[StringComparison]::OrdinalIgnoreCase)){
+        throw 'Ordinary companion executable path differs; retain the pending launch guard.'
+    }
+    $started=$child.StartTime.ToUniversalTime().Ticks
+    Write-OrdinaryCompanionGuard -Path $ordinaryGuard -State running -RequestId $Id -Executable $start.FileName -Script $Script -ProcessId $child.Id -StartedUtcTicks $started
+    return [pscustomobject]@{process=$child;stdout=$child.StandardOutput.ReadToEndAsync();stderr=$child.StandardError.ReadToEndAsync();startedUtcTicks=$started;executable=$start.FileName;script=$Script;gameObserved=$false}
 }
 function OwnerActivityAllowed {
     $policy=Join-Path $env:LOCALAPPDATA 'dbce/rig-activity-policy.json'
@@ -275,8 +283,17 @@ if($Recover) {
                 if(!(Test-Path -LiteralPath $automationMarker -PathType Leaf) -or !(Test-Path -LiteralPath $automation -PathType Leaf)){throw 'Ordinary automation package marker/provenance missing.'}
                 $metadata=Get-Content -LiteralPath $automation -Raw | ConvertFrom-Json
                 if($metadata.schema -cne 'woden.automation-muted-native@1' -or $metadata.nativeSha256 -ne $NativeSha256 -or
+                   $metadata.sourceCommit -cne 'a9a255c3277cb0ae6e8ec11f18b2f0c17b3c22a9' -or
+                   $metadata.managedPayloadSourceCommit -cne $metadata.sourceCommit -or
+                   $metadata.baseManifestSha256 -ne '60397a0fdf7e26bf56a5ece2f166a19ff5c94befcbbe914eb8b4527091cf1c2c' -or
+                   $metadata.ownerReceiptSha256 -ne 'FE2BABFA962467EC82C31C0D677476828AAA4C1125FB4882DB1AE8892D9BA440' -or
                    $metadata.nativeDefaultState -cne 'armed' -or $metadata.requiresExplicitArm -ne $false -or
                    (Get-Content -LiteralPath $automationMarker -Raw) -notmatch 'INTERNAL AUTOMATION ONLY'){throw 'Ordinary automation package identity differs.'}
+                if($candidateHashes.plugin -ne 'F96A40ED64E8806F1D6E2052F8F1EC58FBF275B49FCB6FA448AC90283A7E4255' -or
+                   $candidateHashes.core -ne '67CE4788BCB710BEA93288D6398A1B0BF3AE6CD29219DB56B6ED7CB2794E311C' -or
+                   (Get-ControlHash (Join-Path $CandidateDirectory 'Start-RecordedGame.ps1')) -ne '1A2A5F0649BA69FB89AB9A1CCC9F4C0DF5064B4730363BA7C4D98C51B42DF70A'){
+                    throw 'Ordinary automation managed payload differs from frozen a9 source.'
+                }
                 if(!$WheelkitCoreDll -or !$WheelkitCoreSha256){throw 'Ordinary trial requires pinned Wheelkit 0.6.33 read-only contract.'}
                 $WheelkitCoreDll=Full $WheelkitCoreDll;Assert-ControlPlain $WheelkitCoreDll
                 if((Get-ControlHash $WheelkitCoreDll) -ne $WheelkitCoreSha256 -or
@@ -433,6 +450,8 @@ try {
     if(![string]::Equals($game.MainModule.FileName,(Join-Path $GameDir 'Super Woden Rally Edge.exe'),[StringComparison]::OrdinalIgnoreCase)){throw 'Wrong executable launched.'}
     $ownedGame=$true
     if($OrdinarySavedForward){
+        $ordinaryCompanion.gameObserved=$true
+        Write-OrdinaryCompanionGuard -Path $ordinaryGuard -State running -RequestId $nonce -Executable $ordinaryCompanion.executable -Script $ordinaryCompanion.script -ProcessId $ordinaryCompanion.process.Id -StartedUtcTicks $ordinaryCompanion.startedUtcTicks -GameObserved $true
         $statusPath=Join-Path $roots.recording 'control/status.txt'
         $statusDeadline=[DateTime]::UtcNow.AddSeconds(30)
         do {
@@ -559,9 +578,13 @@ try {
         [ordered]@{schema=1;status=$(if($captureError){'failed'}else{'captured'});reason=$captureError;movingCaptureProcess=$(if($capture){$capture.Id}else{$null});postStopCaptureProcess=$(if($postCapture){$postCapture.Id}else{$null});toolSha256=$WindowCaptureSha256} | ConvertTo-Json | Set-Content "$Result/hud-capture-verdict.json"
     }
     if($ownedGame -and $game -and !$game.HasExited){$null=$game.CloseMainWindow();$null=$game.WaitForExit(20000)}
-    if($ordinaryCompanion -and !$ordinaryCompanion.process.WaitForExit(15000)){
-        throw 'Installed companion can still launch or finalize Woden; retain the shared lease and owner state.'
+    if($ordinaryCompanion){
+        if(!$ordinaryCompanion.process.WaitForExit(15000)){
+            throw 'Installed companion can still launch or finalize Woden; retain the shared lease and owner state.'
+        }
+        Write-OrdinaryCompanionGuard -Path $ordinaryGuard -State exited -RequestId $nonce -Executable $ordinaryCompanion.executable -Script $ordinaryCompanion.script -ProcessId $ordinaryCompanion.process.Id -StartedUtcTicks $ordinaryCompanion.startedUtcTicks -GameObserved $ordinaryCompanion.gameObserved -ExitCode $ordinaryCompanion.process.ExitCode
     }
+    if($OrdinarySavedForward){Assert-OrdinaryCompanionQuiescent -Path $ordinaryGuard -RequestId $nonce -ExpectedExecutable (Get-Command pwsh).Source -ExpectedScript (Join-Path $plugin 'Start-RecordedGame.ps1')}
     Closed # If any process remains, retain lease/recovery and never write into it.
     $errors=[Collections.Generic.List[string]]::new()
     function Attempt([scriptblock]$Work){try{& $Work}catch{$errors.Add($_.Exception.Message);Write-Warning $_.Exception.Message}}
