@@ -1056,6 +1056,7 @@ Test("replay HUD speed uses the recorded game.trueSpeed per aligned row, derived
 Test("ordinary full-session capture seals the first stage in DRIVE's package layout with phase-aligned signals", () => WodenRallyEdge.FullSessionChecks.Package(Check));
 Test("ordinary full-session outcomes stay incomplete without a sealed aligned stage and a clean source", () => WodenRallyEdge.FullSessionChecks.Incomplete(Check));
 Test("ordinary status shows Completed only after the full-session package or its marker exists", () => WodenRallyEdge.FullSessionChecks.StatusHold(Check));
+Test("plugin close releases the status hold even with a package commit already begun", () => WodenRallyEdge.FullSessionChecks.ClosingHold(Check));
 Test("an ordinary-owned launch ignores later stage requests: no mute, no supervised commands", () => WodenRallyEdge.FullSessionChecks.Ownership(Check));
 if (Environment.GetEnvironmentVariable("WODEN_GRIP_CAPTURE") is { Length: > 0 } gripCapture)
     Test("private native Grip5 capture: exact old replay and isolated Grip6 trial", () => GripV6Checks.NativeCapture(Check, gripCapture));

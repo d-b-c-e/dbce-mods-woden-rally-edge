@@ -247,6 +247,38 @@ internal static class FullSessionChecks
         check(Status() == "status=Completed", "a failing hold never hides the recorder state");
     }
 
+    /// <summary>The production hold policy (OrdinaryFullSession.HoldStatus) at plugin close with a commit already begun.</summary>
+    public static void ClosingHold(Action<bool, string> check)
+    {
+        using var f = new Fixture();
+        f.Menus(); f.Open();
+        for (int i = 0; i < 10; i++) f.Tick();
+        f.CloseOrdinary(); f.Session.Stop(f.Now);
+        var id = Guid.Parse(Path.GetFileName(f.Root)["request-".Length..]);
+        var control = new DiagnosticRecordingControl(f.Root, id, Environment.ProcessId, DateTime.UtcNow.Ticks, f.Ordinary);
+        bool closing = false; double startedAt = double.NaN, now = 100;
+        control.HoldTerminal = () => f.Session.HoldStatus(closing, startedAt, now);
+        string Status() => File.ReadAllLines(Path.Combine(f.Root, "control", "status.txt")).First(l => l.StartsWith("status=", StringComparison.Ordinal));
+        control.Flush();
+        check(Status() == "status=Stopping", "held while packaging has not started");
+        using var started = new ManualResetEventSlim(); using var release = new ManualResetEventSlim();
+        f.Session.CommitStarted = () => { started.Set(); release.Wait(TimeSpan.FromSeconds(30)); };
+        startedAt = now;
+        var worker = Task.Run(f.Session.Package);
+        check(started.Wait(TimeSpan.FromSeconds(30)), "the package commit began");
+        check(!f.Session.Abandon("fixture close") && !f.Session.Terminal, "a commit in progress cannot be abandoned or claimed terminal");
+        now = startedAt + OrdinaryFullSession.MaxHoldSeconds + 1;
+        control.Flush();
+        check(Status() == "status=Stopping", "past the bound, a committing package still holds while the game runs");
+        closing = true;
+        control.Flush();
+        check(Status() == "status=Completed" && !f.Session.Terminal, "plugin close releases the hold: the last status is the recorder's real state");
+        release.Set();
+        check(worker.Wait(TimeSpan.FromSeconds(30)) && f.Session.Outcome == "package", "the commit itself still completes and verifies");
+        ArtifactSeal.Verify(f.Root, FullSessionPackageNames.FromSignal("source.jsonl").OuterSealFiles());
+        check(!f.Session.HoldStatus(false, startedAt, now), "a terminal package never holds");
+    }
+
     /// <summary>StagePlayback's launch owner: supervised stage control and the ordinary capture never share a launch.</summary>
     public static void Ownership(Action<bool, string> check)
     {

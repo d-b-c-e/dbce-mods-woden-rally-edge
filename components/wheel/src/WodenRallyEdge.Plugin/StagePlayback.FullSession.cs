@@ -20,18 +20,10 @@ internal static partial class StagePlayback
     internal static StageSignalFiles.Identity SignalIdentity => new(Runtime.GameAssemblyHash, typeof(Plugin).Assembly.Location,
         File.ReadAllText(Path.Combine(Path.GetDirectoryName(typeof(Plugin).Assembly.Location)!, "recording-provenance.json")), Plugin.Version, Runtime.SessionId);
 
-    /// <summary>The ordinary status holds at Stopping until session.json or its incomplete marker exists (bounded).</summary>
-    internal static bool FullPackagePending
-    {
-        get
-        {
-            var full = _full;
-            if (full == null || full.Terminal) return false;
-            if (!double.IsNaN(_fullTerminalAt) && Runtime.Clock.Elapsed.TotalSeconds - _fullTerminalAt > 60)
-                return !full.Abandon("Package verification exceeded 60 seconds; the original capture files are retained.");
-            return true;
-        }
-    }
+    private static volatile bool _fullClosing;
+    /// <summary>The ordinary status holds at Stopping until session.json or its incomplete marker exists (bounded;
+    /// released at plugin close).</summary>
+    internal static bool FullPackagePending => _full?.HoldStatus(_fullClosing, _fullTerminalAt, Runtime.Clock.Elapsed.TotalSeconds) == true;
 
     internal static void ArmFullSession(string captureDirectory, StageSignalFiles.Identity identity)
     {
@@ -143,6 +135,7 @@ internal static partial class StagePlayback
             Report(full);
         }
         catch (Exception ex) { Runtime.Log.LogWarning("Ordinary full-session close: " + ex.Message); }
+        finally { _fullClosing = true; } // the final status Flush reports the recorder's real state
     }
 
     private static bool TerminalSource(string? status) => status is "Completed" or "LimitReached" or "Faulted";

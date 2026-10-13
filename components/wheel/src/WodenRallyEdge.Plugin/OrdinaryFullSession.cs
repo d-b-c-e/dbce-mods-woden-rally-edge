@@ -182,6 +182,20 @@ internal sealed class OrdinaryFullSession
         Incomplete("Full-session capture failed: " + Failure);
     }
 
+    /// <summary>Fixture seam: runs on the package worker once the commit has begun (null in production).</summary>
+    internal Action? CommitStarted { get; set; }
+    internal const double MaxHoldSeconds = 60;
+    /// <summary>Whether the ordinary status should still read Stopping. Plugin close always releases it, so the last
+    /// published status is the recorder's real state even if a slow commit is still running; readers require the
+    /// outer seal, so a descriptor left without it is never a package. Bounded at 60 s after packaging starts.</summary>
+    internal bool HoldStatus(bool closing, double packageStartedAt, double now)
+    {
+        if (Terminal || closing) return false;
+        if (!double.IsNaN(packageStartedAt) && now - packageStartedAt > MaxHoldSeconds)
+            return !Abandon("Package verification exceeded 60 seconds; the original capture files are retained.");
+        return true;
+    }
+
     /// <summary>Gives up before the package commit begins (game closing, or a stalled verification). False once committing.</summary>
     internal bool Abandon(string reason)
     {
@@ -221,6 +235,7 @@ internal sealed class OrdinaryFullSession
                 ["signals"] = _names.Signals, ["observation"] = _names.Observation, ["timeline"] = _names.Timeline, ["stage"] = _names.Stage,
                 ["playbackUnavailableReason"] = FullSessionPackageNames.UnavailableReason(NoPlayback) };
             if (Interlocked.CompareExchange(ref _state, Committing, Pending) != Pending) return; // abandoned meanwhile
+            CommitStarted?.Invoke();
             WriteNew(Path.Combine(_root, FullSessionPackageNames.Descriptor), System.Text.Encoding.UTF8.GetBytes(document.ToJsonString(Indented)));
             descriptor = true;
             ArtifactSeal.Complete(_root, _names.OuterSealFiles());

@@ -35,7 +35,9 @@ same game build) and the outer seal verified.
   directly rather than `StageSession.Record`.
 - **Status.** The ordinary `control/status.txt` shows `Stopping` (inactive) after the recorder closes until
   `session.json` or `full-session-incomplete.txt` exists, bounded at 60 s after packaging starts, so the
-  companion's Saved finalization follows the package. On game close the package gets a bounded 10 s.
+  companion's Saved finalization follows the package. On game close the package gets a bounded 10 s; then the
+  hold is released so the last status is the recorder's real state, even if a slow commit is still running. A
+  descriptor left without its outer seal is never a package: readers require `complete.tsv`.
 - **Origin** is `diagnostic`: the ordinary request carries no explicit owner-origin evidence (DRIVE's rule).
 - **Supported scope** is whatever the stage tool's eligibility admits. S2 decides which stages cold playback can
   start; S1 records without that judgment.
