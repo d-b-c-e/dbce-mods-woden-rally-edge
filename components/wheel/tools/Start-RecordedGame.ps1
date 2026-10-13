@@ -2,6 +2,7 @@ param(
     [Alias('GameDir')][string]$GameDirectory = 'D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge',
     [string]$CaseId,
     [switch]$AttendedFfb,
+    [ValidateSet('human','automated')][string]$InputOrigin,
     [switch]$PrepareOnly,
     [switch]$Stop,
     [guid]$RequestId = [guid]::Empty,
@@ -53,7 +54,7 @@ function Write-Finalization([string]$ControlRoot, [guid]$Id, [string]$State, [st
     } finally { if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp } }
 }
 if ($Stop) {
-    if ($RequestId -eq [guid]::Empty -or $PrepareOnly -or $AttendedFfb -or $CaseId) { throw 'Stop requires only an exact RequestId.' }
+    if ($RequestId -eq [guid]::Empty -or $PrepareOnly -or $AttendedFfb -or $CaseId -or $PSBoundParameters.ContainsKey('InputOrigin')) { throw 'Stop requires only an exact RequestId.' }
     $captureDirectory = Join-Path $gameRoot ('BepInEx/WodenRecordings/request-' + $RequestId.ToString('N'))
     $controlRoot = Join-Path $captureDirectory 'control'
     $status = Read-ControlStatus (Join-Path $controlRoot 'status.txt')
@@ -74,15 +75,19 @@ if (!(Test-Path -LiteralPath $plugin) -or [version][Diagnostics.FileVersionInfo]
 if ($RequestId -eq [guid]::Empty) { $RequestId = [guid]::NewGuid() }
 if (!$CaseId) { $CaseId = 'woden-drive-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') }
 if ($CaseId -notmatch '^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}$') { throw 'CaseId must follow the shared identifier form: 1-128 ASCII letters, digits, dot, underscore, colon, at-sign or hyphen, beginning with a letter or digit.' }
+if ($PSBoundParameters.ContainsKey('InputOrigin') -and $InputOrigin -cnotin @('human','automated')) { throw 'InputOrigin must be exactly human or automated.' }
+if ($InputOrigin -ceq 'automated' -and $AttendedFfb) { throw 'Automated input cannot request physical FFB.' }
 $requestPath = Join-Path $gameRoot 'BepInEx/config/woden-record-next-launch.json'
 if (Test-Path -LiteralPath $requestPath) { throw "A launch request already exists: $requestPath. Inspect it before replacing it." }
 $captureDirectory = Join-Path $gameRoot ('BepInEx/WodenRecordings/request-' + $requestId.ToString('N'))
 if (Test-Path -LiteralPath $captureDirectory) { throw "Recording request directory already exists: $captureDirectory" }
 $request = [ordered]@{ Version = 2; Id = $requestId.ToString(); ExpiresUtc = [DateTimeOffset]::UtcNow.AddMinutes(15).ToString('o'); DisableForces = !$AttendedFfb; CaseId = $CaseId }
+if ($PSBoundParameters.ContainsKey('InputOrigin')) { $request.InputOrigin = $InputOrigin }
 $request | ConvertTo-Json | Set-Content -LiteralPath $requestPath -Encoding utf8
 Write-Host "Capture requested for one launch: $($request.Id). Expires in 15 minutes."
 Write-Host "Case: $CaseId (signal reprocessing; not deterministic game-driving replay)."
 Write-Host "Physical FFB allowed for this diagnostic launch: $([bool]$AttendedFfb). Saved preferences are preserved."
+Write-Host "Input origin: $(if ($PSBoundParameters.ContainsKey('InputOrigin')) { $InputOrigin } else { 'not stated' })."
 if (!$AttendedFfb) { Write-Host 'No-force mode validates capture channels but resets force shaping at each blocked sample; use an explicitly attended FFB drive for tuning trials.' }
 $controlRoot = Join-Path $captureDirectory 'control'
 Write-Host "Expected capture directory: $captureDirectory"

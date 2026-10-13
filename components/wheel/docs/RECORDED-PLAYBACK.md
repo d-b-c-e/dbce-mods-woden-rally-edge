@@ -14,6 +14,8 @@ Run this only when the owner is seated and ready:
 
 Without `-AttendedFfb`, the requested launch records all available model inputs while suppressing physical force and preserving the saved FFB On/Off preference. An owner-clicked ordinary Wheelkit Record must explicitly opt into normal configured outputs; automated captures retain the labelled default mute. The request expires after 15 minutes and is consumed once. The command waits a bounded time for Woden to start and for a complete source footer. F6 Telemetry Stop, an exact `-Stop -RequestId <id>` companion call, or normal exit can close the source. Stop leaves Woden running; a timeout never stops the live process. The script then reruns the model offline, validates driving coverage and prints the exact source, observation, manifest and hashes.
 
+The companion accepts optional `-InputOrigin human` or `-InputOrigin automated` on a new recording request. It writes `InputOrigin` in the version-2 request only when stated; omission means the input source is unknown, regardless of `-AttendedFfb`. Automated input cannot request `-AttendedFfb`. A new install receipt advertises `ordinarySession.inputOrigin: ["human", "automated"]` only for the companion that accepts the flag, so older installed companions keep their existing request shape.
+
 `-PrepareOnly` creates the expiring request and expected path without launching Woden, reading hardware or applying force. It is the fixture/review path. The menu can stop an active recording but intentionally has no Start action.
 
 Each request writes under:

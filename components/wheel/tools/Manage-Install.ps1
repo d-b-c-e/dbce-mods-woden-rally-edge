@@ -23,6 +23,12 @@ $capabilityPath = 'private-shim-capability.json'
 $privateShimHash = '9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8'
 $basePaths = @($payloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
 $legacyBasePaths = @($legacyPayloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
+$reviewedCompanion = Join-Path $PSScriptRoot 'Start-RecordedGame.ps1'
+if (-not (Test-Path -LiteralPath $reviewedCompanion -PathType Leaf)) {
+    $reviewedCompanion = Join-Path $PSScriptRoot 'BepInEx/plugins/WodenRallyEdgeWheel/Start-RecordedGame.ps1'
+}
+if (-not (Test-Path -LiteralPath $reviewedCompanion -PathType Leaf)) { throw 'Reviewed ordinary companion is missing.' }
+$originCapableToolHash = (Get-FileHash -LiteralPath $reviewedCompanion -Algorithm SHA256).Hash.ToLowerInvariant()
 function Expected-OrdinarySession($Entries) {
     $hashes = @{}
     foreach ($entry in @($Entries)) { $hashes[$entry.path.Replace('/','\').ToLowerInvariant()] = $entry.sha256.ToLowerInvariant() }
@@ -30,12 +36,14 @@ function Expected-OrdinarySession($Entries) {
     foreach ($name in 'WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Recording.dll','Start-RecordedGame.ps1','RecordedStopControl.ps1','WodenCaseFinalizer.exe') {
         if (-not $hashes.ContainsKey($prefix + $name.ToLowerInvariant())) { throw "Ordinary session lacks owned payload: $name" }
     }
-    return [ordered]@{
+    $capability = [ordered]@{
         schema='woden.signal-session@1'; record=$true; playback=$false; gameAssemblySha256=$gameHash.ToLowerInvariant()
         pluginSha256=$hashes[$prefix + 'wodenrallyedgewheel.dll']; coreSha256=$hashes[$prefix + 'wodenrallyedge.core.dll']
         recordingSha256=$hashes[$prefix + 'dbce.wheel.recording.dll']; sourceToolSha256=$hashes[$prefix + 'start-recordedgame.ps1']
         stopToolSha256=$hashes[$prefix + 'recordedstopcontrol.ps1']; finalizerSha256=$hashes[$prefix + 'wodencasefinalizer.exe']
     }
+    if ($capability.sourceToolSha256 -ceq $originCapableToolHash) { $capability.inputOrigin = @('human','automated') }
+    return $capability
 }
 function Assert-OrdinarySession($Actual,$Entries) {
     $expected = Expected-OrdinarySession $Entries

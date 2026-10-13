@@ -132,11 +132,13 @@ function Read-OrdinaryStatus([string]$Path) {
     }
     return $fields
 }
-function Start-OrdinaryCompanion([string]$Script,[string]$Id) {
+function Start-OrdinaryCompanion([string]$Script,[string]$Id,[bool]$OriginSupported) {
     $start=[Diagnostics.ProcessStartInfo]::new((Get-Command pwsh).Source)
     $start.UseShellExecute=$false;$start.CreateNoWindow=$true
     $start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
-    foreach($arg in @('-NoProfile','-File',$Script,'-GameDir',$GameDir,'-RequestId',$Id,'-CaseId',('woden-automated-forward-'+$Id),'-StartupTimeoutSeconds','180','-SessionTimeoutMinutes','5')){[void]$start.ArgumentList.Add($arg)}
+    $arguments=@('-NoProfile','-File',$Script,'-GameDir',$GameDir,'-RequestId',$Id,'-CaseId',('woden-automated-forward-'+$Id),'-StartupTimeoutSeconds','180','-SessionTimeoutMinutes','5')
+    if($OriginSupported){$arguments+=@('-InputOrigin','automated')}
+    foreach($arg in $arguments){[void]$start.ArgumentList.Add($arg)}
     Write-OrdinaryCompanionGuard -Path $ordinaryGuard -State pending -RequestId $Id -Executable $start.FileName -Script $Script
     $child=[Diagnostics.Process]::Start($start)
     if(!$child){throw 'Installed ordinary companion did not start.'}
@@ -313,7 +315,13 @@ if($Recover) {
                          $candidateHashes.core -ne '67CE4788BCB710BEA93288D6398A1B0BF3AE6CD29219DB56B6ED7CB2794E311C'){
                     throw 'Frozen-a9 ordinary automation managed payload differs.'
                 }
-                if((Get-ControlHash (Join-Path $CandidateDirectory 'Start-RecordedGame.ps1')) -ne '1A2A5F0649BA69FB89AB9A1CCC9F4C0DF5064B4730363BA7C4D98C51B42DF70A'){
+                $originField=$receipt.ordinarySession.PSObject.Properties['inputOrigin']
+                $originSupported=$null -ne $originField
+                if($originSupported -and (@($originField.Value) -join ',') -cne 'human,automated'){
+                    throw 'Ordinary input-origin capability differs.'
+                }
+                $reviewedCompanion=if($originSupported){Get-ControlHash (Join-Path $PSScriptRoot '../../components/wheel/tools/Start-RecordedGame.ps1')}else{'1A2A5F0649BA69FB89AB9A1CCC9F4C0DF5064B4730363BA7C4D98C51B42DF70A'}
+                if((Get-ControlHash (Join-Path $CandidateDirectory 'Start-RecordedGame.ps1')) -ne $reviewedCompanion){
                      throw 'Ordinary automation companion differs.'
                 }
                 if(!$WheelkitCoreDll -or !$WheelkitCoreSha256){throw 'Ordinary trial requires pinned Wheelkit 0.6.33 read-only contract.'}
@@ -441,7 +449,7 @@ try {
         # Existing ordinary diagnostic producer; recording modes require this
         # exact nonce/case/expiry. No stage replay or pose request is made.
         if(!$OrdinarySavedForward){
-            [ordered]@{Version=2;Id=([guid]::ParseExact($nonce,'N').ToString());ExpiresUtc=$cold.expiresUtc;DisableForces=$true;CaseId=$(if($ShimHudStopOnly){"woden-shim-hud-$nonce"}else{"woden-shim-car-$nonce"})} |
+            [ordered]@{Version=2;Id=([guid]::ParseExact($nonce,'N').ToString());ExpiresUtc=$cold.expiresUtc;DisableForces=$true;CaseId=$(if($ShimHudStopOnly){"woden-shim-hud-$nonce"}else{"woden-shim-car-$nonce"});InputOrigin='automated'} |
                 ConvertTo-Json | Set-Content (Join-Path $roots.config 'woden-record-next-launch.json')
         }
     }
@@ -454,7 +462,9 @@ try {
         $companionPath=Join-Path $plugin 'Start-RecordedGame.ps1'
         $companionOwned=@($receipt.files | Where-Object {$_.path.Replace('\','/') -ceq 'BepInEx/plugins/WodenRallyEdgeWheel/Start-RecordedGame.ps1'})
         if($companionOwned.Count -ne 1 -or (Get-ControlHash $companionPath) -ne $companionOwned[0].sha256){throw 'Installed ordinary companion is not receipt-owned.'}
-        $ordinaryCompanion=Start-OrdinaryCompanion $companionPath $nonce
+        $originSupported=$null -ne $receipt.ordinarySession.PSObject.Properties['inputOrigin']
+        if($originSupported -and (@($receipt.ordinarySession.inputOrigin) -join ',') -cne 'human,automated'){throw 'Installed ordinary input-origin capability differs.'}
+        $ordinaryCompanion=Start-OrdinaryCompanion $companionPath $nonce $originSupported
     } else {Start-Process 'steam://rungameid/3218630'}
     $deadline=[DateTime]::UtcNow.AddSeconds(90)
     while(!$game -and [DateTime]::UtcNow -lt $deadline) {
