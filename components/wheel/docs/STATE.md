@@ -1,3 +1,9 @@
+# Current owner install — 2026-10-13
+
+The reviewed HUD-stable private candidate from source `d8df97b455460814ae0ddeced615b5098a4747fa` is installed closed-game as `0.2.14+d8df97b455460814ae0ddeced615b5098a4747fa`. Installed receipt SHA-256 is `F645FE983D7A313DF3C3BC7550A03F4AE9F0B6AC1C3184AF129F0B63FB5EF6B5`; all 14 owned payload hashes matched the pinned package. Only the plugin and core payloads changed from the preceding receipt. The installer preserved all 60 owner config/save files and raw Unity preferences byte-exact, and the saved backend remains Native. Backup: `D:/Program Files (x86)/Steam/steamapps/common/Super Woden Rally Edge/WodenWheelBackups/before-install-20261013-105506-c1162aa3`. Exact package, hashes, failed and passing gates, and install evidence: [hub handoff](../../../../../dbce-project-mgmt/artifacts/woden-private-apply-20261013/hudstable-candidate-handoff.md).
+
+The game was not launched during this install and no force/device output occurred. Rendered physical HUD scanout and ordinary Shim FFB-open/shared-reader coexistence remain unqualified. The historical checkpoints below remain evidence for their own builds, not claims about this installed candidate.
+
 # Private shim H-pattern source checkpoint — 2026-10-13
 
 The shared HPattern profile now uses the existing native gearbox emulator for

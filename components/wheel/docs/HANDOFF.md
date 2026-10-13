@@ -1,3 +1,9 @@
+# Current handoff — 2026-10-13
+
+Owner install: `0.2.14+d8df97b455460814ae0ddeced615b5098a4747fa`, receipt SHA-256 `F645FE983D7A313DF3C3BC7550A03F4AE9F0B6AC1C3184AF129F0B63FB5EF6B5`, source `d8df97b455460814ae0ddeced615b5098a4747fa`. The private HUD-stable package was installed with the game closed, under the shared rig lease. All 14 owned payload hashes, all 60 owner config/save files and raw Unity preferences were verified; owner files/preferences are byte-exact and saved Backend remains Native. The pre-install backup is `D:/Program Files (x86)/Steam/steamapps/common/Super Woden Rally Edge/WodenWheelBackups/before-install-20261013-105506-c1162aa3`. See [current STATE](STATE.md) and the [hub's exact package/install handoff](../../../../../dbce-project-mgmt/artifacts/woden-private-apply-20261013/hudstable-candidate-handoff.md).
+
+No game launch or force/device output occurred during installation. Physical rendered scanout and ordinary Shim FFB-open/shared-reader coexistence are still unqualified. The ordinary `Start-RecordedGame.ps1` path captures signals from launch for offline reprocessing; Wheelkit's registered Woden path records a muted stage trajectory. These have different replay claims. The source-only Record/Stop gap review is in the [hub handoff](../../../../../dbce-project-mgmt/artifacts/woden-private-apply-20261013/ordinary-record-stop-gap.md). The sealed Kenya reference is unchanged. All dated handoffs below describe historical checkouts and installs.
+
 # Session handoff — 2026-10-04 (Claude → Codex)
 
 **Installed now:** the `claude/triple-screens` build (this worktree,
