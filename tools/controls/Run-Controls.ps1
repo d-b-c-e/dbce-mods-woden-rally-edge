@@ -147,6 +147,11 @@ if($Recover) {
         if(!$WindowCaptureDll -or !$WindowCaptureSha256 -or !$InspectorDll -or !$InspectorSha256){throw 'HUD ordinary mode requires pinned capture and inspector tools.'}
         $WindowCaptureDll=Full $WindowCaptureDll;$InspectorDll=Full $InspectorDll
         foreach($pair in @(@($WindowCaptureDll,$WindowCaptureSha256),@($InspectorDll,$InspectorSha256))){Assert-ControlPlain $pair[0];if((Get-ControlHash $pair[0]) -ne $pair[1]){throw 'HUD ordinary tool pin differs.'}}
+        # A hash alone cannot prove that a retained executable implements the
+        # current burst CLI. A deliberately absent process must reach FindProcess
+        # after parsing, without opening a window, device or game.
+        $cliOutput=(& dotnet $WindowCaptureDll dbce-wgc-cli-absent (Join-Path $env:TEMP 'woden-wgc-cli-preflight') --duration 3 --max-frames 60 2>&1 | Out-String)
+        if($LASTEXITCODE -ne 3 -or $cliOutput -notmatch 'no process dbce-wgc-cli-absent'){throw 'Pinned WGC binary does not support the bounded burst CLI.'}
     }
     if($ProbeSha256 -and (Get-ControlHash $probe) -ne $ProbeSha256){throw 'Developer probe differs from its reviewed SHA-256.'}
     if($PrivateApply){

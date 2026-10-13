@@ -212,6 +212,9 @@ public sealed partial class ControlsProbe
     static void AfterForceAnalysis(object __0)
     {
         if(!Observing||!Protocol.ForceCapture(Request)||!CarStarted)return;
+        // HUD ordinary mode deliberately keeps the game alive after Stop. The
+        // recorder has closed; later non-recording rows are outside this source.
+        if(Protocol.HudOrdinary(Request)&&CarStopped>0)return;
         try {
             if(Convert.ToInt32(Value(__0,"CarInstanceId"))!=CarId)throw new InvalidDataException("Force capture car changed.");
             var discontinuity=__0.GetType().GetProperty("Discontinuity",All)??throw new MissingMemberException("Sample.Discontinuity");

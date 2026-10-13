@@ -97,9 +97,14 @@ static partial class Test
             ["motion.speed"]=5,["motion.velocity.local.z"]=5,["wheel.fl.grounded"]=1,["wheel.fr.grounded"]=1,["wheel.fl.contactForce"]=5000,["wheel.fr.contactForce"]=5000}));
         FinishPulse();FinishPulse();WodenRallyEdge.ShimInput.Run=4;Set("CarNeutral",Now-1);Call("AfterTick");
         Check(Get<bool>("Armed")&&Get<double>("CarStopped")>0&&WodenRallyEdge.Runtime.Output.RecordingStatus=="Completed","HUD mode stops ordinary producer but remains armed for dwell");
+        Call("AfterForceAnalysis",new ForceSample(1,9,"driving",null,new()));
+        Check(Get<bool>("Armed"),"post-Stop analysis rows cannot invalidate the already closed ordinary source");
         Call("AfterTick");Check(Get<bool>("Armed"),"HUD dwell cannot complete early");
         Thread.Sleep(5100);Call("AfterTick");Stopped("HUD dwell complete");
         Check(Get<string>("CarVerdict").Contains("probe-direct-stop, 5s HUD dwell"),"HUD verdict names actual stop path and dwell");
+        Begin("hud-prestop-contract-fault",hud:true);WodenRallyEdge.Runtime.Local=new MainCar();Call("AfterTick");
+        Call("AfterForceAnalysis",new ForceSample(1,0,"driving",null,new()));Call("BeforeTick");
+        Stopped("pre-Stop HUD contract fault");Check(!Get<string>("CarVerdict").StartsWith("passed:"),"missing pre-Stop analysis contract remains a refusal");
         Begin("car-recorder-identity");
         var request=Get<ColdRequest>("Request");string recording=Path.Combine(BepInEx.Paths.GameRootPath,"BepInEx","WodenRecordings","request-"+request.Nonce,"source.jsonl");
         Directory.CreateDirectory(Path.GetDirectoryName(recording)!);File.WriteAllText(recording,"fixture producer");WodenRallyEdge.Runtime._recordingPath=recording;

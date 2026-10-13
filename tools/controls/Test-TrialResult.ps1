@@ -49,6 +49,11 @@ $case.inputVerdict='passed: native consumption';Check-Case $false 'shim-hud-ordi
 Write-Case 'shim-hud-ordinary';$case.inputVerdict='passed: probe-direct-stop, 5s HUD dwell';$case.carEvidence.recipe='forward-50pct-8s@1'
 @{schema='dbce.window-burst@1';status='complete';saved=2;process=321;processStartedUtc='2026-10-13T12:00:00Z';frames=@(@{ArrivalElapsedSeconds=0.1},@{ArrivalElapsedSeconds=0.2})} | ConvertTo-Json -Depth 4 | Set-Content "$temp/hud-burst/capture.json"
 Check-Case $false 'shim-hud-ordinary'
+@{schema='dbce.window-burst@1';status='complete';saved=3;process=321;processStartedUtc='2026-10-13T12:00:00Z';frames=@(@{ArrivalElapsedSeconds=0.1},@{ArrivalElapsedSeconds=0.2},@{ArrivalElapsedSeconds=0.3})} | ConvertTo-Json -Depth 4 | Set-Content "$temp/hud-burst/capture.json"
+@{schema='dbce.window-burst@1';status='complete';saved=2;process=321;processStartedUtc='2026-10-13T12:00:00Z';startedUtc='2026-10-13T12:00:14Z';frames=@(@{ArrivalElapsedSeconds=0.1},@{ArrivalElapsedSeconds=0.2})} | ConvertTo-Json -Depth 4 | Set-Content "$temp/hud-poststop/capture.json"
+Check-Case $false 'shim-hud-ordinary'
+@{schema='dbce.window-burst@1';status='complete';saved=2;process=322;processStartedUtc='2026-10-13T12:00:00Z';startedUtc='2026-10-13T12:00:16Z';frames=@(@{ArrivalElapsedSeconds=0.1},@{ArrivalElapsedSeconds=0.2})} | ConvertTo-Json -Depth 4 | Set-Content "$temp/hud-poststop/capture.json"
+Check-Case $false 'shim-hud-ordinary'
 if($null -ne (Assert-ControlTrialResult $temp 'raw')){throw 'Raw observer mode was reclassified.'};$checks++
 if($null -ne (Assert-ControlTrialResult $temp 'shim-admission')){throw 'Admission-only mode was reclassified.'};$checks++
 Write-Output "$checks trial-result checks passed. Disposable evidence: $temp"

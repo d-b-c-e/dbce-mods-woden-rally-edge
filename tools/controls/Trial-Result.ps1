@@ -43,7 +43,8 @@ function Assert-ControlTrialResult([string]$Result, [string]$Mode) {
             [DateTimeOffset]$burst.processStartedUtc -ne [DateTimeOffset]$context.startedUtc -or
             [DateTimeOffset]$post.processStartedUtc -ne [DateTimeOffset]$context.startedUtc){throw 'HUD bursts do not belong to the exact trial process.'}
         $stopLine=Select-String -LiteralPath (Join-Path $Result 'trace/observations.tsv') -Pattern 'car-recorder-stop.*utc=' | Select-Object -Last 1 -ExpandProperty Line
-        if($stopLine -notmatch 'utc=([^\s]+)' -or [DateTimeOffset]$post.startedUtc -lt [DateTimeOffset]$Matches[1]){
+        $stopUtc=[regex]::Match([string]$stopLine,'utc=([^\s]+)')
+        if(!$stopUtc.Success -or [DateTimeOffset]$post.startedUtc -lt [DateTimeOffset]::Parse($stopUtc.Groups[1].Value)){
             throw 'Post-Stop HUD burst did not start after the probe-direct Stop.'
         }
     }
