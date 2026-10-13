@@ -1,5 +1,5 @@
 param(
-    [string]$GameDirectory = 'D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge',
+    [Alias('GameDir')][string]$GameDirectory = 'D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge',
     [string]$CaseId,
     [switch]$AttendedFfb,
     [switch]$PrepareOnly,
@@ -89,8 +89,9 @@ $source = Join-Path $captureDirectory 'source.jsonl'
 $finalizeDeadline = [DateTimeOffset]::UtcNow.AddSeconds(15)
 while (!(Test-Path -LiteralPath $source) -and [DateTimeOffset]::UtcNow -lt $finalizeDeadline) { Start-Sleep -Milliseconds 250 }
 if (!(Test-Path -LiteralPath $source)) { throw "The correlated source recording was not found: $source" }
-$inspector = Join-Path $PSScriptRoot 'TelemetryInspector/TelemetryInspector.csproj'
-& dotnet run --project $inspector -c Release -- reprocess $captureDirectory
+$finalizer = Join-Path $PSScriptRoot 'WodenCaseFinalizer.exe'
+if (!(Test-Path -LiteralPath $finalizer -PathType Leaf)) { throw "Installed case finalizer is missing: $finalizer" }
+& $finalizer reprocess $captureDirectory
 if ($LASTEXITCODE -ne 0) {
     Write-Finalization $controlRoot $requestId 'incomplete' 'Source or driving signal validation failed; original source retained.'
     throw "Recording source closed but driving readiness/signal reprocessing failed. Source retained unchanged: $source"

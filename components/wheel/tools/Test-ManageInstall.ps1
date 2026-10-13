@@ -46,12 +46,32 @@ try {
     } finally { $process.Dispose() }
 } finally { Pop-Location }
 $first = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
-Check ($first.files.Count -eq 13 -and $first.mode -eq 'Install' -and -not $first.gameLaunched) 'Install receipt includes playback library, provenance, license and command'
-Check ($first.installerRevision -eq 3) 'Default-root player installer revision'
+Check ($first.files.Count -eq 16 -and $first.mode -eq 'Install' -and -not $first.gameLaunched) 'Install receipt owns the installed ordinary companion and finalizer'
+Check ($first.installerRevision -eq 4) 'Default-root player installer revision'
+Check ($first.ordinarySession.schema -eq 'woden.signal-session@1' -and $first.ordinarySession.record -and -not $first.ordinarySession.playback) 'Record-only ordinary session capability'
+foreach ($pair in @(@('Start-RecordedGame.ps1','sourceToolSha256'),@('RecordedStopControl.ps1','stopToolSha256'),@('WodenCaseFinalizer.exe','finalizerSha256'))) {
+    Check ((Hash (Join-Path $plugin $pair[0])) -eq $first.ordinarySession.($pair[1])) ('Installed ordinary capability hash: ' + $pair[0])
+}
+$schemaOutput = Join-Path $fixture 'finalizer-schema.json'
+& (Join-Path $plugin 'WodenCaseFinalizer.exe') schema $schemaOutput
+Check ($LASTEXITCODE -eq 0 -and (Get-Content -LiteralPath $schemaOutput -Raw) -match '"sample.sequence"') 'Installed self-contained finalizer executes without an SDK/source checkout'
+Remove-Item -LiteralPath $schemaOutput
 Check ($first.controlsProfileSchema -eq 1 -and $first.adapter -eq 'woden-bindings-1') 'Installed controls capability'
 Check ($first.controlsProfileHatNeighbours -eq $true) 'Installed circular profile hat capability'
 Check ((Hash (Join-Path $plugin 'WodenRallyEdgeWheel.dll')) -eq (Hash (Join-Path $PackageRoot 'BepInEx\plugins\WodenRallyEdgeWheel\WodenRallyEdgeWheel.dll'))) 'Default-root selected wrong package'
 foreach ($entry in $first.files) { Check ((Hash (Join-Path $fixture $entry.path)) -eq $entry.sha256) ('Payload ' + $entry.path) }
+# A revision-3 install owns only the historical allowlist. Updating it must
+# introduce the three tools transactionally without claiming prior ownership.
+$legacy = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
+$legacy.installerRevision = 3
+$legacy.PSObject.Properties.Remove('ordinarySession')
+$legacy.files = @($legacy.files | Where-Object { $_.path -notmatch '(Start-RecordedGame\.ps1|RecordedStopControl\.ps1|WodenCaseFinalizer\.exe)$' })
+foreach ($name in 'Start-RecordedGame.ps1','RecordedStopControl.ps1','WodenCaseFinalizer.exe') { Remove-Item -LiteralPath (Join-Path $plugin $name) }
+$legacy | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $receipt -Encoding utf8
+Check ($legacy.files.Count -eq 13) 'Legacy fixture owns exactly 13 files'
+Install
+$upgraded = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
+Check ($upgraded.installerRevision -eq 4 -and $upgraded.files.Count -eq 16 -and $upgraded.ordinarySession.schema -eq 'woden.signal-session@1') 'Legacy revision-3 receipt upgrades to complete revision-4 ownership'
 Check ((Get-Content -LiteralPath (Join-Path $config 'BepInEx.cfg') -Raw) -match '(?m)^UnityBaseLibrariesSource\s*=\s*\r?$') 'Loader config'
 $settings = Join-Path $config 'dbce.wodenrallyedgewheel.cfg'
 $bindings = Join-Path $config 'wheel-bindings.json'
@@ -70,7 +90,7 @@ foreach ($file in @($settings,$bindings,$otherConfig,$unknown,$recording,(Join-P
 Install
 $updated = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
 $validReceiptBytes = [IO.File]::ReadAllBytes($receipt)
-foreach ($kind in 'incomplete','duplicate-alias','unknown-path','invalid-hash','wrong-game') {
+foreach ($kind in 'incomplete','duplicate-alias','unknown-path','invalid-hash','wrong-game','forged-finalizer-capability') {
     $bad=[Text.Encoding]::UTF8.GetString($validReceiptBytes).TrimStart([char]0xFEFF) | ConvertFrom-Json
     switch($kind) {
         'incomplete' { $bad.files=@($bad.files | Select-Object -Skip 1) }
@@ -78,6 +98,7 @@ foreach ($kind in 'incomplete','duplicate-alias','unknown-path','invalid-hash','
         'unknown-path' { $bad.files[0].path='BepInEx\plugins\WodenRallyEdgeWheel\unknown.dll' }
         'invalid-hash' { $bad.files[0].sha256='unknown' }
         'wrong-game' { $bad.gameDirectory='C:\unrelated-game' }
+        'forged-finalizer-capability' { $bad.ordinarySession.finalizerSha256='0'*64 }
     }
     $bad | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $receipt -Encoding utf8
     $beforeHash=Hash $receipt
@@ -85,6 +106,14 @@ foreach ($kind in 'incomplete','duplicate-alias','unknown-path','invalid-hash','
     Check ((Hash $receipt) -eq $beforeHash) ('Invalid receipt mutated: '+$kind)
     [IO.File]::WriteAllBytes($receipt,$validReceiptBytes)
 }
+$finalizerPath = Join-Path $plugin 'WodenCaseFinalizer.exe'
+$finalizerBytes = [IO.File]::ReadAllBytes($finalizerPath)
+$finalizerReceiptHash = Hash $receipt
+try {
+    [IO.File]::WriteAllBytes($finalizerPath,[byte[]]@(1,2,3))
+    Refuses { Install } 'Prior owned file missing or modified'
+    Check ((Hash $receipt) -eq $finalizerReceiptHash) 'Modified finalizer changed receipt'
+} finally { [IO.File]::WriteAllBytes($finalizerPath,$finalizerBytes) }
 Check ($updated.backup -ne $first.backup -and $updated.configurationPreserved) 'Update backup receipt'
 foreach ($file in $retained.Keys) { Check ((Hash $file) -eq $retained[$file]) ('Update changed retained file: ' + $file) }
 Check ((Hash (Join-Path $updated.backup 'config\wheel-bindings.json')) -eq $retained[$bindings]) 'Binding backup'
@@ -108,7 +137,11 @@ Check ((Hash $dll) -eq $unknownHash) 'Receipt-free update changed unknown bytes'
 # Explicit synthetic catalog of old bytes for rollback tests only.
 function Catalog-FixturePayload {
     $catalog = [Text.Encoding]::UTF8.GetString($validReceiptBytes).TrimStart([char]0xFEFF) | ConvertFrom-Json
-    foreach ($entry in $catalog.files) { $entry.sha256 = Hash (Join-Path $fixture $entry.path) }
+    foreach ($entry in $catalog.files) {
+        $entry.sha256 = Hash (Join-Path $fixture $entry.path)
+        if ($entry.path -match 'WodenRallyEdgeWheel\.dll$') { $catalog.ordinarySession.pluginSha256 = $entry.sha256.ToLowerInvariant() }
+        if ($entry.path -match 'WodenRallyEdge\.Core\.dll$') { $catalog.ordinarySession.coreSha256 = $entry.sha256.ToLowerInvariant() }
+    }
     $catalog | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $receipt -Encoding utf8
 }
 Catalog-FixturePayload

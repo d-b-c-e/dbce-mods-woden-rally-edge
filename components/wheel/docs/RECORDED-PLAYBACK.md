@@ -1,6 +1,6 @@
 # Recorded owner drive and force-signal reprocessing
 
-Source status (2026-10-13): the request-bound Stop and live-game case-finalization path below is in `fcc513e` and passed device-free source checks. It is **not in the installed owner build** `d8df97b`; no ordinary Stop game run or new package/install has occurred. The installed source still requires normal game exit for its external case finalizer. See `docs/STATE.md` and the hub `artifacts/woden-ordinary-stop-20261013` evidence before using this candidate.
+Source status (2026-10-13): the request-bound Stop and live-game case-finalization path began in `fcc513e`; the current source branch also packages a receipt-owned companion and self-contained finalizer. Package and disposable installer fixtures passed. It is **not in the installed owner build** `d8df97b`; no owner install or ordinary Stop game run occurred. The installed source still requires normal game exit for its external case finalizer. See `docs/STATE.md` and the hub `artifacts/woden-ordinary-stop-20261013` evidence before using this candidate.
 
 Woden supports `signal-reprocess` under the toolkit's recorded-playback v1 contract. The original toolkit Recording JSONL remains the source artifact and retains its separate unpublished pin. The adapter reruns the actual managed `ForceSignal` offline and emits ordered, normalized constant-force observations with `physicalOutput=false`. It never initializes a wheel, launches the game, injects input or claims deterministic Unity physics replay.
 

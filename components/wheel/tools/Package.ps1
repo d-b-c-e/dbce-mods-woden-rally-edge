@@ -47,6 +47,14 @@ Copy-Item -LiteralPath (Join-Path $playback 'provenance.json') -Destination (Joi
 Copy-Item -LiteralPath (Join-Path $playback 'LICENSE') -Destination (Join-Path $plugin 'playback-LICENSE.txt')
 Copy-Item -LiteralPath (Join-Path $playback 'Stage-Session.ps1') -Destination $plugin
 Copy-Item -LiteralPath (Join-Path $root 'lib\toolkit\VERSION') -Destination (Join-Path $plugin 'toolkit.version')
+foreach ($name in 'Start-RecordedGame.ps1','RecordedStopControl.ps1') {
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination $plugin
+}
+$finalizerPublish = Join-Path $root ('dist\finalizer-publish-' + [guid]::NewGuid().ToString('N'))
+& dotnet publish (Join-Path $root 'tools\TelemetryInspector\TelemetryInspector.csproj') -c Release -r win-x64 --self-contained true `
+    -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $finalizerPublish -v q
+if ($LASTEXITCODE -ne 0) { throw 'Self-contained case finalizer publish failed' }
+Copy-Item -LiteralPath (Join-Path $finalizerPublish 'TelemetryInspector.exe') -Destination (Join-Path $plugin 'WodenCaseFinalizer.exe')
 if ($PrivateShimPath) {
     Copy-Item -LiteralPath $PrivateShimPath -Destination (Join-Path $plugin 'dbce_shim.dll')
     if ((Get-FileHash -LiteralPath (Join-Path $plugin 'dbce_shim.dll')).Hash -ne $privateShimHash) { throw 'Staged private shim differs from the reviewed pin.' }

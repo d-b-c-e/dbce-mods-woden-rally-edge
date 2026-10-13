@@ -29,7 +29,7 @@ function Refuses([scriptblock]$action,[string]$pattern) {
 
 Native
 $native = Receipt
-Check ($native.files.Count -eq 13 -and -not $native.PSObject.Properties['sharedInputCandidate']) 'Ordinary Native receipt changed'
+Check ($native.files.Count -eq 16 -and -not $native.PSObject.Properties['sharedInputCandidate']) 'Ordinary Native receipt owns installed tools'
 Check (-not (Test-Path -LiteralPath $shimPath)) 'Ordinary Native package staged a private DLL'
 $settings = Join-Path $config 'dbce.wodenrallyedgewheel.cfg'
 $controls = Join-Path $config 'dbce-controls.ini'
@@ -55,10 +55,22 @@ Check ((Hash $receiptPath) -eq $beforeBadPackage -and -not (Test-Path -LiteralPa
 
 Refuses { & $privateInstaller -GameDir $fixture -PackageRoot $PrivatePackageRoot -TestFailAfterWrite 14 } 'rolled back.*injected'
 Check (-not (Test-Path -LiteralPath $shimPath)) 'Native-to-private rollback orphaned the DLL'
-Check ((Receipt).files.Count -eq 13) 'Native-to-private rollback changed ownership'
+Check ((Receipt).files.Count -eq 16) 'Native-to-private rollback changed ownership'
 Private
 $private = Receipt
-Check ($private.files.Count -eq 14 -and $private.mode -eq 'Install') 'Private receipt must own 14 payloads'
+Check ($private.files.Count -eq 17 -and $private.mode -eq 'Install') 'Private receipt must own 17 payloads'
+# A legitimate revision-3 private receipt carries 14 historical files and its
+# private Shim metadata. Upgrade must preserve the Shim pin while adding tools.
+$legacyPrivate = Receipt
+$legacyPrivate.installerRevision = 3
+$legacyPrivate.PSObject.Properties.Remove('ordinarySession')
+$legacyPrivate.files = @($legacyPrivate.files | Where-Object { $_.path -notmatch '(Start-RecordedGame\.ps1|RecordedStopControl\.ps1|WodenCaseFinalizer\.exe)$' })
+foreach ($name in 'Start-RecordedGame.ps1','RecordedStopControl.ps1','WodenCaseFinalizer.exe') { Remove-Item -LiteralPath (Join-Path (Split-Path $shimPath -Parent) $name) }
+$legacyPrivate | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $receiptPath -Encoding utf8
+Check ($legacyPrivate.files.Count -eq 14) 'Legacy private fixture owns exactly 14 files'
+Private
+$private = Receipt
+Check ($private.installerRevision -eq 4 -and $private.files.Count -eq 17 -and $private.ordinarySession.schema -eq 'woden.signal-session@1') 'Legacy private receipt upgrades to revision-4 ordinary ownership'
 Copy-Item -LiteralPath $receiptPath -Destination (Join-Path $fixture 'private-install-receipt.json')
 Check ((Hash $shimPath) -eq '9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8') 'Installed shim pin'
 Check (@($private.files | Where-Object { $_.path -like '*dbce_shim.dll' }).Count -eq 1) 'Private shim ownership entry'
@@ -66,7 +78,7 @@ Check ($private.controlsProfileSchema -eq 1 -and $private.adapter -eq 'woden-bin
 Check ($private.sharedInputCandidate.controls.adapter -eq 'woden-shim-ini-controls-1' -and $private.sharedInputCandidate.controls.delivered.Count -eq 27) 'Shared candidate omitted'
 Check ($private.sharedInputCandidate.controls.optIn.default -eq 'Native') 'Private capability changed default backend'
 Private
-Check ((Receipt).files.Count -eq 14 -and (Hash $shimPath) -eq $private.sharedInputCandidate.controls.shimSha256) 'Private update lost ownership'
+Check ((Receipt).files.Count -eq 17 -and (Hash $shimPath) -eq $private.sharedInputCandidate.controls.shimSha256) 'Private update lost ownership'
 $nativeSettingsBytes = [IO.File]::ReadAllBytes($settings)
 "[Input]`r`nBackend = Shim" | Set-Content -LiteralPath $settings
 $activeShimConfigHash = Hash $settings; $activeShimReceiptHash = Hash $receiptPath; $activeShimDllHash = Hash $shimPath
@@ -75,14 +87,14 @@ Check ((Hash $settings) -eq $activeShimConfigHash -and (Hash $receiptPath) -eq $
 [IO.File]::WriteAllBytes($settings,$nativeSettingsBytes)
 
 Refuses { & $nativeInstaller -GameDir $fixture -PackageRoot $NativePackageRoot -TestFailAfterWrite 2 } 'rolled back.*injected'
-Check ((Receipt).files.Count -eq 14 -and (Hash $shimPath) -eq $private.sharedInputCandidate.controls.shimSha256) 'Private-to-Native rollback lost shim ownership'
+Check ((Receipt).files.Count -eq 17 -and (Hash $shimPath) -eq $private.sharedInputCandidate.controls.shimSha256) 'Private-to-Native rollback lost shim ownership'
 'externally modified DLL' | Set-Content -LiteralPath $shimPath
 $changed = Hash $shimPath; $receiptHash = Hash $receiptPath
 Refuses { Native } 'Prior owned file missing or modified'
 Check ((Hash $shimPath) -eq $changed -and (Hash $receiptPath) -eq $receiptHash) 'Modified shim refusal changed install'
 Copy-Item -LiteralPath (Join-Path $PrivatePackageRoot 'BepInEx\plugins\WodenRallyEdgeWheel\dbce_shim.dll') -Destination $shimPath -Force
 Native
-Check ((Receipt).files.Count -eq 13 -and -not (Receipt).PSObject.Properties['sharedInputCandidate']) 'Private-to-Native receipt retained candidate'
+Check ((Receipt).files.Count -eq 16 -and -not (Receipt).PSObject.Properties['sharedInputCandidate']) 'Private-to-Native receipt retained candidate'
 Check (-not (Test-Path -LiteralPath $shimPath)) 'Private-to-Native update orphaned DLL'
 Check ((Hash $settings) -eq $settingsHash -and (Hash $controls) -eq $controlsHash) 'Transition changed saved Native backend'
 
@@ -92,6 +104,6 @@ Check (-not (Test-Path -LiteralPath $shimPath)) 'Private uninstall left DLL'
 Check (-not (Receipt).PSObject.Properties['sharedInputCandidate']) 'Uninstall retained candidate'
 Check ((Hash $settings) -eq $settingsHash -and (Hash $controls) -eq $controlsHash) 'Uninstall changed owner config'
 Native
-Check ((Receipt).files.Count -eq 13 -and -not (Test-Path -LiteralPath $shimPath)) 'Native reinstall after private uninstall orphaned DLL'
+Check ((Receipt).files.Count -eq 16 -and -not (Test-Path -LiteralPath $shimPath)) 'Native reinstall after private uninstall orphaned DLL'
 Check (-not (Test-Path -LiteralPath (Join-Path $fixture 'Super Woden Rally Edge.exe'))) 'Fixture launched or staged game executable'
 Write-Host "PASS: $script:checks private installer checks (Native/private update, rollback, ownership refusal, uninstall, config preservation). Fixture: $fixture; retained private receipt: $(Join-Path $fixture 'private-install-receipt.json')"
