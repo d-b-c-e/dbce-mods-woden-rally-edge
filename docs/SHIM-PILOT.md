@@ -1,6 +1,6 @@
 # Shared input shim: wheel-only source pilot
 
-Current install pointer (2026-10-13, before the later private-package update): the qualified combined row/playback owner package from `7c1e287` is installed under revision-5 receipt `66EC5A30`, with saved Backend still Native. It intentionally omitted the earlier private shim DLL. A separate current-source `-PrivateShimPath` package passed package and isolated installer checks; its installation and receipt are tracked in `components/wheel/docs/STATE.md`. The October 12 pilot evidence below is historical. Neither the Native install nor the private package check qualifies ordinary Shim FFB-open/shared-reader coexistence or physical force.
+Current install pointer (2026-10-13, 19:17 CT): the optional private-shim package from `f252debc` is installed under revision-5 receipt `3041965C` with all 23 payloads verified, including the pinned ABI-2 shim DLL. The saved Backend remains Native by default; no Shim opt-in or game launch occurred. The former `7c1e287` Native production payloads and receipt `66EC5A30` are retained in the installer backup. [Exact install readback](../../../dbce-project-mgmt/artifacts/woden-private-owner-install-20261013/README.md) is also summarized in `components/wheel/docs/STATE.md`. The October 12 pilot evidence below is historical. Ordinary Shim FFB-open/shared-reader coexistence and physical force remain unqualified.
 
 2026-10-12. Based on Woden `ff1c594`. Three private force-fenced launches restored
 exactly; run03 observed exact profile parsing, ordinary host ownership/ticks,
