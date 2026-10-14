@@ -12,7 +12,7 @@ param(
     [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$OwnerReceiptSha256,
     [Parameter(Mandatory)][ValidatePattern('^[a-f0-9]{40}$')][string]$SourceCommit,
     [Parameter(Mandatory)][ValidateSet('Manual','Automatic')][string]$Setting,
-    [int]$Presses=15,
+    [ValidateRange(1,30)][int]$Presses=15,
     [switch]$VerifyOnly,
     [string]$GameDir='D:/Program Files (x86)/Steam/steamapps/common/Super Woden Rally Edge',
     [string]$RemoteCache='D:/Program Files (x86)/Steam/userdata/22623167/3218630/remotecache.vdf'
@@ -58,6 +58,19 @@ function Gearbox-Line([string]$Log) {
     $s=[IO.File]::Open($Log,'Open','Read','ReadWrite, Delete'); try{$text=[IO.StreamReader]::new($s).ReadToEnd()}finally{$s.Dispose()}
     @($text -split "`r?`n" | Where-Object { $_ -match 'Native gearbox ' }) | Select-Object -First 1
 }
+# The plugin's one status line, classified (sana 96509): only "<Setting>: set ..." exercised a write and its readback;
+# "<Setting>: the game's choice already matched" wrote nothing; anything else (not applied, incomplete, tooling, the
+# other word) is a failure.
+function Classify-GearboxLine([string]$Line,[string]$Setting) {
+    if([string]::IsNullOrEmpty($Line)){return 'missing'}
+    $status=($Line -split 'Native gearbox ',2)[1]
+    if($status -cmatch "^$Setting`: set .+ for this start \(.+\)$"){return 'set'}
+    if($status -ceq "$Setting`: the game's choice already matched"){return 'already-matched'}
+    'failed'
+}
+# BepInEx rewrites LogOutput.log at game start, but an old file can still be read before that. The owner's log is in the
+# snapshot and restored afterwards, so the run empties it before launch: any status line then belongs to this launch.
+function Clear-SessionLog([string]$Log) { if(Test-Path -LiteralPath $Log){[IO.File]::WriteAllText($Log,'')} }
 
 $Result=Full $Result; $PackageRoot=Full $PackageRoot; $GameDir=Full $GameDir
 foreach($path in @($Result,$PackageRoot,$GameDir)){Assert-ControlPlain $path}
@@ -111,7 +124,7 @@ $files=[ordered]@{
 }
 $slot=Join-Path $env:LOCALAPPDATA 'dbce/test-slot.txt'
 $lease=Enter-StageRigLease -Path $slot -Owner deli-woden-gearbox -Purpose "one ordinary NativeGearbox=$Setting check to MapScreen and exact owner restore"
-$mutated=$false; $restored=$false; $failure=$null; $game=$null; $states=[Collections.Generic.List[object]]::new(); $line=$null
+$mutated=$false; $restored=$false; $failure=$null; $game=$null; $states=[Collections.Generic.List[object]]::new(); $line=$null; $outcome='missing'
 try {
     Closed; Assert-StageRigLease -Path $slot -Token $lease.token
     [IO.Directory]::CreateDirectory($Result) | Out-Null
@@ -136,8 +149,12 @@ try {
     Set-CfgValue $configPath 'Input' 'NativeGearbox' $Setting
     Set-CfgValue $configPath 'ForceFeedback' 'Enabled' 'false'
     Set-CfgValue $configPath 'Dev' 'InputCommandFile' 'true'
-    if(Test-Path -LiteralPath (Join-Path $plugin 'request.txt')){throw 'A stage request would make this tooling; refusing.'}
-    $logStart=if(Test-Path -LiteralPath $logPath){(Get-Item -LiteralPath $logPath).LastWriteTimeUtc}else{[DateTime]::MinValue}
+    # StagePlayback.ControlRoot: a request there makes the launch stage tooling, which the adapter skips by design.
+    if(Test-Path -LiteralPath (Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/woden/request.txt')){throw 'A stage request would make this tooling; refusing.'}
+    $dev=Join-Path $plugin 'dev'; $beat=Join-Path $dev 'heartbeat.txt'; $cmd=Join-Path $dev 'cmd.txt'
+    if(Test-Path -LiteralPath $cmd){throw 'A dev command is already waiting; refusing.'}
+    Clear-SessionLog $logPath
+    $launchUtc=[DateTime]::UtcNow
     Start-Process 'steam://rungameid/3218630'
     $deadline=[DateTime]::UtcNow.AddSeconds(90)
     while(!$game -and [DateTime]::UtcNow -lt $deadline) {
@@ -152,11 +169,10 @@ try {
     if(!$game){throw 'No game launched; leave Steam session prompts untouched.'}
     if(![string]::Equals($game.MainModule.FileName,(Join-Path $GameDir 'Super Woden Rally Edge.exe'),[StringComparison]::OrdinalIgnoreCase)){throw 'Wrong executable launched.'}
     $handle=$game.Handle
-    # The dev channel writes its heartbeat once it reads commands.
-    $dev=Join-Path $plugin 'dev'; $beat=Join-Path $dev 'heartbeat.txt'; $cmd=Join-Path $dev 'cmd.txt'
+    # The dev channel writes its heartbeat once it reads commands; only a heartbeat written after this launch counts.
     $deadline=[DateTime]::UtcNow.AddSeconds(90)
-    while(!((Test-Path -LiteralPath $beat) -and (Get-Item -LiteralPath $beat).LastWriteTimeUtc -gt $logStart) -and [DateTime]::UtcNow -lt $deadline){if($game.HasExited){throw 'The game exited before the dev channel started.'};Start-Sleep 1}
-    if([DateTime]::UtcNow -ge $deadline){throw 'The dev channel did not start.'}
+    while(!((Test-Path -LiteralPath $beat) -and (Get-Item -LiteralPath $beat).LastWriteTimeUtc -gt $launchUtc) -and [DateTime]::UtcNow -lt $deadline){if($game.HasExited){throw 'The game exited before the dev channel started.'};Start-Sleep 1}
+    if(!((Test-Path -LiteralPath $beat) -and (Get-Item -LiteralPath $beat).LastWriteTimeUtc -gt $launchUtc)){throw 'The dev channel did not start.'}
     # One pad A per step until the plugin reports at MapScreen; each step is preceded by an in-game screenshot.
     for($i=1;$i -le $Presses -and !$line;$i++){
         if($game.HasExited){throw 'The game exited during navigation.'}
@@ -168,22 +184,28 @@ try {
     }
     if(!$line){throw "No 'Native gearbox' line after $Presses pad A steps."}
     $line | Set-Content -LiteralPath (Join-Path $Result 'gearbox-line.txt')
+    $outcome=Classify-GearboxLine $line $Setting
     Start-Sleep 5
     $states.Add((Save-State 'after-gearbox-line'))
     if(!(Test-Path -LiteralPath $cmd)){[IO.File]::WriteAllText($cmd,"shot mapscreen`n"); Start-Sleep 2}
+    if($outcome -eq 'failed'){throw "The plugin did not set $Setting`: $line"}
 } catch { $failure=$_.Exception.Message; if(Test-Path -LiteralPath $Result){$failure | Set-Content -LiteralPath (Join-Path $Result 'run-error.txt')} }
 finally {
-    if($game -and !$game.HasExited){
-        $null=$game.CloseMainWindow()
-        if(!$game.WaitForExit(60000)){ $failure="$failure; the game did not close within 60 s" }
-    }
-    if($game -and $game.HasExited){ try{ "exitCode=$($game.ExitCode)" | Set-Content -LiteralPath (Join-Path $Result 'game-exit.txt') } catch {} }
+    # Closing, diagnostics and evidence are best effort and record their own errors; none of them may skip the owner
+    # restore. The restore itself still requires the game closed and the lease held (sana 96509).
+    $notes=[Collections.Generic.List[string]]::new()
+    try {
+        if($game -and !$game.HasExited){
+            $null=$game.CloseMainWindow()
+            if(!$game.WaitForExit(60000)){ $notes.Add('the game did not close within 60 s') }
+        }
+    } catch { $notes.Add('close: ' + $_.Exception.Message) }
+    try { if($game -and $game.HasExited){ "exitCode=$($game.ExitCode)" | Set-Content -LiteralPath (Join-Path $Result 'game-exit.txt') } } catch { $notes.Add('exit code: ' + $_.Exception.Message) }
     if($mutated){
+        try { $states.Add((Save-State 'after-exit')); $states | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $Result 'save-states.json') } catch { $notes.Add('save state: ' + $_.Exception.Message) }
+        try { if(Test-Path -LiteralPath $logPath){Copy-Item -LiteralPath $logPath -Destination (Join-Path $Result 'LogOutput.log')} } catch { $notes.Add('log copy: ' + $_.Exception.Message) }
         try {
             Closed; Assert-StageRigLease -Path $slot -Token $lease.token
-            $states.Add((Save-State 'after-exit'))
-            $states | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $Result 'save-states.json')
-            if(Test-Path -LiteralPath $logPath){Copy-Item -LiteralPath $logPath -Destination (Join-Path $Result 'LogOutput.log')}
             Restore-ControlFiles (Join-Path $Result 'owner-before') (Join-Path $Result 'candidate-after') $roots $files
             if((Get-ControlHash (Join-Path $Result 'preferences.json')) -ne $prefsHash){throw 'Preference snapshot changed.'}
             Registry-Restore (Join-Path $Result 'preferences.json')
@@ -192,14 +214,19 @@ finally {
             Registry-Snapshot (Join-Path $Result 'preferences-after.json')
             if((Get-ControlHash (Join-Path $Result 'preferences-after.json')) -ne $prefsHash){throw 'Owner preferences differ after restoration.'}
             $retained=@(Get-ChildItem -LiteralPath $backups -Directory -Force | Select-Object -ExpandProperty Name | Where-Object { $_ -notin $backupBefore })
-            [ordered]@{schema=1;setting=$Setting;ownerReceiptSha256=$OwnerReceiptSha256;ownerFileCount=@($before.entries).Count;
-                gearboxLine=$line;retainedCandidateBackupFolders=$retained;runExit=$(if($failure){'failed-or-incomplete'}else{'passed'})} |
-                ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $Result 'restore-result.json')
             $restored=$true
-        } catch { $_.Exception.Message | Set-Content -LiteralPath (Join-Path $Result 'restore-error.txt') }
+            try {
+                [ordered]@{schema=1;setting=$Setting;ownerReceiptSha256=$OwnerReceiptSha256;ownerFileCount=@($before.entries).Count;
+                    gearboxLine=$line;outcome=$outcome;notes=@($notes);retainedCandidateBackupFolders=$retained;runExit=$(if($failure){'failed-or-incomplete'}else{$outcome})} |
+                    ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $Result 'restore-result.json')
+            } catch { $notes.Add('restore result: ' + $_.Exception.Message) }
+        } catch { try { $_.Exception.Message | Set-Content -LiteralPath (Join-Path $Result 'restore-error.txt') } catch {} }
+        if($notes.Count){ try { $notes | Set-Content -LiteralPath (Join-Path $Result 'cleanup-notes.txt') } catch {} }
     }
     if(!$mutated -or $restored){$null=Exit-StageRigLease -Lease $lease}
 }
 if($mutated -and !$restored){throw "Owner restoration unverified; retain shared lease and inspect $Result"}
 if($failure){throw "$failure; owner files/preferences restored; evidence $Result"}
+if($outcome -eq 'already-matched'){Write-Warning "NativeGearbox ${Setting}: the game's choice already matched, so no write was exercised. Owner files/preferences restored. Evidence: $Result"; exit 2}
+if($outcome -ne 'set'){throw "NativeGearbox ${Setting}: status $outcome ($line); owner files/preferences restored; evidence $Result"}
 Write-Host "NativeGearbox $Setting check completed: $line. Owner files/preferences restored. Evidence: $Result"
