@@ -72,6 +72,8 @@ try {
         function Get-ControlHash { 'P' }
         function Registry-Restore { }; function Registry-Snapshot { }; function Assert-Inventory { }; function Pin { }
         function Exit-StageRigLease { $script:leaseExits++ }
+        function Start-Sleep { }
+        $suppressPath = $null; $suppressId = $null
         $threw = $null; try { . ([scriptblock]::Create($finally)) } catch { $threw = $_.Exception.Message }
         $notesFile = Join-Path $Result 'cleanup-notes.txt'; $noteText = if (Test-Path $notesFile) { Get-Content -Raw $notesFile } else { '' }
         Check "$($case.Name): finally block did not throw" ($null -eq $threw)

@@ -45,13 +45,20 @@ function Set-CfgValue([string]$Path,[string]$Section,[string]$Key,[string]$Value
     if($hits.Count -eq 1){$lines[$hits[0]]="$Key = $Value"}else{$lines.Insert($end,"$Key = $Value")}
     [IO.File]::WriteAllLines($Path,$lines)
 }
+# Steam's recorded SHA-1 for Supersave0.sav in remotecache.vdf, or $null. The whole file is rewritten by Steam even
+# without an upload (it changed between the two 10-14 runs), so only this entry shows whether the save was synced.
+function Cloud-SaveSha {
+    if(!(Test-Path -LiteralPath $RemoteCache)){return $null}
+    $m=[regex]::Match([IO.File]::ReadAllText($RemoteCache),'Supersave0\.sav"\s*\{[^}]*?"sha"\s*"([0-9a-f]{40})"')
+    if($m.Success){$m.Groups[1].Value}else{$null}
+}
 function Save-State([string]$Name) {
     $save=Join-Path $env:USERPROFILE 'AppData/LocalLow/ViJuDa/Super Woden Rally Edge/Save'
     $main=Join-Path $save 'Supersave0.sav'
     [ordered]@{name=$Name;utc=[DateTime]::UtcNow.ToString('o')
         supersave=[ordered]@{sha256=(Get-ControlHash $main);lastWriteUtc=$(if(Test-Path -LiteralPath $main){(Get-Item -LiteralPath $main).LastWriteTimeUtc.ToString('o')})}
         backups=@(Get-ChildItem -LiteralPath (Join-Path $save 'BackUp') -File -Force -ErrorAction SilentlyContinue | Sort-Object Name | ForEach-Object { $_.Name })
-        remoteCache=(Get-ControlHash $RemoteCache)}
+        remoteCache=(Get-ControlHash $RemoteCache); cloudSaveSha1=(Cloud-SaveSha)}
 }
 # Read-only: the process that owns the native foreground window, or 0 (sana 97474: Unity's isFocused can differ from the
 # native foreground). Never changes focus.
@@ -131,7 +138,7 @@ $files=[ordered]@{
 }
 $slot=Join-Path $env:LOCALAPPDATA 'dbce/test-slot.txt'
 $lease=Enter-StageRigLease -Path $slot -Owner deli-woden-gearbox -Purpose "one ordinary NativeGearbox=$Setting check to MapScreen and exact owner restore"
-$mutated=$false; $restored=$false; $failure=$null; $game=$null; $states=[Collections.Generic.List[object]]::new(); $line=$null; $outcome='missing'
+$mutated=$false; $restored=$false; $failure=$null; $game=$null; $states=[Collections.Generic.List[object]]::new(); $line=$null; $outcome='missing'; $suppressPath=$null; $suppressId=$null
 try {
     Closed; Assert-StageRigLease -Path $slot -Token $lease.token
     [IO.Directory]::CreateDirectory($Result) | Out-Null
@@ -161,6 +168,13 @@ try {
     $dev=Join-Path $plugin 'dev'; $beat=Join-Path $dev 'heartbeat.txt'; $cmd=Join-Path $dev 'cmd.txt'
     if(Test-Path -LiteralPath $cmd){throw 'A dev command is already waiting; refusing.'}
     Clear-SessionLog $logPath
+    # Test-only save suppression for this one launch (Core TestSaveSuppression, sana 98059): the game's SaveOnEnable
+    # saves are skipped, so neither the local save nor Steam Cloud changes. Removed in cleanup; it expires anyway.
+    $suppressPath=Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/woden/suppress-saves.txt'
+    if(Test-Path -LiteralPath $suppressPath){throw 'A save-suppression request already exists; refusing.'}
+    $suppressId=[guid]::NewGuid().ToString('N')
+    [IO.Directory]::CreateDirectory((Split-Path $suppressPath)) | Out-Null
+    [IO.File]::WriteAllText($suppressPath,"id=$suppressId`nexpiresUtc=$([DateTimeOffset]::UtcNow.AddMinutes(5).ToString('o'))`npurpose=native-gearbox-check`n")
     $launchUtc=[DateTime]::UtcNow
     Start-Process 'steam://rungameid/3218630'
     $deadline=[DateTime]::UtcNow.AddSeconds(90)
@@ -180,6 +194,11 @@ try {
     $deadline=[DateTime]::UtcNow.AddSeconds(90)
     while(!((Test-Path -LiteralPath $beat) -and (Get-Item -LiteralPath $beat).LastWriteTimeUtc -gt $launchUtc) -and [DateTime]::UtcNow -lt $deadline){if($game.HasExited){throw 'The game exited before the dev channel started.'};Start-Sleep 1}
     if(!((Test-Path -LiteralPath $beat) -and (Get-Item -LiteralPath $beat).LastWriteTimeUtc -gt $launchUtc)){throw 'The dev channel did not start.'}
+    # Navigation starts only once the plugin confirms suppression with this launch's id: an older plugin, or one that
+    # rejected the request, would let the game save, so the run stops before reaching any saving menu.
+    $deadline=[DateTime]::UtcNow.AddSeconds(30)
+    while(!(Select-String -LiteralPath $logPath -SimpleMatch "Test save suppression active (id $suppressId)" -Quiet) -and [DateTime]::UtcNow -lt $deadline){Start-Sleep 1}
+    if(!(Select-String -LiteralPath $logPath -SimpleMatch "Test save suppression active (id $suppressId)" -Quiet)){throw 'The plugin did not confirm save suppression for this launch; not navigating.'}
     # One pad press per step until the plugin reports at MapScreen; each step is preceded by an in-game screenshot.
     # Steps alternate A and Start: the 06:14 run showed pad A dismiss "Message of the day" while the "PRESS START"
     # title ignored eleven A presses (results/gearbox-check-manual-20261014-01).
@@ -201,6 +220,10 @@ try {
     $states.Add((Save-State 'after-gearbox-line'))
     if(!(Test-Path -LiteralPath $cmd)){[IO.File]::WriteAllText($cmd,"shot mapscreen`n"); Start-Sleep 2}
     if($outcome -eq 'failed'){throw "The plugin did not set $Setting`: $line"}
+    $first=$states[0]; $now=$states[$states.Count-1]
+    if($now.supersave.sha256 -ne $first.supersave.sha256 -or (@($now.backups) -join '|') -ne (@($first.backups) -join '|') -or $now.cloudSaveSha1 -ne $first.cloudSaveSha1){
+        throw 'The game saved (or Steam recorded a new save) despite suppression.'
+    }
 } catch { $failure=$_.Exception.Message; if(Test-Path -LiteralPath $Result){$failure | Set-Content -LiteralPath (Join-Path $Result 'run-error.txt')} }
 finally {
     # Closing, diagnostics and evidence are best effort and record their own errors; none of them may skip the owner
@@ -214,7 +237,16 @@ finally {
     } catch { $notes.Add('close: ' + $_.Exception.Message) }
     try { if($game -and $game.HasExited){ "exitCode=$($game.ExitCode)" | Set-Content -LiteralPath (Join-Path $Result 'game-exit.txt') } } catch { $notes.Add('exit code: ' + $_.Exception.Message) }
     if($mutated){
-        try { $states.Add((Save-State 'after-exit')); $states | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $Result 'save-states.json') } catch { $notes.Add('save state: ' + $_.Exception.Message) }
+        # Steam's AutoCloud ran about 5 s after the game exited on 10-14, so the after-exit sample waits 20 s for it.
+        try {
+            if($game -and $game.HasExited){Start-Sleep 20}
+            $states.Add((Save-State 'after-exit')); $states | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $Result 'save-states.json')
+            $first=$states[0]; $last=$states[$states.Count-1]
+            if($states.Count -gt 1 -and ($last.supersave.sha256 -ne $first.supersave.sha256 -or (@($last.backups) -join '|') -ne (@($first.backups) -join '|') -or $last.cloudSaveSha1 -ne $first.cloudSaveSha1)){
+                $failure="$failure; the game saved, or Steam recorded a new save, by the after-exit sample despite suppression"
+            }
+        } catch { $notes.Add('save state: ' + $_.Exception.Message) }
+        try { if($suppressPath -and (Test-Path -LiteralPath $suppressPath) -and (Select-String -LiteralPath $suppressPath -SimpleMatch "id=$suppressId" -Quiet)){Remove-Item -LiteralPath $suppressPath} } catch { $notes.Add('suppression file: ' + $_.Exception.Message) }
         try { if(Test-Path -LiteralPath $logPath){Copy-Item -LiteralPath $logPath -Destination (Join-Path $Result 'LogOutput.log')} } catch { $notes.Add('log copy: ' + $_.Exception.Message) }
         try {
             Closed; Assert-StageRigLease -Path $slot -Token $lease.token

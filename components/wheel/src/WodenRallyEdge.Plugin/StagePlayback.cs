@@ -35,6 +35,7 @@ internal static partial class StagePlayback
         {
             if (File.Exists(Path.Combine(ControlRoot, "request.txt"))) Target.MuteOutputs();
             StageRunLifecycle.Initialize(ControlRoot);
+            TestSaveGuard.Initialize(ControlRoot);
             _control = new FileSessionControl(ControlRoot, Session);
             StageStartup.Initialize(StageRunLifecycle.ReplayPath);
         }
@@ -221,4 +222,34 @@ internal static class StageAchievementGuard { private static bool Prefix() => !S
 [HarmonyPatch(typeof(RaceConditions), nameof(RaceConditions.Finish))]
 internal static class StageFinishGuard { private static bool Prefix() => !StagePlayback.OutputMuted; }
 [HarmonyPatch(typeof(SaveOnEnable), nameof(SaveOnEnable.OnEnable))]
-internal static class StageSaveGuard { private static bool Prefix() => !StagePlayback.OutputMuted; }
+internal static class StageSaveGuard { private static bool Prefix() => !StagePlayback.OutputMuted && TestSaveGuard.Allow(); }
+
+// One qualification-runner launch that must not write the game's save (Core TestSaveSuppression, sana 98059). Read
+// once at start from the stage control folder; it is not stage tooling, so ordinary features such as the native
+// gearbox still act. An ordinary player launch never has the file.
+internal static class TestSaveGuard
+{
+    internal static bool Active { get; private set; }
+    private static int _skipped;
+    internal static void Initialize(string root)
+    {
+        Active = false; _skipped = 0;
+        try
+        {
+            string path = Path.Combine(root, TestSaveSuppression.FileName);
+            if (!File.Exists(path)) return;
+            if (new FileInfo(path).Length > TestSaveSuppression.MaxBytes) { Runtime.Log.LogWarning("Test save suppression ignored: file too large"); return; }
+            var request = TestSaveSuppression.Parse(File.ReadAllLines(path), DateTimeOffset.UtcNow);
+            if (!request.Active) { Runtime.Log.LogWarning("Test save suppression ignored: " + request.Reason); return; }
+            Active = true;
+            Runtime.Log.LogInfo($"Test save suppression active (id {request.Id}): the game's SaveOnEnable saves are skipped this launch");
+        }
+        catch (Exception ex) { Runtime.Log.LogWarning("Test save suppression unreadable: " + ex.Message); }
+    }
+    internal static bool Allow()
+    {
+        if (!Active) return true;
+        if (++_skipped == 1) Runtime.Log.LogInfo("Test save suppression: skipped a SaveOnEnable save");
+        return false;
+    }
+}

@@ -1054,6 +1054,7 @@ Test("grip v6 learns front load only from forward-valid rows; recorded replay re
 Test("ordinary HUD depth preserves ideal pixels and bounds isolated-world float precision", () => WodenRallyEdge.HudDepthChecks.Run(Check));
 Test("replay HUD speed uses the recorded game.trueSpeed per aligned row, derived only for captures without it", () => WodenRallyEdge.HudSpeedChecks.Run(Check));
 Test("native gearbox preference sets only the selected player's saved choice, once, never for tooling or malformed records", () => WodenRallyEdge.NativeGearboxChecks.Run(Check));
+Test("test save suppression needs an exact, fresh, short-lived runner request; anything else saves as normal", () => WodenRallyEdge.TestSaveSuppressionChecks.Run(Check));
 Test("ordinary full-session capture seals the first stage in DRIVE's package layout with phase-aligned signals", () => WodenRallyEdge.FullSessionChecks.Package(Check));
 Test("ordinary full-session outcomes stay incomplete without a sealed aligned stage and a clean source", () => WodenRallyEdge.FullSessionChecks.Incomplete(Check));
 Test("ordinary status shows Completed only after the full-session package or its marker exists", () => WodenRallyEdge.FullSessionChecks.StatusHold(Check));
