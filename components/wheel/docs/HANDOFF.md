@@ -1,5 +1,12 @@
 # Current handoff — 2026-10-13
 
+**Native gearbox at start (2026-10-14, source on main, not in the owner's install):**
+- One ordinary load-muted launch set Manual over the owner's saved Automatic, with readback; local owner files were
+  restored exactly.
+- That run's MapScreen save was uploaded to Steam Cloud (UploadOK 06:29:57). **The remote state was NOT restored.**
+- See [the qualification note](../../../docs/2026-10-14-native-gearbox-qualification.md) for the hashes, the cloud log
+  and the private archive path.
+
 **Ready to test (2026-10-14):** the owner-attended checklist is [READY-TO-TEST](../../../docs/READY-TO-TEST.md). The software and package side is complete for the installed 252deb private package; what remains is attended.
 
 **Installed now (19:17 CT):** exact optional private-shim package `0.2.14+f252debc54159d101b344abf0f5631b503b64c16`, revision-5 receipt SHA-256 `3041965CC31751B0F4F04A248932E31CB549A4F48208A63129C1A8C0CACCC516`. All 23 owned payloads and the pinned shim match the manifest; backup `WodenWheelBackups/before-install-20261013-191730-fa5b2c2f` retains the prior 7c receipt/config and all 22 payloads. The saved Native default and tune, 305 nonowned files, raw Unity preferences, and four displays passed readback. Wheelkit 0.6.34 recognizes ordinary/playback/native controls capabilities. Woden remained closed; no Shim opt-in, physical-device open, force or game test. [Private install evidence](../../../../../dbce-project-mgmt/artifacts/woden-private-owner-install-20261013/README.md). Ordinary Shim FFB-open/shared-reader coexistence remains unqualified.
