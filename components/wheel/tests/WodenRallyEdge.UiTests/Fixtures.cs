@@ -170,6 +170,7 @@ internal sealed class TransmissionSys {internal bool Changing;}
     internal static class CountdownTimerAssist {internal static string Status=>"Fixture: assist waiting for gameplay";}
     internal static class LeaderboardGuard {internal static string Status=>"Online times: uploaded as normal";}
 internal static class FrameRate {internal static string Summary=>"52 fps average, 1% low 31 fps, worst frame 40 ms";}
+internal static class NativeGearboxApply {internal static string Status=>"Keep: the game's own transmission choice";}
     internal enum TripleMode { Auto, On, Off }
     internal static class TripleView
     {
