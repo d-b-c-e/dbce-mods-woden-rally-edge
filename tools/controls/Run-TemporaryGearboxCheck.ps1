@@ -53,6 +53,13 @@ function Save-State([string]$Name) {
         backups=@(Get-ChildItem -LiteralPath (Join-Path $save 'BackUp') -File -Force -ErrorAction SilentlyContinue | Sort-Object Name | ForEach-Object { $_.Name })
         remoteCache=(Get-ControlHash $RemoteCache)}
 }
+# Read-only: the process that owns the native foreground window, or 0 (sana 97474: Unity's isFocused can differ from the
+# native foreground). Never changes focus.
+Add-Type -Namespace DbceGearbox -Name Foreground -MemberDefinition @'
+[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+'@
+function Foreground-Pid { $h=[DbceGearbox.Foreground]::GetForegroundWindow(); if($h -eq [IntPtr]::Zero){return 0}; $p=[uint32]0; $null=[DbceGearbox.Foreground]::GetWindowThreadProcessId($h,[ref]$p); [int]$p }
 function Gearbox-Line([string]$Log) {
     if(!(Test-Path -LiteralPath $Log)){return $null}
     $s=[IO.File]::Open($Log,'Open','Read','ReadWrite, Delete'); try{$text=[IO.StreamReader]::new($s).ReadToEnd()}finally{$s.Dispose()}
@@ -182,7 +189,8 @@ try {
         $line=Gearbox-Line $logPath; if($line){break}
         if(Test-Path -LiteralPath $cmd){throw 'The previous dev command was not read; not sending another.'}
         [IO.File]::WriteAllText($cmd,"shot nav-$i`npad $button 150`n")
-        Add-Content -LiteralPath (Join-Path $Result 'nav-commands.txt') -Value ('{0} {1} shot nav-{1}; pad {2} 150' -f [DateTime]::UtcNow.ToString('o'), $i, $button)
+        $fg=Foreground-Pid
+        Add-Content -LiteralPath (Join-Path $Result 'nav-commands.txt') -Value ('{0} {1} shot nav-{1}; pad {2} 150; foreground pid {3} ({4})' -f [DateTime]::UtcNow.ToString('o'), $i, $button, $fg, $(if($fg -eq $game.Id){'the game'}else{'not the game'}))
         Start-Sleep 4
         $line=Gearbox-Line $logPath
     }
