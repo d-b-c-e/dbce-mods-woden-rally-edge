@@ -154,3 +154,27 @@ pair cannot prove continuous stability; missing samples remain explicit. A whole
 HUD shift with stable native transforms, versus only a rotating/changing element,
 separates the next investigation. A geometry calculation or one sharper screenshot
 does not resolve the jitter report or qualify a production default.
+
+## Outcome and the speed digits (2026-10-13)
+
+The position fix (canvas plane 100, HUD far 110; `TripleHudDepth.Production`) is in production. The retained A/B
+qualifies it: tach-needle reversals over 0.2 degrees fell from 69 to 1, and static gauge ROIs from a 2.46 px to a
+0.04 px frame-to-frame shift. The owner has not explicitly accepted it yet. No further routine run or release gate is
+attached to it. Evidence: hub `artifacts/woden-hud-jitter-review-20261013` (`needle/`, `mufa-native-speed/`).
+
+The digital speed readout is a separate, stock behavior, kept as is:
+
+- The game's `HUD.FixedUpdate` writes `Int32.ToString(abs(MainCar.TrueSpeed))` to the Speed text every physics step
+  with no smoothing. `HUD` has no `Update` or `LateUpdate`. A units setting formats a converted float instead.
+- `MainCar.FixedUpdate` sets `TrueSpeed = (int)Math.Round(SpeedMomentum x 180)`. Recorded `game.trueSpeed` equals
+  `round(game.speedMomentum x 180)` on every moving row checked (542/542). `SpeedMomentum` moves in steps of 1/180,
+  one displayed km/h each.
+- That momentum reverses direction on about 17 to 19% of full-throttle ticks, whether straight or steering, and 4.4%
+  at zero throttle, in the owner's own 2026-10-01 drive. So the digits can alternate by 1 km/h at up to 30 Hz. The mod
+  does not write `TrueSpeed` or `SpeedMomentum` while driving; replay writes the recorded value per row.
+- The tach needle is smoothed per physics step toward its RPM curve. The HUD camera is fixed. Car-camera shake rotates
+  only the camera rig. Triples render at about 170 fps against the HUD's 60 Hz, as the stock single view does.
+
+**Possible future choice, not implemented:** an opt-in display filter, a postfix on `HUD.FixedUpdate` that rewrites
+only the Speed text from a short hysteresis or average of `TrueSpeed`. It would leave `TrueSpeed`, physics and
+leaderboard values untouched, but it would depart from the stock HUD, so it waits for the owner's choice.
