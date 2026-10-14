@@ -138,6 +138,13 @@ input/force checks. Exact Unity HID identity joining, controller coexistence,
 H-pattern semantics, profile writer/receipt capability, public package integration
 and full-session recording remain separate work. Do not claim full multi-device
 parity or enable Wheelkit Apply for this protocol before those contracts are agreed.
+
+Update, October 13–14: the H-pattern semantics, the profile writer contract and the
+receipt capability are now pinned ([H-pattern](2026-10-13-shim-hpattern.md),
+[private package](2026-10-13-private-shim-package.md)). Wheelkit's Apply to the native
+car passed in software (TOOLKIT-ADOPTION STD-035), and the private package is installed
+with Native saved. Full multi-device parity and force coexistence with the shim are
+still not claimed; the owner-attended steps are in [READY-TO-TEST](READY-TO-TEST.md).
 # Next slice: bounded Core menu trial (October 12)
 
 Source groundwork is in [SHIM-MENU-TRIAL.md](SHIM-MENU-TRIAL.md): distinct schema 4,
