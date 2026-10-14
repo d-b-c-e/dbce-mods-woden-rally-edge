@@ -1,6 +1,26 @@
-# Current handoff — 2026-10-13
+# Current handoff — 2026-10-14
 
-**Native gearbox at start (2026-10-14, source on main, not in the owner's install):**
+**Installed now (2026-10-14, 15:21 CT, romi for sana 106683):** exact private save-guard/gearbox candidate
+`0.2.14+24d7203e684e45b1a69ba6a6db3ba2b1d0b28179` (ZIP `4FFB64F2…`, manifest `242843BA…`), revision-5 receipt
+`D50B71A24BDD1ACD7654026DF3FC35BC8013B1096A4736408118D032CE3AA50D` with `nativeGearboxPreference=true`.
+- Installed closed-game through the packaged `Manage-Install.ps1` under the shared lease. All 23 owned payloads match,
+  with shim `9B8A036F…` and the production `WheelFfb.dll` `F8361A08…` (not the load-muted test native).
+- Backup `WodenWheelBackups/before-install-20261014-152117-cd7626c5` holds the `f252deb` receipt `3041965C…`, its 23
+  payloads and the config.
+- Unchanged: config `20C0BC9A…` (Native default, Gearbox at start Keep, tune), 305 non-owned files, raw Unity
+  preferences `A9BB495D…`.
+- Wheelkit 0.6.42 Core accepts controls and playback. Its gearbox rule offered nothing before the install and now gives
+  H-pattern → Manual and Automatic → Automatic.
+- Displays were recorded, not gated, because the layout was changing during the slot (sana 106683): Surround
+  7680x1440 before and after. This install makes no span or render claim.
+- No launch, Shim opt-in, device open or force.
+- Evidence: [install result](../../../../../dbce-project-mgmt/artifacts/woden-private-owner-install-24d7203-20261014/README.md).
+- Main `7393748` differs from `24d7203` only in the repo-root runner and docs, which are not packaged.
+
+What remains is attended: [READY-TO-TEST](../../../docs/READY-TO-TEST.md) A (Native, force feel, HUD), B (Shim opt-in,
+and whether input keeps responding once force starts) and C (gearbox at start).
+
+**Native gearbox at start (2026-10-14, now installed):**
 - One ordinary load-muted launch set Manual over the owner's saved Automatic, with readback; local owner files were
   restored exactly.
 - That run's MapScreen save was uploaded to Steam Cloud (UploadOK 06:29:57). We did no remote restore.
@@ -11,11 +31,11 @@
 - See [the qualification note](../../../docs/2026-10-14-native-gearbox-qualification.md) for the hashes, the cloud log
   and the private archive path.
 
-**Ready to test (2026-10-14):** the owner-attended checklist is [READY-TO-TEST](../../../docs/READY-TO-TEST.md). The software and package side is complete for the installed 252deb private package; what remains is attended.
+**Ready to test (2026-10-14):** the owner-attended checklist is [READY-TO-TEST](../../../docs/READY-TO-TEST.md). The software and package side is complete for the installed 24d7203 private package; what remains is attended.
 
-**Installed now (19:17 CT):** exact optional private-shim package `0.2.14+f252debc54159d101b344abf0f5631b503b64c16`, revision-5 receipt SHA-256 `3041965CC31751B0F4F04A248932E31CB549A4F48208A63129C1A8C0CACCC516`. All 23 owned payloads and the pinned shim match the manifest; backup `WodenWheelBackups/before-install-20261013-191730-fa5b2c2f` retains the prior 7c receipt/config and all 22 payloads. The saved Native default and tune, 305 nonowned files, raw Unity preferences, and four displays passed readback. Wheelkit 0.6.34 recognizes ordinary/playback/native controls capabilities. Woden remained closed; no Shim opt-in, physical-device open, force or game test. [Private install evidence](../../../../../dbce-project-mgmt/artifacts/woden-private-owner-install-20261013/README.md). Ordinary Shim FFB-open/shared-reader coexistence remains unqualified.
+**Previous install (2026-10-13, 19:17 CT):** exact optional private-shim package `0.2.14+f252debc54159d101b344abf0f5631b503b64c16`, revision-5 receipt SHA-256 `3041965CC31751B0F4F04A248932E31CB549A4F48208A63129C1A8C0CACCC516`. All 23 owned payloads and the pinned shim match the manifest; backup `WodenWheelBackups/before-install-20261013-191730-fa5b2c2f` retains the prior 7c receipt/config and all 22 payloads. The saved Native default and tune, 305 nonowned files, raw Unity preferences, and four displays passed readback. Wheelkit 0.6.34 recognizes ordinary/playback/native controls capabilities. Woden remained closed; no Shim opt-in, physical-device open, force or game test. [Private install evidence](../../../../../dbce-project-mgmt/artifacts/woden-private-owner-install-20261013/README.md). Ordinary Shim FFB-open/shared-reader coexistence remains unqualified.
 
-**Previous install (18:23 CT):** exact production-native `0.2.14+7c1e2870c47e6100e666ad6a4ecd0d6a3f23824e`, revision-5 receipt SHA-256 `66EC5A30D348B7F6086F56A39219B7196E8EDD4876716100A1606BF2C9155239`. All 22 receipt-owned files match package manifest `0F296EA0...` and installed bytes. Packaged `Manage-Install.ps1` completed closed-game under the shared rig lease; backup `WodenWheelBackups/before-install-20261013-182323-2d7e7447` contains the exact former revision-4 receipt, prior shim, and saved config. The old receipt-owned `dbce_shim.dll` was intentionally retired, and six runner/capability files were added. A wrapper inventory count initially misclassified that removal as non-owned; corrected read-only verification passed 302/302 non-owned files, saved config, raw preferences, four displays, and shipped Wheelkit 0.6.34 ordinary/playback/controls capabilities. [Exact reconciliation](../../../../../dbce-project-mgmt/artifacts/woden-owner-install-7c-20261013/README.md). Woden stayed closed; no physical force or input was sent. Native production does not claim shared-shim input.
+**Earlier install (2026-10-13, 18:23 CT):** exact production-native `0.2.14+7c1e2870c47e6100e666ad6a4ecd0d6a3f23824e`, revision-5 receipt SHA-256 `66EC5A30D348B7F6086F56A39219B7196E8EDD4876716100A1606BF2C9155239`. All 22 receipt-owned files match package manifest `0F296EA0...` and installed bytes. Packaged `Manage-Install.ps1` completed closed-game under the shared rig lease; backup `WodenWheelBackups/before-install-20261013-182323-2d7e7447` contains the exact former revision-4 receipt, prior shim, and saved config. The old receipt-owned `dbce_shim.dll` was intentionally retired, and six runner/capability files were added. A wrapper inventory count initially misclassified that removal as non-owned; corrected read-only verification passed 302/302 non-owned files, saved config, raw preferences, four displays, and shipped Wheelkit 0.6.34 ordinary/playback/controls capabilities. [Exact reconciliation](../../../../../dbce-project-mgmt/artifacts/woden-owner-install-7c-20261013/README.md). Woden stayed closed; no physical force or input was sent. Native production does not claim shared-shim input.
 
 The row selector changes window placement, while the prior triple-camera implementation and its qualification carry forward unchanged. The current bounds observer's `tripleRenderedQualified=false` is its own limited measurement; this row fix needs no new optical/scanout gate. Sampled row images do not resolve temporal jitter or physical feel. Wheelkit's revision-5 public release-installer support is in source; the private package was installed through Woden's own installer and no public release followed.
 
