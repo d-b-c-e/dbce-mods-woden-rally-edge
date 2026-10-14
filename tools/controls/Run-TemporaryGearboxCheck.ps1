@@ -182,6 +182,7 @@ try {
         $line=Gearbox-Line $logPath; if($line){break}
         if(Test-Path -LiteralPath $cmd){throw 'The previous dev command was not read; not sending another.'}
         [IO.File]::WriteAllText($cmd,"shot nav-$i`npad $button 150`n")
+        Add-Content -LiteralPath (Join-Path $Result 'nav-commands.txt') -Value ('{0} {1} shot nav-{1}; pad {2} 150' -f [DateTime]::UtcNow.ToString('o'), $i, $button)
         Start-Sleep 4
         $line=Gearbox-Line $logPath
     }
