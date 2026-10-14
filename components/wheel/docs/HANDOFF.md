@@ -3,7 +3,11 @@
 **Native gearbox at start (2026-10-14, source on main, not in the owner's install):**
 - One ordinary load-muted launch set Manual over the owner's saved Automatic, with readback; local owner files were
   restored exactly.
-- That run's MapScreen save was uploaded to Steam Cloud (UploadOK 06:29:57). **The remote state was NOT restored.**
+- That run's MapScreen save was uploaded to Steam Cloud (UploadOK 06:29:57). We did no remote restore.
+- Run 03 (08:10) used the save-guard candidate from `24d7203`:
+  - The central Save was skipped, Manual was set and read back, and the local save and backups stayed byte-identical.
+  - Steam re-uploaded the unchanged local original on its own (ChangeNumber 74), so the cloud record now matches it.
+  - The runner exited 1 because its check counts any remotecache change as a save.
 - See [the qualification note](../../../docs/2026-10-14-native-gearbox-qualification.md) for the hashes, the cloud log
   and the private archive path.
 

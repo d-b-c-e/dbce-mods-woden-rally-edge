@@ -5,7 +5,8 @@ or Phase B. Evidence is local and private, archived in `E:\Source\_archive\2026-
 (`gearbox-check-manual-20261014-01` and `-02`; it holds owner snapshots and is never committed).
 
 **Result: `[Input] NativeGearbox = Manual` set the game's saved choice, which was read back, in an ordinary startup.**
-The owner's local files were restored exactly. **Steam Cloud now holds the run's save; a remote restore was NOT done.**
+The owner's local files were restored exactly. **Steam Cloud then held run 02's save; we did no remote restore.** At run
+03's launch (08:10) Steam re-uploaded the unchanged local original on its own; see "Run 03" below.
 
 ## Candidate
 
@@ -106,8 +107,90 @@ local backup stays in the private archive:
 The save-suppression source for a later candidate is on main `463cb09`. It skips the game's central Save, which
 MapScreen calls directly, for a confirmed runner request or for muted stage playback.
 
+At 07:30 the owner said the mismatch is not a blocker: they have no meaningful Woden progress (sana 99589). Run 03
+below then saw Steam replace the cloud copy with the local original on its own.
+
+## Run 03: save-guard candidate (08:10 CT)
+
+deli, for sana 99551/99589. One muted Manual startup with the unchanged runner at `24d7203`; evidence in the same private
+archive, `gearbox-check-manual-20261014-03`.
+
+**Result: the central-save guard skipped the game's save, Manual was set and read back, and the local save and backups
+stayed byte-identical. The runner exited 1 only because its cloud check counts any remotecache change as a save.**
+
+### Packages
+
+Source `24d7203e684e45b1a69ba6a6db3ba2b1d0b28179`. ZIPs with `.sha256` sidecars, logs and `summary.json` are in
+`E:\Source\_archive\2026-10-14\woden-saveguard-24d7203`.
+
+| Flavor | ZIP SHA-256 | Stage manifest SHA-256 |
+| --- | --- | --- |
+| Native | `e1985ccf3127be948a4a43e3d73ada3dc5371df9e32cefc9c96b0ef6e9f0fa06` | `4adb59abe727b4ce7ae45f1313e362566ac11c303546bbd8ecc7340eb036eb53` |
+| Private (Shim + helper 59d26b1 Extras) | `4ffb64f25d7dc362c64587ce92896635f7e6d114eccdb29cf72e179fa99d8af8` | `242843bacb66a3b3b048f98ef84fde3436e177e1ec3a0496c4566681ac9c6e7c` |
+| Automation (load-muted native + Shim) | `33524e26511bbb2b414195a72fea5e57ccaaa60eee0d7a0980dcc1ef7243db6a` | `8e33eaf07bb7d4be57e6fed1d4759114ddaf76b9b6d86ed0abcc6b263b214a32` |
+
+- Automation plugin `D3D4361B7187E70BDAA1E7F96F7DC6DC6BF3555700323BAC051F35EC71C0D42A`.
+- Each package's embedded tests: UI 912, shim 95, input 3,897.
+- Test-ManageInstall on the native stage: 163/163.
+- Test-PrivateShimInstall native + private: 33/33.
+- Test-StandaloneSetupExtras: 15/15.
+- Test-AutomationMutedPackage: 15/15.
+- Runner `-VerifyOnly`: passed.
+
+### What the run showed
+
+- **Guard.** The plugin log shows three lines:
+  - "Test save suppression requested (id b1232e0a…)";
+  - "Test save suppression active (id b1232e0a…): central Save prefix installed by dbce.wodenrallyedgewheel";
+  - "Save suppression: skipped a central Save call (test request)", logged just before the gearbox line, where
+    MapScreen.OnEnable saves.
+
+  Only the first skip is logged, so the number of skipped calls is unknown.
+- **Gearbox.** "Native gearbox Manual: set Auto_Transmission[0], Arcade_Auto_Transmission[0] for this start
+  (Auto_Transmission[0] Automatic -> Manual, Arcade_Auto_Transmission[0] Automatic -> Manual)". Outcome `set`, read back.
+  - Navigation: pad A, Start, A, Start. The foreground sampled after each write was the game.
+  - FFB was off, with 0 writes.
+- **Local save.** `Supersave0.sav` SHA-256 `EBFA4FF6…3290` and mtime 2026-10-07T01:55:53Z were identical at
+  before-launch, after-gearbox-line and after-exit. The 50 BackUp names and hashes were identical at all three samples.
+- **Exit and restore.**
+  - Exit: `exitCode=0` after the runner's own CloseMainWindow.
+  - Restore: 329 owner files inventory-checked, raw preferences equal, receipt `3041965C…` re-pinned, no notes.
+  - The installer's `WodenWheelBackups\before-install-20261014-081022-11f960ef` was retained, as in run 02.
+
+### Steam Cloud (read-only)
+
+`cloud_log.txt`, AppID 3218630:
+
+```
+[2026-10-14 08:10:31] (ValidateCache) File '...\Save\Supersave0.sav' SHA mismatch with cache - setting local changes
+[2026-10-14 08:10:31] Attempting to sync from local change number '0' to global change number '73' (full)
+[2026-10-14 08:10:31] Need to upload file ViJuDa/Super Woden Rally Edge/Save/Supersave0.sav
+[2026-10-14 08:11:04] Skipping un-modified file ViJuDa/Super Woden Rally Edge/Save/Supersave0.sav
+[2026-10-14 08:11:04] Need to upload file ViJuDa/Super Woden Rally Edge/Save/Supersave0.sav
+[2026-10-14 08:11:05] Upload batch initiated, ID: 5868415381463962324, ChangeNumber: 74, App Build ID: 21802346
+[2026-10-14 08:11:06] Upload OK for file ViJuDa/Super Woden Rally Edge/Save/Supersave0.sav
+[2026-10-14 08:11:06] Upload complete, result OK
+```
+
+| `remotecache.vdf` Supersave0 | Before (08:10:09) | After (08:11:56) |
+| --- | --- | --- |
+| SHA-1 | `0a4b556f…` (the 06:29 run save) | `688b5551…` (the owner's original local save) |
+| remotetime | 1791977381 (2026-10-14T11:29:41Z) | 1791338152 (2026-10-07T01:55:52Z) |
+| syncstate | 1 | 1 |
+
+At launch, Steam found the local file differed from its cache and marked it as a local change. At exit it uploaded the
+unchanged local original as ChangeNumber 74. **The cloud copy on this PC's record is now the owner's original**,
+according to Steam's own log and cache. We wrote nothing to Steam or its cache.
+
+The runner's check compares the remotecache SHA-1 before launch and after (`Run-TemporaryGearboxCheck.ps1:226`). That
+SHA-1 had already changed by the after-gearbox-line sample because of the launch reconciliation. So the runner reported
+"The game saved (or Steam recorded a new save) despite suppression" and exited 1, although the local save never
+changed. The runner is unchanged. A narrower check would count a cloud change as a save only when the local save or
+backups changed too, or when the new cloud SHA-1 differs from the local file's.
+
 ## Not covered
 
 - Automatic, and an "already matched" start.
 - The car's `Aids.Automatic` at a stage (Phase B).
-- Any change to the Steam remote state.
+- Muted stage playback under the central guard (the `OutputMuted` path).
+- How many central Save calls the guard skipped in run 03.
