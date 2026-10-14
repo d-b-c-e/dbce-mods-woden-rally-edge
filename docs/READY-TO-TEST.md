@@ -27,7 +27,8 @@ NOT TESTED, with what was seen.
 6. **Opt in:** with the game closed, Apply your profile to Super Woden in Wheelkit 0.6.34.
    - It writes `BepInEx/config/dbce-controls.ini` and sets `[Input] Backend = Shim` for the next start.
    - Your Native bindings are kept. Shared bindings are wheel and shifter only; the keyboard keeps working.
-   - For sequential or H-pattern gears, choose **Manual** in Woden's own settings; Wheelkit does not change it.
+   - For sequential or H-pattern gears, choose **Manual** in Woden's own settings; Wheelkit does not change it on this
+     install. The 24d7203 candidate can set it for you (section C).
 7. **Check that it took over:** launch, then open F6 **Controls**. It shows a status line and live bars for steer,
    throttle, brake and handbrake:
    - "Shim pilot active · wheel-only · native keyboard retained": the shared profile drives the car;
@@ -42,6 +43,30 @@ NOT TESTED, with what was seen.
 10. **Revert:** with the game closed, set `[Input] Backend = Native` in
     `BepInEx/config/dbce.wodenrallyedgewheel.cfg`. Wheelkit's Woden page only selects Shim. Then start the game and
     confirm the Native bindings are back.
+
+## C. Only with the 24d7203 candidate: gearbox at start
+
+This part applies only after the private `24d7203` package (ZIP `4ffb64f2…`, see the
+[qualification note](2026-10-14-native-gearbox-qualification.md#run-03-save-guard-candidate-0810-ct)) is installed. The
+current install does not read the setting; on it, Wheelkit says "this Woden build does not read the gearbox-at-start
+setting".
+
+11. **Choose, with the game closed.** Use any one of these:
+    - F6 **Controls** (or **Shim**): **Gearbox at start**, Keep / Manual / Automatic;
+    - Wheelkit 0.6.40 or later: **Gearbox at start** in Super Woden's settings;
+    - Wheelkit Apply of your profile: Sequential or H-pattern selects Manual, Automatic selects Automatic.
+
+    Keep, the default, leaves the game's own choice alone.
+12. **Start the game and reach the first main menu.** F6 **Controls** shows "This start:" followed by one of these:
+    - "Manual: set Auto_Transmission[0], Arcade_Auto_Transmission[0] for this start (…)": the mod changed the game's
+      choice and read it back;
+    - "Manual: the game's choice already matched": there was nothing to change;
+    - "not applied: …" or "incomplete: …": the game's choice may differ from your pick. Set it in Woden's own settings
+      and report the text.
+13. **Drive one stage.** The car uses the chosen gearbox. The car-select menu can still change it, and the game saves it
+    as usual.
+14. **Saving is normal.** The save guard only acts for an automated test's request or a muted stage replay. Ordinary play
+    saves as before.
 
 ## Not in this build
 
