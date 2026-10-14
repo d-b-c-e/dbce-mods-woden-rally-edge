@@ -243,6 +243,7 @@ internal static class Runtime
         try
         {
             StagePlayback.Update(now);
+            NativeGearboxApply.FrameTick();
             RecordingControl?.Tick();
             InputPolling.OncePerFrame();
             DevInput.FrameTick(now);

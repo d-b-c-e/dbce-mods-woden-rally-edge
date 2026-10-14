@@ -106,6 +106,13 @@ profile-written hats opt in. The installer advertises
 receipt hashes. The controls.1 package predates this correction and is not a
 qualified profile-hat candidate.
 
+The profile's transmission reaches the game's own Manual/Automatic choice through
+`[Input] NativeGearbox` (Keep/Manual/Automatic, default Keep; 2026-10-14). The
+installer advertises `nativeGearboxPreference=true` for plugins that read it, and
+Wheelkit writes the key only then. The plugin sets the selected player's saved
+choice once, on the first main menu of the next start; the car-select menu can
+still change it.
+
 DeviceHub binds `ReadDeviceStateWithPov` from the exact module already loaded and
 pinned by its existing wrapper. It never loads a second library or opens a new
 force device. One coherent read supplies axes, physical buttons and four raw
