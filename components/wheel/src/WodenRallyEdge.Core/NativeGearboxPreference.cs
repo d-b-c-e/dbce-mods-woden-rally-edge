@@ -28,6 +28,23 @@ public static class NativeGearboxPreference
     public readonly record struct Write(string Field, int Index, bool Before, bool After);
     public sealed record Plan(Outcome Outcome, IReadOnlyList<Write> Writes, string Status);
 
+    public static string Describe(Write w) => $"{w.Field}[{w.Index}] {Word(w.Before)} -> {Word(w.After)}";
+    public static string Word(bool automatic) => automatic ? "Automatic" : "Manual";
+
+    /// <summary>
+    /// The status after a write fails (sana 96081): the elements already set, then the one that failed. A setter that
+    /// threw leaves its element unknown, so the caller says so in <paramref name="failure"/>. Only a failure before any
+    /// write was attempted is "not applied".
+    /// </summary>
+    public static string FailedStatus(IReadOnlyList<Write> completed, Write? attempted, string failure)
+    {
+        if (completed.Count == 0 && attempted == null) return "not applied: " + failure;
+        var parts = new List<string>();
+        if (completed.Count > 0) parts.Add("set " + string.Join(", ", completed.Select(Describe)));
+        parts.Add(attempted is { } a ? $"{a.Field}[{a.Index}] {failure}" : failure);
+        return "incomplete: " + string.Join("; ", parts);
+    }
+
     /// <summary>Only the exact option words select a gearbox; anything else, including another case, keeps the game's.</summary>
     public static Choice Parse(string? value) => value switch { "Manual" => Choice.Manual, "Automatic" => Choice.Automatic, _ => Choice.Keep };
     public static string Normalize(string? value) => Parse(value).ToString();

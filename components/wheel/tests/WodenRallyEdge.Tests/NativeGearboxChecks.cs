@@ -59,6 +59,18 @@ internal static class NativeGearboxChecks
         check(Decide("Manual", 0, false, AllAutomatic, Array.Empty<bool>()) is { Outcome: Outcome.Refused, Writes.Count: 0 }, "an empty Arcade array is refused for player zero, with no write to the other array");
         check(Decide("Manual", 0, false, new[] { true, true, true, true, true, true }, AllAutomatic).Outcome == Outcome.Apply, "a longer array is accepted; only the selected element is planned");
 
+        // Status after a failed write (sana 96081): never "not applied" once a write was attempted.
+        var autoWrite = new Write(AutoTransmission, 0, true, false); var arcadeWrite = new Write(ArcadeAutoTransmission, 0, true, false);
+        check(Describe(autoWrite) == "Auto_Transmission[0] Automatic -> Manual", "a write is described with its element and both values");
+        check(FailedStatus(Array.Empty<Write>(), null, "no record") == "not applied: no record", "a failure before any write is not applied");
+        check(FailedStatus(new[] { autoWrite }, arcadeWrite, "read back Automatic") ==
+            "incomplete: set Auto_Transmission[0] Automatic -> Manual; Arcade_Auto_Transmission[0] read back Automatic",
+            "a second element that reads back wrong reports the first as set and names the second's value");
+        check(FailedStatus(Array.Empty<Write>(), autoWrite, "unknown after setter failed") == "incomplete: Auto_Transmission[0] unknown after setter failed",
+            "a first setter that threw reports its element unknown, not unapplied");
+        check(FailedStatus(new[] { autoWrite }, null, "status failed") == "incomplete: set Auto_Transmission[0] Automatic -> Manual; status failed",
+            "a failure after the writes still lists them");
+
         // The cfg key through the production Settings: section/key, Keep by default, exact words kept, others normalized.
         string dir = Path.Combine(Path.GetTempPath(), "woden-gearbox-" + Guid.NewGuid()); Directory.CreateDirectory(dir);
         try

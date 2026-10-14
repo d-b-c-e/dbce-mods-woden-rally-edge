@@ -18,6 +18,9 @@ internal static class NativeGearboxApply
     internal static void FrameTick()
     {
         if (_done) return;
+        // Completed writes and the one in progress, so a failure reports what the record now holds (sana 96081).
+        List<NativeGearboxPreference.Write>? completed = null;
+        NativeGearboxPreference.Write? attempted = null;
         try
         {
             _setting ??= Runtime.Settings.NativeGearbox;
@@ -33,18 +36,28 @@ internal static class NativeGearboxApply
             var plan = NativeGearboxPreference.Decide(_setting, Runtime.Settings.Player, tooling,
                 stats?.Auto_Transmission?.ToArray(), stats?.Arcade_Auto_Transmission?.ToArray());
             if (plan.Outcome == NativeGearboxPreference.Outcome.Wait) { Status = plan.Status; return; }
-            foreach (var write in plan.Writes)
+            completed = new List<NativeGearboxPreference.Write>(plan.Writes.Count);
             {
+                attempted = write;
                 Il2CppStructArray<bool> target = write.Field == NativeGearboxPreference.AutoTransmission ? stats!.Auto_Transmission! : stats!.Arcade_Auto_Transmission!;
                 target[write.Index] = write.After;
-                if (target[write.Index] != write.After) { Finish($"not applied: {write.Field}[{write.Index}] did not read back", true); return; }
+                bool readBack = target[write.Index];
+                if (readBack != write.After)
+                {
+                    Finish(NativeGearboxPreference.FailedStatus(completed, write, "read back " + NativeGearboxPreference.Word(readBack)), true);
+                    return;
+                }
+                completed.Add(write); attempted = null;
             }
-            Finish(plan.Status + (plan.Writes.Count == 0 ? "" : " (" + string.Join(", ", plan.Writes.Select(w => $"{w.Field}[{w.Index}] {Word(w.Before)} -> {Word(w.After)}")) + ")"),
+            Finish(plan.Status + (plan.Writes.Count == 0 ? "" : " (" + string.Join(", ", plan.Writes.Select(NativeGearboxPreference.Describe)) + ")"),
                 plan.Outcome == NativeGearboxPreference.Outcome.Refused);
         }
-        catch (Exception ex) { Finish("not applied: " + ex.Message, true); }
+        catch (Exception ex)
+        {
+            // A setter or readback that threw leaves its element unknown; elements before it stay set.
+            Finish(NativeGearboxPreference.FailedStatus(completed ?? new List<NativeGearboxPreference.Write>(), attempted, (attempted == null ? "" : "unknown after ") + ex.Message), true);
+        }
     }
-    private static string Word(bool automatic) => automatic ? "Automatic" : "Manual";
     private static void Finish(string status, bool warning)
     {
         _done = true; Status = status;
