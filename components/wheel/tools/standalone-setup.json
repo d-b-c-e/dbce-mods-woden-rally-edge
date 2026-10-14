@@ -1,8 +1,8 @@
 {
-  "note": "Optional private controls setup helper, packaged unmodified under Extras/ModSetup only with Package.ps1 -PrivateShimPath -PrivateStandaloneSetup. Never installed into the game. Qualified against the owner's Woden shared install (Wheelkit Test-StandaloneSetupPackage, 2026-10-14).",
-  "zip": "StandaloneModSetup-private-b964798f8043-win-x64.zip",
-  "zipSha256": "6ba63ef279ccb83b3a68d3dfcf899a2232b1b97010046dea02cfb6e477d0953f",
-  "sourceCommit": "b964798f80435c22cb973ec3078626845d27223e",
-  "bundleManifestSha256": "0ce6cdce7439bee9bf55585a77f17480ded59b9594f77dfa2c82533000976b4a",
-  "files": 528
+  "note": "Optional private controls setup helper, packaged unmodified under Extras/ModSetup only with Package.ps1 -PrivateShimPath -PrivateStandaloneSetup. Never installed into the game. Wheelkit 59d26b1 (0.6.40 plus helper commits 9a7946f and 59d26b1): reads catalog @6 and writes [Input] NativeGearbox only for a receipt declaring nativeGearboxPreference. Package-tested by Wheelkit Test-StandaloneSetupPackage on synthetic Woden installs, 2026-10-14 (hub artifacts/wheelkit-helper-59d26b1-20261014); the Woden gate is Test-StandaloneSetupExtras with this ZIP.",
+  "zip": "StandaloneModSetup-private-59d26b1d7218-win-x64.zip",
+  "zipSha256": "d5bab3462959d435568e7859e84c1fd2854be4b50b53fed11715607848992e95",
+  "sourceCommit": "59d26b1d7218c6b384e9cca978f4261b72acc4d7",
+  "bundleManifestSha256": "bf53d66aa8b56e6f7876adb1e9e397be2cd3b60665ff4d9fe9e266f3a3a10ade",
+  "files": 527
 }
