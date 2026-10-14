@@ -1,6 +1,6 @@
 #Requires -Version 7.0
 # Closed-game outer transaction for one bounded check of [Input] NativeGearbox (sana 96307/96352): one ordinary launch
-# with a temporary load-muted candidate, the dev channel's own pad A presses up to the first main menu (MapScreen),
+# with a temporary load-muted candidate, the dev channel's own pad A/Start presses up to the first main menu (MapScreen),
 # where the plugin sets and reads back the game's saved transmission choice once; then close from MapScreen and restore
 # the owner's files, preferences and receipt exactly. No StageStartup, replay or stage: those are tooling and skipped.
 # Evidence: the plugin's "Native gearbox" log line, Supersave0.sav/BackUp state before launch, after the line and after
@@ -173,16 +173,19 @@ try {
     $deadline=[DateTime]::UtcNow.AddSeconds(90)
     while(!((Test-Path -LiteralPath $beat) -and (Get-Item -LiteralPath $beat).LastWriteTimeUtc -gt $launchUtc) -and [DateTime]::UtcNow -lt $deadline){if($game.HasExited){throw 'The game exited before the dev channel started.'};Start-Sleep 1}
     if(!((Test-Path -LiteralPath $beat) -and (Get-Item -LiteralPath $beat).LastWriteTimeUtc -gt $launchUtc)){throw 'The dev channel did not start.'}
-    # One pad A per step until the plugin reports at MapScreen; each step is preceded by an in-game screenshot.
+    # One pad press per step until the plugin reports at MapScreen; each step is preceded by an in-game screenshot.
+    # Steps alternate A and Start: the 06:14 run showed pad A dismiss "Message of the day" while the "PRESS START"
+    # title ignored eleven A presses (results/gearbox-check-manual-20261014-01).
     for($i=1;$i -le $Presses -and !$line;$i++){
+        $button=if($i % 2){'A'}else{'Start'}
         if($game.HasExited){throw 'The game exited during navigation.'}
         $line=Gearbox-Line $logPath; if($line){break}
         if(Test-Path -LiteralPath $cmd){throw 'The previous dev command was not read; not sending another.'}
-        [IO.File]::WriteAllText($cmd,"shot nav-$i`npad A 150`n")
+        [IO.File]::WriteAllText($cmd,"shot nav-$i`npad $button 150`n")
         Start-Sleep 4
         $line=Gearbox-Line $logPath
     }
-    if(!$line){throw "No 'Native gearbox' line after $Presses pad A steps."}
+    if(!$line){throw "No 'Native gearbox' line after $Presses pad A/Start steps."}
     $line | Set-Content -LiteralPath (Join-Path $Result 'gearbox-line.txt')
     $outcome=Classify-GearboxLine $line $Setting
     Start-Sleep 5
