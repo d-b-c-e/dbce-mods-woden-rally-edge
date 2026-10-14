@@ -6,9 +6,12 @@ param(
     [string]$AutomationNativeProvenancePath,
     [switch]$HudGuiDiagnostic,
     [switch]$HudDepthDiagnostic,
-    [switch]$HudStateTrace
+    [switch]$HudStateTrace,
+    # Private shim packages only: the pinned DBCE mod setup helper (tools\standalone-setup.json) under Extras\ModSetup.
+    [switch]$PrivateStandaloneSetup
 )
 $ErrorActionPreference = 'Stop'
+if ($PrivateStandaloneSetup -and -not $PrivateShimPath) { throw 'The setup helper writes the shared profile: package it only with -PrivateShimPath.' }
 if ($HudDepthDiagnostic) { throw 'HudDepthDiagnostic is retired; plane 100/far 110 is ordinary HUD geometry.' }
 if ($HudGuiDiagnostic -and $HudStateTrace) { throw 'HUD state trace is for the matched driving depth trial, not the menu GUI trial.' }
 if ($HudGuiDiagnostic -and $ArtifactLabel -notmatch '^hudgui-') { throw 'HUD GUI diagnostic packages require a hudgui- artifact label.' }
@@ -147,6 +150,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Schema export failed' }
 Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination $stage
 Copy-Item -LiteralPath (Join-Path $root 'docs\DEVELOPMENT-BUILD.md') -Destination (Join-Path $stage 'README.md')
 foreach ($name in 'Install.bat','Uninstall.bat','Manage-Install.ps1') { Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination $stage }
+# Private shim packages may carry the pinned setup helper (Extras\ModSetup, never installed); before the manifest, so
+# Install's package check covers it.
+if ($PrivateStandaloneSetup) { & (Join-Path $PSScriptRoot 'Add-StandaloneSetup.ps1') -Stage $stage }
 $manifest = @(Get-ChildItem -LiteralPath $stage -File -Recurse | Sort-Object FullName | ForEach-Object { @{ path = [IO.Path]::GetRelativePath($stage, $_.FullName); sha256 = (Get-FileHash -LiteralPath $_.FullName).Hash.ToLowerInvariant() } })
 $manifest | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $stage 'manifest.json') -Encoding utf8
 $version = ([xml](Get-Content (Join-Path $root 'Directory.Build.props') -Raw)).Project.PropertyGroup.Version

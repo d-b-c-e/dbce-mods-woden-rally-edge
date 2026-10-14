@@ -1,0 +1,8 @@
+{
+  "note": "Optional private controls setup helper, packaged unmodified under Extras/ModSetup only with Package.ps1 -PrivateShimPath -PrivateStandaloneSetup. Never installed into the game. Qualified against the owner's Woden shared install (Wheelkit Test-StandaloneSetupPackage, 2026-10-14).",
+  "zip": "StandaloneModSetup-private-b964798f8043-win-x64.zip",
+  "zipSha256": "6ba63ef279ccb83b3a68d3dfcf899a2232b1b97010046dea02cfb6e477d0953f",
+  "sourceCommit": "b964798f80435c22cb973ec3078626845d27223e",
+  "bundleManifestSha256": "0ce6cdce7439bee9bf55585a77f17480ded59b9594f77dfa2c82533000976b4a",
+  "files": 528
+}

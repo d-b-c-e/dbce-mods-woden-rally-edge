@@ -447,6 +447,8 @@ FodyWeavers.xsd
 /components/wheel/lib/generator-runtime/
 /components/wheel/lib/loader/
 /components/wheel/lib/local-dependencies.json
+# The private setup helper ZIP is pinned by tools/standalone-setup.json and copied in from the Wheelkit artifacts.
+/components/wheel/lib/cache/
 /components/wheel/artifacts/
 /components/wheel/dist/
 # The provisional shim is a privately supplied build input, not redistributable source.
