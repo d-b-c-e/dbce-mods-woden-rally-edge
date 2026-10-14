@@ -37,6 +37,7 @@ internal static class NativeGearboxApply
                 stats?.Auto_Transmission?.ToArray(), stats?.Arcade_Auto_Transmission?.ToArray());
             if (plan.Outcome == NativeGearboxPreference.Outcome.Wait) { Status = plan.Status; return; }
             completed = new List<NativeGearboxPreference.Write>(plan.Writes.Count);
+            foreach (var write in plan.Writes)
             {
                 attempted = write;
                 Il2CppStructArray<bool> target = write.Field == NativeGearboxPreference.AutoTransmission ? stats!.Auto_Transmission! : stats!.Arcade_Auto_Transmission!;
