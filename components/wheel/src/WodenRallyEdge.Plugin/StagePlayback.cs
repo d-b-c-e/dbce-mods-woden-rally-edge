@@ -222,18 +222,28 @@ internal static class StageAchievementGuard { private static bool Prefix() => !S
 [HarmonyPatch(typeof(RaceConditions), nameof(RaceConditions.Finish))]
 internal static class StageFinishGuard { private static bool Prefix() => !StagePlayback.OutputMuted; }
 [HarmonyPatch(typeof(SaveOnEnable), nameof(SaveOnEnable.OnEnable))]
-internal static class StageSaveGuard { private static bool Prefix() => !StagePlayback.OutputMuted && TestSaveGuard.Allow(); }
+internal static class StageSaveGuard { private static bool Prefix() => !StagePlayback.OutputMuted; }
 
-// One qualification-runner launch that must not write the game's save (Core TestSaveSuppression, sana 98059). Read
-// once at start from the stage control folder; it is not stage tooling, so ordinary features such as the native
-// gearbox still act. An ordinary player launch never has the file.
+// The game's central static Save, ObjectPublicAbstractSealedSaStInStStUnique.Method_Public_Static_Void_3 (VA
+// 0x1807DE930 in the pinned GameAssembly F422894D): the only direct caller of the BinaryFormatter + WriteAllBytes save
+// writer, and called directly by MapScreen.OnEnable, StagePresentation, ResultScreen, SaveSlot, Garage and more
+// (the direct callers a static scan located on 2026-10-14; delegates or reflection would not show). Skipped while muted
+// stage playback owns the launch or one runner request is confirmed active (TestSaveSuppression.SaveAllowed).
+[HarmonyPatch(typeof(ObjectPublicAbstractSealedSaStInStStUnique), nameof(ObjectPublicAbstractSealedSaStInStStUnique.Method_Public_Static_Void_3))]
+internal static class TestSaveCentralGuard { private static bool Prefix() => TestSaveGuard.Allow(StagePlayback.OutputMuted); }
+
+// One qualification-runner launch that must not write the game's save (Core TestSaveSuppression, sana 98059/98272).
+// The request is read once at start from the stage control folder, and suppression becomes active only after the
+// plugin's own prefix is confirmed installed on the central Save. It is not stage tooling, so ordinary features such as
+// the native gearbox still act. An ordinary player launch never has the request.
 internal static class TestSaveGuard
 {
     internal static bool Active { get; private set; }
+    private static string? _requestedId;
     private static int _skipped;
     internal static void Initialize(string root)
     {
-        Active = false; _skipped = 0;
+        Active = false; _requestedId = null; _skipped = 0;
         try
         {
             string path = Path.Combine(root, TestSaveSuppression.FileName);
@@ -241,15 +251,33 @@ internal static class TestSaveGuard
             if (new FileInfo(path).Length > TestSaveSuppression.MaxBytes) { Runtime.Log.LogWarning("Test save suppression ignored: file too large"); return; }
             var request = TestSaveSuppression.Parse(File.ReadAllLines(path), DateTimeOffset.UtcNow);
             if (!request.Active) { Runtime.Log.LogWarning("Test save suppression ignored: " + request.Reason); return; }
-            Active = true;
-            Runtime.Log.LogInfo($"Test save suppression active (id {request.Id}): the game's SaveOnEnable saves are skipped this launch");
+            _requestedId = request.Id;
+            Runtime.Log.LogInfo($"Test save suppression requested (id {request.Id}); waiting for the central Save prefix");
         }
         catch (Exception ex) { Runtime.Log.LogWarning("Test save suppression unreadable: " + ex.Message); }
     }
-    internal static bool Allow()
+    /// <summary>After PatchAll: records whether the central Save carries this plugin's TestSaveCentralGuard prefix, and
+    /// only then makes a runner request active.</summary>
+    internal static void Confirm(string harmonyId)
     {
-        if (!Active) return true;
-        if (++_skipped == 1) Runtime.Log.LogInfo("Test save suppression: skipped a SaveOnEnable save");
+        bool ours = false;
+        try
+        {
+            var target = AccessTools.Method(typeof(ObjectPublicAbstractSealedSaStInStStUnique), nameof(ObjectPublicAbstractSealedSaStInStStUnique.Method_Public_Static_Void_3));
+            var prefixes = target == null ? null : Harmony.GetPatchInfo(target)?.Prefixes;
+            ours = prefixes != null && prefixes.Any(p => p.owner == harmonyId && p.PatchMethod.DeclaringType == typeof(TestSaveCentralGuard));
+        }
+        catch (Exception ex) { Runtime.Log.LogWarning("Central Save prefix check failed: " + ex.Message); }
+        if (StagePlayback.OutputMuted) Runtime.Log.LogInfo("Muted stage save suppression: central Save prefix " + (ours ? "installed by " + harmonyId : "NOT installed"));
+        if (_requestedId == null) return;
+        if (!ours) { Runtime.Log.LogWarning("Test save suppression not active: the central Save prefix is not installed"); return; }
+        Active = true;
+        Runtime.Log.LogInfo($"Test save suppression active (id {_requestedId}): central Save prefix installed by {harmonyId}; the game's saves are skipped this launch");
+    }
+    internal static bool Allow(bool stageOutputMuted)
+    {
+        if (TestSaveSuppression.SaveAllowed(stageOutputMuted, Active)) return true;
+        if (++_skipped == 1) Runtime.Log.LogInfo("Save suppression: skipped a central Save call (" + (stageOutputMuted ? "muted stage" : "test request") + ")");
         return false;
     }
 }

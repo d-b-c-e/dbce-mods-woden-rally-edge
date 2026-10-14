@@ -8,6 +8,13 @@ internal static class TestSaveSuppressionChecks
 {
     internal static void Run(Action<bool, string> check)
     {
+        // The central Save policy (sana 98439): an ordinary launch saves; a confirmed runner request or muted stage
+        // playback skips it.
+        check(TestSaveSuppression.SaveAllowed(stageOutputMuted: false, testRequestActive: false), "an ordinary launch saves as normal");
+        check(!TestSaveSuppression.SaveAllowed(stageOutputMuted: false, testRequestActive: true), "a confirmed private check request skips the central Save");
+        check(!TestSaveSuppression.SaveAllowed(stageOutputMuted: true, testRequestActive: false), "muted stage playback skips the central Save");
+        check(!TestSaveSuppression.SaveAllowed(stageOutputMuted: true, testRequestActive: true), "both together still skip it");
+
         var now = new DateTimeOffset(2026, 10, 14, 12, 0, 0, TimeSpan.Zero);
         string id = Guid.NewGuid().ToString("N");
         string[] Lines(string? expires = null, string? purpose = null, string? identity = null, params string[] extra) =>

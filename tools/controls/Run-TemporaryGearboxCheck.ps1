@@ -57,7 +57,8 @@ function Save-State([string]$Name) {
     $main=Join-Path $save 'Supersave0.sav'
     [ordered]@{name=$Name;utc=[DateTime]::UtcNow.ToString('o')
         supersave=[ordered]@{sha256=(Get-ControlHash $main);lastWriteUtc=$(if(Test-Path -LiteralPath $main){(Get-Item -LiteralPath $main).LastWriteTimeUtc.ToString('o')})}
-        backups=@(Get-ChildItem -LiteralPath (Join-Path $save 'BackUp') -File -Force -ErrorAction SilentlyContinue | Sort-Object Name | ForEach-Object { $_.Name })
+        # Name and SHA-256 per backup: a rewrite in place would keep the names (sana 98439).
+        backups=@(Get-ChildItem -LiteralPath (Join-Path $save 'BackUp') -File -Force -ErrorAction SilentlyContinue | Sort-Object Name | ForEach-Object { '{0} {1}' -f $_.Name, (Get-ControlHash $_.FullName) })
         remoteCache=(Get-ControlHash $RemoteCache); cloudSaveSha1=(Cloud-SaveSha)}
 }
 # Read-only: the process that owns the native foreground window, or 0 (sana 97474: Unity's isFocused can differ from the
@@ -168,8 +169,9 @@ try {
     $dev=Join-Path $plugin 'dev'; $beat=Join-Path $dev 'heartbeat.txt'; $cmd=Join-Path $dev 'cmd.txt'
     if(Test-Path -LiteralPath $cmd){throw 'A dev command is already waiting; refusing.'}
     Clear-SessionLog $logPath
-    # Test-only save suppression for this one launch (Core TestSaveSuppression, sana 98059): the game's SaveOnEnable
-    # saves are skipped, so neither the local save nor Steam Cloud changes. Removed in cleanup; it expires anyway.
+    # Test-only save suppression for this one launch (Core TestSaveSuppression, sana 98059/98439): the game's central
+    # Save, which MapScreen.OnEnable calls directly, is skipped, so neither the local save nor Steam Cloud changes.
+    # Removed in cleanup; it expires anyway.
     $suppressPath=Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/woden/suppress-saves.txt'
     if(Test-Path -LiteralPath $suppressPath){throw 'A save-suppression request already exists; refusing.'}
     $suppressId=[guid]::NewGuid().ToString('N')

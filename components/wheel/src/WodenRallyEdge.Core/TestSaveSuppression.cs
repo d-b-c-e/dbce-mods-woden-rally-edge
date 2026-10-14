@@ -6,8 +6,9 @@ namespace WodenRallyEdge.Core;
 /// One test launch that must not write the game's save (sana 98059): the 2026-10-14 native gearbox check saved
 /// Supersave0.sav on reaching MapScreen, and Steam Cloud uploaded it, which a local restore cannot undo.
 /// The qualification runner writes suppress-saves.txt in the stage control folder before its launch and removes it
-/// after. The plugin reads it once at start, and the game's SaveOnEnable saves are then skipped for that launch, as
-/// StageSaveGuard already does for muted stage tooling.
+/// after. The plugin reads it once at start. Once its prefix on the game's central Save is confirmed installed, that
+/// Save is skipped for the launch. MapScreen.OnEnable, StagePresentation, ResultScreen and others call it directly;
+/// SaveOnEnable does not cover them. Muted stage playback skips the same central Save (SaveAllowed).
 /// It is deliberately not stage tooling, so the native gearbox adapter still acts. An ordinary player launch never has
 /// the file. A stale, oversize, malformed, repeated-key or wrong-purpose file suppresses nothing, which is the same
 /// fail-safe direction as an ordinary launch; the runner then refuses because the plugin never confirms suppression.
@@ -19,6 +20,13 @@ public static class TestSaveSuppression
     public static readonly TimeSpan MaxLifetime = TimeSpan.FromMinutes(5);
 
     public readonly record struct Request(bool Active, string? Id, string Reason);
+
+    /// <summary>
+    /// Whether the game's central Save may run (sana 98439). It is skipped while muted stage playback owns the launch,
+    /// which no earlier guard covered on the MapScreen, StagePresentation or ResultScreen routes, or while one confirmed
+    /// runner request is active. Otherwise it runs, as in every ordinary launch.
+    /// </summary>
+    public static bool SaveAllowed(bool stageOutputMuted, bool testRequestActive) => !stageOutputMuted && !testRequestActive;
 
     /// <summary>The request in <paramref name="lines"/> (id=32 hex, expiresUtc=round-trip time in (now, now+5 min],
     /// purpose=native-gearbox-check, nothing else), as of <paramref name="now"/>.</summary>
