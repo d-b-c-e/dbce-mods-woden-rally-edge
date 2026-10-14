@@ -391,6 +391,8 @@ try {
         $nextReceipt.controlsProfileSchema = 1
         $nextReceipt.adapter = 'woden-bindings-1'
         $nextReceipt.controlsProfileHatNeighbours = $true
+        # [Input] NativeGearbox (Keep/Manual/Automatic) is read by this plugin; Wheelkit writes it only when this is true.
+        $nextReceipt.nativeGearboxPreference = $true
         if ($private) { $nextReceipt.sharedInputCandidate = $privateMetadata }
         $nextReceipt.ordinarySession = Expected-OrdinarySession $owned $advertiseInputOrigin
     }

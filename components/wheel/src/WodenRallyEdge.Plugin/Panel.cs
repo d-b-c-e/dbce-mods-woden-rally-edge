@@ -385,6 +385,7 @@ internal static class Panel
             if(group.Item1=="Menu buttons"||group.Item1=="Shifter bindings") {Label(250,y,690,group.Item1=="Menu buttons"?"Up/down moves settings focus; left/right adjusts sliders. Confirm activates; Back closes. Arcade car choice takes one direction per press; transmission uses the native menu. "+MenuNavigation.Status:"H-pattern: hold a gate for that gear; the mod steps the game's Shift up/down until it matches. Out of gear cuts the drive (Woden has no neutral). R swaps the pedals, because Woden reverses on the brake. Needs the game's manual transmission. Clutch is not routed. Now: "+(Runtime.Wheel?.Shifter.Status??""),true,60);y+=70;}
         }
         Label(250,y,690,"Handbrake: progressive rear braking/grip; the game's engine cut remains digital. Button input requests full braking.",true,48);y+=64;
+        y=GearboxRow(y);
         if(Advanced)
         {
             Label(250,y,420,"Local player index: "+Runtime.Settings.Player);
@@ -413,7 +414,20 @@ internal static class Panel
         Label(250,y,690,"Wheel-only pilot: Unity gamepads must be disconnected before launch. Native keyboard controls remain available.",true,54);y+=64;
         Label(250,y,690,"Sequential shifts or H-pattern N/R/gears 1-6 require native Manual. Clutch, select and gears 7-8 are unavailable. Lights, Records and Next song retain native keyboard controls.",true,72);y+=84;
         Label(250,y,690,ShimInput.TransmissionStatus,true,64);y+=76;
-        End(y);
+        End(GearboxRow(y));
+    }
+
+    // [Input] NativeGearbox (NativeGearboxPreference): the game's own Manual/Automatic choice, set at the next start.
+    private static float GearboxRow(float y)
+    {
+        var cfg=Runtime.Settings;
+        Label(250,y+6,170,"Gearbox at start");
+        var options=NativeGearboxPreference.Options;
+        for(int i=0;i<options.Length;i++)
+            if(Button(i==0?426:i==1?548:670,y,i==2?150:110,options[i],cfg.NativeGearbox==options[i])&&cfg.NativeGearbox!=options[i]) { cfg.NativeGearbox=options[i]; Dirty(); }
+        y+=48;
+        Label(250,y,690,"Sets the game's own transmission choice once, on the first main menu after the next game start. Keep leaves it alone; the car-select menu can still change it. This start: "+NativeGearboxApply.Status,true,60);
+        return y+70;
     }
 
     private static void ForcePage()

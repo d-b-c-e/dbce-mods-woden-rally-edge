@@ -26,6 +26,7 @@ public sealed class Settings
     private int _selectionVersion;
     public string UiView = "Simple", UiPage = "Setup";
     public string InputBackend = "Native";
+    public string NativeGearbox = NativeGearboxPreference.Default;
     public float UiScale = 100;
     public bool CustomFfb => FfbModel != "Grip" || FfbLoadRatio != 2 || FfbGripSmoothing != .2f || FfbPeak != 25 || FfbLoadReference != 6000 || FfbSlipScale != .35f || FfbSmoothing != 35 || FfbDamping != .05f || FfbInvert;
     public void SetPresentation(string view, string page)
@@ -101,6 +102,7 @@ public sealed class Settings
         UiView = SettingsPresentation.View(UiView); UiPage = SettingsPresentation.Page(UiPage, UiView);
         UiScale = Bound(UiScale, 85, 150, 100);
         InputBackend = InputBackend == "Shim" ? "Shim" : "Native";
+        NativeGearbox = NativeGearboxPreference.Normalize(NativeGearbox);
     }
     private void Sync(bool read)
     {
@@ -110,6 +112,7 @@ public sealed class Settings
         Item("Interface", "Page", ref UiPage, "Last settings page.");
         Item("Interface", "ScalePercent", ref UiScale, "Settings text and target scale, 85..150%.");
         Item("Input", "Backend", ref InputBackend, "Native (standalone bindings) or opt-in Shim wheel-only pilot. Requires dbce-controls.ini and no Unity gamepads; restart to change. Sequential or H-pattern N/R/gears 1-6 require native Manual; clutch, select and gears 7-8 remain unavailable.");
+        Item(NativeGearboxPreference.Section, NativeGearboxPreference.Key, ref NativeGearbox, NativeGearboxPreference.Help);
         Item("Telemetry", "Enabled", ref TelemetryEnabled, "Send dashboard UDP; does not start or stop diagnostic recording.");
         Item("ForceFeedback", "FollowSteering", ref FfbFollowSteering, "Use the saved Steering device GUID. An explicit selection remains independent.");
         Item("ForceFeedback", "SelectionVersion", ref _selectionVersion, "Preserve legacy explicit selections during migration.");
