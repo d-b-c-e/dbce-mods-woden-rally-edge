@@ -68,6 +68,44 @@ Steam `logs\cloud_log.txt` excerpt (AppID 3218630):
 - **Unknown.** Whether the run save holds Manual is unknown: the file is encrypted, and the log has no timestamps to
   order the MapScreen save against the in-memory write.
 
+## Remote state: open, not restored (assessment 07:05 CT)
+
+Read-only; Steam, its cache and the owner's files are left untouched (sana 98767/98855).
+
+**Exact state at 07:05:**
+
+| Where | Supersave0.sav |
+| --- | --- |
+| Local file (the owner original) | SHA-1 `688b5551f127d5a07b842d16df8ee19d5c44f31c`, SHA-256 `EBFA4FF6…3290`, 7,136 bytes, mtime 2026-10-07T01:55:53Z |
+| `remotecache.vdf` (ChangeNumber 73) | SHA-1 `0a4b556f162f9559e5a19119a39b646f2ce8f6b6` (the 06:29 run save); `time = remotetime = 1791977381`, `localtime 1791977383`, `syncstate 1`, `persiststate 0` |
+| `cloud_log.txt` | no AppID 3218630 activity after 06:29:57 |
+
+**Observed in this PC's cloud log (not an official description):**
+- Every logged Woden launch begins "Starting sync (AC Launch,down,)", then "Currently already synced to global change
+  number 'N', should be nothing to download" (10-13 18:07, 10-14 06:14). The 06:29 launch did a full sync from local
+  change 0 to 72.
+- At exit, AutoCloud looks for new and updated files, and uploaded Supersave0.sav when it differed (06:29:55).
+
+**Likely reconciliation (predicted, not proven):** the owner's next ordinary Woden session on this PC.
+- At launch the local and global change numbers are both 73, so no download is expected, and the game loads the local
+  original.
+- At that session's exit, the local save differs from the cached run-save SHA-1, so an upload is expected.
+- This prediction comes from the log pattern above, not from an official source. A conflict prompt cannot be ruled out.
+
+**For the owner:**
+1. Launch Woden on this PC first. A first launch on another computer would be expected to download the run save there.
+2. If Steam shows a cloud conflict prompt, keep the local copy.
+3. Afterwards check, read-only:
+   - `cloud_log.txt` shows "Need to upload file ViJuDa/Super Woden Rally Edge/Save/Supersave0.sav" and "Upload OK";
+   - the `remotecache.vdf` Supersave0 SHA-1 equals the local file's.
+
+The run save is encrypted and was not decoded, so how its contents differ from the original is unknown. The original
+local backup stays in the private archive:
+`E:\Source\_archive\2026-10-14\woden-gearbox-check-20261014\gearbox-check-manual-20261014-02\owner-before\tree\save\Save\Supersave0.sav`.
+
+The save-suppression source for a later candidate is on main `463cb09`. It skips the game's central Save, which
+MapScreen calls directly, for a confirmed runner request or for muted stage playback.
+
 ## Not covered
 
 - Automatic, and an "already matched" start.
