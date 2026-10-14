@@ -56,10 +56,28 @@ function Save-State([string]$Name) {
     $save=Join-Path $env:USERPROFILE 'AppData/LocalLow/ViJuDa/Super Woden Rally Edge/Save'
     $main=Join-Path $save 'Supersave0.sav'
     [ordered]@{name=$Name;utc=[DateTime]::UtcNow.ToString('o')
-        supersave=[ordered]@{sha256=(Get-ControlHash $main);lastWriteUtc=$(if(Test-Path -LiteralPath $main){(Get-Item -LiteralPath $main).LastWriteTimeUtc.ToString('o')})}
+        supersave=[ordered]@{sha256=(Get-ControlHash $main)
+            sha1=$(if(Test-Path -LiteralPath $main -PathType Leaf){(Get-FileHash -LiteralPath $main -Algorithm SHA1).Hash.ToLowerInvariant()}else{'absent'})
+            lastWriteUtc=$(if(Test-Path -LiteralPath $main){(Get-Item -LiteralPath $main).LastWriteTimeUtc.ToString('o')})}
         # Name and SHA-256 per backup: a rewrite in place would keep the names (sana 98439).
         backups=@(Get-ChildItem -LiteralPath (Join-Path $save 'BackUp') -File -Force -ErrorAction SilentlyContinue | Sort-Object Name | ForEach-Object { '{0} {1}' -f $_.Name, (Get-ControlHash $_.FullName) })
         remoteCache=(Get-ControlHash $RemoteCache); cloudSaveSha1=(Cloud-SaveSha)}
+}
+# Two Save-State samples compared (sana 100666):
+# - 'unchanged': the local save, the backups and Steam's recorded SHA-1 are all equal.
+# - 'cloud-reconciled': only Steam's record changed, and it now equals the SHA-1 of the unchanged local save. Steam
+#   re-recorded the owner's own file; that is not a new save. Run 03 (10-14 08:10) saw this after run 02's save had
+#   reached the cloud.
+# - 'saved': the local save or a backup changed, or the record moved to any other value.
+# - 'unknown': a sample lacks a hash needed to tell these apart.
+function Compare-SaveStates($First,$Last) {
+    $a=$First.supersave; $b=$Last.supersave
+    if(!$a -or !$b -or !$a.sha256 -or !$b.sha256 -or $null -eq $First.backups -or $null -eq $Last.backups){return 'unknown'}
+    if($a.sha256 -ne $b.sha256 -or (@($First.backups) -join '|') -ne (@($Last.backups) -join '|')){return 'saved'}
+    if($First.cloudSaveSha1 -eq $Last.cloudSaveSha1){return 'unchanged'}
+    if(!$a.sha1 -or !$b.sha1 -or !$Last.cloudSaveSha1){return 'unknown'}
+    if($a.sha1 -eq $b.sha1 -and $b.sha1 -ne 'absent' -and $Last.cloudSaveSha1 -eq $b.sha1){return 'cloud-reconciled'}
+    'saved'
 }
 # Read-only: the process that owns the native foreground window, or 0 (sana 97474: Unity's isFocused can differ from the
 # native foreground). Never changes focus.
@@ -139,7 +157,7 @@ $files=[ordered]@{
 }
 $slot=Join-Path $env:LOCALAPPDATA 'dbce/test-slot.txt'
 $lease=Enter-StageRigLease -Path $slot -Owner deli-woden-gearbox -Purpose "one ordinary NativeGearbox=$Setting check to MapScreen and exact owner restore"
-$mutated=$false; $restored=$false; $failure=$null; $game=$null; $states=[Collections.Generic.List[object]]::new(); $line=$null; $outcome='missing'; $suppressPath=$null; $suppressId=$null
+$mutated=$false; $restored=$false; $failure=$null; $game=$null; $states=[Collections.Generic.List[object]]::new(); $line=$null; $outcome='missing'; $saveState=$null; $suppressPath=$null; $suppressId=$null
 try {
     Closed; Assert-StageRigLease -Path $slot -Token $lease.token
     [IO.Directory]::CreateDirectory($Result) | Out-Null
@@ -222,10 +240,9 @@ try {
     $states.Add((Save-State 'after-gearbox-line'))
     if(!(Test-Path -LiteralPath $cmd)){[IO.File]::WriteAllText($cmd,"shot mapscreen`n"); Start-Sleep 2}
     if($outcome -eq 'failed'){throw "The plugin did not set $Setting`: $line"}
-    $first=$states[0]; $now=$states[$states.Count-1]
-    if($now.supersave.sha256 -ne $first.supersave.sha256 -or (@($now.backups) -join '|') -ne (@($first.backups) -join '|') -or $now.cloudSaveSha1 -ne $first.cloudSaveSha1){
-        throw 'The game saved (or Steam recorded a new save) despite suppression.'
-    }
+    $saveState=Compare-SaveStates $states[0] $states[$states.Count-1]
+    if($saveState -eq 'saved'){throw 'The game saved (or Steam recorded a new save) despite suppression.'}
+    if($saveState -eq 'unknown'){throw 'The save samples are incomplete, so a save cannot be ruled out.'}
 } catch { $failure=$_.Exception.Message; if(Test-Path -LiteralPath $Result){$failure | Set-Content -LiteralPath (Join-Path $Result 'run-error.txt')} }
 finally {
     # Closing, diagnostics and evidence are best effort and record their own errors; none of them may skip the owner
@@ -243,11 +260,15 @@ finally {
         try {
             if($game -and $game.HasExited){Start-Sleep 20}
             $states.Add((Save-State 'after-exit')); $states | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $Result 'save-states.json')
-            $first=$states[0]; $last=$states[$states.Count-1]
-            if($states.Count -gt 1 -and ($last.supersave.sha256 -ne $first.supersave.sha256 -or (@($last.backups) -join '|') -ne (@($first.backups) -join '|') -or $last.cloudSaveSha1 -ne $first.cloudSaveSha1)){
-                $failure="$failure; the game saved, or Steam recorded a new save, by the after-exit sample despite suppression"
+            if($states.Count -gt 1){
+                $saveState=Compare-SaveStates $states[0] $states[$states.Count-1]
+                if($saveState -eq 'saved'){$failure="$failure; the game saved, or Steam recorded a new save, by the after-exit sample despite suppression"}
+                if($saveState -eq 'unknown'){$failure="$failure; the after-exit save samples are incomplete, so a save cannot be ruled out"}
             }
-        } catch { $notes.Add('save state: ' + $_.Exception.Message) }
+        } catch {
+            $saveState='unknown'; $failure="$failure; the after-exit save sample failed, so a save cannot be ruled out"
+            $notes.Add('save state: ' + $_.Exception.Message)
+        }
         try { if($suppressPath -and (Test-Path -LiteralPath $suppressPath) -and (Select-String -LiteralPath $suppressPath -SimpleMatch "id=$suppressId" -Quiet)){Remove-Item -LiteralPath $suppressPath} } catch { $notes.Add('suppression file: ' + $_.Exception.Message) }
         try { if(Test-Path -LiteralPath $logPath){Copy-Item -LiteralPath $logPath -Destination (Join-Path $Result 'LogOutput.log')} } catch { $notes.Add('log copy: ' + $_.Exception.Message) }
         try {
@@ -263,7 +284,7 @@ finally {
             $restored=$true
             try {
                 [ordered]@{schema=1;setting=$Setting;ownerReceiptSha256=$OwnerReceiptSha256;ownerFileCount=@($before.entries).Count;
-                    gearboxLine=$line;outcome=$outcome;notes=@($notes);retainedCandidateBackupFolders=$retained;runExit=$(if($failure){'failed-or-incomplete'}else{$outcome})} |
+                    gearboxLine=$line;outcome=$outcome;saveState=$saveState;notes=@($notes);retainedCandidateBackupFolders=$retained;runExit=$(if($failure){'failed-or-incomplete'}else{$outcome})} |
                     ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $Result 'restore-result.json')
             } catch { $notes.Add('restore result: ' + $_.Exception.Message) }
         } catch { try { $_.Exception.Message | Set-Content -LiteralPath (Join-Path $Result 'restore-error.txt') } catch {} }
@@ -275,4 +296,4 @@ if($mutated -and !$restored){throw "Owner restoration unverified; retain shared 
 if($failure){throw "$failure; owner files/preferences restored; evidence $Result"}
 if($outcome -eq 'already-matched'){Write-Warning "NativeGearbox ${Setting}: the game's choice already matched, so no write was exercised. Owner files/preferences restored. Evidence: $Result"; exit 2}
 if($outcome -ne 'set'){throw "NativeGearbox ${Setting}: status $outcome ($line); owner files/preferences restored; evidence $Result"}
-Write-Host "NativeGearbox $Setting check completed: $line. Owner files/preferences restored. Evidence: $Result"
+Write-Host "NativeGearbox $Setting check completed: $line. Save state: $saveState. Owner files/preferences restored. Evidence: $Result"
