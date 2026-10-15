@@ -9,7 +9,7 @@ using Dbce.Wheel.Input;
 namespace WodenRallyEdge;
 
 // Uses only the renderer primitives verified in this stripped Unity build.
-internal static class Panel
+internal static partial class Panel
 {
     internal static bool Open { get; private set; }
     internal static string Message = "F6 settings / F8 stops FFB";
@@ -725,10 +725,11 @@ internal static class Panel
     private static void HelpPage()
     {
         Label(250,152,690,"Woden Rally Edge Wheel "+Plugin.Version+" · development candidate");
-        Label(250,206,690,"No controls? Turn Wheel controls On in Setup, then bind and calibrate the three required axes in Controls.",true,58);
-        Label(250,280,690,"No feedback? Check On and the selected FFB device. The FFB page explains inactive output. Close settings and drive. Stop FFB / F8 remembers Off.",true,68);
-        Label(250,364,690,"Camera keys? Open Cameras → Adjustment bindings. Keys affect the active Bonnet or Bumper; hold to repeat, release to stop.",true,58);
-        float y=Slider(444,"UI scale (%)",ref Runtime.Settings.UiScale,85,150,"F0");
+        float y=ReportHelp(206);
+        Label(250,y,690,"No controls? Turn Wheel controls On in Setup, then bind and calibrate the three required axes in Controls.",true,58);y+=74;
+        Label(250,y,690,"No feedback? Check On and the selected FFB device. The FFB page explains inactive output. Close settings and drive. Stop FFB / F8 remembers Off.",true,68);y+=84;
+        Label(250,y,690,"Camera keys? Open Cameras → Adjustment bindings. Keys affect the active Bonnet or Bumper; hold to repeat, release to stop.",true,58);y+=80;
+        y=Slider(y,"UI scale (%)",ref Runtime.Settings.UiScale,85,150,"F0");
         if(Button(250,y,240,"Default scale: 100%")){Runtime.Settings.UiScale=100;Dirty();}
         if(Button(508,y,436,"Create support file (local)"))CreateSupport();
         y+=56;
