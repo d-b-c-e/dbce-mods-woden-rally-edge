@@ -6,6 +6,43 @@ using WodenRallyEdge;
 
 internal static class SharedBindingChecks
 {
+    internal static void SaveStatusChecks(string directory,Action<bool,string> check)
+    {
+        Guid instance=Guid.NewGuid(),product=Guid.NewGuid();double now=0;bool menu=true;
+        string path=Path.Combine(directory,"binding-save-status.ini");
+        var steer=ControlBinding.FromCapture("steer",ControlKind.Axis,0,1,32768,instance,product,"Fixture wheel",0,65535);
+        string original="; owner note\r\n[Controls]\r\nSchema = 1\r\nProfile = Fixture\r\nRevision = original\r\nTransmission = Sequential\r\nsteer = "+steer+"\r\n[Other]\r\nKeep = exact\r\n";
+        File.WriteAllText(path,original,new UTF8Encoding(false));
+        var host=new SharedBindingHost(path,File.ReadAllBytes(path),()=>now,()=>menu);
+        host.Observe(new(instance,product,"Fixture wheel","fixture-status",1,1,now,
+            new(new[]{32768},new[]{false},Array.Empty<int>()),new[]{0},new[]{65535}));
+        host.SetInverted("steer",true);
+        File.AppendAllText(path,"; external change\r\n");string external=File.ReadAllText(path);
+        check(!host.Save(out var failure)&&failure.Length>0&&host.SaveFailure==failure&&host.HasDraft&&File.ReadAllText(path)==external,
+            "actual checked Save refusal retains independent warning/draft and external bytes");
+        host.BeginCapture("modMenu",instance.ToString("D"));
+        check(host.CapturingAction=="modMenu"&&host.CaptureMessage!=failure&&host.SaveFailure==failure,
+            "later capture changes transient text without clearing failed Save");
+        string footer=Panel.BindingFooterStatus(host,"Unrelated settings message");
+        check(footer.Contains(failure)&&footer.Contains("Unrelated settings message"),
+            "production footer preserves binding failure independently of unrelated panel status");
+        host.CancelCapture();host.Discard();
+        check(host.SaveFailure.Length==0&&!host.HasDraft&&Panel.BindingFooterStatus(host,"General status")=="General status",
+            "explicit Discard resolves binding warning without retaining stale global panel failure");
+        check(!host.Rows.Single(r=>r.Action=="steer").ActiveInverted,
+            "failed Save/capture/Discard leave active startup binding unchanged");
+        File.WriteAllText(path,original,new UTF8Encoding(false));host.SetInverted("steer",true);menu=false;
+        check(!host.Save(out _)&&host.SaveFailure.Length>0&&host.HasDraft,
+            "Save access refusal is retained independently and keeps its draft");
+        menu=true;
+        check(host.Save(out _)&&host.SaveFailure.Length==0&&host.SavedPendingRestart&&!host.HasDraft,
+            "successful checked Save resolves earlier warning and stages next start");
+        check(!host.Rows.Single(r=>r.Action=="steer").ActiveInverted&&File.ReadAllText(path).Contains("Keep = exact"),
+            "successful Save preserves active startup binding and unrelated fields");
+        var replacement=new SharedBindingHost(path,File.ReadAllBytes(path),()=>now,()=>menu);
+        check(replacement.SaveFailure.Length==0,"new binding host cannot inherit an old warning");
+    }
+
     internal static void Run(string directory,Action<bool,string> check)
     {
         SnapshotChecks(directory,check);

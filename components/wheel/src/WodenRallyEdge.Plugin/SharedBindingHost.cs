@@ -1,5 +1,6 @@
 using Dbce.Wheel.Input;
 using Dbce.Wheel.Shim;
+using Dbce.Wheel.Ui;
 using WodenRallyEdge.Core;
 using UnityEngine;
 
@@ -7,7 +8,7 @@ namespace WodenRallyEdge;
 
 // Woden policy and profile presentation only. The common flow owns capture;
 // accepted snapshots arrive from the ordinary shim tick, never another reader.
-internal sealed class SharedBindingHost : ISharedBindingHost
+internal sealed class SharedBindingHost : ISharedBindingHost, ISharedBindingSaveStatus
 {
     internal static SharedBindingHost Current { get; private set; } = Create(null,null);
     internal static bool MenuEditable => Runtime.Focused && Panel.Open && Runtime.Settings.UiPage=="Controls" &&
@@ -19,6 +20,8 @@ internal sealed class SharedBindingHost : ISharedBindingHost
     private readonly ControlProfileDraft? _draft;
     private readonly Func<bool> _canEdit;
     private readonly SharedBindingCaptureFlow _flow;
+    private readonly BindingSaveStatus _saveStatus = new();
+    public string SaveFailure => _saveStatus.SaveFailure;
     private string? _error;
     private bool _readerUnavailable;
     internal ShimSnapshotFeed SnapshotFeed { get; } = new();
@@ -110,8 +113,8 @@ internal sealed class SharedBindingHost : ISharedBindingHost
     }
     public bool Save(out string message)
     {
-        Update();if(!Editable||CapturingAction!=null||_path==null){message="Save requires the focused main-menu editor and a qualified reader. The draft was kept.";return false;}
-        bool saved=_draft!.Save(_path,out message);_flow.Message=message;return saved;
+        Update();if(!Editable||CapturingAction!=null||_path==null){message="Save requires the focused main-menu editor and a qualified reader. The draft was kept.";return _saveStatus.Record(false,message);}
+        bool saved=_draft!.Save(_path,out message);_flow.Message=message;return _saveStatus.Record(saved,message);
     }
-    public void Discard(){CancelCapture();_draft?.Discard();_flow.Message="Unsaved binding edits discarded. Active and saved bindings are unchanged.";}
+    public void Discard(){CancelCapture();_draft?.Discard();_saveStatus.Discard();_flow.Message="Unsaved binding edits discarded. Active and saved bindings are unchanged.";}
 }

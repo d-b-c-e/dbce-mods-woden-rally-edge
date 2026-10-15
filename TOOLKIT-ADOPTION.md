@@ -237,3 +237,10 @@ reviewed the code and recovered that completed checkpoint from hcom transcript
 734; planned mutation checks were not completed. The four-display runtime is
 not yet qualified or installed. Existing pending/unchecked standards and
 physical FFB acceptance are unchanged by this display-only source change.
+
+### Shared binding Save warnings - October15 source candidate
+
+STD-004/STD-030 adopts toolkit d342370 BindingSaveStatus for independent binding
+Save warnings. Scoped host/footer wiring preserves readers/writers/capture gates,
+ActiveSaved distinctions, native settings and FFB. Focused source-linked checks
+are prepared, not run. This candidate is not the accepted installed artifact.

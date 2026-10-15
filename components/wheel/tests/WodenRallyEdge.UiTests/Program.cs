@@ -16,6 +16,13 @@ int checks=0;void Check(bool ok,string message)
     File.WriteAllText(failure,JsonSerializer.Serialize(new{message,width=Screen.width,height=Screen.height,commands=GUI.Commands},new JsonSerializerOptions{IncludeFields=true,WriteIndented=true}));
     throw new Exception(message+"; trace: "+failure);
 }
+if(args.SequenceEqual(new[]{"--binding-save-status-only"}))
+{
+    SharedBindingChecks.SaveStatusChecks(dir,Check);
+    Console.WriteLine($"PASS {checks} focused source-linked Woden binding Save status checks; no game/device/native module.");
+    return;
+}
+if(args.Length>0)throw new ArgumentException("Unknown fixture mode; refusing the full baseline.");
 Screen.width=7680;Screen.height=1440;GUI.Commands.Clear();Event.current.type=EventType.Repaint;
 var hudColor=GUI.color;var hudEnabled=GUI.enabled;var hudMatrix=GUI.matrix;
 new StrippedSessionStatusHud(UiNative.Style).Draw(RecordingHudLine.Describe("Recording",65,new(),null,true,true)!,true,112);

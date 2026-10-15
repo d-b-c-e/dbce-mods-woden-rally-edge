@@ -332,6 +332,7 @@ internal static class Panel
             }
             Fill(R(238,_height-58,720,1),new Color(.25f,.3f,.36f,1));
             string status=Runtime.Wheel?.SaveError ?? (_saveStatus=="Save failed"?"Save failed — "+Message:Message);
+            status=BindingFooterStatus(SharedBindingHost.Current,status);
             if(SharedBindingHost.Current.HasDraft)status="Bindings unsaved · "+status;
             else if(SharedBindingHost.Current.SavedPendingRestart)status="Bindings saved for next start · "+status;
             Label(250,_height-49,698,status,true,43);
@@ -479,6 +480,9 @@ internal static class Panel
         End(GearboxRow(y));
     }
 
+    internal static string BindingFooterStatus(SharedBindingHost host,string generalStatus) =>
+        host.SaveFailure.Length==0?generalStatus:host.SaveFailure+" · "+generalStatus;
+
     private static void SharedBindingPage()
     {
         var host=SharedBindingHost.Current;
@@ -492,7 +496,8 @@ internal static class Panel
         Label(250,y,690,host.AccessReason,true,accessHeight);y+=accessHeight+F6Metrics.RowGap;
         if(host.SavedPendingRestart){Label(250,y,690,"Bindings saved for next start. Active controls are unchanged.",true,44);y+=52;}
         if(host.HasDraft){Label(250,y,690,"Unsaved binding edits",true,28);y+=36;}
-        if(Button(250,y,220,"Save bindings",false,editable&&host.HasDraft&&host.CapturingAction==null))host.Save(out Message);
+        if(host.SaveFailure.Length>0){Label(250,y,690,host.SaveFailure,true,90);y+=98;}
+        if(Button(250,y,220,"Save bindings",false,editable&&host.HasDraft&&host.CapturingAction==null))host.Save(out _);
         if(Button(486,y,220,"Discard changes",false,host.HasDraft))host.Discard();y+=F6Metrics.RowHeight+F6Metrics.RowGap;
         var devices=host.Devices;
         int selectedDevice=-1;
