@@ -18,6 +18,7 @@ internal static class StageStartup
     private static JsonElement _context;
     private static bool _requested, _done, _raceVerified, _inputTrial;
     private static bool _nativeObservation;
+    private static bool _observationAdmitted;
     private static bool? _observationAutomatic;
     private static string? _failure, _scene, _issuedFor;
     private static double _enteredAt;
@@ -144,9 +145,14 @@ internal static class StageStartup
     }
     internal static void TickNativeObservation(double now)
     {
-        if (!_nativeObservation || !StagePlayback.OutputMuted || !Runtime.DiagnosticNoForce || !Runtime.Focused ||
+        if (!_nativeObservation || !StagePlayback.OutputMuted || !Runtime.DiagnosticNoForce ||
             Runtime.Settings.InputBackend != "Native" || ShimInput.Owns || Panel.Open)
-            throw new IOException("Native observation lost its mute/focus/backend/menu admission");
+            throw new IOException("Native observation lost its mute/backend/menu admission");
+        if (!Runtime.Focused)
+        {
+            if (!_observationAdmitted) return; // Initial SplashScreen focus is not admission; total deadline still applies.
+            throw new IOException("Native observation lost focus after native entry admission");
+        }
         NativeStep(now);
     }
     private static void NativeStep(double now)
@@ -231,6 +237,7 @@ internal static class StageStartup
             if (presentation.field_Private_Boolean_1) throw new IOException("Stage presentation is a results screen");
             ValidateRound(presentation.field_Private_GameRound_0);
             _issuedFor = scene;
+            if (_nativeObservation) _observationAdmitted = true;
             Runtime.Log.LogInfo("Stage startup: native ProceedToStage -> " + Text("scene"));
             presentation.field_Private_Boolean_0 = false;
             presentation.ProceedToStage();
@@ -239,6 +246,7 @@ internal static class StageStartup
     }
     private static void Load(string target, bool showLoading)
     {
+        if (_nativeObservation) _observationAdmitted = true; // First genuinely focused, ready native menu transition.
         _issuedFor = _scene;
         Runtime.Log.LogInfo("Stage startup: native menu load " + _scene + " -> " + target);
         MenuCameraScript.LoadScene(target, showLoading, false);
@@ -267,6 +275,7 @@ internal static class StageStartup
             throw new IOException("Input trial requires actual player zero Manual gearbox");
         if (_nativeObservation && (car.PlayerIndex != 0 || !_observationAutomatic.HasValue || car.Aids?.Automatic != _observationAutomatic))
             throw new IOException("Native observation's actual transmission differs from the saved/current selection");
+        if (_nativeObservation) _observationAdmitted = true;
         if (!_raceVerified) Runtime.Log.LogInfo("Stage startup: actual single-player car, stage and rules verified");
         _raceVerified = true;
         return true;

@@ -41,3 +41,12 @@ function Assert-OrdinaryGameExit($GameProcess) {
     $GameProcess.Refresh() # Get-Process/GetProcessById needs this before ExitCode readback.
     if ($GameProcess.ExitCode -ne 0) { throw "Exact Woden process exited with $($GameProcess.ExitCode), not a normal exit." }
 }
+function Wait-OrdinaryGameExitForRestore($GameProcess) {
+    # Caller supplies the exact process admitted by request ID, start ticks and executable. An error may occur
+    # after the recorder stops but before its scheduled normal Quit; never restore underneath that process.
+    if (!$GameProcess) { return $null }
+    if (!$GameProcess.WaitForExit(30000)) { throw 'Exact Woden process still alive after bounded restore wait; retain lease and owner state.' }
+    $GameProcess.Refresh()
+    # A crash is a failed functional run, but an exited process must not prevent restoring the owner snapshot.
+    [ordered]@{exited=$true;exitCode=$GameProcess.ExitCode;closeSent=$false;killSent=$false}
+}

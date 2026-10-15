@@ -63,6 +63,15 @@ try {
     $normal = Fake-Process $true 0
     Assert-OrdinaryGameExit $normal
     if ($normal.CloseCalls -ne 1 -or $normal.WaitCalls -ne 1 -or $normal.RefreshCalls -ne 1) { throw 'Exact normal-exit path was not exercised.' }
+    $finishing = Fake-Process $true 0
+    $restorable = Wait-OrdinaryGameExitForRestore $finishing
+    if (!$restorable.exited -or $restorable.exitCode -ne 0 -or $finishing.CloseCalls -ne 0 -or $finishing.WaitCalls -ne 1) { throw 'Error-path restore did not wait without another Close.' }
+    $crashed = Fake-Process $true 9
+    $restorable = Wait-OrdinaryGameExitForRestore $crashed
+    if ($restorable.exitCode -ne 9 -or $crashed.CloseCalls -ne 0) { throw 'Crash result was lost or restoration blocked after exit.' }
+    $stillRunning = Fake-Process $false 0
+    Refuses { Wait-OrdinaryGameExitForRestore $stillRunning } 'still alive after bounded restore wait'
+    if ($stillRunning.CloseCalls -ne 0) { throw 'Restore wait must not send Close or Kill.' }
     'Ordinary Stop smoke safety gates: PASS'
 } finally {
     if (Test-Path -LiteralPath $request) { Remove-Item -LiteralPath $request }

@@ -59,7 +59,8 @@ function Start-Companion([string]$Script,[string]$OutputRoot,[guid]$Id) {
     $start.CreateNoWindow = $true
     $start.RedirectStandardOutput = $true
     $start.RedirectStandardError = $true
-    foreach ($arg in @('-NoProfile','-File',$Script,'-GameDir',$GameDir,'-RequestId',$Id.ToString(),'-CaseId',('woden-menu-smoke-' + $Id.ToString('N')),'-StartupTimeoutSeconds',$StartupTimeoutSeconds.ToString(),'-SessionTimeoutMinutes','5')) { [void]$start.ArgumentList.Add($arg) }
+    $casePrefix = if ($NativeObservationSource) { 'woden-native-observation-' } else { 'woden-menu-smoke-' }
+    foreach ($arg in @('-NoProfile','-File',$Script,'-GameDir',$GameDir,'-RequestId',$Id.ToString(),'-CaseId',($casePrefix + $Id.ToString('N')),'-StartupTimeoutSeconds',$StartupTimeoutSeconds.ToString(),'-SessionTimeoutMinutes','5')) { [void]$start.ArgumentList.Add($arg) }
     if ($NativeObservationSource) {
         foreach ($arg in @('-InputOrigin','automated','-NativeObservationSource',$NativeObservationSource,'-NativeObservationSeconds',$NativeObservationSeconds.ToString())) { [void]$start.ArgumentList.Add($arg) }
     }
@@ -172,7 +173,11 @@ try {
     & pwsh -NoProfile -File (Join-Path $PackageRoot 'Manage-Install.ps1') -Mode Install -PackageRoot $PackageRoot -GameDir $GameDir *> (Join-Path $Result 'install.log')
     if ($LASTEXITCODE -ne 0) { throw "Candidate installer failed: $LASTEXITCODE" }
     $installed = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
-    if ($installed.mode -cne 'Install' -or $installed.installerRevision -ne 4 -or @($installed.files).Count -ne 17 -or
+    $expectedPayloads = @($manifest | Where-Object { $_.path.Replace('\','/').StartsWith('BepInEx/plugins/WodenRallyEdgeWheel/',[StringComparison]::OrdinalIgnoreCase) })
+    $expectedPaths = @($expectedPayloads | ForEach-Object { $_.path.Replace('\','/').ToLowerInvariant() } | Sort-Object)
+    $installedPaths = @($installed.files | ForEach-Object { $_.path.Replace('\','/').ToLowerInvariant() } | Sort-Object)
+    if ($installed.mode -cne 'Install' -or $installed.installerRevision -notin @(4,5) -or @($installed.files).Count -ne $expectedPayloads.Count -or
+        @(Compare-Object $expectedPaths $installedPaths).Count -ne 0 -or
         $installed.ordinarySession.schema -cne 'woden.signal-session@1' -or $installed.ordinarySession.record -ne $true -or
         $installed.ordinarySession.playback -ne $false) { throw 'Installed receipt lacks the reviewed private ordinary capability.' }
     foreach ($entry in $installed.files) { Pin (Join-Path $GameDir $entry.path) $entry.sha256 }
@@ -240,7 +245,7 @@ try {
     foreach ($count in @('contentionCount','droppedMarkers','droppedSamples','errorCount','invalidCount','limitCount','queueFullCount','rejectedAfterStop')) {
         if ($footer.footer.counts.$count -ne 0) { throw "Original source footer reports $count." }
     }
-    if ($footer.footer.counts.acceptedSamples -le 0) { throw 'Menu-only source has no samples.' }
+    if ($footer.footer.counts.acceptedSamples -le 0) { throw 'Original diagnostic source has no samples.' }
     $driving = 0; $nativeSamples = 0
     foreach ($line in [IO.File]::ReadLines($source)) {
         if ($line -notmatch '"kind":"sample"') { continue }
@@ -289,6 +294,9 @@ try {
             # The companion can still launch Woden after a startup failure. Both
             # actors must be finished, and no launch request may remain.
             Assert-OrdinaryCompanionStopped $child $requestPath
+            if ($child -and !(Test-Path -LiteralPath (Join-Path $Result 'companion.stdout.txt'))) { $null = Save-Companion $child }
+            $gameExit = Wait-OrdinaryGameExitForRestore $launched
+            if ($gameExit) { $gameExit | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Result 'game-exit-before-restore.json') }
             # Never mutate owner files under a live or unverified game process.
             Closed
             Assert-StageRigLease -Path $slot -Token $RigLeaseToken
