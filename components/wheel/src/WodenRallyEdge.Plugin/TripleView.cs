@@ -266,7 +266,7 @@ internal static class TripleView
             Runtime.Log.LogInfo($"{side.name}: post-processing layer added (AA {src.antialiasingMode}, volume mask 0x{src.volumeLayer.value:X})");
         }
         dst.volumeLayer = src.volumeLayer;
-        dst.volumeTrigger = side.transform;
+        dst.volumeTrigger = src.volumeTrigger ?? source.transform;
         dst.stopNaNPropagation = src.stopNaNPropagation;
         dst.finalBlitToCameraTarget = src.finalBlitToCameraTarget;
         dst.antialiasingMode = src.antialiasingMode == PostProcessLayer.Antialiasing.TemporalAntialiasing
