@@ -337,7 +337,9 @@ var currentHostProperty=typeof(SharedBindingHost).GetProperty("Current",BindingF
 var retainedHost=SharedBindingHost.Current;currentHostProperty.SetValue(null,panelHost);
 try
 {
-    Panel.Toggle();Click("Controls");panelHost.SetInverted("steer",true);Click("FFB");
+    Panel.Toggle();Click("Controls");
+    Check(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.Contains("Set Up Controls.bat")&&c.Text.Contains("devices already opened")),"standalone setup entry and initial device limitation remain visible with an editable profile");
+    panelHost.SetInverted("steer",true);Click("FFB");
     Check(panelHost.HasDraft&&GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.StartsWith("Bindings unsaved")),"shared draft warning remains in fixed footer after switching to FFB");
     Click("Close");Draw();
     Check(Panel.Open&&panelHost.HasDraft&&!MenuOwnership.Closing&&Find("Discard and close")!=null&&Find("Keep editing")!=null,

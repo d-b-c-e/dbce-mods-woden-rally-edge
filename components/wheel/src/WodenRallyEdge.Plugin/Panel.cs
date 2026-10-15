@@ -484,6 +484,7 @@ internal static class Panel
         var host=SharedBindingHost.Current;
         float y=152;
         Label(250,y,690,"Shared controls: "+host.ActiveSource,true,42);y+=50;
+        Label(250,y,690,"Controls setup: close the game and run Set Up Controls.bat from matching standalone Controls Setup, then restart. Wheelkit is optional. In-game binding uses devices already opened by this profile.",true,90);y+=98;
         Label(250,y,690,host.AccessReason,true,68);y+=76;
         if(host.SavedPendingRestart){Label(250,y,690,"Bindings saved for next start. Active controls are unchanged.",true,44);y+=52;}
         if(host.HasDraft){Label(250,y,690,"Unsaved binding edits",true,28);y+=36;}
