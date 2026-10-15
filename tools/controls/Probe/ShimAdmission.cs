@@ -29,6 +29,16 @@ public sealed partial class ControlsProbe
         foreach(var name in new[]{"Stop","Action"}) Method(Type("ShimInput"),name);
         _=PanelToggle;
         HookContract.VerifyShim(Mod);
+        if(Protocol.F6Workflow(Request))
+        {
+            var host=Type("SharedBindingHost");
+            if(!typeof(Dbce.Wheel.Input.ISharedBindingHost).IsAssignableFrom(host)||host.GetProperty("Current",All)==null||
+                Type("Panel").GetField("_sharedClosePrompt",All)?.FieldType!=typeof(bool)||
+                Type("Panel").GetMethod("Close",All,null,new[]{typeof(bool)},null)==null||
+                Type("Panel").GetMethod("MenuAction",All,null,new[]{typeof(string)},null)==null||
+                Type("MenuOwnership").GetProperty("Closing",All)?.PropertyType!=typeof(bool))
+                throw new MissingMemberException("F6 workflow host/panel contract differs.");
+        }
         ShimIdentityWritten=false;
         ShimDevices=null;
         ShimOriginalPage=null;

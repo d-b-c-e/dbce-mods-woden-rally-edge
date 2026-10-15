@@ -1,3 +1,7 @@
+# Private F6 workflow source preparation — 2026-10-15
+
+Branch `dine/woden-f6-runtime-20261015` is a source-only successor to qualified `f703484`. Guidance commit `a135912` passed Lola's narrow source review; its affected fixture/compile and the new developer seam are unrun. Existing schema-9 admission reuses the restored runner, exact extension-3 input and load-muted native pins, actual owned foreground for edits and the production shared host. It adds no gameplay navigator, input injection, reader or mounted tape. See [the concrete preparation recipe](F6-BINDING-WORKFLOW-RECIPE.md). Final plugin/Core/probe tuple and matching standalone-helper compatibility remain pending the affected batch; nothing is installed or launched.
+
 # Shared F6 adoption in progress â€” 2026-10-15
 
 Isolated branch `dine/woden-shared-f6-20261015` starts from the committed camera fix `641914e841531072932eb3950f60994d3e853a8f`. Source adopts shared style `9b3a022` (including rectangle number geometry), binding contract `3427ab1` and qualified capture flow `bcfb852` (same flow blob as canonical toolkit `785e8b4`). Source vendors retain exact file hashes in `src/WodenRallyEdge.Core/Vendor/PROVENANCE.json`.

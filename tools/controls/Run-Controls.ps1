@@ -8,6 +8,7 @@ param(
     [Parameter(Mandatory,ParameterSetName='Run')][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$NativeSha256,
     [Parameter(Mandatory,ParameterSetName='Recover')][switch]$Recover,
     [Parameter(ParameterSetName='Run')][switch]$ShimAdmission,
+    [Parameter(ParameterSetName='Run')][switch]$ShimF6Workflow,
     [Parameter(ParameterSetName='Run')][switch]$ShimMenuTrial,
     [Parameter(ParameterSetName='Run')][switch]$ShimCarTrial,
     [Parameter(ParameterSetName='Run')][switch]$ShimAppliedForwardCapture,
@@ -47,11 +48,18 @@ param(
 $ErrorActionPreference='Stop'
 function Full([string]$p){$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($p)}
 $Result=Full $Result; $GameDir=Full $GameDir
+if($ShimF6Workflow){
+    if($ShimMenuTrial -or $ShimCarTrial -or $ShimAppliedForwardCapture -or $OrdinarySavedForward -or $OrdinaryFullSession -or $ShimForceCapture -or $ShimHudOrdinary -or $ShimHudStopOnly -or $PrivateApply){throw 'F6 workflow is isolated from all injection/gameplay/recording modes.'}
+    if($NativeSha256 -cne '088F1089BEB6D18D478F37582C59330C6BDA6BC37D5E365F6BA7EBF80040F567'){throw 'F6 workflow requires qualified native load-time mute.'}
+    if(!$ProbeSha256){throw 'F6 workflow requires its reviewed developer probe hash.'}
+    $ShimAdmission=$true
+}
 . "$PSScriptRoot/OwnerFiles.ps1"
 . "$PSScriptRoot/Environment.ps1"
 . "$PSScriptRoot/Apply-Check.ps1"
 . "$PSScriptRoot/OrdinaryCompanionGuard.ps1"
 . "$PSScriptRoot/ControlMode.ps1"
+. "$PSScriptRoot/F6SavedProfile.ps1"
 . "$PSScriptRoot/../../vendor/playback/Stage-RigLease.ps1"
 $slot=Join-Path $env:LOCALAPPDATA 'dbce/test-slot.txt'
 $prefsKey='HKCU:\Software\ViJuDa\Super Woden Rally Edge'
@@ -215,8 +223,8 @@ if($Recover) {
     foreach($p in $blocked){if(Test-Path -LiteralPath $p){throw "Existing request needs resolution: $p"}}
     $NativeCandidate=Full $NativeCandidate
     if((Get-ControlHash $NativeCandidate) -ne $NativeSha256 -or !(Test-Path -LiteralPath $probe) -or !(Test-Path -LiteralPath $configVerifier)){throw 'Build/hash preflight failed.'}
-    if($ShimAppliedForwardCapture){
-        if($NativeSha256 -ne '088F1089BEB6D18D478F37582C59330C6BDA6BC37D5E365F6BA7EBF80040F567' -or !$NativeProvenancePath){throw 'Applied forward capture requires the qualified load-muted native and provenance.'}
+    if($ShimAppliedForwardCapture -or $ShimF6Workflow){
+        if($NativeSha256 -ne '088F1089BEB6D18D478F37582C59330C6BDA6BC37D5E365F6BA7EBF80040F567' -or !$NativeProvenancePath){throw 'This mode requires the qualified load-muted native and provenance.'}
         $NativeProvenancePath=Full $NativeProvenancePath
         Assert-ControlPlain $NativeCandidate;Assert-ControlPlain $NativeProvenancePath
         if((Get-ControlHash $NativeProvenancePath) -ne '6068B7A848F85FE42AE88EE8A86B10F1EF4C4E307B9C4235BE44C1A84BBEA8E5'){throw 'Qualified native provenance differs.'}
@@ -278,7 +286,7 @@ if($Recover) {
         }
         # The reviewed private build supplies its own shim; no repository binary fallback.
         $shimCandidate=Full "$CandidateDirectory/dbce_shim.dll"
-        $shimHash='9b8a036f664cf8f45cccf82b98e5e4376f93215b60eac50b6db965bf498015d8'
+        $shimHash=if($ShimF6Workflow){'4AF269C9F2FDBAE3CEF1A78E563C3877CB0AB820D4BE4C2579A1AD6EA25CECC5'}else{'9b8a036f664cf8f45cccf82b98e5e4376f93215b60eac50b6db965bf498015d8'}
         if((Get-ControlHash $shimCandidate) -ne $shimHash){throw 'Provisional shim pin differs.'}
         $candidateHashes=[ordered]@{plugin=(Get-ControlHash "$CandidateDirectory/WodenRallyEdgeWheel.dll");core=(Get-ControlHash "$CandidateDirectory/WodenRallyEdge.Core.dll");shim=$shimHash;controls=$ControlsSha256}
         $expectedHudPlugin=if($HudGuiDiagnosticPluginSha256){$HudGuiDiagnosticPluginSha256}elseif($HudDepthDiagnosticPluginSha256){$HudDepthDiagnosticPluginSha256}elseif($HudStateTracePluginSha256){$HudStateTracePluginSha256}else{'95642FAAFB3C224772FD176F2F10487EAB7DA96C9CA8A077636276063E93D701'}
@@ -427,7 +435,7 @@ try {
         # The console previously kept actual Unity focus false. This temporary
         # launch setting is part of the exact config-tree backup/restoration;
         # it does not move focus or bypass the production focus gate.
-        if($ShimMenuTrial -or $ShimCarTrial -or $ShimHudStopOnly){Set-IniFalse 'Logging.Console' 'Enabled' (Join-Path $roots.config 'BepInEx.cfg')}
+        if($ShimMenuTrial -or $ShimCarTrial -or $ShimHudStopOnly -or $ShimF6Workflow){Set-IniFalse 'Logging.Console' 'Enabled' (Join-Path $roots.config 'BepInEx.cfg')}
     } else {Invoke-ControlApplyCheck $GameDir $Result $harness $writer.catalog $Profiles}
     $applied=$true
     # Verify again after production Apply and before launch. The addon also
@@ -442,7 +450,7 @@ try {
     }
     Copy-ControlExact $probe $files.probe (Get-ControlHash $probe)
     $cold=[ordered]@{schema=2;nonce=$nonce;expiresUtc=[DateTime]::UtcNow.AddMinutes(5).ToString('o');pluginSha256=(Get-ControlHash "$plugin/WodenRallyEdgeWheel.dll");coreSha256=(Get-ControlHash "$plugin/WodenRallyEdge.Core.dll");configSha256=(Get-ControlHash "$Result/applied.cfg");bindingsSha256=(Get-ControlHash "$($roots.config)/wheel-bindings.json");nativeSha256=$NativeSha256;outputDirectory=(Join-Path $Result 'trace')}
-    if($ShimAdmission){$cold.schema=if($ShimHudStopOnly){8}elseif($ShimForceCapture -or $ShimHudOrdinary){6}elseif($ShimCarTrial -and $PrivateApply){7}elseif($ShimCarTrial){5}elseif($ShimMenuTrial){4}else{3};$cold.mode=$mode;$cold.controlsSha256=$ControlsSha256;$cold.shimSha256=$shimHash}
+    if($ShimAdmission){$cold.schema=if($ShimF6Workflow){9}elseif($ShimHudStopOnly){8}elseif($ShimForceCapture -or $ShimHudOrdinary){6}elseif($ShimCarTrial -and $PrivateApply){7}elseif($ShimCarTrial){5}elseif($ShimMenuTrial){4}else{3};$cold.mode=$mode;$cold.controlsSha256=$ControlsSha256;$cold.shimSha256=$shimHash}
     if($ShimCarTrial -or $ShimHudStopOnly) {
         if($ShimCarTrial){$cold.stageReference=$StageReference;$cold.workloadDirectory=Join-Path $Result 'workload'}
         if($PrivateApply){$cold.profileSha256=Get-ControlHash "$Result/workload/profile.json";$cold.workloadSha256=Get-ControlHash "$Result/workload/raw-workload.json";$cold.profileRevision=$workload.ProfileHash;$cold.applyReadbackSha256=Get-ControlHash "$Result/private-apply-readback.json"}
@@ -502,7 +510,7 @@ try {
             throw 'Installed companion did not record the exact launched process.'
         }
     }
-    [ordered]@{schema=1;mode=$mode;process=$game.Id;startedUtc=$game.StartTime.ToUniversalTime().ToString('o');nonce=$nonce;gameDir=$GameDir;lease=$lease} | ConvertTo-Json -Depth 4 | Set-Content "$Result/context.json"
+    [ordered]@{schema=1;mode=$mode;f6Workflow=[bool]$ShimF6Workflow;process=$game.Id;startedUtc=$game.StartTime.ToUniversalTime().ToString('o');nonce=$nonce;gameDir=$GameDir;lease=$lease} | ConvertTo-Json -Depth 4 | Set-Content "$Result/context.json"
     $deadline=[DateTime]::UtcNow.AddSeconds(60)
     while(!(Test-Path "$Result/trace/identity.json") -and !$game.HasExited -and [DateTime]::UtcNow -lt $deadline){Start-Sleep -Milliseconds 500;$game.Refresh()}
     if(!(Test-Path "$Result/trace/identity.json")){throw 'Probe did not confirm native no-force admission.'}
@@ -706,7 +714,10 @@ try {
                 }
             }
             if($ShimAdmission) {
-                if((Get-ControlHash "$($roots.config)/dbce-controls.ini") -ne $ControlsSha256){throw 'Runtime changed accepted Controls bytes.'}
+                $actualControls=Get-ControlHash "$($roots.config)/dbce-controls.ini"
+                if($ShimF6Workflow){
+                    $null=Assert-F6SavedProfile -Witness (Join-Path $Result 'trace/f6-saved-profile.json') -Nonce $nonce -StartupSha256 $ControlsSha256 -ActualSha256 $actualControls
+                }elseif($actualControls -ine $ControlsSha256){throw 'Runtime changed accepted Controls bytes.'}
                 foreach($key in @('plugin','core','shim')){if((Get-ControlHash $files[$key]) -ne $candidateHashes[$key]){throw "Runtime candidate changed: $key"}}
             }
             # BepInEx can rewrite comments/order and append a short, explicit

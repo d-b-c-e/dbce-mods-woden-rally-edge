@@ -226,3 +226,17 @@ Bad(config+"invalid line\n");
 configs++;Refuse(()=>ConfigContract.Verify(Ini(config+"# tampered\n"),Ini(config),configHash));
 configs++;Refuse(()=>ConfigContract.Parse(Ini("[Empty]\n")));
 Console.WriteLine($"PASS: {configs} config admission cases: pinned snapshot, unchanged values, exact default additions and refusals.");
+
+// Schema-9 admission and command isolation: no engine or native calls.
+var f6=shim with{Schema=9,NativeSha256=Protocol.LoadMutedSha256,ShimSha256=Protocol.SnapshotShimSha256};
+Check(Protocol.F6Workflow(Protocol.Admit(Bytes(f6),now,nonce)));
+foreach(var bad in new[]{f6 with{NativeSha256=hash},f6 with{ShimSha256=hash},f6 with{Mode="raw"},f6 with{StageReference=Path.GetFullPath("stage")}})
+    Refuse(()=>Protocol.Admit(Bytes(bad),now,nonce));
+var workflow=new RawRequest(1,nonce,"workflow",null,"bindings "+nonce+" "+Guid.NewGuid().ToString("N")+" status");
+Check(Protocol.Command(Bytes(workflow),nonce,0,now.AddSeconds(1),now,true,false,true)==workflow);
+Refuse(()=>Protocol.Command(Bytes(workflow),nonce,0,now.AddSeconds(1),now,true));
+Refuse(()=>Protocol.Command(Bytes(workflow),nonce,0,now.AddSeconds(1),now,true,true,true));
+foreach(var bad in new[]{workflow with{Arguments=null},workflow with{Arguments=new string('x',1025)},workflow with{Arguments="a\nb"},workflow with{Raw="inject raw x"},workflow with{Operation="status"}})
+    Refuse(()=>Protocol.Command(Bytes(bad),nonce,0,now.AddSeconds(1),now,true,false,true));
+Refuse(()=>Protocol.Command(Bytes(command),nonce,0,now.AddSeconds(1),now,true,false,true));
+Console.WriteLine($"PASS: {count} total controls protocol checks, including schema-9 isolation; no engine/device/native.");

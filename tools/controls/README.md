@@ -1,3 +1,7 @@
+# Private F6 workflow extension
+
+Source-only schema 9 adds explicit `-ShimF6Workflow` to the existing restored admission route. Exact4AF input and qualified088F load-muted native/provenance are mandatory. The existing nonce/sequence mailbox accepts bounded `workflow` arguments with unique step GUIDs. Only the actual shared host can Begin/Cancel, invert, checked-Save or Discard; edits require actual owned foreground and focused main-menu Controls with accepted reader observations. Passive status and fixed mod-page views do not fake focus. The old DevInput channel and all raw/gameplay trials stay off. One explicit shared Save is witnessed and verified; the full owner-state restoration remains exact. See [recipe and pending final tuple](../../components/wheel/docs/F6-BINDING-WORKFLOW-RECIPE.md). No build or runtime result is claimed for this extension.
+
 # Production Apply and raw controls qualification
 
 October 12: the schema 4 fixed shared-Core menu route passed; see
@@ -46,7 +50,7 @@ is allowed, including on invalid request, timeout, or stopped injection.
   two show raw delivery and normalized values; `Apply` shows the actual input
   lease used by Controls. Record real selected UI/camera separately. Never call
   a consuming button method just to observe it.
-- Refuse binding/calibration edits throughout the process. Keep normal focus,
+- Refuse Native legacy binding/calibration edits throughout the process. Schema 9 alone permits its explicit shared-host workflow; other modes still refuse edits. Keep normal focus,
   pause, ownership, countdown and settings guards. No OS input, focus change,
   virtual pad, display mode override or replacement car input.
 - Bound request/command size, commands, duration and trace. Commands carry the

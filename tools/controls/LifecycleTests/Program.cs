@@ -57,8 +57,10 @@ static partial class Test
         Check(WodenRallyEdge.Runtime.DiagnosticNoForce && WodenRallyEdge.StagePlayback.Target.Muted && !(bool)Call("Refuse")!,reason+" guards latched");
         Check(File.Exists(Path.Combine(Dir,"result.json")),reason+" result saved");
     }
-    public static void Main()
+    public static void Main(string[] args)
     {
+        if(args.SequenceEqual(new[]{"--binding-workflow-only"})){BindingWorkflowChecks();return;}
+        if(args.Length!=0)throw new ArgumentException("Unknown fixture mode.");
         Reset("valid");Command();Tick();Check(Submitted==1 && Get<int>("Sequence")==1,"valid reaches native once");
         using(var reply=JsonDocument.Parse(File.ReadAllText(Path.Combine(Dir,"reply.json"))))Check(reply.RootElement.GetProperty("sequence").GetInt32()==1 && reply.RootElement.GetProperty("ok").GetBoolean(),"correlated atomic reply");
         Check(!File.Exists(Path.Combine(Dir,"command-claimed.json")),"claimed file archived");Tick();Check(Submitted==1,"no implicit replay");Command(2,"stop");Tick();Stopped("explicit stop");

@@ -177,7 +177,7 @@ public sealed partial class ControlsProbe : BasePlugin
             // replace bytes between our validation and archival/submission.
             string claimed=Path.Combine(Request.OutputDirectory,"command-claimed.json");
             File.Move(command,claimed);
-            var r=Protocol.Command(ReadBounded(claimed,2048),Request.Nonce,Sequence,File.GetLastWriteTimeUtc(claimed),ProcessStart,Protocol.ShimAdmission(Request),Protocol.LatchedTrial(Request));
+            var r=Protocol.Command(ReadBounded(claimed,2048),Request.Nonce,Sequence,File.GetLastWriteTimeUtc(claimed),ProcessStart,Protocol.ShimAdmission(Request),Protocol.LatchedTrial(Request),Protocol.F6Workflow(Request));
             Sequence=r.Sequence; File.Move(claimed,Path.Combine(Request.OutputDirectory,"command-"+Sequence+".json"));
             bool ok=true; string reply=Native!.Status;
             if(r.Operation=="raw")
@@ -189,6 +189,7 @@ public sealed partial class ControlsProbe : BasePlugin
                 if(!Native.Armed) throw new InvalidDataException("Native fence confirmation lost.");
             }
             if(r.Operation is "panel" or "shot") ShimVisual(r.Operation);
+            if(r.Operation=="workflow"){var result=F6WorkflowCommand(r.Arguments!);ok=result.Accepted;reply=result.Reply;}
             string nextReply=Path.Combine(Request.OutputDirectory,"reply.next.json");
             File.WriteAllText(nextReply,JsonSerializer.Serialize(new{r.Sequence,r.Nonce,ok,reply,physicalOutput=false},Protocol.Json));
             File.Move(nextReply,Path.Combine(Request.OutputDirectory,"reply.json"),true);
