@@ -172,7 +172,11 @@ try {
     & pwsh -NoProfile -File (Join-Path $PackageRoot 'Manage-Install.ps1') -Mode Install -PackageRoot $PackageRoot -GameDir $GameDir *> (Join-Path $Result 'install.log')
     if ($LASTEXITCODE -ne 0) { throw "Candidate installer failed: $LASTEXITCODE" }
     $installed = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
-    if ($installed.mode -cne 'Install' -or $installed.installerRevision -ne 4 -or @($installed.files).Count -ne 17 -or
+    $expectedPayloads = @($manifest | Where-Object { $_.path.Replace('\','/').StartsWith('BepInEx/plugins/WodenRallyEdgeWheel/',[StringComparison]::OrdinalIgnoreCase) })
+    $expectedPaths = @($expectedPayloads | ForEach-Object { $_.path.Replace('\','/').ToLowerInvariant() } | Sort-Object)
+    $installedPaths = @($installed.files | ForEach-Object { $_.path.Replace('\','/').ToLowerInvariant() } | Sort-Object)
+    if ($installed.mode -cne 'Install' -or $installed.installerRevision -notin @(4,5) -or @($installed.files).Count -ne $expectedPayloads.Count -or
+        @(Compare-Object $expectedPaths $installedPaths).Count -ne 0 -or
         $installed.ordinarySession.schema -cne 'woden.signal-session@1' -or $installed.ordinarySession.record -ne $true -or
         $installed.ordinarySession.playback -ne $false) { throw 'Installed receipt lacks the reviewed private ordinary capability.' }
     foreach ($entry in $installed.files) { Pin (Join-Path $GameDir $entry.path) $entry.sha256 }

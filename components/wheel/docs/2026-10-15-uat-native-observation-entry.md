@@ -79,3 +79,8 @@ entry: restore the current post-UAT config/tune/preferences, not an older A9D5
 baseline. Idle force-case refusal may coexist with valid original input evidence;
 source identity/footer, raw/normalized/delivered coverage and explicit observation
 completion remain required. Exact rollback/process/lease closure precedes handback.
+
+Supervisor-only successor: revision4/5 admission now checks the exact set/count
+of manifest-owned plugin payloads, keeping per-file, capability and native pins.
+This admits the current revision5/23-file package without changing the frozen
+combined4f153 managed source or repeating its build (sana164624).
