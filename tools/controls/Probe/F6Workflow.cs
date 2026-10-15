@@ -37,8 +37,9 @@ public sealed partial class ControlsProbe
                 string before=Hash(profile);
                 if(words.Length==4&&words[3]=="save"&&File.Exists(Path.Combine(Request!.OutputDirectory,"f6-saved-profile.json")))
                     throw new InvalidOperationException("Only one explicit Save is admitted per workflow.");
-                reply=F6Commands.Run(words,Request!.Nonce,true,open,focused,foreground,offStage,()=>host);
-                if(words.Length==4&&words[3]=="save"&&host.SavedPendingRestart&&!host.HasDraft)
+                var result=F6Commands.Run(words,Request!.Nonce,true,open,focused,foreground,offStage,()=>host);
+                reply=result.Reply;
+                if(result.Saved&&host.SavedPendingRestart&&!host.HasDraft)
                 {
                     // Record the actual production checked Save, never write the INI here.
                     string witness=Path.Combine(Request.OutputDirectory,"f6-saved-profile.json");
@@ -96,15 +97,17 @@ public sealed partial class ControlsProbe
             if((bool)Static("ShimInput","Ready")!)
                 nativeProfile=(string)Method(Type("ShimNative"),"ProfileInfo").Invoke(null,new[]{Field(Type("ShimInput"),"_handle")})!;
             properties["nativeProfileInfo"]=JsonSerializer.SerializeToElement(nativeProfile,Protocol.Json); // Cache getter, no reader call.
-            string json=JsonSerializer.Serialize(properties,Protocol.Json);Row("f6-workflow",json);
-            return (decoded.RootElement.GetProperty("accepted").GetBoolean(),json);
+            string json=JsonSerializer.Serialize(properties,Protocol.Json);
+            string envelope=BindingWorkflowEvidence.Persist(Request!.OutputDirectory,Request.Nonce,words[2],json);
+            Row("f6-workflow",envelope);
+            return (decoded.RootElement.GetProperty("accepted").GetBoolean(),envelope);
         }
         catch(Exception ex)
         {
             var cause=ex is TargetInvocationException{InnerException:{} inner}?inner:ex;
             string json=JsonSerializer.Serialize(new{schema="woden.workflow-refusal@1",requestId=words.Length>1?words[1]:null,
                 stepId=words.Length>2?words[2]:null,admitted=false,accepted=false,message=cause.Message},Protocol.Json);
-            Row("f6-workflow-refused",json);return(false,json);
+            Row("f6-workflow-refused","See correlated mailbox refusal; request="+(words.Length>1?words[1]:"missing")+" step="+(words.Length>2?words[2]:"missing"));return(false,json);
         }
     }
 }

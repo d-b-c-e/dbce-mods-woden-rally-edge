@@ -60,6 +60,12 @@ Retain its process/session while sending existing `Send-Command.ps1` commands.
 Use `-Operation workflow -Arguments "<family> <nonce> <new-step-guid-N> <op> ..."`.
 Each completion must match the nonce, sequence and step before the next command.
 An unknown completion is never permission to resend.
+Successful dispatches return a compact `woden.workflow-evidence@1` receipt.
+Verify its request/step, byte count and SHA256 against the full
+`trace/f6-reply-<step>.json` artifact before interpreting any rows or native
+profile information. The complete reply is preserved with CreateNew; no
+overwrite or truncation is allowed. Replies above 256 KiB refuse explicitly.
+The trace keeps only this bounded receipt, retaining its existing 4 KiB limit.
 
 1. Wait for the existing admitted identity/context within its deadline. Request
    `view ... controls`, then `bindings ... status`. Inspect actual native
@@ -79,7 +85,9 @@ An unknown completion is never permission to resend.
    observes the global unsaved warning/dialog and its keep-editing behavior.
    View replies include page/dialog/closing state and step-specific screenshots.
 5. Return `view ... controls`; obtain a new actual editable status, then `save`.
-   This is the production checked Save. Its one saved-profile witness binds
+   Only a true return from the production checked Save permits its witness;
+   an existing pending-next-start state cannot authorize a refused Save.
+   Its one saved-profile witness binds
    nonce, step and exact before/startup/saved hashes. Verify Active/native cached
    profile unchanged, Draft clear and Saved-for-next-start shown. Restart
    acceptance is not established in this one launch.

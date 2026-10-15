@@ -2,6 +2,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
+using System.Text;
+using System.Text.Json;
+using System.Security.Cryptography;
 using Dbce.Wheel.Input;
 
 namespace Woden.ControlsTesting
@@ -22,7 +26,7 @@ namespace Woden.ControlsTesting
             if (steps.Count >= 64 || !steps.Add(words[2]))
                 throw new InvalidOperationException("Bindings refuse repeated steps or more than 64 steps per request.");
         }
-        internal object Run(string[] words, string? ownedRequest, bool ready, bool panelOpen,
+        internal (object Reply, bool Saved) Run(string[] words, string? ownedRequest, bool ready, bool panelOpen,
             bool focused, bool ownedForeground, bool offStage, Func<ISharedBindingHost?> getHost)
         {
             Claim(words, ownedRequest, ready, "bindings");
@@ -59,12 +63,35 @@ namespace Woden.ControlsTesting
                 case "cancel": host.CancelCapture(); message = host.CaptureMessage; break;
                 default: message = host.CaptureMessage; break;
             }
-            return new {
+            return (new {
                 schema = "woden.binding-workflow-step@1", requestId = ownedRequest, stepId = words[2], operation,
                 admitted = true, accepted, focused, ownedForeground, panelOpen, offStage, access = host.Access.ToString(), message,
                 activeSource = host.ActiveSource, hasDraft = host.HasDraft, savedPendingRestart = host.SavedPendingRestart,
                 capturingAction = host.CapturingAction, devices = host.Devices.ToArray(), rows = host.Rows.ToArray()
-            };
+            }, operation == "save" && accepted);
+        }
+    }
+
+    internal static class BindingWorkflowEvidence
+    {
+        internal const int Limit = 256 * 1024;
+        internal static string Persist(string directory, string request, string step, string json)
+        {
+            if (!Guid.TryParseExact(request, "N", out var nonce) || nonce == Guid.Empty || nonce.ToString("N") != request ||
+                !Guid.TryParseExact(step, "N", out var id) || id == Guid.Empty || id.ToString("N") != step)
+                throw new InvalidDataException("Workflow evidence requires canonical owned request and step IDs.");
+            byte[] bytes = Encoding.UTF8.GetBytes(json);
+            if (bytes.Length > Limit) throw new InvalidDataException("Workflow reply exceeds the 256 KiB evidence limit; no reply was truncated.");
+            using var document = JsonDocument.Parse(bytes);
+            var root = document.RootElement;
+            if (root.GetProperty("requestId").GetString() != request || root.GetProperty("stepId").GetString() != step)
+                throw new InvalidDataException("Workflow reply identity differs.");
+            bool accepted = root.GetProperty("accepted").GetBoolean();
+            string name = "f6-reply-" + step + ".json";
+            using (var file = new FileStream(Path.Combine(directory, name), FileMode.CreateNew, FileAccess.Write, FileShare.Read))
+                file.Write(bytes, 0, bytes.Length);
+            return JsonSerializer.Serialize(new { schema = "woden.workflow-evidence@1", requestId = request, stepId = step,
+                accepted, artifact = name, bytes = bytes.Length, sha256 = Convert.ToHexString(SHA256.HashData(bytes)) });
         }
     }
 }

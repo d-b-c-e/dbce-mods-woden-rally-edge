@@ -10,7 +10,7 @@ static partial class Test
         var commands=new BindingWorkflowCommand();var host=new WorkflowHost();
         string[] Words(string operation,string extra="")=>("bindings "+request+" "+Guid.NewGuid().ToString("N")+" "+operation+(extra.Length>0?" "+extra:"")).Split(' ');
         object Run(string[] words,bool ready=true,bool panel=true,bool focus=true,bool foreground=true,bool menu=true)=>
-            commands.Run(words,request,ready,panel,focus,foreground,menu,()=>host);
+            commands.Run(words,request,ready,panel,focus,foreground,menu,()=>host).Reply;
         void Reject(Action work,string why){bool refused=false;try{work();}catch(InvalidOperationException){refused=true;}catch(ArgumentException){refused=true;}Check(refused,why);}
         host.Access=SharedBindingAccess.ReadOnly;
         var status=JsonSerializer.SerializeToElement(Run(Words("status"),panel:false,focus:false,foreground:false));
@@ -31,13 +31,35 @@ static partial class Test
         Run(Words("cancel"));Check(host.CapturingAction==null,"Cancel reaches existing host");
         host.FailSave=true;var failure=JsonSerializer.SerializeToElement(Run(Words("save")));
         Check(!failure.GetProperty("accepted").GetBoolean()&&host.HasDraft,"checked Save failure returns refusal and retains draft");
-        host.FailSave=false;Run(Words("save"));Check(!host.HasDraft&&host.SavedPendingRestart,"explicit Save keeps next-start separate");
+        host.FailSave=false;var saved=commands.Run(Words("save"),request,true,true,true,true,true,()=>host);
+        Check(saved.Saved&&!host.HasDraft&&host.SavedPendingRestart,"successful actual checked Save permits witness and keeps next-start separate");
+        host.FailSave=true;var noOp=commands.Run(Words("save"),request,true,true,true,true,true,()=>host);
+        Check(!noOp.Saved&&!host.HasDraft&&host.SavedPendingRestart,"failed Save with pending/no-draft cannot authorize a witness");host.FailSave=false;
         Run(Words("invert","steer off"));Run(Words("discard"));Check(!host.HasDraft&&host.SavedPendingRestart,"Discard retains saved-next-start state");
         var unknown=Words("status");unknown[0]="raw";Reject(()=>Run(unknown),"unrecognized command family refuses");
         var bounded=new BindingWorkflowCommand();
         for(int i=0;i<64;i++)bounded.Run(Words("status"),request,true,true,true,true,true,()=>host);
         Reject(()=>bounded.Run(Words("status"),request,true,true,true,true,true,()=>host),"more than64 steps refuses");
-        Console.WriteLine($"PASS {Checks-start} binding workflow command checks; fake host, no file/device/OS input.");
+        string evidence=Path.Combine(Path.GetTempPath(),"woden-workflow-evidence-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(evidence);
+        string step=Guid.NewGuid().ToString("N");
+        string full=JsonSerializer.Serialize(new{requestId=request,stepId=step,accepted=true,
+            rows=Enumerable.Range(0,31).Select(i=>new SharedBindingRowView{Action="action"+i,IsAxis=true,Active=new(true,"startup profile label "+i)}).ToArray(),
+            nativeProfileInfo=new string('p',8192)});
+        Check(full.Length>4096,"full31-row reply exercises existing trace value limit");
+        string envelope=BindingWorkflowEvidence.Persist(evidence,request,step,full);
+        var receipt=JsonSerializer.Deserialize<JsonElement>(envelope);
+        string artifact=Path.Combine(evidence,receipt.GetProperty("artifact").GetString()!);
+        Check(envelope.Length<4096&&File.ReadAllText(artifact)==full,"bounded trace envelope preserves full correlated31-row reply byte-for-byte");
+        Check(receipt.GetProperty("sha256").GetString()==Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(artifact))),"reply artifact hash matches receipt");
+        bool overwrite=false;try{BindingWorkflowEvidence.Persist(evidence,request,step,full);}catch(IOException){overwrite=true;}
+        Check(overwrite,"evidence refuses overwriting an existing step");
+        bool oversized=false;string largeStep=Guid.NewGuid().ToString("N");
+        try{BindingWorkflowEvidence.Persist(evidence,request,largeStep,new string('x',BindingWorkflowEvidence.Limit+1));}catch(InvalidDataException){oversized=true;}
+        Check(oversized&&!File.Exists(Path.Combine(evidence,"f6-reply-"+largeStep+".json")),"oversize reply refuses without truncation or artifact");
+        bool mismatch=false;try{BindingWorkflowEvidence.Persist(evidence,request,Guid.NewGuid().ToString("N"),full);}catch(InvalidDataException){mismatch=true;}
+        Check(mismatch,"reply identity mismatch refuses");
+        Console.WriteLine("Retained workflow evidence fixture: "+evidence);
+        Console.WriteLine($"PASS {Checks-start} binding workflow command/evidence checks; fake host and synthetic temp artifacts, no owner files/device/OS input.");
     }
     sealed class WorkflowHost:ISharedBindingHost
     {
