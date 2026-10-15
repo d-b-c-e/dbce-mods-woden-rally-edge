@@ -10,8 +10,12 @@ $null = New-Item -ItemType Directory -Path $fixture
 'Disposable private installer regression fixture' | Set-Content -LiteralPath (Join-Path $fixture '.woden-installer-fixture')
 Copy-Item -LiteralPath 'D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge\GameAssembly.dll' -Destination $fixture
 $archive = Join-Path $root 'lib\loader\BepInEx-Unity.IL2CPP-win-x64-6.0.0-be.788+5b766a3.zip'
-$nativeInstaller = Join-Path $NativePackageRoot 'Manage-Install.ps1'
+$legacyNativeInstaller = Join-Path $NativePackageRoot 'Manage-Install.ps1'
 $privateInstaller = Join-Path $PrivatePackageRoot 'Manage-Install.ps1'
+# Both transition directions qualify the current shipped installer against
+# explicit package inputs. The historical Native installer cannot recognize a
+# later 4AF receipt; retain its safe refusal as a separate compatibility check.
+$nativeInstaller = $privateInstaller
 $receiptPath = Join-Path $fixture 'BepInEx\WodenWheel-install.json'
 $shimPath = Join-Path $fixture 'BepInEx\plugins\WodenRallyEdgeWheel\dbce_shim.dll'
 $config = Join-Path $fixture 'BepInEx\config'
@@ -102,6 +106,11 @@ Check (@($private.files | Where-Object { $_.path -like '*dbce_shim.dll' }).Count
 Check ($private.controlsProfileSchema -eq 1 -and $private.adapter -eq 'woden-bindings-1') 'Native capability changed'
 Check ($private.sharedInputCandidate.controls.adapter -eq 'woden-shim-ini-controls-1' -and $private.sharedInputCandidate.controls.delivered.Count -eq 27) 'Shared candidate omitted'
 Check ($private.sharedInputCandidate.controls.optIn.default -eq 'Native') 'Private capability changed default backend'
+if($expectedShimHash -eq '4AF269C9F2FDBAE3CEF1A78E563C3877CB0AB820D4BE4C2579A1AD6EA25CECC5'){
+    $legacyReceiptHash=Hash $receiptPath;$legacyShimHash=Hash $shimPath
+    Refuses { & $legacyNativeInstaller -GameDir $fixture -PackageRoot $NativePackageRoot -LoaderArchive $archive } 'Invalid prior install ownership receipt'
+    Check ((Hash $receiptPath) -eq $legacyReceiptHash -and (Hash $shimPath) -eq $legacyShimHash -and (Hash $settings) -eq $settingsHash -and (Hash $controls) -eq $controlsHash) 'Historical 9B8-only installer refusal preserves the current 4AF install/config'
+}
 Private
 Check ((Receipt).files.Count -eq 23 -and (Hash $shimPath) -eq $private.sharedInputCandidate.controls.shimSha256) 'Private update lost ownership'
 $nativeSettingsBytes = [IO.File]::ReadAllBytes($settings)
