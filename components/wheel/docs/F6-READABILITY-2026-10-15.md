@@ -34,7 +34,7 @@ persistence, camera Physical/Adjustable semantics, force/tune and all defaults
 are retained. Multiple device lines or draft/pending rows can still require
 scrolling; this is not an initial-fit promise for every profile/scale.
 
-## Focused checks prepared; not executed
+## Focused checks and execution
 
 The existing executable UI harness now checks the actual Panel at 1280x720 and
 7680x1440 / 100%, with no body scroll before the initial-view assertions:
@@ -64,7 +64,34 @@ After a fresh coordinator offline handoff and actual shared rig lease:
 4. Retain logs, command exit codes, source/diff identities and initial-view
    snapshots, release the lease and independently check it absent.
 
-No build/test executable, package, install or game run has occurred in this
-continuation. `git diff --check` passes. Offline results must replace this pending
-status before anyone calls the change qualified; runtime visual evidence remains
-separate and does not follow from fixture success.
+At preparation, no executable had run and `git diff --check` passed. The
+subsequent named offline execution below qualifies these source/fixture checks;
+runtime visual evidence remains separate.
+
+## Offline qualification complete
+
+Sana139777 granted WODEN-F6-READABILITY-OFFLINE after Kiki's actual R2 exit139831.
+Exact wrapper SHA256
+`4D2C4A2E84090F53F368401A5F49749E88B0FD31BB2749D02BFD06FCEA01B512`
+ran once against clean runtime source `92794b8b5cade2658e0857dc54e80f887bafdad2`,
+11:44:16.071..11:44:52.719 UTC. Production dependency verification passed.
+Actual Plugin Release warnaserror passed with zero warnings/errors; source-linked
+UI passed 5,370 assertions (including 95 managed shim/lease checks), and the
+required pure harness passed 88 suites / 51,501 assertions / zero failures.
+Native ABI was explicitly NOT RUN. Scoped node/compiler reuse was disabled and
+remaining owned/scoped build processes were empty before exact lease release.
+Release and independent lease absence both passed. Source remained clean.
+
+Hub evidence: `artifacts/woden-f6-readability-20261015/run-01/result.json`, SHA256
+`6364A24E4710158EAEC3305D5F6FDE2FE1E9FF05ACE47431A23341434A6D4760`.
+Initial-view draw snapshots are `shared-controls-initial-1280x720.json`, SHA256
+`862FA296B5D9EDB0A98887B79B7DE4F79365ACBE178B8C82E63F00D4C3A44ED2`,
+and `shared-controls-initial-7680x1440.json`, SHA256
+`59BCAFB8BB815BE1E35CEB3B8C2A67BF18584C08BA52E55D661BA2D938F49A13`.
+At 720p, the actual draw records put Steering at screen y506..534 and its Active
+value at y540..582, within the body's y160..594 bounds (window top16).
+These are fixture rectangles, not a real Unity screenshot or glyph-fit claim.
+
+No package, game, input, device probe or installation ran. Installed0.2.15,
+owner configuration, force tune and frozen projection tuple were not changed.
+No ledger adoption/runtime status is promoted by these offline results.
