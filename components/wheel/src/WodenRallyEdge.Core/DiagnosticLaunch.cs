@@ -5,7 +5,7 @@ namespace WodenRallyEdge.Core;
 /// <param name="InputOrigin">Who drives: "human" or "automated" when the companion states it; omitted means unknown.
 /// It is never inferred from DisableForces, injection or focus.</param>
 public sealed record DiagnosticLaunch(int Version, Guid Id, DateTimeOffset ExpiresUtc, bool DisableForces = true, string? CaseId = null,
-    string? InputOrigin = null)
+    string? InputOrigin = null, string? NativeObservationSource = null, int NativeObservationSeconds = 0)
 {
     public const int CurrentVersion = 2;
     public string EffectiveCaseId => Version >= 2 ? CaseId! : "woden-" + Id.ToString("N");
@@ -26,7 +26,11 @@ public sealed record DiagnosticLaunch(int Version, Guid Id, DateTimeOffset Expir
         var request = JsonSerializer.Deserialize<DiagnosticLaunch>(File.ReadAllText(claimed));
         if (request == null || request.Version is not (1 or CurrentVersion) || request.Id == Guid.Empty ||
             request.Version >= CurrentVersion && !ValidCaseId(request.CaseId) || !ValidInputOrigin(request.InputOrigin) ||
-            request.ExpiresUtc <= now || request.ExpiresUtc > now.AddMinutes(20))
+            request.ExpiresUtc <= now || request.ExpiresUtc > now.AddMinutes(20) ||
+            (request.NativeObservationSource is null ? request.NativeObservationSeconds != 0 :
+                request.Version != CurrentVersion || !request.DisableForces || request.InputOrigin != "automated" ||
+                !Path.IsPathFullyQualified(request.NativeObservationSource) || request.NativeObservationSeconds is < 5 or > 15 ||
+                request.ExpiresUtc > now.AddMinutes(5)))
             throw new IOException("Invalid or expired diagnostic launch request; prepare a new launch.");
         return request;
     }

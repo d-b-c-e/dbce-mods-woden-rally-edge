@@ -16,6 +16,13 @@ No game, installation or runtime readability evidence is claimed. STD-004 gains
 only offline presentation evidence; no ledger status is promoted and STD-017
 remains unchecked.
 
+October 15 UAT diagnosis: an explicit one-run ordinary Native observation request
+reuses the current reader and GameSampler, plus bounded sealed StageStartup menu
+entry. It preserves saved transmission/bindings and never configures a shared
+car trial or submits raw input. This is diagnostic source only: no capability,
+physical normalization or runtime acceptance is promoted. See
+`components/wheel/docs/2026-10-15-uat-native-observation-entry.md`.
+
 October 15 requested replay identity correction (source only): Run-StageSession
 now carries an explicitly supplied RequestId into the actual cold stage request
 before launch, retaining every other prepared field and checking the real ID

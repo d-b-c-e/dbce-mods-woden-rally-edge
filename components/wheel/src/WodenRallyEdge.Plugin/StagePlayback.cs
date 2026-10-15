@@ -27,6 +27,7 @@ internal static partial class StagePlayback
     private static int _unfocusedReplaySteps;
     internal static bool OutputMuted { get; private set; }
     internal static bool Playing => Session.Playing;
+    internal static void MuteNativeObservation() => Target.MuteOutputs();
     internal static bool BackgroundReplay => StageReplayPolicy.BackgroundAllowed(Session.ReplayActive,
         StageRunLifecycle.ReplayPath != null, StageStartup.Validated, OutputMuted, StageStartup.BackgroundConfigured);
     internal static void Initialize()
