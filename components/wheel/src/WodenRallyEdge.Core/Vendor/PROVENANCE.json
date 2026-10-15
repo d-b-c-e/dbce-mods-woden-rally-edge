@@ -1,0 +1,51 @@
+{
+  "schema": "dbce.woden-common-source@1",
+  "note": "Source-only adoption in progress; native reader and owner settings unchanged",
+  "files": [
+    {
+      "path": "components/wheel/src/WodenRallyEdge.Core/Vendor/Input/ControlBinding.cs",
+      "commit": "3427ab1dc34ca03f87f3fc905c18a5f76e12314d",
+      "sha256": "1757F3F1ECE4E872819F918F10B14115A1807A8444D1A0355F49C9D7394973C4"
+    },
+    {
+      "path": "components/wheel/src/WodenRallyEdge.Core/Vendor/Input/BindingCapture.cs",
+      "commit": "3427ab1dc34ca03f87f3fc905c18a5f76e12314d",
+      "sha256": "DBB8378D039030CAAB3BD3A28B7FA72A8B25AE40381C294DCD8FECA3A978AC52"
+    },
+    {
+      "path": "components/wheel/src/WodenRallyEdge.Core/Vendor/Input/ControlProfileDocument.cs",
+      "commit": "3427ab1dc34ca03f87f3fc905c18a5f76e12314d",
+      "sha256": "18314E883AEDE0DBC10256E399678E82339A02B3EECEFC06630753A69744EDA5"
+    },
+    {
+      "path": "components/wheel/src/WodenRallyEdge.Core/Vendor/Input/ControlProfileDraft.cs",
+      "commit": "3427ab1dc34ca03f87f3fc905c18a5f76e12314d",
+      "sha256": "D65BDB31F308034916958DD3351E926C4BC8CD0B77FAB2B4BB35AE81D4701BA7"
+    },
+    {
+      "path": "components/wheel/src/WodenRallyEdge.Plugin/Toolkit/Input/BindingEditorContract.cs",
+      "commit": "3427ab1dc34ca03f87f3fc905c18a5f76e12314d",
+      "sha256": "468A76D1249286501500C98AB88EF08324558C0B0E5064198A032299E2DC57B7"
+    },
+    {
+      "path": "components/wheel/src/WodenRallyEdge.Core/Toolkit/Ui/F6Style.cs",
+      "commit": "9b3a02248012a641099f7ba900f79f3cd1d396eb",
+      "sha256": "8009D7F836B6E90B2422789084A3516DF1B5DA4DCFB9BB2809CC15EB957E3751"
+    },
+    {
+      "sha256": "A524F8FFF754CDBC759D151A81ED12FEE1520E3A68924CE3311D8393C4B6E926",
+      "path": "components/wheel/src/WodenRallyEdge.Core/Vendor/Input/BindingCaptureFlow.cs",
+      "commit": "bcfb8522b1583fc61b66aa7ecfc48a733f979f38"
+    },
+    {
+      "path": "components/wheel/src/WodenRallyEdge.Core/Vendor/Shim/ShimSnapshot.cs",
+      "sha256": "E534334AF022284B139872BD78E74AE8926E4D6E0C98A667D5CD3AA2B32834DD",
+      "commit": "9b188ab9a9ef77abb6696a23de81f10cf95cdf2d"
+    },
+    {
+      "sha256": "A797CC4125DF6D49139D50F67B192EB10B21A05E63705AA82A0AAC001DABEF38",
+      "path": "components/wheel/src/WodenRallyEdge.Core/Vendor/Shim/ShimSnapshotFeed.cs",
+      "commit": "c32daa56e5db3b4eff7994727a3fbe515abc8bc8"
+    }
+  ]
+}

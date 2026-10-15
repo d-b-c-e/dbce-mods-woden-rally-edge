@@ -9,7 +9,13 @@ using Dbce.Wheel.Ui.Unity;
 
 var outputDir=Path.GetFullPath("artifacts/ux-ui-fixture");Directory.CreateDirectory(outputDir);
 var dir=Path.Combine(outputDir,Guid.NewGuid().ToString("N"));Directory.CreateDirectory(dir);
-int checks=0;void Check(bool ok,string message){checks++;if(!ok)throw new Exception(message);}
+int checks=0;void Check(bool ok,string message)
+{
+    checks++;if(ok)return;
+    string failure=Path.Combine(dir,"failure-ui.json");
+    File.WriteAllText(failure,JsonSerializer.Serialize(new{message,width=Screen.width,height=Screen.height,commands=GUI.Commands},new JsonSerializerOptions{IncludeFields=true,WriteIndented=true}));
+    throw new Exception(message+"; trace: "+failure);
+}
 Screen.width=7680;Screen.height=1440;GUI.Commands.Clear();Event.current.type=EventType.Repaint;
 var hudColor=GUI.color;var hudEnabled=GUI.enabled;var hudMatrix=GUI.matrix;
 new StrippedSessionStatusHud(UiNative.Style).Draw(RecordingHudLine.Describe("Recording",65,new(),null,true,true)!,true,112);
@@ -23,22 +29,49 @@ Screen.width=1280;Screen.height=720;GUI.Commands.Clear();
 StageLifecycleChecks.Run(dir, Check);
 StageReplayChecks.Run(Check);
 ShimChecks.Run(dir, Check);
-void Draw(Event? e=null){GUI.Commands.Clear();Event.current=e??new();Panel.Draw();Check(Runtime.Log.Errors.Count==0,string.Join("\n",Runtime.Log.Errors));}
+SharedBindingChecks.Run(dir, Check);
+void Draw(Event? e=null)
+{
+    bool repaint=e==null||e.type==EventType.Repaint;string viewBefore=Runtime.Settings.UiView;
+    GUI.Commands.Clear();Event.current=e??new();Panel.Draw();Check(Runtime.Log.Errors.Count==0,string.Join("\n",Runtime.Log.Errors));
+    if(!Panel.Open)return;
+    float scale=FixtureScale();
+    // A body action can change the view after this event already drew its sidebar.
+    // The complete current tab set must be present on repaint; mutation events
+    // still check every actually drawn tab's full bounds.
+    var tabs=repaint&&viewBefore==Runtime.Settings.UiView?SettingsPresentation.Pages(Runtime.Settings.UiView):SettingsPresentation.CorePages
+        .Concat(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text=="Driving")?new[]{"Driving"}:Array.Empty<string>());
+    foreach(string command in new[]{"Simple","Advanced","Close","Stop FFB"}.Concat(tabs))
+    {
+        var label=GUI.Commands.FirstOrDefault(c=>c.Kind=="text"&&c.Text==command);
+        Check(label!=null&&label.Rect.x-8*scale>=0&&label.Rect.y-5*scale>=0&&label.Rect.x+label.Rect.width+8*scale<=Screen.width&&label.Rect.y-5*scale+Dbce.Wheel.Ui.F6Metrics.RowHeight*scale<=Screen.height,
+            command+" complete button remains inside actual viewport after header/body/footer reservation");
+    }
+}
 DrawCommand? Find(string label,int index=0)=>GUI.Commands.Where(c=>c.Kind=="text"&&c.Text==label).Skip(index).FirstOrDefault();
+float FixtureScale()=>Math.Min((Screen.width-32f)/980,(Screen.width>=3000?1.5f:1)*Runtime.Settings.UiScale/100);
+void Reach(Func<bool> visible,string description)
+{
+    Draw();
+    for(int i=0;!visible()&&i<25;i++)
+    {
+        var down=Find("Down");if(down==null)break;
+        Draw(new(){type=EventType.MouseDown,mousePosition=new(down.Rect.x+20,down.Rect.y+12)});Draw();
+    }
+    Check(visible(),"Reachable: "+description);
+}
 void Click(string label,int index=0)
 {
-    Draw();var found=Find(label,index);
-    for(int i=0;found==null&&i<25;i++) {var down=Find("Down");if(down==null)break;Draw(new(){type=EventType.MouseDown,mousePosition=new(down.Rect.x+20,down.Rect.y+12)});Draw();found=Find(label,index);}
-    Check(found!=null,"Visible action: "+label);Draw(new(){type=EventType.MouseDown,mousePosition=new(found!.Rect.x+10,found.Rect.y+12)});Draw();
+    Reach(()=>Find(label,index)!=null,"action "+label);var found=Find(label,index)!;
+    Draw(new(){type=EventType.MouseDown,mousePosition=new(found.Rect.x+10,found.Rect.y+12)});Draw();
 }
 void BindAction(string label)
 {
     // A visible action label does not imply its lower Bind control fits the viewport.
     // Scroll until the actual control is drawn, then click that control.
-    float scale=Math.Min((Screen.width-32f)/980,(Screen.width>=3000?1.5f:1)*Runtime.Settings.UiScale/100);
+    float scale=FixtureScale();
     DrawCommand? Control(){var row=Find(label);return row==null?null:GUI.Commands.FirstOrDefault(c=>c.Kind=="text"&&c.Text=="Bind"&&Math.Abs(c.Rect.x-row.Rect.x-8*scale)<1&&Math.Abs(c.Rect.y-row.Rect.y-49*scale)<1);}
-    Draw();var bind=Control();for(int i=0;bind==null&&i<25;i++){Click("Down");bind=Control();}
-    Check(bind!=null,"Visible binding control: "+label);
+    Reach(()=>Control()!=null,"binding control for "+label);var bind=Control();
     Draw(new(){type=EventType.MouseDown,mousePosition=new(bind!.Rect.x+10,bind.Rect.y+12)});Draw();
 }
 var stock=new GamePadSystem();
@@ -65,7 +98,7 @@ Keyboard.current![Key.F6].wasPressedThisFrame=true;Runtime.Focused=false;Panel.U
 Runtime.Focused=true;Panel.Update();Check(Panel.Open&&Runtime.Local==null,"focused F6 opens settings without a local car");
 Keyboard.current.Clear();Panel.Update();Check(Panel.Open,"released F6 leaves settings open");
 Time.frameCount++;Keyboard.current[Key.F6].wasPressedThisFrame=true;Panel.Update();Check(Panel.Open&&MenuOwnership.Closing,"fresh F6 requests close without handing input back immediately");ReleasedClose();Check(!Panel.Open,"F6 closes after verified release without a local car");
-Panel.Toggle();Snapshot("setup-720");Check(Find("Centre")!=null,"Steering uses Centre");Check(Find("Optional controls and buttons")!=null,"Simple setup next step fits 720p");
+Panel.Toggle();Snapshot("setup-720");Check(Find("Center")!=null,"Steering uses Center");Check(Find("Optional controls and buttons")!=null,"Simple setup next step fits 720p");
 Check(!GUI.Commands.Any(c=>c.Text.Contains("Countdown")),"Driving assist absent from Simple");
 var before=File.ReadAllText(Path.Combine(dir,"bindings.json"));var opts=Runtime.Settings.ForceOptions;
 Click("Advanced");Check(Runtime.Settings.UiView=="Advanced","Advanced action saves explicit view");Click("Driving");Click("Simple");
@@ -79,10 +112,25 @@ Click("Cancel");Check(Runtime.Wheel.Bindings.Handbrake==null&&Runtime.Wheel.Bind
 device.Axes[7]=0;Click("Controls");Click("Bind",3);device.Axes[7]=60000;Runtime.Wheel.UpdateCapture();device.Axes[7]=30000;Runtime.Wheel.UpdateCapture();
 Check(Math.Abs(Runtime.Wheel.PreviewBinding!.Normalize(30000)-.5)<.001,"provisional half-pull preview");Click("Save calibration");
 Check(Runtime.Wheel.Bindings.Handbrake?.Axis==7&&Runtime.Wheel.Bindings.Buttons["Handbrake"].Button==18,"save retains additive axis and button");
-Click("FFB");Snapshot("ffb-720");Check(Find("Custom FFB tuning active. Review in Advanced")!=null,"Simple custom tune summary");
+Click("FFB");Snapshot("ffb-720");
+Reach(()=>Find("Custom FFB tuning active. Review in Advanced")!=null,"Simple custom-tune summary");
+Check(Find("Custom FFB tuning active. Review in Advanced")!=null,"Simple custom tune summary remains reachable with shared stacked row spacing");
+Click("FFB"); // Return to the device controls at the top before the next scenario.
 Click("Use steering wheel  v");Click("MOZA R12");Check(!Runtime.Settings.FfbFollowSteering&&Runtime.Settings.FfbGuid==id.ToString(),"direct dropdown saves explicit device");
 Click("MOZA R12  v");Click("Use steering wheel");Check(Runtime.Settings.FfbFollowSteering&&!Runtime.Settings.FfbEnabled,"follow selection preserves Off");
-Click("Cameras");Draw();for(int i=0;Find("Show frame rate on screen:")==null&&i<20;i++)Click("Down");{var fps=Find("Show frame rate on screen:");Check(fps!=null,"F6 Cameras shows the frame-rate toggle (STD-023)");var on=GUI.Commands.First(c=>c.Kind=="text"&&c.Text=="On"&&Math.Abs(c.Rect.y-fps!.Rect.y)<12);Draw(new(){type=EventType.MouseDown,mousePosition=new(on.Rect.x+10,on.Rect.y+12)});Draw();Check(Runtime.Settings.ShowFrameRate,"frame-rate toggle turns the on-screen counter on");Check(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.StartsWith("Frame rate, last 10 s: 52 fps")),"F6 Cameras shows the 10 s frame-rate summary (STD-024)");Runtime.Settings.ShowFrameRate=false;}
+Click("Cameras");
+DrawCommand? FpsOn()
+{
+    var label=Find("Show frame rate on screen:");if(label==null)return null;
+    return GUI.Commands.FirstOrDefault(c=>c.Kind=="text"&&c.Text=="On"&&Math.Abs(c.Rect.y-label.Rect.y-37*FixtureScale())<1);
+}
+Reach(()=>Find("Show frame rate on screen:")!=null&&FpsOn()!=null,"frame-rate label and its actual On control");
+Check(Find("Show frame rate on screen:")!=null,"F6 Cameras shows the frame-rate toggle (STD-023)");
+var fpsOn=FpsOn()!;Draw(new(){type=EventType.MouseDown,mousePosition=new(fpsOn.Rect.x+10,fpsOn.Rect.y+12)});Draw();
+Check(Runtime.Settings.ShowFrameRate,"frame-rate toggle turns the on-screen counter on");
+Reach(()=>GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.StartsWith("Frame rate, last 10 s: 52 fps")),"10-second frame-rate summary");
+Check(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.StartsWith("Frame rate, last 10 s: 52 fps")),"F6 Cameras shows the reachable 10 s frame-rate summary (STD-024)");
+Runtime.Settings.ShowFrameRate=false;
 Click("Cameras");Snapshot("cameras-720");
 // Real panel clicks must schedule the production Settings save without closing
 // the panel or relying on another control's dirty state. The camera fixture uses
@@ -115,7 +163,12 @@ Runtime.Wheel.TryCommit(b=>{b.CameraKeys["Camera"]="None";b.CameraKeys["Handbrak
 Runtime.Wheel.TryCommit(b=>b.CameraKeys.Remove("Handbrake"));Click("Restore numpad defaults");
 Click("Telemetry");Click("Connection settings (Advanced)");
 // Scroll to actual text fields, inject edited text through the GUI fixture.
-for(int i=0;Find("Forza UDP port (0 = off)")==null&&i<10;i++)Click("Down");GUI.TextReplacement="9123";Draw();Draw();Click("Simple");Check(Runtime.Settings.UiView=="Advanced"&&Runtime.Settings.ForzaPort==8000,"unapplied connection edit locks presentation without runtime mutation");Click("Cancel");Click("Simple");Check(Runtime.Settings.ForzaPort==8000,"connection cancel retains working destination");
+DrawCommand? ForzaField()
+{
+    var label=Find("Forza UDP port (0 = off)");if(label==null)return null;
+    float scale=FixtureScale();return GUI.Commands.FirstOrDefault(c=>c.Kind=="text"&&Math.Abs(c.Rect.x-label.Rect.x-420*scale)<1&&Math.Abs(c.Rect.y-label.Rect.y+4*scale)<1&&Math.Abs(c.Rect.width-220*scale)<1);
+}
+Reach(()=>ForzaField()!=null,"Forza label and actual editable field");GUI.TextReplacement="9123";Draw();Draw();Click("Simple");Check(Runtime.Settings.UiView=="Advanced"&&Runtime.Settings.ForzaPort==8000,"unapplied connection edit locks presentation without runtime mutation");Click("Cancel");Click("Simple");Check(Runtime.Settings.ForzaPort==8000,"connection cancel retains working destination");
 Click("Help");Snapshot("help-720");
 Click("Setup");Draw(new(){type=EventType.KeyDown,keyCode=KeyCode.Tab});Draw(new(){type=EventType.KeyDown,keyCode=KeyCode.Return});Check(Runtime.Settings.UiView=="Advanced","header supports Tab/Enter activation");
 Click("Simple");Screen.width=3840;Screen.height=2160;Snapshot("setup-4k");
@@ -267,6 +320,34 @@ foreach(int hat in new[]{128,130,132,134,129,131,133,135,159}) {
     Runtime.Devices.Pressed.Clear();
 }
 Check(Bindings.Load(bindingPath).Buttons["Menu up"].Button==159,"HAT binding persists without physical-button alias");
-if(!Panel.Open)Panel.Toggle();Click("Controls");Click("+ Shifter bindings");Draw();for(int i=0;Find("Gear R")==null&&i<30;i++)Click("Down");Check(Find("Gear R")!=null&&Find("Gear 6")!=null,"F6 Controls lists the H-pattern gates");Check(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text!=null&&c.Text.StartsWith("H-pattern: hold a gate")),"shifter help explains gates, out of gear and R");
+if(!Panel.Open)Panel.Toggle();Click("Controls");Click("+ Shifter bindings");Reach(()=>Find("Gear R")!=null&&Find("Gear 6")!=null,"H-pattern reverse and sixth-gear labels");Check(Find("Gear R")!=null&&Find("Gear 6")!=null,"F6 Controls lists the H-pattern gates");Reach(()=>GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.StartsWith("H-pattern: hold a gate")),"H-pattern help below gate rows");Check(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.StartsWith("H-pattern: hold a gate")),"shifter help explains gates, out of gear and R");
 ShimChecks.PanelCheck(dir,Check);
+// Close-intent integration uses the actual panel and an injected accepted reader,
+// while preserving the existing native JSON and active startup profile.
+Panel.Close(false);Runtime.Local=null;Runtime.Devices.Pressed.Clear();Keyboard.current!.Clear();
+string sharedPath=Path.Combine(dir,"panel-shared-controls.ini");
+var sharedInstance=Guid.NewGuid();var sharedProduct=Guid.NewGuid();
+byte[] sharedStartup=System.Text.Encoding.UTF8.GetBytes("[Controls]\nSchema = 1\nProfile = Panel fixture\nRevision = initial\nTransmission = Sequential\nsteer = "+
+    Dbce.Wheel.Input.ControlBinding.FromCapture("steer",Dbce.Wheel.Input.ControlKind.Axis,0,1,32768,sharedInstance,sharedProduct,"Fixture wheel",0,65535)+"\n");
+File.WriteAllBytes(sharedPath,sharedStartup);
+var panelHost=new SharedBindingHost(sharedPath,sharedStartup,()=>Runtime.Clock.Elapsed.TotalSeconds,()=>true);
+panelHost.Observe(new(sharedInstance,sharedProduct,"Fixture wheel","fixture-path",1,1,Runtime.Clock.Elapsed.TotalSeconds,
+    new(new[]{32768,0,0,0,0,0,0,0},new bool[128],new[]{-1,-1,-1,-1}),new int[8],Enumerable.Repeat(65535,8).ToArray()));
+var currentHostProperty=typeof(SharedBindingHost).GetProperty("Current",BindingFlags.Static|BindingFlags.NonPublic)!;
+var retainedHost=SharedBindingHost.Current;currentHostProperty.SetValue(null,panelHost);
+try
+{
+    Panel.Toggle();Click("Controls");panelHost.SetInverted("steer",true);Click("FFB");
+    Check(panelHost.HasDraft&&GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.StartsWith("Bindings unsaved")),"shared draft warning remains in fixed footer after switching to FFB");
+    Click("Close");Draw();
+    Check(Panel.Open&&panelHost.HasDraft&&!MenuOwnership.Closing&&Find("Discard and close")!=null&&Find("Keep editing")!=null,
+        "closing from FFB with a shared draft shows global discard or keep-editing before ownership release");
+    Click("Keep editing");Check(Panel.Open&&panelHost.HasDraft&&File.ReadAllBytes(sharedPath).SequenceEqual(sharedStartup),"keep editing preserves the draft and original profile bytes");
+    Click("Cameras");Click("Close");
+    Check(Find("Discard and close")!=null&&Find("Keep editing")!=null,"closing from Cameras shows the same global draft warning");
+    Click("Discard and close");
+    Check(!panelHost.HasDraft&&MenuOwnership.Closing&&File.ReadAllBytes(sharedPath).SequenceEqual(sharedStartup),"explicit discard requests ordinary release without saving the profile");
+    ReleasedClose();Check(!Panel.Open,"discard-and-close retains the verified input release barrier");
+}
+finally{Panel.Close(false);currentHostProperty.SetValue(null,retainedHost);}
 Console.WriteLine($"UI fixture: {checks} assertions passed. Actual Panel/WheelInput/Settings source, simulated Unity events/devices; no game or force output. Artifacts: {outputDir}");

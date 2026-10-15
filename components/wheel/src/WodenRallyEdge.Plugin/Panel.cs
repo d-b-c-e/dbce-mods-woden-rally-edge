@@ -3,6 +3,8 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.EventSystems;
 using WodenRallyEdge.Core;
+using Dbce.Wheel.Ui;
+using Dbce.Wheel.Input;
 
 namespace WodenRallyEdge;
 
@@ -16,6 +18,9 @@ internal static class Panel
     private static int _drag = -1, _focus, _ordinal, _count, _devicePage, _menuMove, _menuStep;
     private static bool _menuConfirm;
     private static bool _body, _activate, _cursorVisible, _dirty, _editBumper, _cameraBindings, _lookBehind, _deviceDetails, _devicePicker;
+    private static bool _sharedClosePrompt;
+    private static bool _revealFocus;
+    private static string? _sharedDeviceGuid;
     private static GUIStyle? _label, _title, _help;
     private static CursorLockMode _cursorLock;
     private static Pause? _ownedPause;
@@ -28,10 +33,11 @@ internal static class Panel
     private static string _forza = "", _detail = "", _saveStatus = "Saved";
     private static float _rate;
     private static readonly HashSet<string> Expanded = new();
-    private static readonly Color Accent = new(.95f, .73f, .3f, 1);
+    private static Color ColorOf(F6Color token) => new(token.R,token.G,token.B,token.A);
+    private static readonly Color Accent = ColorOf(F6Palette.Accent);
     private static bool Advanced => Runtime.Settings.UiView == "Advanced";
     private static bool ConnectionDirty => _forza != Runtime.Settings.ForzaPort.ToString() || _detail != Runtime.Settings.DetailPort.ToString() || (int)_rate != Runtime.Settings.DetailHz;
-    private static bool Editing => Runtime.Wheel?.Capturing == true || ConnectionDirty || MenuOwnership.Closing;
+    private static bool Editing => Runtime.Wheel?.Capturing == true || SharedBindingHost.Current.CapturingAction!=null || _sharedClosePrompt || ConnectionDirty || MenuOwnership.Closing;
     private static string ActionLabel(string a) => a switch { "Steer" => "Steering", "Handbrake" => "Handbrake (axis)", "Gear up" => "Shift up", "Gear down" => "Shift down", "Camera" => "Change camera", "Rear view" => "Look behind", "Respawn" => "Reset car", "Settings panel" => "Settings", "Panic stop" => "Stop FFB", _ => a };
     private static Rect R(float x, float y, float w, float h) => new(_left + x * _scale, _top + (y - (_body ? _scroll : 0)) * _scale, w * _scale, h * _scale);
     private static bool Inside(Rect r, Vector2 p) => p.x >= r.x && p.y >= r.y && p.x < r.x + r.width && p.y < r.y + r.height;
@@ -65,10 +71,10 @@ internal static class Panel
         catch (Exception ex) { HotkeyFailure("F8 / Stop FFB", ex); }
         try
         {
-            bool capturing = Runtime.Wheel?.Capturing == true;
+            bool capturing = Runtime.Wheel?.Capturing == true || SharedBindingHost.Current.CapturingAction!=null;
             if (!capturing && !MenuOwnership.Closing && (kb != null && kb[Key.F6].wasPressedThisFrame || Runtime.Wheel?.Button("Settings panel") == true))
             { SettingsKey("InputSystem / bound Settings"); }
-            if (Open && kb != null && kb[Key.Escape].wasPressedThisFrame) { if (capturing) Runtime.Wheel?.Cancel(); else if (ConnectionDirty) ReadConnection(); else Toggle(); }
+            if (Open && kb != null && kb[Key.Escape].wasPressedThisFrame) { if (capturing) {Runtime.Wheel?.Cancel();SharedBindingHost.Current.CancelCapture();} else if(_sharedClosePrompt)_sharedClosePrompt=false;else if (ConnectionDirty) ReadConnection(); else Toggle(); }
             if (!Open && Runtime.Wheel?.Button("Pause") == true && Runtime.Local != null)
             {
                 var pause = Runtime.Local.MyControls?.PauseScript;
@@ -117,7 +123,7 @@ internal static class Panel
     }
     internal static void MenuAction(string action)
     {
-        if (action == "Back") { if (Runtime.Wheel?.Capturing == true) Runtime.Wheel.Cancel(); else if (ConnectionDirty) ReadConnection(); else Close(true); return; }
+        if (action == "Back") { if (Runtime.Wheel?.Capturing == true || SharedBindingHost.Current.CapturingAction!=null) {Runtime.Wheel?.Cancel();SharedBindingHost.Current.CancelCapture();} else if(_sharedClosePrompt)_sharedClosePrompt=false;else if (ConnectionDirty) ReadConnection(); else Close(true); return; }
         if (action == "Confirm") _menuConfirm = true;
         if (action == "Menu up") _menuMove--;
         if (action == "Menu down") _menuMove++;
@@ -143,13 +149,14 @@ internal static class Panel
     }
     internal static void Close(bool resume)
     {
+        if(resume&&Open&&SharedBindingHost.Current.HasDraft){if(!_sharedClosePrompt){_sharedClosePrompt=true;_focus=-1;}return;}
         if (resume && Open) { MenuOwnership.RequestClose(); return; }
         CompleteClose(resume);
     }
     internal static void CompleteClose(bool resume)
     {
         if (!Open) return;
-        Open = false; _imguiSettingsHeld = false; Runtime.Wheel?.Cancel(); _drag = -1; Save();
+        Open = false; _imguiSettingsHeld = false;_sharedClosePrompt=false;SharedBindingHost.Current.CancelCapture(); Runtime.Wheel?.Cancel(); _drag = -1; Save();
         try
         {
             MenuOwnership.End();
@@ -173,13 +180,23 @@ internal static class Panel
     }
     private static void Label(float x, float y, float width, string text, bool help = false, float height = 28)
     { var r = R(x,y,width,height); if (Visible(r)) GUI.Label(r, new GUIContent(text), help ? _help! : _label!); }
+    private static void Reveal(Rect r)
+    {
+        if(!_body||!_revealFocus)return;
+        float top=_top+144*_scale,bottom=_top+(_height-110)*_scale;
+        if(r.y<top)_scroll-=(top-r.y)/_scale;
+        else if(r.y+r.height>bottom)_scroll+=(r.y+r.height-bottom)/_scale;
+        _scroll=Math.Max(0,_scroll);_drag=-1;
+    }
     private static bool Button(float x, float y, float width, string text, bool active = false, bool enabled = true)
     {
-        var r = R(x,y,width,34); if (!Visible(r)) return false;
+        var r = R(x,y,width,F6Metrics.RowHeight);
         int id = enabled ? _ordinal++ : -1; var e = Event.current;
+        if(enabled&&id==_focus){Reveal(r);r=R(x,y,width,F6Metrics.RowHeight);}
+        if(!Visible(r))return false;
         bool hover = Inside(r,e.mousePosition), focused = enabled && id == _focus && GUIUtility.keyboardControl == 0;
-        Fill(r, focused ? Accent : new Color(.19f,.24f,.30f,1));
-        Fill(new Rect(r.x+2*_scale,r.y+2*_scale,r.width-4*_scale,r.height-4*_scale), !enabled ? new Color(.09f,.11f,.14f,1) : active ? new Color(.37f,.28f,.12f,1) : hover ? new Color(.23f,.28f,.34f,1) : new Color(.13f,.17f,.23f,1));
+        Fill(r, focused ? Accent : ColorOf(F6Palette.ButtonBorder));
+        Fill(new Rect(r.x+2*_scale,r.y+2*_scale,r.width-4*_scale,r.height-4*_scale), ColorOf(!enabled?F6Palette.Window:active?F6Palette.Selected:hover?F6Palette.ButtonHover:F6Palette.Button));
         Label(x+8,y+5,width-16,text,false,24);
         if (enabled && (e.type == EventType.MouseDown && e.button == 0 && hover || focused && _activate))
         { _focus = id; _activate = false; if(e.type != EventType.Repaint) e.Use(); GUIUtility.keyboardControl = 0; return true; }
@@ -187,14 +204,46 @@ internal static class Panel
     }
     private static void Toggle(float x,float y,float width,string text,ref bool value)
     {
-        Label(x,y+4,width-132,text+":");
-        if (Button(x+width-128,y,60,"Off",!value) && value) { value=false; Dirty(); }
-        if (Button(x+width-64,y,64,"On",value) && !value) { value=true; Dirty(); }
+        Label(x,y+4,width-2*F6Metrics.ButtonMinWidth-F6Metrics.RowGap-8,text+":");
+        if (Button(x+width-2*F6Metrics.ButtonMinWidth-F6Metrics.RowGap,y,F6Metrics.ButtonMinWidth,"Off",!value) && value) { value=false; Dirty(); }
+        if (Button(x+width-F6Metrics.ButtonMinWidth,y,F6Metrics.ButtonMinWidth,"On",value) && !value) { value=true; Dirty(); }
     }
-    private static void Slider(float y,string label,ref float value,float min,float max,string format="F2")
+    private static float ToggleRow(float y,string text,ref bool value)
+    {int selected=value?1:0;float next=Choice(y,text+":",new[]{"Off","On"},ref selected);value=selected==1;return next;}
+    private static float Choice(float y,string label,string[] choices,ref int selected,bool persist=true)
     {
-        Label(250,y,260,label); Label(852,y,90,value.ToString(format,CultureInfo.InvariantCulture));
-        var r=R(520,y+3,310,26); if (!Visible(r)) return; int id=_ordinal++; var e=Event.current;
+        var widths=choices.Select(text=>Math.Max(F6Metrics.ButtonMinWidth,text.Length*10f+2*F6Metrics.ButtonPadX)).ToArray();
+        var row=F6RowLayout.For(694,widths.Sum()+Math.Max(0,widths.Length-1)*F6Metrics.RowGap);
+        Label(250,y,row.LabelWidth,label);
+        float startX=row.Stacked?250:250+row.LabelWidth+F6Metrics.ColumnGap;
+        float editorY=row.Stacked?y+32:y;
+        var lines=F6Flow.Lines(widths,row.EditorWidth,F6Metrics.RowGap,out int count);
+        float x=startX;int line=0;
+        for(int i=0;i<choices.Length;i++)
+        {
+            if(lines[i]!=line){line=lines[i];x=startX;}
+            float width=Math.Min(widths[i],row.EditorWidth);
+            if(Button(x,editorY+line*(F6Metrics.RowHeight+F6Metrics.RowGap),width,choices[i],selected==i)&&selected!=i){selected=i;if(persist)Dirty();}
+            x+=width+F6Metrics.RowGap;
+        }
+        return editorY+count*(F6Metrics.RowHeight+F6Metrics.RowGap)+6;
+    }
+    private static float Slider(float y,string label,ref float value,float min,float max,string format="F2")
+    {
+        var row=F6RowLayout.For(694,F6NumberEditor.Needs());
+        float editorX=row.Stacked?250:250+row.LabelWidth+F6Metrics.ColumnGap;
+        float editorY=row.Stacked?y+32:y;
+        var parts=F6NumberEditor.For(row.EditorWidth);
+        Label(250,y,row.LabelWidth,label);
+        Label(editorX+parts.ValueX,editorY+5,F6Metrics.ValueWidth,value.ToString(format,CultureInfo.InvariantCulture));
+        float step=(max-min)/100;
+        if(Button(editorX+parts.MinusX,editorY,F6Metrics.StepButton,"−")){_drag=-1;value=Math.Clamp(value-step,min,max);Dirty();}
+        if(Button(editorX+parts.PlusX,editorY,F6Metrics.StepButton,"+")){_drag=-1;value=Math.Clamp(value+step,min,max);Dirty();}
+        var r=R(editorX+parts.SliderX,editorY+3,parts.SliderWidth,28);
+        float next=editorY+F6Metrics.RowHeight+F6Metrics.RowGap+6;
+        int id=_ordinal++;var e=Event.current;
+        if(id==_focus){Reveal(r);r=R(editorX+parts.SliderX,editorY+3,parts.SliderWidth,28);}
+        if (!Visible(r)) return next;
         bool focused=id==_focus && GUIUtility.keyboardControl==0;
         if (e.type==EventType.MouseDown && e.button==0 && Inside(r,e.mousePosition)) { _drag=(int)y; _focus=id; GUIUtility.keyboardControl=0; e.Use(); }
         if (_drag==(int)y && e.type is EventType.MouseDrag or EventType.MouseDown or EventType.Used)
@@ -203,9 +252,10 @@ internal static class Panel
         if (focused && e.type==EventType.KeyDown && e.keyCode is KeyCode.LeftArrow or KeyCode.RightArrow)
         { value=Math.Clamp(value+(e.keyCode==KeyCode.RightArrow?1:-1)*(max-min)/100,min,max); Dirty(); e.Use(); }
         if(focused && _menuStep!=0) { value=Math.Clamp(value+_menuStep*(max-min)/100,min,max);_menuStep=0;Dirty(); }
-        Fill(r,focused?new Color(.3f,.3f,.3f,1):new Color(.08f,.1f,.15f,1));
+        Fill(r,ColorOf(focused?F6Palette.ButtonHover:F6Palette.Track));
         Fill(new Rect(r.x,r.y+r.height*.4f,r.width*Math.Clamp((value-min)/(max-min),0,1),r.height*.2f),Accent);
         float knob=r.x+r.width*Math.Clamp((value-min)/(max-min),0,1); Fill(new Rect(knob-3*_scale,r.y,6*_scale,r.height),Color.white);
+        return next;
     }
     private static void Bar(float x,float y,float width,float value,bool steering)
     {
@@ -213,7 +263,7 @@ internal static class Panel
         float origin=steering?.5f:0, length=steering?Math.Clamp(value,-1,1)*.5f:Math.Clamp(value,0,1);
         Fill(new Rect(r.x+r.width*(origin+Math.Min(0,length)),r.y,r.width*Math.Abs(length),r.height),Accent);
     }
-    private static string Value(float v,bool steering) => steering ? Math.Abs(v)<.02 ? "Centre" : v<0 ? $"Left {Math.Abs(v):P0}" : $"Right {v:P0}" : v.ToString("P0");
+    private static string Value(float v,bool steering) => steering ? Math.Abs(v)<.02 ? "Center" : v<0 ? $"Left {Math.Abs(v):P0}" : $"Right {v:P0}" : v.ToString("P0");
     private static void End(float y) => _extent=Math.Max(_extent,y);
     internal static void Draw()
     {
@@ -236,20 +286,21 @@ internal static class Panel
             _scale=Math.Min((Screen.width-32f)/980, (Screen.width>=3000?1.5f:1)*Runtime.Settings.UiScale/100);
             _height=Math.Min(740,(Screen.height-32f)/_scale); _left=(Screen.width-980*_scale)/2; _top=(Screen.height-_height*_scale)/2;
             _label??=new(); _title??=new(); _help??=new();
-            UiNative.Style(_label,(int)(18*_scale),true); _label.normal.textColor=Color.white;
-            UiNative.Style(_help,(int)(15*_scale),true); _help.normal.textColor=new Color(.70f,.77f,.85f,1);
-            UiNative.Style(_title,(int)(25*_scale),false); _title.normal.textColor=Accent;
+            UiNative.Style(_label,(int)(F6Metrics.BodySize*_scale),true); _label.normal.textColor=ColorOf(F6Palette.Text);
+            UiNative.Style(_help,(int)(F6Metrics.HelpSize*_scale),true); _help.normal.textColor=ColorOf(F6Palette.Secondary);
+            UiNative.Style(_title,(int)(F6Metrics.TitleSize*_scale),false); _title.normal.textColor=ColorOf(F6Palette.Text);
             var e=Event.current;
+            _revealFocus=false;
             bool navigationAllowed=Runtime.Wheel?.CaptureButton==null || Runtime.Wheel.SavePending;
             if(e.type==EventType.KeyDown && e.keyCode==KeyCode.Tab && navigationAllowed)
-            { _focus=(_focus+(e.shift?-1:1)+Math.Max(1,_count))%Math.Max(1,_count); GUIUtility.keyboardControl=0; e.Use(); }
-            if(_menuMove!=0) { _focus=(_focus+_menuMove+Math.Max(1,_count))%Math.Max(1,_count);_menuMove=0;GUIUtility.keyboardControl=0; }
+            { _focus=(_focus+(e.shift?-1:1)+Math.Max(1,_count))%Math.Max(1,_count);_revealFocus=true; GUIUtility.keyboardControl=0; e.Use(); }
+            if(_menuMove!=0) { _focus=(_focus+_menuMove+Math.Max(1,_count))%Math.Max(1,_count);_menuMove=0;_revealFocus=true;GUIUtility.keyboardControl=0; }
             _activate=(_menuConfirm || e.type==EventType.KeyDown && e.keyCode is KeyCode.Return or KeyCode.Space) && navigationAllowed;_menuConfirm=false;
             if(e.type==EventType.ScrollWheel && Inside(R(238,144,724,_height-254),e.mousePosition)) { _scroll=Math.Clamp(_scroll+e.delta.y*30,0,Math.Max(0,_extent-(_height-110))); _drag=-1; e.Use(); }
             if(e.type==EventType.KeyDown && e.keyCode is KeyCode.PageDown or KeyCode.PageUp)
             { _scroll=Math.Clamp(_scroll+(e.keyCode==KeyCode.PageDown?1:-1)*240,0,Math.Max(0,_extent-(_height-110))); _drag=-1; e.Use(); }
             _ordinal=0; _extent=144;
-            Fill(R(0,0,980,_height),new Color(.035f,.05f,.075f,1)); Fill(R(0,100,220,_height-100),new Color(.06f,.08f,.12f,1));
+            Fill(R(0,0,980,_height),ColorOf(F6Palette.Window)); Fill(R(0,100,220,_height-100),ColorOf(F6Palette.Header));
             GUI.Label(R(24,18,540,42),new GUIContent("Woden / Wheel settings"),_title);
             Label(585,24,60,"View:");
             if(Button(648,18,124,"Simple",!Advanced,!Editing))Navigate(Runtime.Settings.UiPage,"Simple");
@@ -259,6 +310,14 @@ internal static class Panel
                 if(Button(16,112+row++*44,188,page,Runtime.Settings.UiPage==page,!Editing))Navigate(page);
             if(Button(16,_height-108,188,"Stop FFB")) { try { Runtime.Force?.Panic(); } catch(Exception ex) { Message="Save failed: "+ex.Message; } }
             if(Button(16,_height-64,188,"Close",false,!Editing))Close(true);
+            if(_sharedClosePrompt)
+            {
+                if(_focus<0)_focus=_ordinal+1; // Keep editing is the first close-intent default.
+                Label(250,170,690,"Unsaved binding edits. Discard them before closing, or keep editing.",true,72);
+                if(Button(250,260,280,"Discard and close")){SharedBindingHost.Current.Discard();_sharedClosePrompt=false;Close(true);}
+                if(Button(546,260,280,"Keep editing"))_sharedClosePrompt=false;
+                _count=_ordinal;return;
+            }
             if(MenuOwnership.Closing) { Label(250,170,680,Message,true,90); if(Button(250,280,240,"Keep settings open"))MenuOwnership.CancelClose(); return; }
             Label(250,112,680,Runtime.Settings.UiPage);
             _body=true;
@@ -273,8 +332,10 @@ internal static class Panel
             }
             Fill(R(238,_height-58,720,1),new Color(.25f,.3f,.36f,1));
             string status=Runtime.Wheel?.SaveError ?? (_saveStatus=="Save failed"?"Save failed — "+Message:Message);
+            if(SharedBindingHost.Current.HasDraft)status="Bindings unsaved · "+status;
+            else if(SharedBindingHost.Current.SavedPendingRestart)status="Bindings saved for next start · "+status;
             Label(250,_height-49,698,status,true,43);
-            _count=_ordinal;_menuStep=0;
+            _count=_ordinal;_focus=Math.Clamp(_focus,0,Math.Max(0,_count-1));_menuStep=0;
             if(e.type==EventType.MouseDown && Inside(R(0,0,980,_height),e.mousePosition))e.Use();
         }
         catch(Exception ex) { if(Runtime.Clock.Elapsed.TotalSeconds>_nextError) { Runtime.Log.LogError("F6 draw: "+ex); _nextError=Runtime.Clock.Elapsed.TotalSeconds+5; } }
@@ -335,16 +396,16 @@ internal static class Panel
         var input=Runtime.Wheel!; if(!input.Capturing)return false;
         string action=input.CaptureAxis??input.CaptureButton??"Pending binding change";
         Label(250,158,690,"Binding: "+ActionLabel(action));
-        Label(250,202,690,input.SavePending?"Your previous binding remains active. Retry the saved proposal, or Cancel to discard it.":input.CaptureAxis=="Steer"?"Centre the wheel. Turn right first, then sweep fully both ways.":input.CaptureAxis!=null?"Release the control, then press or pull fully and release.":CameraTuning.Actions.Contains(action)?"Press a key or wheel button. F6/F8 are reserved; Escape cancels.":"Press one wheel button. Escape cancels. Native keyboard controls stay in the game menu.",true,48);
-        Label(250,262,690,input.Status,true,48);
+        Label(250,202,690,input.SavePending?"Your previous binding remains active. Retry the saved proposal, or Cancel to discard it.":input.CaptureAxis=="Steer"?"Center the wheel. Turn right first, then sweep fully both ways.":input.CaptureAxis!=null?"Release the control, then press or pull fully and release.":CameraTuning.Actions.Contains(action)?"Press a key or wheel button. F6/F8 are reserved; Escape cancels.":"Press one wheel button. Escape cancels. Native keyboard controls stay in the game menu.",true,48);
+        Label(250,250,690,input.Status,true,32);
         if(input.Capture!=null)
         {
             var b=input.PreviewBinding;
-            Label(250,304,690,b==null?"Waiting for the full range…":Runtime.Devices!.Describe(b.DeviceGuid)+" · "+Axes[b.Axis]+" axis",true,42);
-            float v=0; bool ok=Runtime.Devices!.TryAxis(b,out v);Bar(250,354,500,ok?v:0,action=="Steer");Label(770,342,170,ok?Value(v,action=="Steer"):"--",true);
-            Toggle(250,388,390,"Invert calibration",ref input.CaptureInvert);
-            Slider(434,"Deadzone (%)",ref input.CaptureDeadzone,0,25,"F0");
-            Label(250,476,690,b==null?input.Capture.Status:$"Endpoints {b.Calibration.Rest} → {b.Calibration.End}"+(b.Calibration.Centre is int c?$" · centre {c}":""),true,28);
+            Label(250,286,690,b==null?"Waiting for the full range…":Runtime.Devices!.Describe(b.DeviceGuid)+" · "+Axes[b.Axis]+" axis",true,28);
+            float v=0; bool ok=Runtime.Devices!.TryAxis(b,out v);Bar(250,330,500,ok?v:0,action=="Steer");Label(770,318,170,ok?Value(v,action=="Steer"):"--",true);
+            Toggle(250,354,390,"Invert calibration",ref input.CaptureInvert);
+            float end=Slider(396,"Deadzone (%)",ref input.CaptureDeadzone,0,25,"F0");
+            Label(250,end,690,b==null?input.Capture.Status:$"Endpoints {b.Calibration.Rest} → {b.Calibration.End}"+(b.Calibration.Centre is int c?$" · center {c}":""),true,28);
             if(Button(250,518,248,"Save calibration",false,b!=null&&ok))input.FinishAxis();
             if(Button(514,518,150,"Cancel"))input.Cancel();
             Label(250,568,690,"Previous bindings stay active after Cancel or timeout. Handbrake axis and button remain independent.",true,46);End(622);
@@ -398,6 +459,7 @@ internal static class Panel
 
     private static void ShimPage()
     {
+        if(Runtime.Settings.UiPage=="Controls"){SharedBindingPage();return;}
         var cfg=Runtime.Settings; bool before=cfg.WheelEnabled;
         Toggle(250,152,690,"Wheel controls",ref cfg.WheelEnabled);
         if(before!=cfg.WheelEnabled)Runtime.Force?.Suspend("Wheel controls changed");
@@ -415,6 +477,48 @@ internal static class Panel
         Label(250,y,690,"Sequential shifts or H-pattern N/R/gears 1-6 require native Manual. Clutch, select and gears 7-8 are unavailable. Lights, Records and Next song retain native keyboard controls.",true,72);y+=84;
         Label(250,y,690,ShimInput.TransmissionStatus,true,64);y+=76;
         End(GearboxRow(y));
+    }
+
+    private static void SharedBindingPage()
+    {
+        var host=SharedBindingHost.Current;
+        float y=152;
+        Label(250,y,690,"Shared controls: "+host.ActiveSource,true,42);y+=50;
+        Label(250,y,690,host.AccessReason,true,68);y+=76;
+        if(host.SavedPendingRestart){Label(250,y,690,"Bindings saved for next start. Active controls are unchanged.",true,44);y+=52;}
+        if(host.HasDraft){Label(250,y,690,"Unsaved binding edits",true,28);y+=36;}
+        bool editable=host.Access==SharedBindingAccess.Editable;
+        if(Button(250,y,220,"Save bindings",false,editable&&host.HasDraft&&host.CapturingAction==null))host.Save(out Message);
+        if(Button(486,y,220,"Discard changes",false,host.HasDraft))host.Discard();y+=48;
+        var devices=host.Devices;
+        int selectedDevice=-1;
+        if(devices.Count>0)
+        {
+            _sharedDeviceGuid??=(devices.FirstOrDefault(d=>d.IsDefault)??devices[0]).InstanceGuid;
+            for(int i=0;i<devices.Count;i++)if(devices[i].InstanceGuid==_sharedDeviceGuid)selectedDevice=i;
+            int prior=selectedDevice;
+            y=Choice(y,"Capture device",devices.Select(d=>d.Name.Length>36?d.Name[..36]+"…":d.Name).ToArray(),ref selectedDevice,false);
+            if(prior!=selectedDevice&&selectedDevice>=0)_sharedDeviceGuid=devices[selectedDevice].InstanceGuid;
+            if(selectedDevice<0){Label(250,y,690,"The selected capture device is unavailable. Choose a device explicitly; no substitute was selected.",true,48);y+=56;}
+        }
+        Label(250,y,690,host.CapturingAction==null?host.CaptureMessage:$"Binding {host.CapturingAction} · {host.CaptureSecondsLeft:0}s · {host.CaptureMessage}",true,68);y+=76;
+        if(host.CapturingAction!=null)
+        {if(Button(250,y,220,"Cancel capture"))host.CancelCapture();End(y+48);return;}
+        foreach(var row in host.Rows)
+        {
+            Label(250,y,690,row.Label);y+=34;
+            Label(250,y,690,"Active: "+row.Active.Text,true,42);y+=48;
+            if(row.NextStart is { } saved){Label(250,y,690,"Next start: "+saved.Text,true,42);y+=48;}
+            if(row.Draft is { } draft){Label(250,y,690,"Draft: "+draft.Text,true,42);y+=48;}
+            if(row.Note.Length!=0){Label(250,y,690,row.Note,true,44);y+=50;}
+            bool allowed=editable&&row.Note.Length==0;
+            if(Button(250,y,120,"Bind",false,allowed&&selectedDevice>=0))host.BeginCapture(row.Action,devices[selectedDevice].InstanceGuid);
+            if(Button(382,y,120,"Clear",false,allowed))host.Clear(row.Action);
+            if(row.IsAxis&&Button(514,y,220,(row.DraftInverted??row.NextStartInverted??row.ActiveInverted)?"Use normal axis":"Invert axis",false,allowed))
+                host.SetInverted(row.Action,!(row.DraftInverted??row.NextStartInverted??row.ActiveInverted));
+            y+=54;
+        }
+        End(y);
     }
 
     // [Input] NativeGearbox (NativeGearboxPreference): the game's own Manual/Automatic choice, set at the next start.
@@ -458,33 +562,33 @@ internal static class Panel
         Label(250,y,690,target.Ready?"Selected: "+target.Reason:target.Reason,true,44);y+=54;
         if(Button(250,y,252,"Refresh / retry"))Refresh();y+=56;
         // Steering strength and the crash kick are independent controls in Simple (STD-027).
-        Slider(y,"Steering strength (%)",ref cfg.FfbStrength,0,100,"F0");y+=44;
+        y=Slider(y,"Steering strength (%)",ref cfg.FfbStrength,0,100,"F0");
         Label(250,y,690,force.Status,true,42);y+=48;
         if(Button(250,y,330,"Default steering strength: 50%")){cfg.FfbStrength=50;Dirty();}y+=46;
         if(!Advanced && cfg.CustomFfb){if(Button(250,y,694,"Custom FFB tuning active. Review in Advanced"))Navigate("FFB","Advanced");y+=44;}
         // One force model for players (STD-026): no selector. A saved Classic choice is kept, and said so, until Grip is tuned for this game.
-        Label(250,y,690,cfg.FfbModel=="Grip"?"Steering strength sets cornering resistance and return to centre from the front tyres' grip; the wheel lightens as the front slides. Now: "+force.GripStatus:"Earlier force model, kept from your saved settings until the current one is tuned for this game. Reset FFB tuning (Advanced) switches to the current model.",true,46);y+=52;
-        Toggle(250,y,450,"Crash kick",ref cfg.CrashEnabled);y+=40;Label(250,y,690,"A short push and rattle when you hit something. Now: "+force.CrashStatus,true,40);y+=46;
-        if(cfg.CrashEnabled){Slider(y,"Crash strength (%)",ref cfg.CrashStrength,0,100,"F0");y+=36;Label(250,y,690,"Force of the hardest hit; separate from Steering strength.",true,40);y+=48;}
+        Label(250,y,690,cfg.FfbModel=="Grip"?"Steering strength sets cornering resistance and return to center from the front tires' grip; the wheel lightens as the front slides. Now: "+force.GripStatus:"Earlier force model, kept from your saved settings until the current one is tuned for this game. Reset FFB tuning (Advanced) switches to the current model.",true,46);y+=52;
+        y=ToggleRow(y,"Crash kick",ref cfg.CrashEnabled);Label(250,y,690,"A short push and rattle when you hit something. Now: "+force.CrashStatus,true,40);y+=46;
+        if(cfg.CrashEnabled){y=Slider(y,"Crash strength (%)",ref cfg.CrashStrength,0,100,"F0");Label(250,y,690,"Force of the hardest hit; separate from Steering strength.",true,40);y+=48;}
         if(Advanced)
         {
             Label(250,y,690,"On is remembered; feedback starts during driving. F8 / Stop FFB saves Off.",true,46);y+=58;
             if(cfg.FfbModel=="Grip")
             {
-                Slider(y,"Reference (x front load)",ref cfg.FfbLoadRatio,.2f,10,"F2");y+=36;Label(250,y,690,"Full force at Steering strength 50 as a multiple of the mean driving front load. Higher is lighter; default 2.",true,40);y+=48;
-                Slider(y,"Smoothing",ref cfg.FfbGripSmoothing,0,.95f,"F2");y+=36;Label(250,y,690,"Per-update smoothing of the tyre force; default 0.2.",true,40);y+=48;
-                Slider(y,"Steering damping",ref cfg.FfbDamping,0,.5f);y+=36;Label(250,y,690,"Resists quick wheel movement with its own gain; Steering strength does not scale it. Default 0.05.",true,40);y+=48;
+                y=Slider(y,"Reference (x front load)",ref cfg.FfbLoadRatio,.2f,10,"F2");Label(250,y,690,"Full force at Steering strength 50 as a multiple of the mean driving front load. Higher is lighter; default 2.",true,40);y+=48;
+                y=Slider(y,"Smoothing",ref cfg.FfbGripSmoothing,0,.95f,"F2");Label(250,y,690,"Per-update smoothing of the tire force; default 0.2.",true,40);y+=48;
+                y=Slider(y,"Steering damping",ref cfg.FfbDamping,0,.5f);Label(250,y,690,"Resists quick wheel movement with its own gain; Steering strength does not scale it. Default 0.05.",true,40);y+=48;
             }
             else
             {
                 // The earlier model's own settings, shown only while a saved Classic choice is active.
-                Slider(y,"Peak output cap (%)",ref cfg.FfbPeak,0,50,"F0");y+=36;Label(250,y,690,"Earlier model: maximum commanded force; default 25%.",true,40);y+=48;
-                Slider(y,"Smoothing (ms)",ref cfg.FfbSmoothing,0,200,"F0");y+=36;Label(250,y,690,"Earlier model: higher values soften rapid changes but delay feedback. Default 35 ms.",true,40);y+=48;
-                Slider(y,"Steering damping",ref cfg.FfbDamping,0,.5f);y+=36;Label(250,y,690,"Earlier model: resists wheel movement, scaled with strength; default 0.05.",true,40);y+=48;
-                Slider(y,"Reference front load",ref cfg.FfbLoadReference,100,50000,"F0");y+=36;Label(250,y,690,"Earlier model: higher values reduce the tyre estimate. Unity force units; default 6000.",true,40);y+=48;
-                Slider(y,"Slip response scale",ref cfg.FfbSlipScale,.02f,3);y+=36;Label(250,y,690,"Earlier model: larger values soften the slip response. Game slip units; default 0.35.",true,40);y+=48;
+                y=Slider(y,"Peak output cap (%)",ref cfg.FfbPeak,0,50,"F0");Label(250,y,690,"Earlier model: maximum commanded force; default 25%.",true,40);y+=48;
+                y=Slider(y,"Smoothing (ms)",ref cfg.FfbSmoothing,0,200,"F0");Label(250,y,690,"Earlier model: higher values soften rapid changes but delay feedback. Default 35 ms.",true,40);y+=48;
+                y=Slider(y,"Steering damping",ref cfg.FfbDamping,0,.5f);Label(250,y,690,"Earlier model: resists wheel movement, scaled with strength; default 0.05.",true,40);y+=48;
+                y=Slider(y,"Reference front load",ref cfg.FfbLoadReference,100,50000,"F0");Label(250,y,690,"Earlier model: higher values reduce the tire estimate. Unity force units; default 6000.",true,40);y+=48;
+                y=Slider(y,"Slip response scale",ref cfg.FfbSlipScale,.02f,3);Label(250,y,690,"Earlier model: larger values soften the slip response. Game slip units; default 0.35.",true,40);y+=48;
             }
-            Toggle(250,y,450,"Invert FFB",ref cfg.FfbInvert);y+=46;
+            y=ToggleRow(y,"Invert FFB",ref cfg.FfbInvert);
             if(Button(250,y,280,"Reset FFB tuning")){cfg.FfbModel="Grip";cfg.FfbLoadRatio=2;cfg.FfbGripSmoothing=.2f;cfg.FfbStrength=50;cfg.FfbPeak=25;cfg.FfbSmoothing=35;cfg.FfbDamping=.05f;cfg.FfbLoadReference=6000;cfg.FfbSlipScale=.35f;cfg.FfbInvert=false;Dirty();}y+=46;
             Label(250,y,690,$"Accepted output {force.Sent:P1}; calls {force.Attempts}; failures {force.Failures}. Reset preserves On/Off and device.",true,46);y+=52;
         }
@@ -495,19 +599,13 @@ internal static class Panel
         if(CapturePage())return;var cfg=Runtime.Settings;float y=152;
         // One triple-screen selector, as in the other mods (STD-022): Off, Surround, Separate monitors.
         int layout=TripleLayoutChoice.Current(TripleView.Mode==TripleMode.Off,SpanWindow.Enabled);
-        Label(250,y+6,170,"Triple screens");
-        for(int i=0;i<TripleLayoutChoice.Labels.Length;i++)
-            if(Button(i==0?426:i==1?544:686,y,i==0?110:i==1?134:258,TripleLayoutChoice.Labels[i],layout==i)&&layout!=i)
-            { var picked=TripleLayoutChoice.Apply(i); TripleView.Mode=picked.Off?TripleMode.Off:TripleView.Mode==TripleMode.On?TripleMode.On:TripleMode.Auto; SpanWindow.Enabled=picked.Span; layout=i; Dirty(); }
-        y+=48;
+        int priorLayout=layout;y=Choice(y,"Triple screens",TripleLayoutChoice.Labels,ref layout);
+        if(layout!=priorLayout){var picked=TripleLayoutChoice.Apply(layout);TripleView.Mode=picked.Off?TripleMode.Off:TripleView.Mode==TripleMode.On?TripleMode.On:TripleMode.Auto;SpanWindow.Enabled=picked.Span;}
         Label(250,y,690,layout==0?"Single view. Window size changes at the next game start. Status: "+TripleView.Status:layout==1?"Three views on Surround. Window layout applies at the next game start. Status: "+TripleView.Status:"One borderless window across three side-by-side monitors, applied at the next game start. Span: "+SpanWindow.Status+"; views: "+TripleView.Status,true,46);y+=56;
-        Label(250,y+6,170,"Triple FOV");
-        if(Button(426,y,200,"Physical rig",!TripleView.MatchGameFov)&&TripleView.MatchGameFov){TripleView.MatchGameFov=false;Dirty();}
-        if(Button(638,y,306,"Adjustable FOV",TripleView.MatchGameFov)&&!TripleView.MatchGameFov){TripleView.MatchGameFov=true;Dirty();}
-        y+=48;
+        int fovMode=TripleView.MatchGameFov?1:0;y=Choice(y,"Triple FOV",new[]{"Physical rig","Adjustable FOV"},ref fovMode);TripleView.MatchGameFov=fovMode==1;
         Label(250,y,690,TripleView.MatchGameFov?"Bonnet and bumper use the active view lens, including Fit to car. All three views are recalculated together using a virtual eye distance; your measured rig is kept.":"Bonnet and bumper use the measured rig geometry. Their FOV keys and slider are inactive while triples are on; stock chase keeps its saved FOV behavior.",true,64);y+=72;
         Label(250,y,690,TripleView.CenterFovStatus,true,46);y+=54;
-        Toggle(250,y,450,"Bonnet",ref cfg.Bonnet);y+=44;Toggle(250,y,450,"Bumper",ref cfg.Bumper);y+=56;
+        y=ToggleRow(y,"Bonnet",ref cfg.Bonnet);y=ToggleRow(y,"Bumper",ref cfg.Bumper);
         BindingRow(y,"Camera");y+=100;
         Label(250,y,690,"Cycle to Bonnet or Bumper to adjust the active view. Open Adjustment bindings for your saved keys or to rebind them.",true,46);y+=60;
         if(Button(250,y,694,(_lookBehind?"− ":"+ ")+"Look behind binding",_lookBehind))_lookBehind=!_lookBehind;y+=44;
@@ -529,33 +627,33 @@ internal static class Panel
         if(Advanced)
         {
             if(Button(250,y,164,"Bonnet pose",!_editBumper))_editBumper=false;if(Button(426,y,164,"Bumper pose",_editBumper))_editBumper=true;y+=48;
-            if(!_editBumper){bool fit=cfg.CameraAutoFit;Toggle(250,y,450,"Fit to car",ref cfg.CameraAutoFit);if(fit&&!cfg.CameraAutoFit)cfg.SetCameraPose(false,MountedCamera.Pose(false));y+=46;}
+            if(!_editBumper){bool fit=cfg.CameraAutoFit;y=ToggleRow(y,"Fit to car",ref cfg.CameraAutoFit);if(fit&&!cfg.CameraAutoFit)cfg.SetCameraPose(false,MountedCamera.Pose(false));}
             var pose=MountedCamera.Pose(_editBumper);float side=pose.Side,height=pose.Height,forward=pose.Forward,pitch=pose.Pitch,fov=pose.Fov;
-            Slider(y,"Side position (m)",ref side,-2,2);y+=44;Slider(y,"Height (m)",ref height,.1f,3);y+=44;Slider(y,"Forward position (m)",ref forward,-2,4);y+=44;
-            Slider(y,"Tilt down (degrees)",ref pitch,-30,30,"F1");y+=44;
-            if(TripleView.MountedFovLocked)Label(250,y,690,$"Field of view: physical rig. Lens FOV {fov:F0}° applies only to single or adjustable views.",true,42);
-            else Slider(y,"Vertical field of view (degrees)",ref fov,30,110,"F0");y+=44;
+            y=Slider(y,"Side position (m)",ref side,-2,2);y=Slider(y,"Height (m)",ref height,.1f,3);y=Slider(y,"Forward position (m)",ref forward,-2,4);
+            y=Slider(y,"Tilt down (degrees)",ref pitch,-30,30,"F1");
+            if(TripleView.MountedFovLocked){Label(250,y,690,$"Field of view: physical rig. Lens FOV {fov:F0}° applies only to single or adjustable views.",true,42);y+=48;}
+            else y=Slider(y,"Vertical field of view (degrees)",ref fov,30,110,"F0");
             var edited=new CameraPose(side,height,forward,pitch,fov);if(edited!=pose){MountedCamera.SavePose(_editBumper,edited);Dirty();}
             if(Button(250,y,260,"Reset this view")){cfg.ResetCamera(_editBumper);Dirty();}y+=46;
             Label(250,y,690,"Position moves the selected mount in meters; positive tilt looks down. FOV widens single and adjustable views; physical triples use rig geometry. Reset restores this mount's defaults.",true,58);y+=66;
-            Slider(y,"Move step per press (m)",ref cfg.CameraMoveStep,.005f,.25f,"F3");y+=44;
-            Slider(y,"Tilt step per press (°)",ref cfg.CameraTiltStep,.1f,10,"F1");y+=44;
-            Slider(y,"FOV step per press (°)",ref cfg.CameraFovStep,.5f,10,"F1");y+=44;
+            y=Slider(y,"Move step per press (m)",ref cfg.CameraMoveStep,.005f,.25f,"F3");
+            y=Slider(y,"Tilt step per press (°)",ref cfg.CameraTiltStep,.1f,10,"F1");
+            y=Slider(y,"FOV step per press (°)",ref cfg.CameraFovStep,.5f,10,"F1");
             if(Button(250,y,330,"Default steps: 0.02 m, 1°, 2°")){cfg.CameraMoveStep=CameraSteps.Default.Move;cfg.CameraTiltStep=CameraSteps.Default.Tilt;cfg.CameraFovStep=CameraSteps.Default.Fov;Dirty();}y+=46;
             Label(250,y,690,"Steps set how far each numpad press moves, tilts or zooms the active view. Smaller steps place the view more finely.",true,46);y+=54;
         }
-        Toggle(250,y,450,"Show frame rate on screen",ref cfg.ShowFrameRate);y+=44;
+        y=ToggleRow(y,"Show frame rate on screen",ref cfg.ShowFrameRate);
         Label(250,y,690,"Frame rate, last 10 s: "+FrameRate.Summary,true,42);y+=48;
         Label(250,y,690,MountedCamera.Status,true,42);End(y+50);
     }
     private static void DifficultyPage()
     {
         var cfg=Runtime.Settings;Toggle(250,152,520,"Countdown assist",ref cfg.CountdownAssistEnabled);
-        Slider(218,"Countdown speed (%)",ref cfg.CountdownSpeed,25,100,"F0");
-        Label(250,270,690,$"At {cfg.CountdownSpeed:F0}%, 60 timer seconds allow about {6000/cfg.CountdownSpeed:F0} driving seconds.",true,48);
-        if(Button(250,338,230,"Default speed: 75%")){cfg.CountdownSpeed=75;Dirty();}
-        Label(250,402,690,"Slows only the single-player time limit. Car physics, elapsed stage clocks and checkpoint bonuses keep their normal behavior. Default Off.",true,72);
-        Label(250,498,690,(cfg.CountdownAssistEnabled?CountdownTimerAssist.Status:"Off — normal countdown speed")+" · "+LeaderboardGuard.Status,true,46);End(554);
+        float y=Slider(218,"Countdown speed (%)",ref cfg.CountdownSpeed,25,100,"F0");
+        Label(250,y,690,$"At {cfg.CountdownSpeed:F0}%, 60 timer seconds allow about {6000/cfg.CountdownSpeed:F0} driving seconds.",true,48);y+=56;
+        if(Button(250,y,230,"Default speed: 75%")){cfg.CountdownSpeed=75;Dirty();}y+=48;
+        Label(250,y,690,"Slows only the single-player time limit. Car physics, elapsed stage clocks and checkpoint bonuses keep their normal behavior. Default Off.",true,72);y+=80;
+        Label(250,y,690,(cfg.CountdownAssistEnabled?CountdownTimerAssist.Status:"Off — normal countdown speed")+" · "+LeaderboardGuard.Status,true,46);End(y+56);
     }
     private static void TextPort(float y,string label,ref string text)
     { Label(250,y,370,label);var r=R(670,y-4,220,38);if(Visible(r))text=GUI.TextArea(r,text,5); }
@@ -574,7 +672,7 @@ internal static class Panel
         else if(output!=null&&output.RecordingStatus!="Disabled"){Label(250,y,690,"Recording: "+output.RecordingStatus+(output.RecordingError!=null?" — "+output.RecordingError:""),true,44);y+=52;}
         if(Advanced)
         {
-            TextPort(y,"Forza UDP port (0 = off)",ref _forza);y+=54;TextPort(y,"Detailed JSON port (0 = off)",ref _detail);y+=54;Slider(y,"Detailed stream rate (Hz)",ref _rate,1,60,"F0");_rate=(int)Math.Round(_rate);y+=50;
+            TextPort(y,"Forza UDP port (0 = off)",ref _forza);y+=54;TextPort(y,"Detailed JSON port (0 = off)",ref _detail);y+=54;y=Slider(y,"Detailed stream rate (Hz)",ref _rate,1,60,"F0");_rate=(int)Math.Round(_rate);
             if(Button(250,y,240,"Apply connection",false,ConnectionDirty))
             {
                 if(int.TryParse(_forza,out int fp)&&int.TryParse(_detail,out int dp))
@@ -596,10 +694,10 @@ internal static class Panel
         Label(250,206,690,"No controls? Turn Wheel controls On in Setup, then bind and calibrate the three required axes in Controls.",true,58);
         Label(250,280,690,"No feedback? Check On and the selected FFB device. The FFB page explains inactive output. Close settings and drive. Stop FFB / F8 remembers Off.",true,68);
         Label(250,364,690,"Camera keys? Open Cameras → Adjustment bindings. Keys affect the active Bonnet or Bumper; hold to repeat, release to stop.",true,58);
-        Slider(444,"UI scale (%)",ref Runtime.Settings.UiScale,85,150,"F0");
-        if(Button(250,492,240,"Default scale: 100%")){Runtime.Settings.UiScale=100;Dirty();}
-        if(Button(508,492,436,"Create support file (local)"))CreateSupport();
-        float y=552;
+        float y=Slider(444,"UI scale (%)",ref Runtime.Settings.UiScale,85,150,"F0");
+        if(Button(250,y,240,"Default scale: 100%")){Runtime.Settings.UiScale=100;Dirty();}
+        if(Button(508,y,436,"Create support file (local)"))CreateSupport();
+        y+=56;
         if(!Advanced){if(Button(250,y,320,"Details (Advanced)"))Navigate("Help","Advanced");y+=48;}
         else
         {

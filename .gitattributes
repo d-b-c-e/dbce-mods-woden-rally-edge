@@ -11,3 +11,14 @@ lib/toolkit/** -text -whitespace
 
 # Exact toolkit rig-lease source blob.
 vendor/playback/Stage-RigLease.ps1 -text
+
+# Exact shared UI/input/snapshot source receipts.
+components/wheel/src/WodenRallyEdge.Core/Vendor/Input/ControlBinding.cs -text -whitespace
+components/wheel/src/WodenRallyEdge.Core/Vendor/Input/BindingCapture.cs -text -whitespace
+components/wheel/src/WodenRallyEdge.Core/Vendor/Input/ControlProfileDocument.cs -text -whitespace
+components/wheel/src/WodenRallyEdge.Core/Vendor/Input/ControlProfileDraft.cs -text -whitespace
+components/wheel/src/WodenRallyEdge.Plugin/Toolkit/Input/BindingEditorContract.cs -text -whitespace
+components/wheel/src/WodenRallyEdge.Core/Toolkit/Ui/F6Style.cs -text -whitespace
+components/wheel/src/WodenRallyEdge.Core/Vendor/Input/BindingCaptureFlow.cs -text -whitespace
+components/wheel/src/WodenRallyEdge.Core/Vendor/Shim/ShimSnapshot.cs -text -whitespace
+components/wheel/src/WodenRallyEdge.Core/Vendor/Shim/ShimSnapshotFeed.cs -text -whitespace

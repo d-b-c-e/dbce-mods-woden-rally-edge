@@ -252,6 +252,7 @@ internal static class Runtime
         SpanWindow.Tick();
             MenuBorders.FrameTick(now);
             Panel.Update();
+            SharedBindingHost.Current.Update();
             CameraShortcuts.Update();
             StockWheelOwner.Update();
             Force.Prepare();

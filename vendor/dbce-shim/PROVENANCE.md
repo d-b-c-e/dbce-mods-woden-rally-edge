@@ -1,5 +1,20 @@
 # dbce_shim.dll (private build input, provisional)
 
+## October 15 source adoption in progress
+
+The source loader and explicit `PrivateShimPath` build accept the previous ABI-2
+pin below and the additive extension-3 x64 pin
+`4AF269C9F2FDBAE3CEF1A78E563C3877CB0AB820D4BE4C2579A1AD6EA25CECC5`.
+Valo's reviewed native source is
+`5591fb364464ccdd9b7287fe7697359e7f1f65ed`, merged into toolkit
+`a9af1cd2ce9047a8524b8b2a07e9b4d1fa69f705`. Native evidence is in hub
+`artifacts/native-snapshot-20261015`. This adds optional copy-only snapshots of
+the ordinary handle's accepted input tick; base ABI, frame and actions are
+unchanged. Missing snapshot exports retain ordinary input but make shared F6
+capture read-only. No DLL has been copied into the game or vendored into this
+repository by this source task. Owner Backend remains Native; new Woden source
+consumer build, package and runtime qualification are pending.
+
 The shared input shim behind its experimental C ABI 2, built from the reviewed outrun2-decomp sources (Astra 17050:
 provisional vendoring until the shim moves to the toolkit, before the baseline is called reusable).
 

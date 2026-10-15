@@ -81,7 +81,7 @@ internal static partial class ShimChecks
         var badDll=Path.Combine(dir,"bad-shim");Directory.CreateDirectory(badDll);
         Check(ShimNative.Load(badDll)!=null,"missing DLL refuses before load");
         File.WriteAllText(Path.Combine(badDll,"dbce_shim.dll"),"not the reviewed binary");
-        Check(ShimNative.Load(badDll)!.Contains("reviewed provisional"),"different binary refuses before LoadLibrary");
+        Check(ShimNative.Load(badDll)=="dbce_shim.dll differs from the reviewed ABI 2 dependency pins"&&!ShimNative.Loaded,"different binary refuses before LoadLibrary");
 #if PRIVATE_SHIM_ABI_TESTS
         Check(ShimNative.Load(AppContext.BaseDirectory)==null,"pinned native DLL exports/layout/action order match ABI 2 (no open)");
         Console.WriteLine("Private native ABI check: PASS; no native handle opened.");

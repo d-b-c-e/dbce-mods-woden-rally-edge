@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using WodenRallyEdge.Core;
+using Dbce.Wheel.Shim;
 
 namespace WodenRallyEdge;
 
@@ -42,6 +43,12 @@ internal static class ShimNative
 
     private static OpenCall? _open; private static Open2Call? _open2; private static RecordCall? _record; private static TickCall? _tick;
     private static TextCall? _startReport, _devices, _profile, _stop;
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int SnapshotSizesCall(out int header,out int device,out int sample);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int SnapshotCall(IntPtr handle,ulong sequence,
+        [In,Out] byte[] header,[Out] byte[] devices,int deviceCapacity,[Out] byte[] samples,int sampleCapacity);
+    private static SnapshotCall? _snapshot;
+    internal static bool SnapshotAvailable => _snapshot!=null;
+    internal static string SnapshotStatus {get;private set;}="Shared capture snapshot extension is unavailable; active input is unchanged.";
     internal static bool Loaded { get; private set; }
 
     /// <summary>Loads and checks the DLL in <paramref name="directory"/>; null when ready, otherwise why not.</summary>
@@ -51,9 +58,12 @@ internal static class ShimNative
         string path = Path.GetFullPath(Path.Combine(directory, "dbce_shim.dll"));
         if (!File.Exists(path)) return "dbce_shim.dll is not beside the plugin";
         using (var file = File.OpenRead(path))
-            if (!Convert.ToHexString(System.Security.Cryptography.SHA256.Create().ComputeHash(file)).Equals(
-                "9b8a036f664cf8f45cccf82b98e5e4376f93215b60eac50b6db965bf498015d8", StringComparison.OrdinalIgnoreCase))
-                return "dbce_shim.dll differs from the reviewed provisional ABI 2 pin";
+        {
+            string hash=Convert.ToHexString(System.Security.Cryptography.SHA256.Create().ComputeHash(file));
+            if(!hash.Equals("9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8",StringComparison.OrdinalIgnoreCase)&&
+               !hash.Equals("4AF269C9F2FDBAE3CEF1A78E563C3877CB0AB820D4BE4C2579A1AD6EA25CECC5",StringComparison.OrdinalIgnoreCase))
+                return "dbce_shim.dll differs from the reviewed ABI 2 dependency pins";
+        }
         IntPtr module = LoadLibraryW(path);
         if (module == IntPtr.Zero) return $"dbce_shim.dll did not load (error {Marshal.GetLastWin32Error()})";
         T? Get<T>(string name) where T : class
@@ -74,6 +84,19 @@ internal static class ShimNative
         for (int i = 0; i < ShimActionMap.Count; i++)
             if (Marshal.PtrToStringAnsi(name(i)) != ShimActionMap.Names[i]) return $"dbce_shim.dll action {i} is not '{ShimActionMap.Names[i]}'";
         if (name(ShimActionMap.Count) != IntPtr.Zero) return "dbce_shim.dll has more actions than this mod knows";
+        var snapshotAbi=Get<IntCall>("dbce_shim_snapshot_abi_version");
+        var snapshotSizes=Get<SnapshotSizesCall>("dbce_shim_snapshot_sizes");
+        var snapshot=Get<SnapshotCall>("dbce_shim_snapshot");
+        if(snapshotAbi!=null&&snapshotSizes!=null&&snapshot!=null)
+        {
+            try
+            {
+                if(snapshotSizes(out int header,out int device,out int sample)!=0)throw new InvalidDataException("Snapshot size query was refused.");
+                ShimSnapshotAbi.Validate(snapshotAbi(),header,device,sample);
+                _snapshot=snapshot;SnapshotStatus="Accepted ordinary input snapshots are available.";
+            }
+            catch(InvalidDataException ex){SnapshotStatus="Shared capture unavailable: "+ex.Message;}
+        }
         Loaded = true;
         return null;
     }
@@ -115,6 +138,15 @@ internal static class ShimNative
     }
     internal static string StartReport(IntPtr handle) => Read(_startReport!, handle);
     internal static string DeviceReports(IntPtr handle) => Read(_devices!, handle);
+    internal static int Snapshot(IntPtr handle,ulong frameSequence,out ShimSnapshot? snapshot)
+    {
+        snapshot=null;
+        if(_snapshot==null)return ShimSnapshotAbi.Refused;
+        int result=ShimSnapshot.Take((seq,header,devices,deviceCapacity,samples,sampleCapacity)=>
+            _snapshot(handle,seq,header,devices,deviceCapacity,samples,sampleCapacity),frameSequence,out snapshot);
+        if(result==ShimSnapshotAbi.Ok&&snapshot?.FrameSeq!=frameSequence)throw new InvalidDataException("Snapshot does not match the accepted input frame.");
+        return result;
+    }
     /// <summary>The profile as Core's parser read it: "key=value" lines (ok, error, profile, revision, transmission, sha256).</summary>
     internal static string ProfileInfo(IntPtr handle) => Read(_profile!, handle);
     internal static int Stop(IntPtr handle, out string report)

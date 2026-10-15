@@ -13,7 +13,7 @@
     <GetFileHash Files="$(PrivateShimPath)" Algorithm="SHA256">
       <Output TaskParameter="Hash" PropertyName="PrivateShimHash" />
     </GetFileHash>
-    <Error Condition="'$(PrivateShimHash)' != '9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8'"
+    <Error Condition="'$(PrivateShimHash)' != '9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8' and '$(PrivateShimHash)' != '4AF269C9F2FDBAE3CEF1A78E563C3877CB0AB820D4BE4C2579A1AD6EA25CECC5'"
            Text="PrivateShimPath does not match the reviewed provisional ABI 2 dependency." />
   </Target>
 </Project>
