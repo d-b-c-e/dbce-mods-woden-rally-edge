@@ -1,5 +1,15 @@
 # Toolkit standards adoption
 
+October 15 shared Controls readability continuation (source only, checks queued):
+`SharedBindingPage` reduces excess ordinary header space using the existing
+shared row gap/toolbar height, keeping the first binding and Active value in the
+initial 720p fixture viewport. Setup/opened-device guidance remains above the
+list; read-only/capture warning blocks and binding policy are retained. The
+source-linked fixture adds 720p/triple-width initial-view and capture checks.
+See `components/wheel/docs/F6-READABILITY-2026-10-15.md`. No build/run, installation
+or runtime readability evidence is claimed. STD-004 presentation evidence is
+pending; no ledger status is promoted and STD-017 remains unchecked.
+
 October 15 requested replay identity correction (source only): Run-StageSession
 now carries an explicitly supplied RequestId into the actual cold stage request
 before launch, retaining every other prepared field and checking the real ID

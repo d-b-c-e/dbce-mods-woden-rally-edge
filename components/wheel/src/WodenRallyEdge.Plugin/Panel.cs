@@ -482,15 +482,18 @@ internal static class Panel
     private static void SharedBindingPage()
     {
         var host=SharedBindingHost.Current;
+        bool editable=host.Access==SharedBindingAccess.Editable;
         float y=152;
-        Label(250,y,690,"Shared controls: "+host.ActiveSource,true,42);y+=50;
-        Label(250,y,690,"Controls setup: close the game and run Set Up Controls.bat from matching standalone Controls Setup, then restart. Wheelkit is optional. In-game binding uses devices already opened by this profile.",true,90);y+=98;
-        Label(250,y,690,host.AccessReason,true,68);y+=76;
+        // Keep the first binding/value in the initial 720p body. This stripped
+        // host uses shared metrics with rectangles rather than GUILayout widgets.
+        Label(250,y,690,"Shared controls: "+host.ActiveSource,true,42);y+=42+F6Metrics.RowGap;
+        Label(250,y,690,"Controls setup: close the game and run Set Up Controls.bat from matching standalone Controls Setup, then restart. Wheelkit is optional. In-game binding uses devices already opened by this profile.",true,54);y+=54+F6Metrics.RowGap;
+        float accessHeight=editable?42:68;
+        Label(250,y,690,host.AccessReason,true,accessHeight);y+=accessHeight+F6Metrics.RowGap;
         if(host.SavedPendingRestart){Label(250,y,690,"Bindings saved for next start. Active controls are unchanged.",true,44);y+=52;}
         if(host.HasDraft){Label(250,y,690,"Unsaved binding edits",true,28);y+=36;}
-        bool editable=host.Access==SharedBindingAccess.Editable;
         if(Button(250,y,220,"Save bindings",false,editable&&host.HasDraft&&host.CapturingAction==null))host.Save(out Message);
-        if(Button(486,y,220,"Discard changes",false,host.HasDraft))host.Discard();y+=48;
+        if(Button(486,y,220,"Discard changes",false,host.HasDraft))host.Discard();y+=F6Metrics.RowHeight+F6Metrics.RowGap;
         var devices=host.Devices;
         int selectedDevice=-1;
         if(devices.Count>0)
@@ -502,7 +505,8 @@ internal static class Panel
             if(prior!=selectedDevice&&selectedDevice>=0)_sharedDeviceGuid=devices[selectedDevice].InstanceGuid;
             if(selectedDevice<0){Label(250,y,690,"The selected capture device is unavailable. Choose a device explicitly; no substitute was selected.",true,48);y+=56;}
         }
-        Label(250,y,690,host.CapturingAction==null?host.CaptureMessage:$"Binding {host.CapturingAction} · {host.CaptureSecondsLeft:0}s · {host.CaptureMessage}",true,68);y+=76;
+        float captureHeight=editable&&host.CapturingAction==null?54:68;
+        Label(250,y,690,host.CapturingAction==null?host.CaptureMessage:$"Binding {host.CapturingAction} · {host.CaptureSecondsLeft:0}s · {host.CaptureMessage}",true,captureHeight);y+=captureHeight+F6Metrics.RowGap;
         if(host.CapturingAction!=null)
         {if(Button(250,y,220,"Cancel capture"))host.CancelCapture();End(y+48);return;}
         foreach(var row in host.Rows)

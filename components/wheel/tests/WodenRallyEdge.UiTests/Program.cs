@@ -337,8 +337,27 @@ var currentHostProperty=typeof(SharedBindingHost).GetProperty("Current",BindingF
 var retainedHost=SharedBindingHost.Current;currentHostProperty.SetValue(null,panelHost);
 try
 {
-    Panel.Toggle();Click("Controls");
-    Check(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.Contains("Set Up Controls.bat")&&c.Text.Contains("devices already opened")),"standalone setup entry and initial device limitation remain visible with an editable profile");
+    foreach(var resolution in new[]{(1280,720),(7680,1440)})
+    {
+        Screen.width=resolution.Item1;Screen.height=resolution.Item2;Runtime.Settings.UiScale=100;
+        Panel.Close(false);Panel.Toggle();Click("Controls");
+        // The sidebar Controls click does not scroll the body: check its initial viewport.
+        Check(Find("Save bindings")!=null&&Find("Discard changes")!=null&&Find("Capture device")!=null,
+            "shared binding toolbar and device selector fit initially at "+resolution);
+        var first=panelHost.Rows[0];
+        Check(Find(first.Label)!=null&&Find("Active: "+first.Active.Text)!=null,
+            "first shared binding label and active value fit initially at "+resolution);
+        Check(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.Contains("Set Up Controls.bat")&&c.Text.Contains("devices already opened")),
+            "standalone setup entry and initial device limitation remain visible at "+resolution);
+        Check(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text==panelHost.AccessReason)&&GUI.Commands.Any(c=>c.Kind=="text"&&c.Text==panelHost.CaptureMessage),
+            "draft/restart and capture guidance remain visible at "+resolution);
+        Snapshot("shared-controls-initial-"+resolution.Item1+"x"+resolution.Item2);
+    }
+    Screen.width=1280;Screen.height=720;Panel.Close(false);Panel.Toggle();Click("Controls");
+    panelHost.BeginCapture("steer",sharedInstance.ToString("D"));Draw();
+    Check(panelHost.CapturingAction=="steer"&&Find("Cancel capture")!=null&&GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.StartsWith("Binding steer")),
+        "capture instructions and Cancel retain their initial viewport space");
+    panelHost.CancelCapture();Draw();
     panelHost.SetInverted("steer",true);Click("FFB");
     Check(panelHost.HasDraft&&GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.StartsWith("Bindings unsaved")),"shared draft warning remains in fixed footer after switching to FFB");
     Click("Close");Draw();
