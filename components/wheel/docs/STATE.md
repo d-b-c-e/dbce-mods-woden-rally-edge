@@ -24,6 +24,14 @@ The owner's unchanged installed `0.2.14+24d7203e684e45b1a69ba6a6db3ba2b1d0b28179
 
 In the isolated FOV branch, Cameras exposes the existing setting as **Physical rig / Adjustable FOV**. Physical mounted views show the actual cached center projection angles, label the inactive lens control, and explain blocked FOV shortcuts without changing poses or fit. Adjustable mounted views use the active pose's FOV, including Fit to car, to recalculate all three existing off-axis frusta with one virtual eye distance. Stock chase and handoff behavior are retained. No automatic mode switch, default migration, rig-dimension change or force change is included.
 
+FOV lock clarity (toto, sana 158403; source only, not yet built or run):
+- The first locked bonnet or bumper view of a session says, once, that the rig sets the FOV and names the actual angle
+  and **F6 › Cameras › Triple FOV › Adjustable**. The player learns this before trying a key.
+- A blocked FOV key shows the same angle and path for 6 s.
+- The Advanced row that replaces the FOV slider offers one explicit **Use Adjustable FOV** button, which sets the same
+  Triple FOV choice. Simple keeps the single selector.
+- The texts come from Core `FovLockText`. Nothing changes the saved mode, a default or a pose on its own.
+
 Focused fixtures cover unchanged physical frusta, both mounts, all three adjusted projections, adjoining seam rays, chase/fallback policy, no-input preservation, inactive keys, independent mount adjustment and persistence through `MatchGameFov`. Under handoff `124477`, pinned dependencies and the actual plugin compile passed with zero warnings/errors; the focused FOV suite passed 95 assertions. The UI harness initially stopped before the new FOV checks because its helper clicked below a visible row label while the Bind control itself was clipped. The helper now scrolls until the actual Bind control is drawn. Under fresh handoff `124711`, manifest `AEE3B7AA5B87B6D42030A5ADCC89F92AB6F21A12AC8FE009AEE4EEB36D8E34E6` passed dependency verification, plugin rebuild (zero warnings/errors) and the complete source-linked UI harness (965 assertions, simulated Unity events/devices). Original and retry results are preserved in hub `artifacts/woden-fov-source-20261015/offline-r1` and `offline-r3`; retry result SHA-256 `F88474039B10A291D4169902E99EA6976DDA5BDDB4806A1598ED2666F637EDA7`. Both leases were released. **This source is uninstalled.** A later authorized muted runtime check must establish visible +/- changes in adjustable mode and unchanged physical mode; new runtime or physical qualification is not claimed.
 
 # Save-guard and gearbox candidate installed — 2026-10-14

@@ -362,6 +362,9 @@ Test("camera fit, manual tuning, bounds and key bindings survive legacy and new 
     Near(CameraTuning.Adjust(pose, "Camera wider", fine).Fov, pose.Fov + .5, "fine FOV step"); Near(new CameraSteps(0, float.NaN, 99).Bounded().Move, .005, "step bounds");
     Near(CameraTuning.Adjust(pose, "Camera pitch up").Pitch, pose.Pitch - 1, "pitch up");
     Near(CameraTuning.Adjust(pose with { Fov = 110 }, "Camera wider").Fov, 110, "FOV clamp");
+    Check(FovLockText.Angle(33.6) == "33.6° vertical" && FovLockText.Angle(null) == "the measured rig" && FovLockText.Angle(double.NaN) == "the measured rig" &&
+          FovLockText.KeyMessage(33.6).Contains(FovLockText.SwitchPath) && FovLockText.ViewHint(true, null).StartsWith("Bumper FOV is set by your rig (the measured rig"),
+          "FOV lock texts name the actual angle, fall back without one, and give the one switch");
     Near(CameraTuning.Adjust(pose with { Forward = -2 }, "Camera back").Forward, -2, "position clamp");
     string path = Path.Combine(Path.GetTempPath(), "woden-camera-bindings-" + Guid.NewGuid() + ".json");
     File.WriteAllText(path, "{\"Version\":1,\"Buttons\":{}}");

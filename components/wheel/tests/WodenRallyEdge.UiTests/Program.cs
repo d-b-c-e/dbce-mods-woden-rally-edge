@@ -201,6 +201,10 @@ var physicalMode=TripleView.Mode;var cameraKeys=Runtime.Wheel.Bindings.CameraKey
 CameraShortcuts.Update();
 Check(!TripleView.MatchGameFov&&TripleView.Mode==physicalMode&&Runtime.Settings.CameraAutoFit&&Runtime.Settings.GetCameraPose(false)==physicalBonnet&&Runtime.Settings.GetCameraPose(true)==physicalBumper,
     "no-input physical view preserves mode, fit and both saved poses");
+Check(Panel.Message==TripleView.FovLockHint(false)&&Panel.Message.Contains("33.6° vertical")&&Panel.Message.Contains(WodenRallyEdge.Core.FovLockText.SwitchPath),
+    "first locked bonnet view explains the FOV lock before a key is tried");
+Panel.Message="";CameraShortcuts.Update();
+Check(Panel.Message==""&&!TripleView.MatchGameFov,"the FOV lock hint shows once per session and changes no setting");
 foreach(var key in new[]{Key.NumpadPlus,Key.NumpadMinus})
 {
     Keyboard.current[key].isPressed=true;CameraShortcuts.Update();
@@ -209,6 +213,8 @@ foreach(var key in new[]{Key.NumpadPlus,Key.NumpadMinus})
     Draw();Check(GUI.Commands.Any(c=>c.Text==TripleView.FovLockMessage),"physical shortcut explains the inactive control");
     Keyboard.current.Clear();CameraShortcuts.Update();
 }
+Check(TripleView.FovLockMessage.Contains("33.6° vertical")&&TripleView.FovLockMessage.Contains(WodenRallyEdge.Core.FovLockText.SwitchPath),
+    "locked key message names the actual angle and the one switch");
 TripleView.MatchGameFov=true;
 Keyboard.current[Key.NumpadPlus].isPressed=true;CameraShortcuts.Update();
 Check(Math.Abs(Runtime.Settings.CameraFov-physicalBonnet.Fov-Runtime.Settings.CameraFovStep)<.0001f&&Runtime.Settings.GetCameraPose(true)==physicalBumper,
@@ -230,6 +236,14 @@ Check(!new ConfigFile(cfgPath,false).Bind("Triple","MatchGameFov",true).Value,"P
 Click("Adjustable FOV");typeof(Panel).GetMethod("Save",BindingFlags.Static|BindingFlags.NonPublic)!.Invoke(null,null);
 Check(new ConfigFile(cfgPath,false).Bind("Triple","MatchGameFov",false).Value&&TripleView.Mode==physicalMode&&Runtime.Settings.GetCameraPose(false)==adjustedBonnet&&Runtime.Settings.GetCameraPose(true)==adjustedBumper&&Runtime.Wheel.Bindings.CameraKeys.SequenceEqual(cameraKeys),
     "explicit FOV choice persists without changing poses, triple layout or saved keys");
+Click("Physical rig");Draw();
+Check(Find("Use Adjustable FOV")==null,"Simple view keeps the one Triple FOV selector, no duplicate switch");
+Click("Advanced");Reach(()=>Find("Use Adjustable FOV")!=null,"locked Advanced FOV row offers one explicit switch");
+Check(!TripleView.MatchGameFov,"the Advanced switch is offered, not applied");
+Click("Use Adjustable FOV");Draw();
+Check(TripleView.MatchGameFov&&Find("Use Adjustable FOV")==null&&TripleView.Mode==physicalMode&&Runtime.Settings.GetCameraPose(false)==adjustedBonnet&&Runtime.Settings.GetCameraPose(true)==adjustedBumper,
+    "Advanced switch selects Adjustable FOV without changing poses or triple layout");
+Click("Simple");
 TripleView.Active=false;TripleView.MatchGameFov=false;
 Runtime.Settings.SetCameraPose(false,physicalBonnet);Runtime.Settings.SetCameraPose(true,physicalBumper);Runtime.Settings.CameraAutoFit=false;
 Click("Setup");

@@ -181,7 +181,10 @@ internal static class NativeGearboxApply {internal static string Status=>"Keep: 
         internal static bool MatchGameFov {get=>_match?.Value??false;set{if(_match!=null&&_match.Value!=value)_match.Value=value;}}
         internal static bool Active;
         internal static bool MountedFovLocked=>Active&&!MatchGameFov;
-        internal const string FovLockMessage="Physical triple geometry controls FOV. Choose Adjustable FOV in F6 Cameras to zoom.";
+        // Renderer state is mocked; the lock texts are the real Core FovLockText at the fixture's center angle.
+        internal static double? CenterVerticalFov=>Active?33.6:null;
+        internal static string FovLockMessage=>WodenRallyEdge.Core.FovLockText.KeyMessage(CenterVerticalFov);
+        internal static string FovLockHint(bool bumper)=>WodenRallyEdge.Core.FovLockText.ViewHint(bumper,CenterVerticalFov);
         internal static string CenterFovStatus=>Active?"Current center view: 33.6° vertical, 56.4° horizontal.":"Center projection angles appear when three views are active.";
         internal static string Status=>"Fixture: window is not three screens wide";
     }

@@ -167,8 +167,8 @@ internal static class Panel
         _ownedPause = null;
         Runtime.Log.LogInfo("F6 panel closed");
     }
-    internal static void ShowCameraMessage(string message)
-    { Message = message; _liveMessageUntil = Runtime.Clock.Elapsed.TotalSeconds + 3; }
+    internal static void ShowCameraMessage(string message, double seconds = 3)
+    { Message = message; _liveMessageUntil = Runtime.Clock.Elapsed.TotalSeconds + seconds; }
     internal static void SettingsChanged() => Dirty();
     private static void Dirty() { _dirty = true; _saveStatus = "Saving…"; _changedAt = Runtime.Clock.Elapsed.TotalSeconds; }
     private static void Save() { try { Runtime.Settings.Save(); _dirty = false; _saveStatus = "Saved"; } catch (Exception ex) { _saveStatus = "Save failed"; Message = "Could not save settings: " + ex.Message; _changedAt = Runtime.Clock.Elapsed.TotalSeconds; } }
@@ -641,7 +641,12 @@ internal static class Panel
             var pose=MountedCamera.Pose(_editBumper);float side=pose.Side,height=pose.Height,forward=pose.Forward,pitch=pose.Pitch,fov=pose.Fov;
             y=Slider(y,"Side position (m)",ref side,-2,2);y=Slider(y,"Height (m)",ref height,.1f,3);y=Slider(y,"Forward position (m)",ref forward,-2,4);
             y=Slider(y,"Tilt down (degrees)",ref pitch,-30,30,"F1");
-            if(TripleView.MountedFovLocked){Label(250,y,690,$"Field of view: physical rig. Lens FOV {fov:F0}° applies only to single or adjustable views.",true,42);y+=48;}
+            if(TripleView.MountedFovLocked)
+            {
+                Label(250,y,690,$"Field of view: physical rig ({FovLockText.Angle(TripleView.CenterVerticalFov)}). Lens FOV {fov:F0}° applies only to single or adjustable views.",true,42);y+=48;
+                // One explicit action where the slider would be: the same Triple FOV choice as above, never automatic.
+                if(Button(250,y,330,"Use Adjustable FOV"))TripleView.MatchGameFov=true;y+=46;
+            }
             else y=Slider(y,"Vertical field of view (degrees)",ref fov,30,110,"F0");
             var edited=new CameraPose(side,height,forward,pitch,fov);if(edited!=pose){MountedCamera.SavePose(_editBumper,edited);Dirty();}
             if(Button(250,y,260,"Reset this view")){cfg.ResetCamera(_editBumper);Dirty();}y+=46;

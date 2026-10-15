@@ -34,7 +34,12 @@ internal static class TripleView
     internal static TripleMode Mode { get => _mode?.Value ?? TripleMode.Auto; set { if (_mode != null && _mode.Value != value) _mode.Value = value; } }
     internal static bool MatchGameFov { get => _matchGameFov?.Value ?? false; set { if (_matchGameFov != null && _matchGameFov.Value != value) _matchGameFov.Value = value; } }
     internal static bool MountedFovLocked => Active && !MatchGameFov;
-    internal const string FovLockMessage = "Physical triple geometry controls FOV. Choose Adjustable FOV in F6 Cameras to zoom.";
+    // Lock texts name the actual center angle (Core FovLockText); nothing here changes MatchGameFov.
+    internal static string FovLockMessage => WodenRallyEdge.Core.FovLockText.KeyMessage(CenterVerticalFov);
+    internal static string FovLockHint(bool bumper) => WodenRallyEdge.Core.FovLockText.ViewHint(bumper, CenterVerticalFov);
+    /// <summary>The center view's vertical angle in degrees, or null before three views are active.</summary>
+    internal static double? CenterVerticalFov =>
+        Active && _views is { Length: 3 } ? (Math.Atan(_views[1].Top) - Math.Atan(_views[1].Bottom)) * 180 / Math.PI : null;
     internal static string CenterFovStatus
     {
         get
