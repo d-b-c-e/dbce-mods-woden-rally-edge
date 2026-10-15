@@ -72,9 +72,10 @@ internal static class Panel
         try
         {
             bool capturing = Runtime.Wheel?.Capturing == true || SharedBindingHost.Current.CapturingAction!=null;
-            if (!capturing && !MenuOwnership.Closing && (kb != null && kb[Key.F6].wasPressedThisFrame || Runtime.Wheel?.Button("Settings panel") == true))
+            if (!capturing && (kb != null && kb[Key.F6].wasPressedThisFrame || Runtime.Wheel?.Button("Settings panel") == true))
             { SettingsKey("InputSystem / bound Settings"); }
-            if (Open && kb != null && kb[Key.Escape].wasPressedThisFrame) { if (capturing) {Runtime.Wheel?.Cancel();SharedBindingHost.Current.CancelCapture();} else if(_sharedClosePrompt)_sharedClosePrompt=false;else if (ConnectionDirty) ReadConnection(); else Toggle(); }
+            if (Open && kb != null && kb[Key.Escape].wasPressedThisFrame) { if(MenuOwnership.Closing)CancelPendingClose();else if (capturing) {Runtime.Wheel?.Cancel();SharedBindingHost.Current.CancelCapture();} else if(_sharedClosePrompt)_sharedClosePrompt=false;else if (ConnectionDirty) ReadConnection(); else Toggle(); }
+            if (Open && MenuOwnership.Closing && Runtime.Wheel?.Button("Back") == true) CancelPendingClose();
             if (!Open && Runtime.Wheel?.Button("Pause") == true && Runtime.Local != null)
             {
                 var pause = Runtime.Local.MyControls?.PauseScript;
@@ -117,12 +118,14 @@ internal static class Panel
     }
     private static void SettingsKey(string source)
     {
-        if (!Runtime.Focused || Runtime.Wheel?.Capturing == true || MenuOwnership.Closing || _settingsFrame == Time.frameCount) return;
+        if (!Runtime.Focused || Runtime.Wheel?.Capturing == true || _settingsFrame == Time.frameCount) return;
         _settingsFrame = Time.frameCount; HotkeyStatus = "Settings input observed: " + source;
+        if (MenuOwnership.Closing) { CancelPendingClose(); return; }
         Runtime.Log.LogInfo(HotkeyStatus); Toggle();
     }
     internal static void MenuAction(string action)
     {
+        if (action == "Back" && MenuOwnership.Closing) { CancelPendingClose(); return; }
         if (action == "Back") { if (Runtime.Wheel?.Capturing == true || SharedBindingHost.Current.CapturingAction!=null) {Runtime.Wheel?.Cancel();SharedBindingHost.Current.CancelCapture();} else if(_sharedClosePrompt)_sharedClosePrompt=false;else if (ConnectionDirty) ReadConnection(); else Close(true); return; }
         if (action == "Confirm") _menuConfirm = true;
         if (action == "Menu up") _menuMove--;
@@ -132,6 +135,7 @@ internal static class Panel
     }
     internal static void Toggle()
     {
+        if (Open && MenuOwnership.Closing) { CancelPendingClose(); return; }
         if (Open) { if (Editing) { Message = SettingsPresentation.EditLock; return; } Close(true); return; }
         Open = true; Runtime.Force?.Suspend("Settings open");
         MenuOwnership.Begin();
@@ -150,8 +154,13 @@ internal static class Panel
     internal static void Close(bool resume)
     {
         if(resume&&Open&&SharedBindingHost.Current.HasDraft){if(!_sharedClosePrompt){_sharedClosePrompt=true;_focus=-1;}return;}
-        if (resume && Open) { MenuOwnership.RequestClose(); return; }
+        if (resume && Open) { if(!MenuOwnership.Closing)_focus=-1;MenuOwnership.RequestClose(); return; }
         CompleteClose(resume);
+    }
+    private static void CancelPendingClose()
+    {
+        MenuOwnership.CancelClose(); _focus=0; _menuConfirm=false; _menuMove=_menuStep=0;
+        GUIUtility.keyboardControl=0; Message="Close canceled. Settings remain open.";
     }
     internal static void CompleteClose(bool resume)
     {
@@ -270,6 +279,8 @@ internal static class Panel
         // IMGUI is already this game's supported keyboard route for text and
         // focus. Accept its F6 event too, deduplicating the InputSystem edge.
         var hotkey = Event.current;
+        if (Open && MenuOwnership.Closing && hotkey.type == EventType.KeyDown && hotkey.keyCode == KeyCode.Escape)
+        { CancelPendingClose(); hotkey.Use(); }
         if (hotkey.keyCode == KeyCode.F6)
         {
             if (hotkey.type == EventType.KeyUp) _imguiSettingsHeld = false;
@@ -305,11 +316,12 @@ internal static class Panel
             Label(585,24,60,"View:");
             if(Button(648,18,124,"Simple",!Advanced,!Editing))Navigate(Runtime.Settings.UiPage,"Simple");
             if(Button(780,18,174,"Advanced",Advanced,!Editing))Navigate(Runtime.Settings.UiPage,"Advanced");
-            Label(24,64,925,Editing?SettingsPresentation.EditLock:"F6 close · F8 stops FFB · Tab / Enter to navigate · "+_saveStatus,true);
+            Label(24,64,925,MenuOwnership.Closing?"Waiting to close · Escape / F6 / Back cancels":Editing?SettingsPresentation.EditLock:"F6 close · F8 stops FFB · Tab / Enter to navigate · "+_saveStatus,true);
             int row=0; foreach(string page in SettingsPresentation.Pages(Runtime.Settings.UiView))
                 if(Button(16,112+row++*44,188,page,Runtime.Settings.UiPage==page,!Editing))Navigate(page);
             if(Button(16,_height-108,188,"Stop FFB")) { try { Runtime.Force?.Panic(); } catch(Exception ex) { Message="Save failed: "+ex.Message; } }
-            if(Button(16,_height-64,188,"Close",false,!Editing))Close(true);
+            if(Button(16,_height-64,188,MenuOwnership.Closing?"Cancel close":"Close",false,!Editing||MenuOwnership.Closing))
+            { if(MenuOwnership.Closing)CancelPendingClose();else Close(true); }
             if(_sharedClosePrompt)
             {
                 if(_focus<0)_focus=_ordinal+1; // Keep editing is the first close-intent default.
@@ -318,7 +330,14 @@ internal static class Panel
                 if(Button(546,260,280,"Keep editing"))_sharedClosePrompt=false;
                 _count=_ordinal;return;
             }
-            if(MenuOwnership.Closing) { Label(250,170,680,Message,true,90); if(Button(250,280,240,"Keep settings open"))MenuOwnership.CancelClose(); return; }
+            if(MenuOwnership.Closing)
+            {
+                if(_focus<0)_focus=_ordinal;
+                Label(250,170,680,Message,true,110);
+                if(Button(250,300,280,"Keep settings open"))CancelPendingClose();
+                _count=_ordinal;_focus=Math.Clamp(_focus,0,Math.Max(0,_count-1));_menuStep=0;
+                return;
+            }
             Label(250,112,680,Runtime.Settings.UiPage);
             _body=true;
             switch(Runtime.Settings.UiPage)
