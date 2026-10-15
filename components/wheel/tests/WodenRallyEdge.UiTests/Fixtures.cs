@@ -175,8 +175,14 @@ internal static class NativeGearboxApply {internal static string Status=>"Keep: 
     internal static class TripleView
     {
         private static BepInEx.Configuration.ConfigEntry<TripleMode> _mode=null!;
-        internal static void Bind(BepInEx.Configuration.ConfigFile cfg)=>_mode=cfg.Bind("Triple","Mode",TripleMode.Auto);
+        private static BepInEx.Configuration.ConfigEntry<bool> _match=null!;
+        internal static void Bind(BepInEx.Configuration.ConfigFile cfg){_mode=cfg.Bind("Triple","Mode",TripleMode.Auto);_match=cfg.Bind("Triple","MatchGameFov",false);}
         internal static TripleMode Mode {get=>_mode?.Value??TripleMode.Auto;set{if(_mode!=null&&_mode.Value!=value)_mode.Value=value;}}
+        internal static bool MatchGameFov {get=>_match?.Value??false;set{if(_match!=null&&_match.Value!=value)_match.Value=value;}}
+        internal static bool Active;
+        internal static bool MountedFovLocked=>Active&&!MatchGameFov;
+        internal const string FovLockMessage="Physical triple geometry controls FOV. Choose Adjustable FOV in F6 Cameras to zoom.";
+        internal static string CenterFovStatus=>Active?"Current center view: 33.6° vertical, 56.4° horizontal.":"Center projection angles appear when three views are active.";
         internal static string Status=>"Fixture: window is not three screens wide";
     }
     internal static class SpanWindow

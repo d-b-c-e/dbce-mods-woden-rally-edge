@@ -33,9 +33,13 @@ void Click(string label,int index=0)
 }
 void BindAction(string label)
 {
-    Draw();for(int i=0;Find(label)==null&&i<20;i++)Click("Down");var row=Find(label)!;Check(row!=null,"Binding row "+label);
-    // Production row's Bind control is 44 logical units below its action label.
-    float scale=Screen.width>=3000?1.5f:1;Draw(new(){type=EventType.MouseDown,mousePosition=new(row!.Rect.x+25,row.Rect.y+54*scale)});Draw();
+    // A visible action label does not imply its lower Bind control fits the viewport.
+    // Scroll until the actual control is drawn, then click that control.
+    float scale=Math.Min((Screen.width-32f)/980,(Screen.width>=3000?1.5f:1)*Runtime.Settings.UiScale/100);
+    DrawCommand? Control(){var row=Find(label);return row==null?null:GUI.Commands.FirstOrDefault(c=>c.Kind=="text"&&c.Text=="Bind"&&Math.Abs(c.Rect.x-row.Rect.x-8*scale)<1&&Math.Abs(c.Rect.y-row.Rect.y-49*scale)<1);}
+    Draw();var bind=Control();for(int i=0;bind==null&&i<25;i++){Click("Down");bind=Control();}
+    Check(bind!=null,"Visible binding control: "+label);
+    Draw(new(){type=EventType.MouseDown,mousePosition=new(bind!.Rect.x+10,bind.Rect.y+12)});Draw();
 }
 var stock=new GamePadSystem();
 void StockFrame(){MenuOwnership.BeforeStock(stock);foreach(var pad in stock.Game_Pads)MenuOwnership.AfterRead(pad);MenuOwnership.AfterStock(stock);}
@@ -129,8 +133,47 @@ Keyboard.current.Clear();CameraShortcuts.Update();Keyboard.current[Key.Numpad9].
 Check(Math.Abs(Runtime.Settings.CameraHeight-previousPose.Height-Runtime.Settings.CameraMoveStep)<.0001f&&Runtime.Settings.GetCameraPose(true)==previousBumper,"actual shortcut moves only active mount");
 Draw();Check(GUI.Commands.Any(c=>c.Text.StartsWith("Bonnet:")),"live camera adjustment reports active mount and value");
 Runtime.Focused=false;CameraShortcuts.Update();Runtime.Focused=true;var afterTap=Runtime.Settings.GetCameraPose(false);CameraShortcuts.Update();Check(Runtime.Settings.GetCameraPose(false)==afterTap,"focus return cannot repeat a held shortcut");Keyboard.current.Clear();CameraShortcuts.Update();
-Panel.Toggle();
-string cfgPath=Path.Combine(dir,"settings.cfg");File.Move(cfgPath,cfgPath+".previous");Directory.CreateDirectory(cfgPath);
+// Actual shortcut and panel sources; only native renderer state is mocked here.
+TripleView.Active=true;TripleView.MatchGameFov=false;
+Runtime.Settings.CameraAutoFit=true;
+var physicalBonnet=Runtime.Settings.GetCameraPose(false);var physicalBumper=Runtime.Settings.GetCameraPose(true);
+var physicalMode=TripleView.Mode;var cameraKeys=Runtime.Wheel.Bindings.CameraKeys.ToDictionary();
+CameraShortcuts.Update();
+Check(!TripleView.MatchGameFov&&TripleView.Mode==physicalMode&&Runtime.Settings.CameraAutoFit&&Runtime.Settings.GetCameraPose(false)==physicalBonnet&&Runtime.Settings.GetCameraPose(true)==physicalBumper,
+    "no-input physical view preserves mode, fit and both saved poses");
+foreach(var key in new[]{Key.NumpadPlus,Key.NumpadMinus})
+{
+    Keyboard.current[key].isPressed=true;CameraShortcuts.Update();
+    Check(Runtime.Settings.CameraAutoFit&&Runtime.Settings.GetCameraPose(false)==physicalBonnet&&Runtime.Settings.GetCameraPose(true)==physicalBumper,
+        "physical FOV shortcut cannot save an unused lens or disable fit");
+    Draw();Check(GUI.Commands.Any(c=>c.Text==TripleView.FovLockMessage),"physical shortcut explains the inactive control");
+    Keyboard.current.Clear();CameraShortcuts.Update();
+}
+TripleView.MatchGameFov=true;
+Keyboard.current[Key.NumpadPlus].isPressed=true;CameraShortcuts.Update();
+Check(Math.Abs(Runtime.Settings.CameraFov-physicalBonnet.Fov-Runtime.Settings.CameraFovStep)<.0001f&&Runtime.Settings.GetCameraPose(true)==physicalBumper,
+    "adjustable bonnet shortcut changes only its saved lens");
+var adjustedBonnet=Runtime.Settings.GetCameraPose(false);
+Keyboard.current.Clear();CameraShortcuts.Update();MountedCamera.Cycle.Advance(true,true);
+Keyboard.current[Key.NumpadPlus].isPressed=true;CameraShortcuts.Update();
+Check(Math.Abs(Runtime.Settings.GetCameraPose(true).Fov-physicalBumper.Fov-Runtime.Settings.CameraFovStep)<.0001f&&Runtime.Settings.GetCameraPose(false)==adjustedBonnet,
+    "adjustable bumper shortcut changes only its saved lens");
+Keyboard.current.Clear();CameraShortcuts.Update();MountedCamera.Cycle.Handoff();MountedCamera.Cycle.StockChanged(4,0,true,true);
+var adjustedBumper=Runtime.Settings.GetCameraPose(true);
+Panel.Toggle();Click("Cameras");Draw();
+Check(TripleView.MatchGameFov&&TripleView.Mode==physicalMode&&Runtime.Settings.GetCameraPose(false)==adjustedBonnet&&Runtime.Settings.GetCameraPose(true)==adjustedBumper,
+    "drawing Cameras preserves explicit mode and poses");
+Click("Physical rig");
+typeof(Panel).GetMethod("Save",BindingFlags.Static|BindingFlags.NonPublic)!.Invoke(null,null);
+string cfgPath=Path.Combine(dir,"settings.cfg");
+Check(!new ConfigFile(cfgPath,false).Bind("Triple","MatchGameFov",true).Value,"Physical rig persists through the existing key");
+Click("Adjustable FOV");typeof(Panel).GetMethod("Save",BindingFlags.Static|BindingFlags.NonPublic)!.Invoke(null,null);
+Check(new ConfigFile(cfgPath,false).Bind("Triple","MatchGameFov",false).Value&&TripleView.Mode==physicalMode&&Runtime.Settings.GetCameraPose(false)==adjustedBonnet&&Runtime.Settings.GetCameraPose(true)==adjustedBumper&&Runtime.Wheel.Bindings.CameraKeys.SequenceEqual(cameraKeys),
+    "explicit FOV choice persists without changing poses, triple layout or saved keys");
+TripleView.Active=false;TripleView.MatchGameFov=false;
+Runtime.Settings.SetCameraPose(false,physicalBonnet);Runtime.Settings.SetCameraPose(true,physicalBumper);Runtime.Settings.CameraAutoFit=false;
+Click("Setup");
+File.Move(cfgPath,cfgPath+".previous");Directory.CreateDirectory(cfgPath);
 Panel.SettingsChanged();typeof(Panel).GetMethod("Save",BindingFlags.Static|BindingFlags.NonPublic)!.Invoke(null,null);Draw();Check(GUI.Commands.Any(c=>c.Text.Contains("Save failed")),"write failure stays visible in Simple/Advanced footer");Directory.Delete(cfgPath);File.Move(cfgPath+".previous",cfgPath);
 File.WriteAllText(Path.Combine(dir,"broken-bindings.json"),"broken");var broken=new WheelInput(Path.Combine(dir,"broken-bindings.json"));Check(broken.SaveError?.Contains("could not load")==true,"binding load failure remains visible instead of disappearing into a readiness bar");
 // Binding persistence failures must preserve both live mapping and provisional edit.

@@ -1,4 +1,5 @@
 using System;
+using WodenRallyEdge.Core;
 
 namespace WodenRallyEdge;
 
@@ -42,6 +43,18 @@ internal static class TripleGeometry
     /// <summary>Eye distance at which the center panel spans the given vertical field of view.</summary>
     public static double EyeDistanceForVerticalFov(double panelHeight, double verticalFovDegrees) =>
         panelHeight / 2 / Math.Tan(verticalFovDegrees * Math.PI / 360);
+
+    /// <summary>Keep physical dimensions authoritative unless the saved FOV mode requests an adjustable lens.
+    /// A mounted view uses its owned saved pose, not a Camera.fieldOfView value affected by physical/custom projections.
+    /// A missing mounted pose (handoff/replay/foreign camera) retains the game camera's lens behavior.</summary>
+    public static double EyeDistanceForView(double panelHeight, double physicalEyeDistance, bool matchGameFov,
+        bool chaseUsesGameFov, MountedView view, double gameFov, double? ownedMountedFov)
+    {
+        if (!matchGameFov && !(chaseUsesGameFov && view == MountedView.Stock)) return physicalEyeDistance;
+        double fov = view != MountedView.Stock && ownedMountedFov.HasValue ? ownedMountedFov.Value : gameFov;
+        return double.IsFinite(fov) && fov > 0 && fov < 180
+            ? EyeDistanceForVerticalFov(panelHeight, fov) : physicalEyeDistance;
+    }
 
     // pa lower-left, pb lower-right, pc upper-left, all relative to the eye.
     private static PanelFrustum Panel(V3 pa, V3 pb, V3 pc)

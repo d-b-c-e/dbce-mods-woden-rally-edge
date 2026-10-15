@@ -1,5 +1,7 @@
 # Toolkit standards adoption
 
+October 15 FOV correction: the existing `Triple.MatchGameFov` key is exposed as **Physical rig / Adjustable FOV** in Cameras. Physical mounted views retain measured geometry and report their effective center angles; inactive FOV shortcuts do not save unused values or disable bonnet fit. Adjustable mounted views derive all three existing off-axis projections from the active pose, including Fit to car, avoiding feedback from the game camera's FOV. Stock chase behavior, rig dimensions, defaults, poses and custom keys are preserved. Pinned offline plugin compile passed with zero warnings/errors; the focused geometry/seam suite passed 95 assertions. After correcting the fixture helper to target the visible Bind control, the full source-linked UI harness passed 965 assertions. Evidence: hub `artifacts/woden-fov-source-20261015/offline-r1` and `offline-r3`. No install or runtime qualification is claimed. STD-005/006 remain adopted from the earlier evidence below; this correction has not yet earned runtime evidence.
+
 October 14 15:21 CT current install: the private `24d7203` save-guard/gearbox candidate is installed under revision-5 receipt `D50B71A2` with 23/23 payloads, `nativeGearboxPreference=true`, saved Native default, Gearbox at start Keep and the tune unchanged. Wheelkit 0.6.42 now offers Gearbox at start for it. Hub `artifacts/woden-private-owner-install-24d7203-20261014/README.md`.
 
 October 13 19:17 CT previous install: the optional private-shim `f252debc` package is installed under revision-5 receipt `3041965C` with 23/23 payloads and saved Native default/tune unchanged. This makes the capability available privately but does not opt in Shim input or qualify FFB-open coexistence. STD-029 remains partial; STD-037 remains pending schema-2 end-to-end adoption. See `components/wheel/docs/STATE.md` and hub `artifacts/woden-private-owner-install-20261013/README.md`.
@@ -86,8 +88,8 @@ Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 | STD-002 | Recording and playback from launch | n/a | Superseded by STD-012. |
 | STD-003 | Normalized FFB strength | partial | Original analysis model and offline strength/cap trials validated; 25% cap occupied 46.46% of valid intervals. Physical normalization and defaults remain pending. See docs/FFB-COMPARISON.md. |
 | STD-004 | Consistent settings UX | adopted | F6 Simple/Advanced |
-| STD-005 | Camera numpad layout 8/2 9/3 4/6 7/1 +/- 5 | adopted | 580a907, retained in merged source 83b72d9 |
-| STD-006 | Camera step sizes are settings | adopted | 2e32e46, retained in merged source 83b72d9 |
+| STD-005 | Camera numpad layout 8/2 9/3 4/6 7/1 +/- 5 | adopted | 580a907, retained in merged source 83b72d9; October 15 FOV mode correction preserves saved keys, UI harness 965 assertions passed; new runtime pending |
+| STD-006 | Camera step sizes are settings | adopted | 2e32e46, retained in merged source 83b72d9; October 15 physical mode labels inactive FOV, adjustable mode retains saved steps; geometry 95/UI 965 assertions passed; new runtime pending |
 | STD-007 | Triple screens in one wide window | adopted | Owner drove the earlier triple build under Surround 2026-10-04; October 6 combined Kenya playback passed all 3,601 poses at 7680x1440 on separate monitors, frames 01/03 inspected by Claude and Codex with bonnet across three views and centre HUD. |
 | STD-008 | Display changes: game applies once | adopted | 0b0f844 DesktopResolution and feb875b index repair, retained in 83b72d9 |
 | STD-009 | Dashboard telemetry matches the HUD | adopted | 0b0f844 retained in 83b72d9; owner dashboard RPM/gear confirmation remains separate |

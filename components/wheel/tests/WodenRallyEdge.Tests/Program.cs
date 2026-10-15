@@ -373,6 +373,62 @@ Test("camera fit, manual tuning, bounds and key bindings survive legacy and new 
     Check(restored.Buttons["Camera down"].Button == 5, "wheel camera shortcut persists");
     File.Delete(path); File.Delete(path + ".bak");
 });
+Test("triple FOV policy preserves physical geometry and coherently follows mounted lenses", () => {
+    const double width = 708.4, height = 398.5, physicalEye = 660;
+    var baseline = WodenRallyEdge.TripleGeometry.Compute(width, height, physicalEye, 70, 8);
+    double Eye(bool match, bool chase, MountedView view, double game, double? mounted) =>
+        WodenRallyEdge.TripleGeometry.EyeDistanceForView(height, physicalEye, match, chase, view, game, mounted);
+    foreach (var view in new[] { MountedView.Bonnet, MountedView.Bumper })
+    {
+        foreach (double lens in new[] { 30d, 110d })
+        foreach (double game in new[] { 45d, 100d })
+        {
+            double eye = Eye(false, true, view, game, lens);
+            Near(eye, physicalEye, "physical eye remains measured");
+            Check(WodenRallyEdge.TripleGeometry.Compute(width, height, eye, 70, 8).SequenceEqual(baseline),
+                "physical mode keeps all three original frusta");
+        }
+        WodenRallyEdge.PanelFrustum[]? previous = null;
+        foreach (double lens in new[] { 50d, 80d })
+        {
+            double eye = Eye(true, true, view, 45, lens);
+            Near(Eye(true, true, view, 100, lens), eye, "saved mounted lens avoids game-field feedback");
+            var views = WodenRallyEdge.TripleGeometry.Compute(width, height, eye, 70, 0);
+            Near((Math.Atan(views[1].Top) - Math.Atan(views[1].Bottom)) * 180 / Math.PI,
+                lens, "center vertical angle follows saved mounted lens");
+            for (int i = 0; i < 3; i++)
+            {
+                Near(views[i].YawDegrees, (i - 1) * 70, "panel yaw retained");
+                if (previous != null) Check(views[i].Left != previous[i].Left && views[i].Top != previous[i].Top,
+                    "lens adjustment recalculates each projection");
+            }
+            // Zero-bezel adjoining corners must represent the same world-space ray.
+            (double X, double Y, double Z) Ray(WodenRallyEdge.PanelFrustum panel, double x, double y)
+            {
+                double angle = panel.YawDegrees * Math.PI / 180;
+                double rx = Math.Cos(angle) * x + Math.Sin(angle), rz = -Math.Sin(angle) * x + Math.Cos(angle);
+                double length = Math.Sqrt(rx * rx + y * y + rz * rz);
+                return (rx / length, y / length, rz / length);
+            }
+            void SameRay((double X, double Y, double Z) a, (double X, double Y, double Z) b)
+            { Near(a.X, b.X, "seam ray x", 1e-9); Near(a.Y, b.Y, "seam ray y", 1e-9); Near(a.Z, b.Z, "seam ray z", 1e-9); }
+            foreach (bool top in new[] { false, true })
+            {
+                SameRay(Ray(views[1], views[1].Right, top ? views[1].Top : views[1].Bottom),
+                    Ray(views[2], views[2].Left, top ? views[2].Top : views[2].Bottom));
+                SameRay(Ray(views[1], views[1].Left, top ? views[1].Top : views[1].Bottom),
+                    Ray(views[0], views[0].Right, top ? views[0].Top : views[0].Bottom));
+            }
+            previous = views;
+        }
+    }
+    double gameEye = WodenRallyEdge.TripleGeometry.EyeDistanceForVerticalFov(height, 45);
+    Near(Eye(false, true, MountedView.Stock, 45, 80), gameEye, "stock chase retains game lens");
+    Near(Eye(false, false, MountedView.Stock, 45, 80), physicalEye, "stock physical override retained");
+    Near(Eye(true, false, MountedView.Stock, 45, 80), gameEye, "adjustable stock uses game lens");
+    Near(Eye(true, true, MountedView.Bonnet, 45, null), gameEye, "unowned mount retains game fallback");
+    Near(Eye(true, true, MountedView.Bumper, 45, double.NaN), physicalEye, "invalid lens safely keeps measured eye");
+});
 Test("real settings migrate untouched bonnet defaults and preserve custom camera/FFB choices", () => {
     string path = Path.Combine(Path.GetTempPath(), "woden-camera-config-" + Guid.NewGuid() + ".cfg");
     var fresh = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(path, false));

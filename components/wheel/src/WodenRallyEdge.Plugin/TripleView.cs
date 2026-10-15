@@ -32,6 +32,20 @@ internal static class TripleView
     internal static bool Allowed => _mode != null && _mode.Value != TripleMode.Off;
     /// <summary>The saved views setting (F6 Cameras selector, STD-022).</summary>
     internal static TripleMode Mode { get => _mode?.Value ?? TripleMode.Auto; set { if (_mode != null && _mode.Value != value) _mode.Value = value; } }
+    internal static bool MatchGameFov { get => _matchGameFov?.Value ?? false; set { if (_matchGameFov != null && _matchGameFov.Value != value) _matchGameFov.Value = value; } }
+    internal static bool MountedFovLocked => Active && !MatchGameFov;
+    internal const string FovLockMessage = "Physical triple geometry controls FOV. Choose Adjustable FOV in F6 Cameras to zoom.";
+    internal static string CenterFovStatus
+    {
+        get
+        {
+            if (!Active || _views is not { Length: 3 }) return "Center projection angles appear when three views are active.";
+            var center = _views[1];
+            double vertical = (Math.Atan(center.Top) - Math.Atan(center.Bottom)) * 180 / Math.PI;
+            double horizontal = (Math.Atan(center.Right) - Math.Atan(center.Left)) * 180 / Math.PI;
+            return FormattableString.Invariant($"Current center view: {vertical:0.0}° vertical, {horizontal:0.0}° horizontal.");
+        }
+    }
     private static ConfigEntry<string> _toggleKey = null!;
     private static ConfigEntry<bool> _centerHud = null!, _matchGameFov = null!, _chaseGameFov = null!;
     private static ConfigEntry<float> _panelWidth = null!, _panelHeight = null!, _eye = null!, _sideAngle = null!, _bezel = null!;
@@ -56,8 +70,8 @@ internal static class TripleView
         _mode = cfg.Bind("Triple", "Mode", TripleMode.Auto, "Auto turns the three views on when the window is three screens wide (Surround or a borderless span); On forces them; Off keeps the stock single view.");
         _toggleKey = cfg.Bind("Triple", "ToggleKey", "F11", "Keyboard key that switches the three views on and off in game (Input System key name; None to disable).");
         _centerHud = cfg.Bind("Triple", "CenterHud", true, "Draw the game's HUD and menus on the center screen.");
-        _matchGameFov = cfg.Bind("Triple", "MatchGameFov", false, "Use the game's field of view on the center screen in every camera, instead of the physical eye distance.");
-        _chaseGameFov = cfg.Bind("Triple", "ChaseUsesGameFov", true, "Use the game's field of view in the stock chase cameras; bonnet and bumper views stay physical.");
+        _matchGameFov = cfg.Bind("Triple", "MatchGameFov", false, "Adjustable FOV: derive all three projections from the active bonnet/bumper lens or stock game lens, using a virtual eye distance. False keeps the measured rig geometry for mounted views.");
+        _chaseGameFov = cfg.Bind("Triple", "ChaseUsesGameFov", true, "Use the game's field of view in stock chase cameras even in Physical rig mode; mounted views follow MatchGameFov.");
         _panelWidth = cfg.Bind("Triple", "PanelWidthMm", 708.4f, "Visible width of one screen, millimetres (32\" 16:9 is about 708).");
         _panelHeight = cfg.Bind("Triple", "PanelHeightMm", 398.5f, "Visible height of one screen, millimetres.");
         _eye = cfg.Bind("Triple", "EyeDistanceMm", 660f, "Distance from your eyes to the center screen, millimetres.");
@@ -111,7 +125,9 @@ internal static class TripleView
                 return;
             }
             if (_source != null && _source.Pointer != cam.Pointer) Stop("player camera changed");
-            Apply(cam);
+            float? mountedFov = car.IsPlayer && MountedCamera.PlayerOwned && MountedCamera.Cycle.View != WodenRallyEdge.Core.MountedView.Stock
+                ? MountedCamera.Pose(MountedCamera.Cycle.View == WodenRallyEdge.Core.MountedView.Bumper).Fov : null;
+            Apply(cam, mountedFov);
         }
         catch (Exception ex)
         {
@@ -121,7 +137,7 @@ internal static class TripleView
         }
     }
 
-    private static void Apply(Camera source)
+    private static void Apply(Camera source, float? ownedMountedFov)
     {
         if (_source == null)
         {
@@ -135,7 +151,7 @@ internal static class TripleView
             if (!_loggedScene) { _loggedScene = true; LogCameras(source); }
         }
 
-        var views = Views(source.fieldOfView);
+        var views = Views(source.fieldOfView, ownedMountedFov);
         float near = source.nearClipPlane, far = source.farClipPlane;
         var t = source.transform;
 
@@ -164,10 +180,10 @@ internal static class TripleView
         }
     }
 
-    private static PanelFrustum[] Views(float gameFov)
+    private static PanelFrustum[] Views(float gameFov, float? ownedMountedFov)
     {
-        bool useGameFov = _matchGameFov.Value || _chaseGameFov.Value && MountedCamera.Cycle.View == WodenRallyEdge.Core.MountedView.Stock;
-        double eye = useGameFov ? TripleGeometry.EyeDistanceForVerticalFov(_panelHeight.Value, gameFov) : _eye.Value;
+        double eye = TripleGeometry.EyeDistanceForView(_panelHeight.Value, _eye.Value, MatchGameFov,
+            _chaseGameFov.Value, MountedCamera.Cycle.View, gameFov, ownedMountedFov);
         string key = $"{_panelWidth.Value}|{_panelHeight.Value}|{eye:0.###}|{_sideAngle.Value}|{_bezel.Value}";
         if (_views == null || key != _viewsKey)
         {

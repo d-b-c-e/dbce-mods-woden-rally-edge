@@ -501,6 +501,12 @@ internal static class Panel
             { var picked=TripleLayoutChoice.Apply(i); TripleView.Mode=picked.Off?TripleMode.Off:TripleView.Mode==TripleMode.On?TripleMode.On:TripleMode.Auto; SpanWindow.Enabled=picked.Span; layout=i; Dirty(); }
         y+=48;
         Label(250,y,690,layout==0?"Single view. Window size changes at the next game start. Status: "+TripleView.Status:layout==1?"Three views on Surround. Window layout applies at the next game start. Status: "+TripleView.Status:"One borderless window across three side-by-side monitors, applied at the next game start. Span: "+SpanWindow.Status+"; views: "+TripleView.Status,true,46);y+=56;
+        Label(250,y+6,170,"Triple FOV");
+        if(Button(426,y,200,"Physical rig",!TripleView.MatchGameFov)&&TripleView.MatchGameFov){TripleView.MatchGameFov=false;Dirty();}
+        if(Button(638,y,306,"Adjustable FOV",TripleView.MatchGameFov)&&!TripleView.MatchGameFov){TripleView.MatchGameFov=true;Dirty();}
+        y+=48;
+        Label(250,y,690,TripleView.MatchGameFov?"Bonnet and bumper use the active view lens, including Fit to car. All three views are recalculated together using a virtual eye distance; your measured rig is kept.":"Bonnet and bumper use the measured rig geometry. Their FOV keys and slider are inactive while triples are on; stock chase keeps its saved FOV behavior.",true,64);y+=72;
+        Label(250,y,690,TripleView.CenterFovStatus,true,46);y+=54;
         Toggle(250,y,450,"Bonnet",ref cfg.Bonnet);y+=44;Toggle(250,y,450,"Bumper",ref cfg.Bumper);y+=56;
         BindingRow(y,"Camera");y+=100;
         Label(250,y,690,"Cycle to Bonnet or Bumper to adjust the active view. Open Adjustment bindings for your saved keys or to rebind them.",true,46);y+=60;
@@ -526,10 +532,12 @@ internal static class Panel
             if(!_editBumper){bool fit=cfg.CameraAutoFit;Toggle(250,y,450,"Fit to car",ref cfg.CameraAutoFit);if(fit&&!cfg.CameraAutoFit)cfg.SetCameraPose(false,MountedCamera.Pose(false));y+=46;}
             var pose=MountedCamera.Pose(_editBumper);float side=pose.Side,height=pose.Height,forward=pose.Forward,pitch=pose.Pitch,fov=pose.Fov;
             Slider(y,"Side position (m)",ref side,-2,2);y+=44;Slider(y,"Height (m)",ref height,.1f,3);y+=44;Slider(y,"Forward position (m)",ref forward,-2,4);y+=44;
-            Slider(y,"Tilt down (degrees)",ref pitch,-30,30,"F1");y+=44;Slider(y,"Field of view (degrees)",ref fov,30,110,"F0");y+=44;
+            Slider(y,"Tilt down (degrees)",ref pitch,-30,30,"F1");y+=44;
+            if(TripleView.MountedFovLocked)Label(250,y,690,$"Field of view: physical rig. Lens FOV {fov:F0}° applies only to single or adjustable views.",true,42);
+            else Slider(y,"Vertical field of view (degrees)",ref fov,30,110,"F0");y+=44;
             var edited=new CameraPose(side,height,forward,pitch,fov);if(edited!=pose){MountedCamera.SavePose(_editBumper,edited);Dirty();}
             if(Button(250,y,260,"Reset this view")){cfg.ResetCamera(_editBumper);Dirty();}y+=46;
-            Label(250,y,690,"Position moves the selected mount in metres; positive tilt looks down. FOV widens the image. Reset restores this mount's defaults.",true,58);y+=66;
+            Label(250,y,690,"Position moves the selected mount in meters; positive tilt looks down. FOV widens single and adjustable views; physical triples use rig geometry. Reset restores this mount's defaults.",true,58);y+=66;
             Slider(y,"Move step per press (m)",ref cfg.CameraMoveStep,.005f,.25f,"F3");y+=44;
             Slider(y,"Tilt step per press (°)",ref cfg.CameraTiltStep,.1f,10,"F1");y+=44;
             Slider(y,"FOV step per press (°)",ref cfg.CameraFovStep,.5f,10,"F1");y+=44;
