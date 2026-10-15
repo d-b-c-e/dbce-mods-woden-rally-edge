@@ -51,8 +51,27 @@ default Enter focus, InputSystem/IMGUI cancellation, direct/bound Back, sidebar
 mouse recovery, Advanced-to-Simple without closing, and retained neutral timing
 and EventSystem ownership. No new device reader or game hook was added.
 
-Source syntax/diff checks only for this checkpoint. No compilation, semantic
-binding, fixture execution, rendered UI, install or runtime result is claimed.
-The owner later returned the rig; execution still needs the coordinator's
-assigned shared lease/build slot. Owner recovery via the old mouse action was
-not tested because Woden had already closed.
+Source checkpoint `f61da7b38afd95ea0bee5bdc7daacfbbb89ce2e8` passed root review
+163681. After owner rig handback and grant 163544 / predecessor closure 163675,
+one leased batch passed UI compilation, **33 focused close/release assertions**
+and production Plugin/Core compilation, both builds with zero warnings/errors.
+No older UI/physics/force baseline was repeated. Four C# files also parsed with
+zero syntax errors before execution.
+
+Retained outputs are version `0.2.16+f61da7b38afd95ea0bee5bdc7daacfbbb89ce2e8`:
+
+- Plugin: `F51301F01B52155B0D12DFD1C6D674BD88835817379EEB37BDEFC2D70BE8F7D6`.
+- Core: `A9BD59926163F37A62242E208A8822801DF725B5FC4E16D867068087B08D0EAF`.
+
+Hub `artifacts/woden-close-release-uat-20261015/checks-01` holds original logs
+and result `F5288D00DE8356B2C4898E134A0151B8BFFA9E07AF980E64A8EFC3C07C786EFE`.
+Independent exit `74C494FF5BCA1B8CB4B92CADEACC0BC12EB64D7C901094D84A2C404A5E860FBC`
+confirmed all 11 original process identities absent, scope zero, actual shared
+lease absent and output hashes exact before analysis. Successful outputs remain
+available for packaging without rebuilding.
+
+No game, device/native/force run, owner config write, install or rendered UI
+acceptance occurred. Owner recovery via the old mouse action was untested
+because Woden had already closed. The separate camera-center hint and shared
+Help/report component are not part of these compiled bytes. No-drive diagnosis
+and an attended combined runtime observation remain separate gates.
