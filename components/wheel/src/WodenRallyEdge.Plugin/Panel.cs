@@ -724,7 +724,7 @@ internal static partial class Panel
     }
     private static void HelpPage()
     {
-        Label(250,152,690,"Woden Rally Edge Wheel "+Plugin.Version+" · development candidate");
+        Label(250,152,690,"Woden Rally Edge Wheel "+ReportVersion+" · development candidate",true,48);
         float y=ReportHelp(206);
         Label(250,y,690,"No controls? Turn Wheel controls On in Setup, then bind and calibrate the three required axes in Controls.",true,58);y+=74;
         Label(250,y,690,"No feedback? Check On and the selected FFB device. The FFB page explains inactive output. Close settings and drive. Stop FFB / F8 remembers Off.",true,68);y+=84;

@@ -7,7 +7,8 @@ run, packaged or installed and does not hold the imminent input diagnosis.
 Help begins with **Submit GitHub Issue**, **Mod on GitHub** and
 **Wheelkit on GitHub**. The packaged descriptor targets
 `d-b-c-e/dbce-mods-woden-rally-edge` and `d-b-c-e/dbce-wheelkit`, using
-`Plugin.Version`. No runtime git discovery occurs.
+the loaded assembly informational version, with `Plugin.Version` as fallback.
+No runtime git discovery occurs.
 
 The report form uses the existing stripped renderer's Button, Label and
 TextArea primitives. It gathers a title/description and an optional, default-off
@@ -25,7 +26,8 @@ transmits the reviewed prefilled query text but creates no issue.
 For a long report, that action writes one sanitized snapshot to a new
 `BepInEx/WodenSupport/report-<id>/support-report.txt` and offers **Open report
 folder**. The issue already contains a useful description/setup before the
-player attaches that single file. Attaching uploads immediately; final issue
+player attaches that single file. Its actual local path is shown for recovery
+if the folder opener fails. Attaching uploads immediately; final issue
 submission stays in GitHub. No auth/token/network client is added to the mod.
 The generic shell opener accepts only HTTPS github.com URLs produced from
 validated packaged metadata or the shared browser draft.
@@ -36,6 +38,8 @@ Woden reuses that common result and compiles its own host. Focused host fixture
 source `--help-report-only` covers the three actions, default-off log selection,
 redacted title, stale-preview/review invalidation, no settings dirtying and
 preparation failure, without opening a browser or exporting files.
+Preview pages expose the full content without requiring a traversal before
+confirmation; no log content is silently truncated from the prepared snapshot.
 
 Source syntax and project XML checks only for this checkpoint. Actual host
 compilation/fixture execution and rendered review/scrolling remain pending.

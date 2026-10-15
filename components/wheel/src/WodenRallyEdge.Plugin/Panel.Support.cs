@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Text;
 using Dbce.Wheel.Support;
 using UnityEngine;
@@ -8,7 +9,8 @@ namespace WodenRallyEdge;
 // Host UI and packaged metadata only. Shared source owns reading/redaction/drafts.
 internal static partial class Panel
 {
-    private static readonly ReportProduct ReportProduct = new("Super Woden Rally Edge",Plugin.Version,"d-b-c-e/dbce-mods-woden-rally-edge");
+    private static string ReportVersion => typeof(Plugin).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? Plugin.Version;
+    private static readonly ReportProduct ReportProduct = new("Super Woden Rally Edge",ReportVersion,"d-b-c-e/dbce-mods-woden-rally-edge");
     private static bool _reportOpen, _reportIncludeLog, _reportReviewed;
     private static string _reportTitle="", _reportDescription="", _reportStatus="Logs are optional. Review the report before opening GitHub.";
     private static string? _reportFile;
@@ -26,7 +28,7 @@ internal static partial class Panel
         if(Button(718,y,226,"Wheelkit on GitHub"))OpenReportUrl(ReportProduct.WheelkitPage);
         y+=50;
         if(!_reportOpen)return y;
-        Label(250,y,694,"Describe the problem. Redaction is a best effort; check every preview page before sharing.",true,48);y+=58;
+        Label(250,y,694,"Describe the problem. Redaction is a best effort; review the text before sharing.",true,48);y+=58;
         Label(250,y,694,"Issue title");y+=32;
         ReportText(y,38,ref _reportTitle,200);y+=48;
         Label(250,y,694,"What happened, and what did you expect?");y+=32;
@@ -54,6 +56,7 @@ internal static partial class Panel
             y+=48;
         }
         Label(250,y,694,_reportStatus,true,80);y+=92;
+        if(_reportFile!=null){Label(250,y,694,"Local report: "+_reportFile,true,80);y+=92;}
         return y;
     }
 
@@ -73,7 +76,7 @@ internal static partial class Panel
             string[] selected=_reportIncludeLog?new[]{Path.Combine(BepInEx.Paths.BepInExRootPath,"LogOutput.log")}:Array.Empty<string>();
             _reportPrepared=SupportReport.Prepare(ReportProduct,_reportTitle,_reportDescription,selected);
             _reportPages=ReportPreviewPages(_reportPrepared.Preview);
-            _reportStatus="Review every page, then confirm. Nothing has been sent.";
+            _reportStatus="Review the report, then confirm. Pages show the complete text; nothing has been sent.";
         }
         catch(Exception ex) when(ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or System.Text.RegularExpressions.RegexMatchTimeoutException)
         { InvalidateReport();_reportStatus="Could not prepare the report. Check the title, description and selected text log, then review again."; }
