@@ -22,7 +22,7 @@ $playbackPayloadNames = @('WodenFullSession.ps1','ReplayEnvironment.ps1','Stage-
 $payloadNames = @($revision4PayloadNames + $playbackPayloadNames)
 $shimPath = 'BepInEx\plugins\WodenRallyEdgeWheel\dbce_shim.dll'
 $capabilityPath = 'private-shim-capability.json'
-$privateShimHash = '9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8'
+$reviewedPrivateShimHashes = @('9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8','4AF269C9F2FDBAE3CEF1A78E563C3877CB0AB820D4BE4C2579A1AD6EA25CECC5')
 $basePaths = @($payloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
 $revision4BasePaths = @($revision4PayloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
 $legacyBasePaths = @($legacyPayloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
@@ -85,7 +85,8 @@ function Expected-Candidate($Entries) {
     foreach ($name in 'WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','WheelFfb.dll','dbce_shim.dll') {
         if (-not $hashes.ContainsKey(('BepInEx\plugins\WodenRallyEdgeWheel\' + $name).ToLowerInvariant())) { throw "Private capability lacks owned payload: $name" }
     }
-    if ($hashes[$shimPath.ToLowerInvariant()] -ne $privateShimHash.ToLowerInvariant()) { throw 'Private shim payload does not match the reviewed ABI 2 pin.' }
+    $privateShimHash = $hashes[$shimPath.ToLowerInvariant()]
+    if ($privateShimHash -notin $reviewedPrivateShimHashes) { throw 'Private shim payload does not match the reviewed ABI 2 pins.' }
     $unsupported = [ordered]@{}
     foreach ($action in 'clutch','select','gear7','gear8') { $unsupported[$action] = 'not delivered by Woden wheel-only shim pilot' }
     $conditions = [ordered]@{ shiftUp='Transmission=Sequential;NativeGearbox=Manual'; shiftDown='Transmission=Sequential;NativeGearbox=Manual' }

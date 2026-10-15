@@ -1,8 +1,8 @@
 {
-  "note": "Optional private controls setup helper, packaged unmodified under Extras/ModSetup only with Package.ps1 -PrivateShimPath -PrivateStandaloneSetup. Never installed into the game. Wheelkit 59d26b1 (0.6.40 plus helper commits 9a7946f and 59d26b1): reads catalog @6 and writes [Input] NativeGearbox only for a receipt declaring nativeGearboxPreference. Package-tested by Wheelkit Test-StandaloneSetupPackage on synthetic Woden installs, 2026-10-14 (hub artifacts/wheelkit-helper-59d26b1-20261014); the Woden gate is Test-StandaloneSetupExtras with this ZIP.",
-  "zip": "StandaloneModSetup-private-59d26b1d7218-win-x64.zip",
-  "zipSha256": "d5bab3462959d435568e7859e84c1fd2854be4b50b53fed11715607848992e95",
-  "sourceCommit": "59d26b1d7218c6b384e9cca978f4261b72acc4d7",
-  "bundleManifestSha256": "bf53d66aa8b56e6f7876adb1e9e397be2cd3b60665ff4d9fe9e266f3a3a10ade",
+  "note": "Optional private controls setup helper, packaged unmodified under Extras/ModSetup only with Package.ps1 -PrivateShimPath -PrivateStandaloneSetup. Never installed into the game. Combined Wheelkit helper 44f7adb includes Woden installed shared-profile import/preservation and exact reviewed 9B8/4AF compatibility. Hera qualified 124 focused Core cases and this exact ZIP with hidden synthetic GUI/CLI checks, 2026-10-15 (hub artifacts/shared-helper-44f7adb-20261015/run-01). Woden final package/extras and real installed-profile Preview/Apply are separate pending gates; this pin alone does not establish them.",
+  "zip": "StandaloneModSetup-private-44f7adbe5b81-win-x64.zip",
+  "zipSha256": "d188c949b6d96dafaf669d0350382ec9f73704757618e38f6f751a30e6fd982f",
+  "sourceCommit": "44f7adbe5b816f402de1433a1eb6a2db428edcac",
+  "bundleManifestSha256": "b3dd30066bc1c2da89d51ea4b75ecf3fea5d0384073a45686062586c427d4009",
   "files": 527
 }
