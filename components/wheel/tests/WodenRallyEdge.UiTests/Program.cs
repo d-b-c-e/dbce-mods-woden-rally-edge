@@ -22,6 +22,12 @@ if(args.SequenceEqual(new[]{"--binding-save-status-only"}))
     Console.WriteLine($"PASS {checks} focused source-linked Woden binding Save status checks; no game/device/native module.");
     return;
 }
+if(args.SequenceEqual(new[]{"--close-release-only"}))
+{
+    CloseReleaseChecks.Run(dir,Check);
+    Console.WriteLine($"PASS {checks} focused source-linked Woden close/release checks; no game/device/native module.");
+    return;
+}
 if(args.Length>0)throw new ArgumentException("Unknown fixture mode; refusing the full baseline.");
 Screen.width=7680;Screen.height=1440;GUI.Commands.Clear();Event.current.type=EventType.Repaint;
 var hudColor=GUI.color;var hudEnabled=GUI.enabled;var hudMatrix=GUI.matrix;
