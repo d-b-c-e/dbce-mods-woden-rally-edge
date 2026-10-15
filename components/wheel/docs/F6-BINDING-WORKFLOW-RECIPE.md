@@ -1,12 +1,20 @@
 # Private F6 binding workflow preparation
 
-Status: **source preparation only; new seam and guidance are unbuilt/unrun**.
-Qualified base `f703484f4a629012af3033b5191713691eb56fff` retains its actual
-plugin 0-warning/0-error build and R8 UI 5,249-assertion pass. The separate
-guidance change is `a135912863354d81851356aae76d20f052a9745b`, reviewed by Lola
-130360. Affected offline checks and a new final payload freeze precede runtime.
-The matching standalone helper's compatibility guard must match that final
-payload before delivery; this preparation does not claim a bundled download.
+Status: **offline-qualified; one launch attempt blocked before process admission**.
+Runtime source `09ea11e` passed plugin/probe zero-warning/error build, UI 5,250,
+workflow 31 and saved-profile 11 checks. The one assigned attempt (runtime-01)
+ended at Steam Cloud `SynchronizingCloud/syncfailed` before any game process,
+probe identity, view/binding command or checked Save. Exact owner restoration
+and lease release passed; no prompt/settings change or retry occurred. The
+sequence below is retained for a future separately assigned slot after the
+external condition clears, not an executed binding or visual result.
+
+Separate package producer `1248371` includes the qualified matching helper
+`44f7adb`; exact private ZIP `9BF0AC5B...` passed final manifest/member checks,
+40 disposable installer checks and 15 helper-extras checks using test-only
+successor `27708b3`. Package binaries differ from the runtime tuple below;
+no owner install, publication or in-game acceptance is claimed. Full hashes
+and retained failures: hub `artifacts/woden-f6-runtime-prep-20261015`.
 
 ## Existing route and limits
 
@@ -45,13 +53,16 @@ created; Begin/Cancel observations cannot establish physical binding delivery.
 | Existing profile | Hub `artifacts/woden-f6-runtime-prep-20261015/accepted-controls-source.ini`, exact current DRIVE profile bytes, SHA `F34F7EF757855B1EF7806E045F237FF9AE3A4929AEC4343EFA7ECBF198E6B97E`, schema 1. No Apply or regeneration. |
 | Explicit device | Existing profile MOZA instance `d71b8350-61b7-11f1-8001-444553540000`; it must still be in fresh observations or Begin refuses. |
 
-The future candidate directory is this worktree's plugin Release/net6.0 output
-with the reviewed shim copied by its existing exact-pin build target. The new
-plugin/Core/probe hashes are **pending the affected build**, not the old base
-hashes. The final runtime command must include `-ProbeSha256` from that result,
-all paths above, `-ShimF6Workflow`, `-NativeProvenancePath`, a new result path
-`E:/Source/dbce-project-mgmt/artifacts/woden-f6-runtime-prep-20261015/runtime-01`
-and `-Seconds 180`. No runtime handoff exists yet.
+The frozen runtime tuple is retained in hub `qualified-bin-r2`:
+Plugin `B91BD2247827F578118E5E64E952B422422C3AAC5ACB329DAC87C02E89D63EFF`,
+Core `FA5EE13C593D8BA81322AA0399B71A0230DBAA646059284C05EC9EF09D94843D`,
+Probe `AB6F998C0EC2FB388653CE74D856C91A895D22EFF4D20BBB2C30C27B7FC8331D`.
+The reviewed command is `runtime-plan-r1.json`, SHA256
+`2AB6FA8C883F96BC86F83C6ACF8AAF493E5C9F708124605B8B6F9519F9FD512B`.
+Its one attempt used `-ShimF6Workflow`, exact native/provenance/profile/probe
+pins and `-Seconds 180`. Preserve runtime-01 as the failed launch evidence;
+a future separately assigned slot needs a new result directory and unchanged
+actual focus/native safeguards. Do not launch again from this recipe alone.
 
 ## One bounded supervised sequence
 
