@@ -765,6 +765,30 @@ Test("diagnostic launch is bounded, consumed once and rejects expired requests",
     Check(rejected && !File.Exists(path), "unsafe case identity rejected and consumed");
     foreach (string file in Directory.GetFiles(Path.GetDirectoryName(path)!, Path.GetFileName(path) + ".consumed-*")) File.Delete(file);
 });
+Test("native observation launch requires bounded automated no-force identity", () => {
+    string path = Path.Combine(Path.GetTempPath(), "woden-native-observation-" + Guid.NewGuid().ToString("N") + ".json");
+    DateTimeOffset now = DateTimeOffset.UtcNow;
+    var valid = new DiagnosticLaunch(2, Guid.NewGuid(), now.AddMinutes(4), true, "native-observation:baseline", "automated", Path.GetTempPath(), 10);
+    try
+    {
+        File.WriteAllText(path, JsonSerializer.Serialize(valid));
+        Check(DiagnosticLaunch.Consume(path, now) == valid, "explicit bounded observation request accepted unchanged");
+        foreach (var invalid in new[] { valid with { DisableForces = false }, valid with { InputOrigin = "human" },
+            valid with { NativeObservationSource = "relative" }, valid with { NativeObservationSeconds = 0 },
+            valid with { NativeObservationSeconds = 16 }, valid with { ExpiresUtc = now.AddMinutes(6) },
+            valid with { Version = 1 }, valid with { NativeObservationSource = null } })
+        {
+            File.WriteAllText(path, JsonSerializer.Serialize(invalid));
+            bool refused = false; try { DiagnosticLaunch.Consume(path, now); } catch (IOException) { refused = true; }
+            Check(refused && !File.Exists(path), "unsafe/incomplete observation request refused and consumed");
+        }
+    }
+    finally
+    {
+        if (File.Exists(path)) File.Delete(path);
+        foreach (string file in Directory.GetFiles(Path.GetDirectoryName(path)!, Path.GetFileName(path) + ".consumed-*")) File.Delete(file);
+    }
+});
 Test("recorded driving reruns actual ForceSignal into a bound observation case", () => {
     string directory = Path.Combine(Path.GetTempPath(), "woden-reprocess-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
     try

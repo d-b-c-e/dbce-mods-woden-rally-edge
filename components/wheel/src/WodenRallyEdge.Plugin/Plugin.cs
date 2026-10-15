@@ -129,6 +129,8 @@ internal static class Runtime
         DiagnosticNoForce = File.Exists(requestPath);
         try { _recordLaunch = DiagnosticLaunch.Consume(requestPath, DateTimeOffset.UtcNow); DiagnosticNoForce = _recordLaunch?.DisableForces == true; }
         catch (Exception ex) { Log.LogError("Diagnostic launch rejected; force suppressed for this run: " + ex.Message); }
+        if (_recordLaunch?.NativeObservationSource != null && Settings.TelemetryEnabled)
+            throw new IOException("Native observation requires network delivery disabled before startup");
         if (_recordLaunch != null) Log.LogInfo($"Diagnostic launch {_recordLaunch.Id}; physical FFB suppressed={DiagnosticNoForce}");
         StagePlayback.Initialize();
         ApplyOutputs();
@@ -149,6 +151,7 @@ internal static class Runtime
         catch (Exception ex) { Log.LogError("Wheel route unavailable; telemetry remains enabled: " + ex.Message); }
         ShimInput.Start(directory, Paths.ConfigPath, Path.Combine(Paths.BepInExRootPath, "WodenShim"));
         Activity.BeginRuntime(); // Publish callback availability only after initialization.
+        NativeObservation.Begin(_recordLaunch);
     }
     internal static void ApplyOutputs()
     {
@@ -244,6 +247,7 @@ internal static class Runtime
         try
         {
             StagePlayback.Update(now);
+            NativeObservation.Tick(now);
             NativeGearboxApply.FrameTick();
             RecordingControl?.Tick();
             InputPolling.OncePerFrame();
@@ -330,6 +334,7 @@ internal static class CarHook
             TimingDiagnostics.ForceMs = Runtime.Clock.Elapsed.TotalMilliseconds - started;
             TimingDiagnostics.Record(sample);
             Runtime.Output?.Publish(sample);
+            NativeObservation.Observe(__instance, sample);
         }
         catch (Exception ex) { Runtime.Force.Suspend("Sample failed"); if (Runtime.LocalTicks % 100 == 1) Runtime.Log.LogError("Sample failed: " + ex); }
     }

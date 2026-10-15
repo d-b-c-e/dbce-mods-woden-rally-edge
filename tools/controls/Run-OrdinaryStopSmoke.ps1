@@ -12,6 +12,8 @@ param(
     [Parameter(Mandatory)][string]$RigLeaseToken,
     [guid]$RequestId = [guid]::NewGuid(),
     [ValidateRange(1,10)][int]$MenuDwellSeconds = 2,
+    [string]$NativeObservationSource,
+    [ValidateRange(5,15)][int]$NativeObservationSeconds = 10,
     [ValidateRange(30,300)][int]$StartupTimeoutSeconds = 180
 )
 $ErrorActionPreference = 'Stop'
@@ -58,6 +60,9 @@ function Start-Companion([string]$Script,[string]$OutputRoot,[guid]$Id) {
     $start.RedirectStandardOutput = $true
     $start.RedirectStandardError = $true
     foreach ($arg in @('-NoProfile','-File',$Script,'-GameDir',$GameDir,'-RequestId',$Id.ToString(),'-CaseId',('woden-menu-smoke-' + $Id.ToString('N')),'-StartupTimeoutSeconds',$StartupTimeoutSeconds.ToString(),'-SessionTimeoutMinutes','5')) { [void]$start.ArgumentList.Add($arg) }
+    if ($NativeObservationSource) {
+        foreach ($arg in @('-InputOrigin','automated','-NativeObservationSource',$NativeObservationSource,'-NativeObservationSeconds',$NativeObservationSeconds.ToString())) { [void]$start.ArgumentList.Add($arg) }
+    }
     $child = [Diagnostics.Process]::Start($start)
     if ($null -eq $child) { throw 'Installed companion did not start.' }
     $stdout = $child.StandardOutput.ReadToEndAsync()
@@ -111,6 +116,11 @@ foreach ($path in @($PackageRoot,$NativeCandidatePath,$NativeProvenancePath,$Gam
 if (Test-Path -LiteralPath $Result) { throw 'Result must be a new directory.' }
 if (Test-Path -LiteralPath $recording) { throw 'RequestId recording directory already exists.' }
 if (Test-Path -LiteralPath $requestPath) { throw 'A one-shot ordinary recording request already exists.' }
+if ($NativeObservationSource) {
+    $NativeObservationSource = [IO.Path]::GetFullPath($NativeObservationSource)
+    Assert-ControlPlain $NativeObservationSource
+    if (!(Test-Path -LiteralPath (Join-Path $NativeObservationSource 'complete.tsv') -PathType Leaf)) { throw 'Sealed native observation reference required.' }
+}
 Closed
 Pin $receiptPath $OriginalReceiptSha256
 Pin $manifestPath $PackageManifestSha256
@@ -209,10 +219,13 @@ try {
         $request = Get-Content -LiteralPath $requestPath -Raw | ConvertFrom-Json
         if ($request.Id -ne $RequestId.ToString() -or $request.DisableForces -ne $true) { throw 'One-shot request did not demand force disablement.' }
     }
-    Start-Sleep -Seconds $MenuDwellSeconds
-    & pwsh -NoProfile -File $companionPath -GameDir $GameDir -Stop -RequestId $RequestId *> (Join-Path $Result 'stop.log')
-    if ($LASTEXITCODE -ne 0) { throw "Installed request-bound Stop refused: $LASTEXITCODE" }
-    $deadline = [DateTime]::UtcNow.AddSeconds(20)
+    if (!$NativeObservationSource) {
+        Start-Sleep -Seconds $MenuDwellSeconds
+        & pwsh -NoProfile -File $companionPath -GameDir $GameDir -Stop -RequestId $RequestId *> (Join-Path $Result 'stop.log')
+        if ($LASTEXITCODE -ne 0) { throw "Installed request-bound Stop refused: $LASTEXITCODE" }
+    }
+    # Native observation owns its bounded first-reader interval and Stop/normal exit; never inject raw driving here.
+    $deadline = [DateTime]::UtcNow.AddSeconds($(if ($NativeObservationSource) { 210 } else { 20 }))
     do {
         $status = Status $statusPath
         if ($status -and $status.id -ceq $idText -and $status.status -ceq 'Completed' -and $status.active -ceq 'False') { break }
@@ -228,20 +241,29 @@ try {
         if ($footer.footer.counts.$count -ne 0) { throw "Original source footer reports $count." }
     }
     if ($footer.footer.counts.acceptedSamples -le 0) { throw 'Menu-only source has no samples.' }
-    $driving = 0
+    $driving = 0; $nativeSamples = 0
     foreach ($line in [IO.File]::ReadLines($source)) {
         if ($line -notmatch '"kind":"sample"') { continue }
         $sample = $line | ConvertFrom-Json
         if ($sample.sample.channels.'sample.driving' -eq 1) { $driving++ }
+        $names = @($sample.sample.channels.PSObject.Properties.Name)
+        if (@('wheelRaw.throttle','wheelRaw.brake','wheelRaw.handbrake','wheelInput.throttle','wheelInput.brake','wheelInput.handbrake','controls.throttle','controls.brake','game.throttle','game.brake','game.handbrake' | Where-Object { $_ -notin $names }).Count -eq 0) { $nativeSamples++ }
     }
-    if ($driving -ne 0) { throw 'Menu-only source unexpectedly contains driving samples.' }
+    if (!$NativeObservationSource -and $driving -ne 0) { throw 'Menu-only source unexpectedly contains driving samples.' }
+    if ($NativeObservationSource -and $nativeSamples -lt 10) { throw 'Native observation lacks original aligned raw/normalized/delivered samples.' }
     $sourceHash = Get-ControlHash $source
     $exit = Save-Companion $child
     $companionOutput = (Get-Content -LiteralPath (Join-Path $Result 'companion.stdout.txt') -Raw) +
         (Get-Content -LiteralPath (Join-Path $Result 'companion.stderr.txt') -Raw)
-    Assert-OrdinaryNoDrivingRefusal $exit $companionOutput
+    if (!$NativeObservationSource) { Assert-OrdinaryNoDrivingRefusal $exit $companionOutput }
     $notice = Get-Content -LiteralPath (Join-Path $recording 'control/finalization.json') -Raw | ConvertFrom-Json
-    if ($notice.RequestId -ne $RequestId.ToString() -or $notice.State -cne 'incomplete' -or !$notice.Error -or
+    if ($NativeObservationSource) {
+        if ($notice.RequestId -ne $RequestId.ToString() -or $notice.State -notin @('saved','incomplete') -or
+            (Get-ControlHash $source) -ne $sourceHash -or ($exit -eq 0) -ne ($notice.State -ceq 'saved')) { throw 'Native source finalization identity differs.' }
+        $logText = [IO.File]::ReadAllText($files.log)
+        if ($logText -notmatch 'Native observation phase=ended; captured-current-reader;' -or $logText -match 'Native observation phase=ended; (unavailable|refused):') { throw 'Native observation did not complete its first-reader interval.' }
+        Copy-ControlExact $files.log (Join-Path $Result 'native-observation.log') (Get-ControlHash $files.log)
+    } elseif ($notice.RequestId -ne $RequestId.ToString() -or $notice.State -cne 'incomplete' -or !$notice.Error -or
         (Get-ControlHash $source) -ne $sourceHash -or (Test-Path -LiteralPath (Join-Path $recording 'case.json')) -or
         (Test-Path -LiteralPath (Join-Path $recording 'force-observation.jsonl'))) { throw 'Menu-only no-driving finalization differs.' }
     Start-Sleep -Seconds 5
@@ -256,7 +278,7 @@ try {
         if ($hash -eq 'absent') { throw "Original recording evidence missing: $name" }
         Copy-ControlExact $from (Get-ControlChild $archive $name) $hash
     }
-    [ordered]@{schema=1;result='menu-only-incomplete';requestId=$RequestId;sourceSha256=$sourceHash;companionExit=$exit;gamePid=$pidValue;gameStartUtcTicks=$ticks} |
+    [ordered]@{schema=1;result=$(if ($NativeObservationSource) { 'native-current-reader' } else { 'menu-only-incomplete' });nativeSamples=$nativeSamples;syntheticDriving=$false;requestId=$RequestId;sourceSha256=$sourceHash;companionExit=$exit;gamePid=$pidValue;gameStartUtcTicks=$ticks} |
         ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Result 'smoke-result.json')
 } catch {
     $errorText = $_.Exception.Message
@@ -284,4 +306,4 @@ try {
 }
 if (!$restored) { throw "Owner restoration not verified; retain caller-owned lease and inspect $Result. Run error: $errorText" }
 if ($errorText) { throw "Smoke failed after verified restoration: $errorText" }
-Write-Host "Menu-only ordinary Stop smoke passed; owner state restored. Evidence: $Result"
+Write-Host "Ordinary diagnostic completed; owner state restored. Evidence: $Result"

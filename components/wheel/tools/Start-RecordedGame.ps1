@@ -4,6 +4,8 @@ param(
     [switch]$AttendedFfb,
     [ValidateSet('human','automated')][string]$InputOrigin,
     [switch]$PrepareOnly,
+    [string]$NativeObservationSource,
+    [ValidateRange(5,15)][int]$NativeObservationSeconds = 10,
     [switch]$Stop,
     [guid]$RequestId = [guid]::Empty,
     [ValidateRange(15,600)][int]$StartupTimeoutSeconds = 180,
@@ -54,7 +56,7 @@ function Write-Finalization([string]$ControlRoot, [guid]$Id, [string]$State, [st
     } finally { if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp } }
 }
 if ($Stop) {
-    if ($RequestId -eq [guid]::Empty -or $PrepareOnly -or $AttendedFfb -or $CaseId -or $PSBoundParameters.ContainsKey('InputOrigin')) { throw 'Stop requires only an exact RequestId.' }
+    if ($RequestId -eq [guid]::Empty -or $PrepareOnly -or $AttendedFfb -or $CaseId -or $NativeObservationSource -or $PSBoundParameters.ContainsKey('InputOrigin')) { throw 'Stop requires only an exact RequestId.' }
     $captureDirectory = Join-Path $gameRoot ('BepInEx/WodenRecordings/request-' + $RequestId.ToString('N'))
     $controlRoot = Join-Path $captureDirectory 'control'
     $status = Read-ControlStatus (Join-Path $controlRoot 'status.txt')
@@ -83,6 +85,14 @@ $captureDirectory = Join-Path $gameRoot ('BepInEx/WodenRecordings/request-' + $r
 if (Test-Path -LiteralPath $captureDirectory) { throw "Recording request directory already exists: $captureDirectory" }
 $request = [ordered]@{ Version = 2; Id = $requestId.ToString(); ExpiresUtc = [DateTimeOffset]::UtcNow.AddMinutes(15).ToString('o'); DisableForces = !$AttendedFfb; CaseId = $CaseId }
 if ($PSBoundParameters.ContainsKey('InputOrigin')) { $request.InputOrigin = $InputOrigin }
+if ($NativeObservationSource) {
+    if ($AttendedFfb -or $InputOrigin -cne 'automated') { throw 'Native observation requires automated origin and suppressed force.' }
+    $reference = (Resolve-Path -LiteralPath $NativeObservationSource -ErrorAction Stop).Path
+    if (!(Test-Path -LiteralPath (Join-Path $reference 'stage-context.json') -PathType Leaf)) { throw 'Native observation requires the sealed stage reference.' }
+    $request.NativeObservationSource = $reference
+    $request.NativeObservationSeconds = $NativeObservationSeconds
+    $request.ExpiresUtc = [DateTimeOffset]::UtcNow.AddMinutes(5).ToString('o')
+}
 $request | ConvertTo-Json | Set-Content -LiteralPath $requestPath -Encoding utf8
 Write-Host "Capture requested for one launch: $($request.Id). Expires in 15 minutes."
 Write-Host "Case: $CaseId (signal reprocessing; not deterministic game-driving replay)."
