@@ -453,11 +453,11 @@ internal static partial class Panel
             if(!input.EditingDeadzone)Toggle(250,354,390,"Invert calibration",ref input.CaptureInvert);
             else Label(250,354,690,"Inversion: "+(b?.Inverted==true?"On":"Off")+" (unchanged)",true);
             float end;
-            if(input.EditingDeadzone&&input.SavePending) { Label(250,396,690,$"Deadzone {input.CaptureDeadzone:F2}% · waiting for Retry save or Cancel",true);end=442; }
+            if(input.EditingDeadzone&&input.SavePending) { Label(250,396,690,"Deadzone "+input.CaptureDeadzone.ToString("0.##",CultureInfo.InvariantCulture)+"% · waiting for Retry save or Cancel",true);end=442; }
             else
             {
                 float before=input.CaptureDeadzone;
-                end=Slider(396,"Deadzone (%)",ref input.CaptureDeadzone,0,25,"F0",save:false);
+                end=Slider(396,"Deadzone (%)",ref input.CaptureDeadzone,0,25,"0.##",save:false);
                 if(input.CaptureDeadzone!=before)input.DeadzoneEdited();
             }
             Label(250,end,690,b==null?input.Capture?.Status??"Saved calibration unavailable":$"Endpoints {b.Calibration.Rest} → {b.Calibration.End}"+(b.Calibration.Centre is int c?$" · center {c}":""),true,28);
@@ -491,7 +491,7 @@ internal static partial class Panel
             if(Button(362,y+60,142,"Calibrate",false,b!=null))input.BeginAxis(name,true);
             if(Button(516,y+60,100,"Clear",false,b!=null)) { input.TryCommit(proposed => proposed.SetAxis(name,null)); }
             if(Button(638,y+60,142,"Deadzone",false,b?.Valid==true)) { input.BeginDeadzone(name);_scroll=0;_focus=0; }
-            if(b!=null)Label(790,y+64,152,$"{b.Calibration.Deadzone:P0} · Invert {(b.Inverted?"On":"Off")}",true);
+            if(b!=null)Label(790,y+64,152,(b.Calibration.Deadzone*100).ToString("0.##",CultureInfo.InvariantCulture)+$"% · Invert {(b.Inverted?"On":"Off")}",true);
             y+=104;
         }
         foreach(var group in new[]{("Driving buttons",new[]{"Gear up","Gear down","Handbrake","Camera","Rear view","Respawn"}),("Menu buttons",new[]{"Pause","Confirm","Back","Menu up","Menu down","Menu left","Menu right"}),("Mod buttons",new[]{"Settings panel","Panic stop"}),("Extra game buttons",new[]{"Lights","Horn","Records","Next song"}),("Shifter bindings",WheelInput.GateActions)})

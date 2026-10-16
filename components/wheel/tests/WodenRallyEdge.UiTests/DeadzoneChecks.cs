@@ -118,6 +118,7 @@ internal static class DeadzoneChecks
             Runtime.Clock.Advance(119);
             Draw(new(){type=EventType.MouseDown,button=0,mousePosition=new(plus.Rect.x+8,plus.Rect.y+8)}); Draw();
             check(Math.Abs(input.CaptureDeadzone-beforeStep-.25f)<.0001,"the observed + control actually changes the provisional value");
+            check(GUI.Commands.Any(c=>c.Kind=="text" && c.Text=="1.95"),"a quarter-percent click visibly changes 1.7 to 1.95 in the editor");
             Runtime.Clock.Advance(2); input.UpdateCapture();
             check(input.EditingDeadzone,"actual slider changes refresh the manual editor inactivity timeout");
             check(dirty.GetValue(null) is false,"editing a provisional deadzone does not dirty unrelated saved settings");
@@ -134,6 +135,11 @@ internal static class DeadzoneChecks
             check(!input.Capturing && File.ReadAllText(path)==saved,"Escape discards a deadzone-only draft without saving");
             Panel.Close(false);
         }
+        input.BeginDeadzone("Steer"); input.CaptureDeadzone=1.95f; input.FinishAxis();
+        Panel.Toggle(); Draw();
+        check(GUI.Commands.Any(c=>c.Text.StartsWith("1.95% · Invert On",StringComparison.Ordinal)),
+            "saved Controls summary preserves fractional deadzone digits too");
+        Panel.Close(false);
         check(Runtime.Settings.FfbEnabled && Runtime.Force.Reconnects==reconnects && Runtime.Force.Changes==forceChanges,
             "editor retains the On preference without reconnecting or changing force settings");
     }
