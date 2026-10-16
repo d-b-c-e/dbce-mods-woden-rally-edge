@@ -240,3 +240,37 @@ foreach(var bad in new[]{workflow with{Arguments=null},workflow with{Arguments=n
     Refuse(()=>Protocol.Command(Bytes(bad),nonce,0,now.AddSeconds(1),now,true,false,true));
 Refuse(()=>Protocol.Command(Bytes(command),nonce,0,now.AddSeconds(1),now,true,false,true));
 Console.WriteLine($"PASS: {count} total controls protocol checks, including schema-9 isolation; no engine/device/native.");
+
+// Explicit positive Native schema: no shared Apply and no externally supplied raw commands.
+var positive=cold with{Schema=10,Mode="native-positive-pedals",BindingsSha256=Protocol.OwnerBindingsSha256,
+    NativeSha256=Protocol.LoadMutedSha256,StageReference=Path.GetFullPath("positive-sealed-reference"),PositiveSeconds=22};
+Check(Protocol.NativePositive(Protocol.Admit(Bytes(positive),now,nonce)) && !Protocol.ShimAdmission(positive));
+foreach(var bad in new[]{positive with{Schema=2},positive with{BindingsSha256=hash},positive with{NativeSha256=hash},
+    positive with{PositiveSeconds=15},positive with{PositiveSeconds=23},positive with{StageReference=null},
+    positive with{WorkloadDirectory=Path.GetFullPath("work")},positive with{ControlsSha256=hash},cold with{PositiveSeconds=22}})
+    Refuse(()=>Protocol.Admit(Bytes(bad),now,nonce));
+Refuse(()=>Protocol.Command(Bytes(command),nonce,0,now.AddSeconds(1),now,false,Protocol.NativePositive(positive)));
+Check(PositivePedalPlan.Windows.Sum(w=>w.Seconds)==16.5 && PositivePedalPlan.ObservationSeconds==22);
+var aCommands=PositivePedalPlan.Windows[6].Commands(PositivePedalPlan.Device).ToArray();
+Check(aCommands.Length==1 && aCommands[0].StartsWith("inject raw axis 2 ") && !aCommands[0].Contains("axis 5"));
+var bCommands=PositivePedalPlan.Windows[2].Commands(PositivePedalPlan.Device).ToArray();
+Check(bCommands.Length==2 && bCommands[0].Contains("axis 2 ") && bCommands[1].Contains("axis 5 ") && bCommands[1].Contains("value=0 "));
+Check(PositivePedalPlan.Windows.Where(w=>w.Name.Contains("release")||w.Name is "P0-physical" or "P1-physical").All(w=>!w.Commands(PositivePedalPlan.Device).Any()));
+var pedalValues=new Dictionary<string,double>{["wheelRaw.throttle"]=65535,["wheelInput.throttle"]=1,["controls.throttle"]=1,
+    ["wheelRaw.brake"]=900,["wheelInput.brake"]=900/65535.0,["controls.brake"]=900/65535.0,["wheelInput.appliedTicks"]=10,
+    ["game.status"]=1,["game.locked"]=0,["game.paused"]=0,["game.replay"]=0,["game.respawning"]=0,["game.automatic"]=1,
+    ["game.trueSpeed"]=0,["game.gear"]=1,["game.shifting"]=0,["game.brakeTimer"]=0,["game.grounded"]=1,
+    ["game.handbrake"]=0,["motion.orientation.x"]=0,["motion.orientation.z"]=0};
+Check(PositivePedalPlan.Delivered(PositivePedalPlan.Windows[6],pedalValues));
+Check(!PositivePedalPlan.Delivered(PositivePedalPlan.Windows[2],pedalValues));
+pedalValues["wheelRaw.brake"]=pedalValues["wheelInput.brake"]=pedalValues["controls.brake"]=0;
+Check(PositivePedalPlan.Delivered(PositivePedalPlan.Windows[2],pedalValues));
+pedalValues["controls.throttle"]=0;Check(!PositivePedalPlan.Delivered(PositivePedalPlan.Windows[2],pedalValues));pedalValues["controls.throttle"]=1;
+Check(PositivePedalPlan.Eligible("driving",pedalValues) && !PositivePedalPlan.Eligible("inactive",pedalValues));
+pedalValues["game.locked"]=1;Check(!PositivePedalPlan.Eligible("driving",pedalValues));pedalValues["game.locked"]=0;
+Check(PositivePedalPlan.ComparableStart(pedalValues));pedalValues["game.trueSpeed"]=-52;Check(!PositivePedalPlan.ComparableStart(pedalValues));
+pedalValues["game.trueSpeed"]=0;pedalValues.Remove("game.gear");Check(!PositivePedalPlan.ComparableStart(pedalValues));
+Console.WriteLine($"PASS: {count} total controls protocol/positive-schedule checks; single-object A, explicit B, release by expiry, no false reverse causation; no engine/device/native.");
+
+Check(PositivePedalPlan.Windows.Where(w=>w.Name.StartsWith("service-brake")).All(w=>w.TtlMilliseconds==100 && w.Seconds==2));
+Check(PositivePedalPlan.Windows[9].Commands(PositivePedalPlan.Device).Count()==2); // brake0 keeps the reverse-brake path out of the HB check.

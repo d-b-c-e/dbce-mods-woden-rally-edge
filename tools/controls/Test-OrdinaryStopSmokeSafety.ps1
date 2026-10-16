@@ -51,6 +51,10 @@ try {
     if ([IO.File]::ReadAllText($config) -cne $ownerText.Replace("[Telemetry]`r`nEnabled = true", "[Telemetry]`r`nEnabled = false")) {
         throw 'Temporary mute changed another config key.'
     }
+    Set-OrdinaryTelemetryDeliveryOff $config 'ForceFeedback' 'Enabled'
+    Set-OrdinaryTelemetryDeliveryOff $config 'Diagnostics' 'RecordSession'
+    $muted=[IO.File]::ReadAllText($config)
+    if($muted -match '= true'){throw 'Explicit diagnostic mute left an output flag on'}
     [IO.File]::WriteAllText($config,$ownerText) # The supervisor restores the whole saved config tree.
     if ([IO.File]::ReadAllText($config) -cne $ownerText) { throw 'Owner config fixture did not restore exactly.' }
     [IO.File]::WriteAllText($config,"[Telemetry]`nEnabled = true`n[Telemetry]`nEnabled = true`n")

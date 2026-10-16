@@ -1,17 +1,17 @@
 # Small gates shared by the supervisor and its fake-process refusal checks.
-function Set-OrdinaryTelemetryDeliveryOff([string]$Path) {
+function Set-OrdinaryTelemetryDeliveryOff([string]$Path,[string]$Section='Telemetry',[string]$Key='Enabled') {
     $text = [IO.File]::ReadAllText($Path)
-    $sections = [regex]::Matches($text, '(?ms)^\[Telemetry\][ \t]*\r?\n.*?(?=^\[|\z)')
-    if ($sections.Count -ne 1) { throw 'Expected exactly one Telemetry section.' }
-    $section = $sections[0].Value
-    $keys = [regex]::Matches($section, '(?m)^[ \t]*Enabled[ \t]*=[ \t]*[^\r\n]*')
-    if ($keys.Count -ne 1 -or $keys[0].Value -notmatch '^[ \t]*Enabled[ \t]*=[ \t]*(true|false)[ \t]*$') {
-        throw 'Expected exactly one boolean Telemetry/Enabled key.'
+    $sections = [regex]::Matches($text, '(?ms)^\['+[regex]::Escape($Section)+'\][ \t]*\r?\n.*?(?=^\[|\z)')
+    if ($sections.Count -ne 1) { throw "Expected exactly one $Section section." }
+    $sectionText = $sections[0].Value
+    $keys = [regex]::Matches($sectionText, '(?m)^[ \t]*'+[regex]::Escape($Key)+'[ \t]*=[ \t]*[^\r\n]*')
+    if ($keys.Count -ne 1 -or $keys[0].Value -notmatch ('^[ \t]*'+[regex]::Escape($Key)+'[ \t]*=[ \t]*(true|false)[ \t]*$')) {
+        throw "Expected exactly one boolean $Section/$Key key."
     }
-    $updated = $section.Substring(0,$keys[0].Index) + 'Enabled = false' + $section.Substring($keys[0].Index + $keys[0].Length)
-    [IO.File]::WriteAllText($Path, $text.Substring(0,$sections[0].Index) + $updated + $text.Substring($sections[0].Index + $section.Length))
+    $updated = $sectionText.Substring(0,$keys[0].Index) + ($Key+' = false') + $sectionText.Substring($keys[0].Index + $keys[0].Length)
+    [IO.File]::WriteAllText($Path, $text.Substring(0,$sections[0].Index) + $updated + $text.Substring($sections[0].Index + $sectionText.Length))
     $check = [IO.File]::ReadAllText($Path)
-    if ($check -cne ($text.Substring(0,$sections[0].Index) + $updated + $text.Substring($sections[0].Index + $section.Length))) {
+    if ($check -cne ($text.Substring(0,$sections[0].Index) + $updated + $text.Substring($sections[0].Index + $sectionText.Length))) {
         throw 'Temporary telemetry delivery mute did not persist.'
     }
 }

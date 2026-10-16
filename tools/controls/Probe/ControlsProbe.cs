@@ -89,7 +89,8 @@ public sealed partial class ControlsProbe : BasePlugin
             var dev=Field(Type("DevInput"),"_enabled")!;
             if((bool)dev.GetType().GetProperty("Value")!.GetValue(dev)!) throw new InvalidDataException("Normal DevInput must stay disabled.");
             var recordLaunch=Runtime.GetField("_recordLaunch",All)!.GetValue(null);
-            if(Protocol.RecordingTrial(Request))VerifyRecordingRequest(recordLaunch);
+            if(Protocol.NativePositive(Request)) { /* Exact positive launch is verified after its trace is created, below. */ }
+            else if(Protocol.RecordingTrial(Request))VerifyRecordingRequest(recordLaunch);
             else if(recordLaunch is not null) throw new InvalidDataException("Diagnostic launch already requested.");
             var stage=Type("StagePlayback");
             var session=Field(stage,"Session")!;
@@ -121,6 +122,7 @@ public sealed partial class ControlsProbe : BasePlugin
             double remaining=(Request.ExpiresUtc-DateTimeOffset.UtcNow).TotalSeconds;
             if(remaining<=0) throw new InvalidDataException("Cold request expired during admission.");
             Deadline=Clock.Elapsed.TotalSeconds+Math.Min(300,remaining); Armed=true;
+            if(Protocol.NativePositive(Request))StartPositivePedals(recordLaunch);
             if(Protocol.MenuTrial(Request))StartMenuTrial();
             if(Protocol.CarTrial(Request))StartCarTrial();
             if(Protocol.HudStopOnly(Request))StartHudStopOnly();
@@ -169,6 +171,7 @@ public sealed partial class ControlsProbe : BasePlugin
         {
             double now=Clock.Elapsed.TotalSeconds;
             if(now>=Deadline) { Close("duration ended"); return; }
+            TickPositivePedals(now);
             if(now>=NextIdentity) { NextIdentity=now+1; if(VerifyModule()!=NativeModule || !Native!.RefreshStatus()) throw new InvalidDataException("Native fence identity lost."); }
             string command=Path.Combine(Request!.OutputDirectory,"command.json");
             if(!File.Exists(command)) return;
@@ -177,7 +180,7 @@ public sealed partial class ControlsProbe : BasePlugin
             // replace bytes between our validation and archival/submission.
             string claimed=Path.Combine(Request.OutputDirectory,"command-claimed.json");
             File.Move(command,claimed);
-            var r=Protocol.Command(ReadBounded(claimed,2048),Request.Nonce,Sequence,File.GetLastWriteTimeUtc(claimed),ProcessStart,Protocol.ShimAdmission(Request),Protocol.LatchedTrial(Request),Protocol.F6Workflow(Request));
+            var r=Protocol.Command(ReadBounded(claimed,2048),Request.Nonce,Sequence,File.GetLastWriteTimeUtc(claimed),ProcessStart,Protocol.ShimAdmission(Request),Protocol.LatchedTrial(Request)||Protocol.NativePositive(Request),Protocol.F6Workflow(Request));
             Sequence=r.Sequence; File.Move(claimed,Path.Combine(Request.OutputDirectory,"command-"+Sequence+".json"));
             bool ok=true; string reply=Native!.Status;
             if(r.Operation=="raw")
@@ -230,7 +233,7 @@ public sealed partial class ControlsProbe : BasePlugin
             {
                 var t=d.GetType(); int slot=(int)Field(t,"Slot",d)!; var info=Field(t,"Info",d)!;
                 var guid=info.GetType().GetField("InstanceGuid")!.GetValue(info);
-                bool injected=Native!.LastReadInjected(slot); if(!Native.Armed) throw new InvalidDataException(Native.Status);
+                bool injected=Native!.LastReadInjected(slot); ObservePositiveRead(guid,injected); if(!Native.Armed) throw new InvalidDataException(Native.Status);
                 Changed("raw-read",slot.ToString(CultureInfo.InvariantCulture),"slot="+slot+" guid="+guid+" valid="+Field(t,"Ok",d)+" injected="+injected+
                     " axes="+string.Join(",",(int[])Field(t,"Axes",d)!)+" hats="+string.Join(",",(int[])Field(t,"Pov",d)!)+
                     " buttons="+string.Join(",",((byte[])Field(t,"Physical",d)!).Select((v,i)=>(v,i)).Where(x=>x.v!=0).Select(x=>x.i)));
@@ -271,6 +274,10 @@ public sealed partial class ControlsProbe : BasePlugin
     // MainCar.FixedUpdate, not WheelInput._last or the desired action values.
     // Missing/non-finite channels are explicit unknowns, never zero-filled.
     static readonly string[] NativeChannels = {
+        "wheelRaw.throttle","wheelRaw.brake","wheelRaw.handbrake","wheelInput.throttle","wheelInput.brake","wheelInput.handbrake","wheelInput.appliedTicks",
+        "game.actualPower","game.enginePower","game.fuel","game.gears","game.speedMomentum","game.gearMomentum","game.grounded",
+        "motion.orientation.x","motion.orientation.y","motion.orientation.z","motion.orientation.w",
+        "motion.velocity.local.x","motion.velocity.local.y","motion.velocity.local.z",
         "controls.steer","controls.throttle","controls.brake","game.handbrake",
         "game.steer","game.throttle","game.brake","game.trueSpeed","game.gear",
         "game.status","game.paused","game.locked","game.respawning","game.replay","game.automatic","game.shifting",
@@ -280,7 +287,7 @@ public sealed partial class ControlsProbe : BasePlugin
         "wheel.rl.motorTorque","wheel.rr.motorTorque","wheel.fl.brakeTorque","wheel.fr.brakeTorque",
         "wheel.rl.brakeTorque","wheel.rr.brakeTorque"
     };
-    static void AfterSample(object __result)
+    static void AfterSample(object __0,object __result)
     {
         if(!Observing) return;
         try
@@ -291,6 +298,8 @@ public sealed partial class ControlsProbe : BasePlugin
             var channels=new Dictionary<string,double>(StringComparer.Ordinal); var missing=new List<string>();
             foreach(string name in NativeChannels)
                 if(source.TryGetValue(name,out double v) && double.IsFinite(v)) channels.Add(name,v); else missing.Add(name);
+            ReadPositiveNativeFields(__0,channels,missing);
+            ObservePositiveSample(Get("CarInstanceId"),Convert.ToInt64(Get("Sequence")),Get("State").ToString()!,channels);
             ObserveCarPulse(Get("CarInstanceId"),Get("State").ToString()!,channels);
             Row("native-car",JsonSerializer.Serialize(new {
                 Car=Get("CarInstanceId"),Sequence=Get("Sequence"),At=Get("ElapsedSeconds"),
@@ -331,6 +340,7 @@ public sealed partial class ControlsProbe : BasePlugin
         catch(Exception ex) { reason+="; reader close failed: "+ex.Message; }
         try { Trace?.Dispose(); } catch(Exception ex) { reason+="; trace close failed: "+ex.Message; } finally { Trace=null; }
         try { if(OwnedEvidence is not null) File.WriteAllText(Path.Combine(OwnedEvidence,"result.json"),JsonSerializer.Serialize(new{reason,rows=Rows,commands=RawCommands,inputVerdict=Protocol.HudStopOnly(Request)?HudVerdict:Protocol.CarTrial(Request)?CarVerdict:Protocol.MenuTrial(Request)?TrialVerdict:"unclassified",physicalOutput=false,
+            positiveEvidence=Protocol.NativePositive(Request)?new{verdict=PositiveVerdict,complete=PositiveComplete,physicalReturned=PositivePhysicalReturned,releaseRows=PositiveReleaseRows,seconds=Request!.PositiveSeconds,recipe="physical-zero-B-physical-A@1",comparableStarts=PositiveComparableStarts,causalVerdict=PositiveComparableStarts?"requires joined source analysis":"inconclusive: reverse/moving/noncomparable start state"}:null,
             carEvidence=Protocol.CarTrial(Request)?new{recording=CarRecording,kind="new-original-not-reference-replay",nativePlateaus=CarPulseCount,
                 recipe=Protocol.AppliedForwardCapture(Request)?"applied-forward-50pct-8s@1":Protocol.ForceCapture(Request)?"forward-50pct-8s@1":"six-actions@1",forceCapture=Protocol.ForceCapture(Request)?ForceCoverage:null,
                 forceProducer="existing diagnostic source.jsonl; inspect actual ffb validity/gates",pressure="unavailable: no native pressure channel qualified",

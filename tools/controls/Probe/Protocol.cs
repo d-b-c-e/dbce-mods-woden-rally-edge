@@ -11,10 +11,12 @@ public sealed record ColdRequest(int Schema, string Nonce, DateTimeOffset Expire
     string NativeSha256, string OutputDirectory, string Mode = "raw", string? ControlsSha256 = null, string? ShimSha256 = null,
     string? StageReference = null, string? WorkloadDirectory = null,
     string? ProfileSha256 = null, string? WorkloadSha256 = null, string? ProfileRevision = null,
-    string? ApplyReadbackSha256 = null);
+    string? ApplyReadbackSha256 = null, int PositiveSeconds = 0);
 public sealed record RawRequest(int Sequence, string Nonce, string Operation, string? Raw, string? Arguments = null);
 public static class Protocol
 {
+    public const string OwnerBindingsSha256="EC81BEB085E6483F83998EDEB949661FC889C5D319D542865128ADB8E21D2097";
+    public static bool NativePositive(ColdRequest? request) => request is {Schema:10, Mode:"native-positive-pedals"};
     public static bool F6Workflow(ColdRequest? request) => request is {Schema:9, Mode:"shim-admission"};
     public const string SnapshotShimSha256="4AF269C9F2FDBAE3CEF1A78E563C3877CB0AB820D4BE4C2579A1AD6EA25CECC5";
     public const string LoadMutedSha256="088F1089BEB6D18D478F37582C59330C6BDA6BC37D5E365F6BA7EBF80040F567";
@@ -46,17 +48,19 @@ public static class Protocol
     public static ColdRequest Admit(byte[] bytes, DateTimeOffset now, string marker)
     {
         var r = Decode<ColdRequest>(bytes, 8192);
-        if (!(r.Schema == 2 && r.Mode == "raw" && r.ControlsSha256 is null && r.ShimSha256 is null ||
+        if (!((r.Schema == 2 && r.Mode == "raw" || NativePositive(r)) && r.ControlsSha256 is null && r.ShimSha256 is null ||
               (r.Schema == 3 && r.Mode == "shim-admission" || F6Workflow(r) || r.Schema == 4 && MenuTrial(r) || r.Schema == 5 && r.Mode == "shim-car-trial" || r.Schema == 6 && ForceCapture(r) || DynamicCarTrial(r) || HudStopOnly(r)) && r.ControlsSha256 is not null && Hash.IsMatch(r.ControlsSha256) && r.ShimSha256 is not null && Hash.IsMatch(r.ShimSha256)) ||
             !ValidNonce(r.Nonce) || marker != r.Nonce || r.ExpiresUtc <= now || r.ExpiresUtc > now.AddMinutes(5))
             throw new InvalidDataException("Cold request identity or expiry refused.");
+        if(NativePositive(r) ? r.NativeSha256 != LoadMutedSha256 || r.BindingsSha256 != OwnerBindingsSha256 || r.PositiveSeconds != 22 : r.PositiveSeconds != 0)
+            throw new InvalidDataException("Positive Native test requires exact EC81, load-muted native and explicit 22-second mode.");
         if(F6Workflow(r) && (r.ShimSha256 != SnapshotShimSha256 || r.NativeSha256 != LoadMutedSha256))
             throw new InvalidDataException("F6 workflow requires the exact extension-3 and load-muted native tuple.");
         foreach (var value in new[] { r.PluginSha256, r.CoreSha256, r.ConfigSha256, r.BindingsSha256, r.NativeSha256 })
             if (value is null || !Hash.IsMatch(value)) throw new InvalidDataException("Missing artifact hash.");
         if (string.IsNullOrEmpty(r.OutputDirectory) || !Path.IsPathFullyQualified(r.OutputDirectory))
             throw new InvalidDataException("Evidence directory must be absolute.");
-        if (CarTrial(r) ? string.IsNullOrEmpty(r.StageReference) || !Path.IsPathFullyQualified(r.StageReference) ||
+        if (NativePositive(r) ? string.IsNullOrEmpty(r.StageReference) || !Path.IsPathFullyQualified(r.StageReference) || r.WorkloadDirectory is not null : CarTrial(r) ? string.IsNullOrEmpty(r.StageReference) || !Path.IsPathFullyQualified(r.StageReference) ||
                 string.IsNullOrEmpty(r.WorkloadDirectory) || !Path.IsPathFullyQualified(r.WorkloadDirectory) :
                 r.StageReference is not null || r.WorkloadDirectory is not null)
             throw new InvalidDataException("Car-trial sources require schema 5/6 and absolute paths.");

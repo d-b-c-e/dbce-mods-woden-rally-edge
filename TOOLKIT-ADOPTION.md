@@ -300,3 +300,6 @@ All37 ledger IDs remain represented; STD-016/017/020 remain unchecked,
 STD-031/037 remain pending and existing partial status is unchanged.
 This isolated Help branch starts at product3eb6bbad per root176874; separate
 3986 automatic/H-pattern source is intentionally not combined by this commit.
+
+
+October16 positive-pedal diagnostic (sana181873), source only: explicit test-probe schema10 reuses the resident STD-033 native injection client and existing raw/native-car observer; no second reader/backend/force. EC81 binding identity is pinned and no production Apply runs. New22s cold mode starts after contiguous eligibleRACE; passive behavior is preserved. All37 existing standard IDs remain represented; STD-016/017/020 unchecked and STD-031/037 pending remain unchanged. No install, runtime or physical qualification is claimed by this test source.
