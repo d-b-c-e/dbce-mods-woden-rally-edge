@@ -426,7 +426,7 @@ internal static partial class Panel
     }
     private static string BindingLabel(string action)
     {
-        var b=Runtime.Wheel!.Bindings; string text=b.Buttons.TryGetValue(action,out var button)?Runtime.Devices!.Describe(button.DeviceGuid)+" - "+Dbce.Wheel.Ffb.DigitalInput.Label(button.Button):"";
+        var b=Runtime.Wheel!.Bindings; string text=b.Buttons.TryGetValue(action,out var button)?(Runtime.Devices?.Describe(button.DeviceGuid)??"Saved device unavailable")+" - "+Dbce.Wheel.Ffb.DigitalInput.Label(button.Button):"";
         if(b.CameraKeys.TryGetValue(action,out var key)&&key!="None")text+=(text.Length>0?" + ":"")+key;
         return text.Length==0?"Not bound":text;
     }
@@ -448,13 +448,16 @@ internal static partial class Panel
         if(input.Capture!=null || input.EditingDeadzone)
         {
             var b=input.PreviewBinding;
-            Label(250,286,690,b==null?"Waiting for the full range…":Runtime.Devices!.Describe(b.DeviceGuid)+" · "+Axes[b.Axis]+" axis",true,28);
-            float v=0; bool ok=Runtime.Devices!.TryAxis(b,out v);Bar(250,330,500,ok?v:0,action=="Steer");Label(770,318,170,ok?Value(v,action=="Steer"):"--",true);
+            Label(250,286,690,b==null?"Waiting for the full range…":(Runtime.Devices?.Describe(b.DeviceGuid)??"Saved device unavailable")+" · "+Axes[b.Axis]+" axis",true,28);
+            float v=0; bool ok=Runtime.Devices?.TryAxis(b,out v)==true;Bar(250,330,500,ok?v:0,action=="Steer");Label(770,318,170,ok?Value(v,action=="Steer"):"--",true);
             if(!input.EditingDeadzone)Toggle(250,354,390,"Invert calibration",ref input.CaptureInvert);
             else Label(250,354,690,"Inversion: "+(b?.Inverted==true?"On":"Off")+" (unchanged)",true);
-            float end=Slider(396,"Deadzone (%)",ref input.CaptureDeadzone,0,25,"F0",save:false);
+            float end;
+            if(input.EditingDeadzone&&input.SavePending) { Label(250,396,690,$"Deadzone {input.CaptureDeadzone:F2}% · waiting for Retry save or Cancel",true);end=442; }
+            else end=Slider(396,"Deadzone (%)",ref input.CaptureDeadzone,0,25,"F0",save:false);
             Label(250,end,690,b==null?input.Capture?.Status??"Saved calibration unavailable":$"Endpoints {b.Calibration.Rest} → {b.Calibration.End}"+(b.Calibration.Centre is int c?$" · center {c}":""),true,28);
-            if(Button(250,518,248,input.EditingDeadzone?"Save deadzone":"Save calibration",false,b!=null&&(ok||input.EditingDeadzone)))input.FinishAxis();
+            if(Button(250,518,248,input.EditingDeadzone?(input.SavePending?"Retry save":"Save deadzone"):"Save calibration",false,b!=null&&(ok||input.EditingDeadzone)))
+            { if(input.EditingDeadzone&&input.SavePending)input.RetrySave();else input.FinishAxis(); }
             if(Button(514,518,150,"Cancel"))input.Cancel();
             Label(250,568,690,"Previous bindings stay active after Cancel or timeout. Handbrake axis and button remain independent.",true,46);End(622);
         }
@@ -477,7 +480,7 @@ internal static partial class Panel
         foreach(string name in new[]{"Steer","Throttle","Brake","Handbrake"})
         {
             var b=input.Bindings.Axis(name);Label(250,y,210,ActionLabel(name));
-            Label(464,y,480,b==null?"Not bound":Runtime.Devices!.Describe(b.DeviceGuid)+" · "+Axes[b.Axis]+" axis",true,42);
+            Label(464,y,480,b==null?"Not bound":(Runtime.Devices?.Describe(b.DeviceGuid)??"Saved device unavailable")+" · "+Axes[b.Axis]+" axis",true,42);
             float v=0;bool ok=Runtime.Devices?.TryAxis(b,out v)==true;Bar(250,y+39,430,ok?v:0,name=="Steer");Label(700,y+29,240,ok?"Device input: "+Value(v,name=="Steer"):b==null?"Not bound":"Saved device unavailable",true);
             if(Button(250,y+60,100,"Bind"))input.BeginAxis(name);
             if(Button(362,y+60,142,"Calibrate",false,b!=null))input.BeginAxis(name,true);

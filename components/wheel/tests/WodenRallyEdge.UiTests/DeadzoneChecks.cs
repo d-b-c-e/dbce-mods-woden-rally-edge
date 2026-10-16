@@ -69,6 +69,8 @@ internal static class DeadzoneChecks
         check(Math.Abs(input.CaptureDeadzone-3)<.0001,"recapturing an existing pedal keeps its saved deadzone"); input.Cancel();
         string saved = File.ReadAllText(path);
         input.BeginDeadzone("Brake"); input.CaptureDeadzone = 8; Runtime.Clock.Advance(31); input.UpdateCapture();
+        check(input.EditingDeadzone,"manual deadzone editing is not cut off at the capture's 30-second limit");
+        Runtime.Clock.Advance(90); input.UpdateCapture();
         check(!input.Capturing && File.ReadAllText(path) == saved,"timeout discards an unapplied deadzone edit");
 
         string failedPath = Path.Combine(directory,"blocked-binding.json"); Directory.CreateDirectory(failedPath);
@@ -76,12 +78,24 @@ internal static class DeadzoneChecks
         failed.BeginDeadzone("Brake"); failed.CaptureDeadzone = 3; failed.FinishAxis();
         check(failed.SavePending && failed.Capturing && failed.Bindings.Brake == brake,"failed Save retains the original live binding and draft");
         Directory.Delete(failedPath); // Only this empty fixture directory; no recursive/owner deletion.
+        failed.CaptureDeadzone = 6; // Retry must retain the exact previously failed proposal.
         failed.RetrySave();
-        check(!failed.Capturing && Bindings.Load(failedPath).Brake!.Normalize(927) == 0,"explicit Retry saves the retained deadzone proposal");
+        check(!failed.Capturing && Bindings.Load(failedPath).Brake!.Calibration.Deadzone == .03,"explicit Retry saves the exact retained deadzone proposal");
 
         const BindingFlags hidden = BindingFlags.Static|BindingFlags.NonPublic;
         var dirty = typeof(Panel).GetField("_dirty",hidden)!;
         void Draw(Event? value = null) { GUI.Commands.Clear(); Event.current = value ?? new(); Panel.Draw(); }
+        Screen.width=1280; Screen.height=720;
+        Runtime.Devices=null;
+        input.BeginDeadzone("Brake"); Panel.Toggle(); Draw();
+        check(GUI.Commands.Any(c=>c.Text=="Save deadzone") && GUI.Commands.Any(c=>c.Text=="Cancel") &&
+            GUI.Commands.Any(c=>c.Text.Contains("Saved device unavailable")),"missing DeviceHub still renders a usable saved-binding editor");
+        var noHubSave=GUI.Commands.First(c=>c.Kind=="text" && c.Text=="Save deadzone");
+        Draw(new(){type=EventType.MouseDown,button=0,mousePosition=new(noHubSave.Rect.x+10,noHubSave.Rect.y+10)}); Draw();
+        check(!input.Capturing && Bindings.Load(path).Brake!.Calibration.Deadzone==.03,"explicit UI Save works without a DeviceHub");
+        saved=File.ReadAllText(path); Panel.Close(false); Runtime.Devices=new();
+        Runtime.Settings.FfbEnabled=true;
+        int reconnects=Runtime.Force!.Reconnects, forceChanges=Runtime.Force.Changes;
         foreach (var size in new[] { (1280,720),(7680,1440) })
         {
             Screen.width=size.Item1; Screen.height=size.Item2;
@@ -100,7 +114,9 @@ internal static class DeadzoneChecks
             }
             dirty.SetValue(null,false);
             var plus=GUI.Commands.First(c=>c.Kind=="text" && c.Text=="+");
+            float beforeStep=input.CaptureDeadzone;
             Draw(new(){type=EventType.MouseDown,button=0,mousePosition=new(plus.Rect.x+8,plus.Rect.y+8)}); Draw();
+            check(Math.Abs(input.CaptureDeadzone-beforeStep-.25f)<.0001,"the observed + control actually changes the provisional value");
             check(dirty.GetValue(null) is false,"editing a provisional deadzone does not dirty unrelated saved settings");
             var cancel=GUI.Commands.First(c=>c.Kind=="text" && c.Text=="Cancel");
             Draw(new(){type=EventType.MouseDown,button=0,mousePosition=new(cancel.Rect.x+10,cancel.Rect.y+10)}); Draw();
@@ -115,6 +131,7 @@ internal static class DeadzoneChecks
             check(!input.Capturing && File.ReadAllText(path)==saved,"Escape discards a deadzone-only draft without saving");
             Panel.Close(false);
         }
-        check(!Runtime.Settings.FfbEnabled,"deadzone editing does not enable forces");
+        check(Runtime.Settings.FfbEnabled && Runtime.Force.Reconnects==reconnects && Runtime.Force.Changes==forceChanges,
+            "editor retains the On preference without reconnecting or changing force settings");
     }
 }

@@ -58,7 +58,7 @@ internal sealed class WheelInput
         get
         {
             var b = _deadzoneBinding ?? Capture?.Finish(); if (b == null) return null;
-            var c = b.Calibration with { Deadzone = CaptureDeadzone / 100 };
+            var c = b.Calibration with { Deadzone = CaptureDeadzone / 100d };
             return EditingDeadzone ? b with { Calibration = c } : b with { Calibration = c, Inverted = CaptureInvert };
         }
     }
@@ -92,6 +92,7 @@ internal sealed class WheelInput
     internal void RetrySave()
     {
         if (_pendingEdit == null) return;
+        if (EditingDeadzone) { if (TryCommit(_pendingEdit)) Cancel(); return; }
         if (CaptureAxis != null) { FinishAxis(); return; }
         if (TryCommit(_pendingEdit)) Cancel();
     }
@@ -114,7 +115,7 @@ internal sealed class WheelInput
         _deadzoneBinding = binding; CaptureAxis = name;
         CaptureDeadzone = (float)binding.Calibration.Deadzone * 100;
         Status = "Only the deadzone changes. Saved endpoints and inversion stay unchanged. Save deadzone applies this draft.";
-        _captureDeadline = Runtime.Clock.Elapsed.TotalSeconds + 30;
+        _captureDeadline = Runtime.Clock.Elapsed.TotalSeconds + 120;
     }
     internal void BeginButton(string name)
     {
