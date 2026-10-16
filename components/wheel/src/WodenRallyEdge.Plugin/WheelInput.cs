@@ -169,8 +169,9 @@ internal sealed class WheelInput
         if (HPatternBound)
         {
             int gate = HeldGate();
-            (throttle, brake) = HPatternShifter.Pedals(gate, throttle, brake);
-            (shiftUp, shiftDown) = Shifter.Step(gate, car.MyGear, car.Gears, car.Aids?.Automatic == true, car.TransmissionSystem?.Changing == true, Runtime.Clock.Elapsed.TotalSeconds);
+            bool automatic = car.Aids?.Automatic == true;
+            (throttle, brake) = HPatternShifter.Pedals(gate, throttle, brake, automatic);
+            (shiftUp, shiftDown) = Shifter.Step(gate, car.MyGear, car.Gears, automatic, car.TransmissionSystem?.Changing == true, Runtime.Clock.Elapsed.TotalSeconds);
         }
         var lease = new InputLease(actions, steer, throttle, brake, this, car, shiftUp, shiftDown);
         _last = new(car.GetInstanceID(), Runtime.Clock.Elapsed.TotalSeconds, steer, throttle, brake, lease.Handbrake);

@@ -1,3 +1,13 @@
+# October 16 source-only H-pattern eligibility correction
+
+STD-033/034 input-consumption semantics: Native Automatic now passes supplied
+pedals through while retaining the existing manual neutral/reverse emulator and
+manual-mode hint. No binding/config/native/shared ABI changes or new input path.
+Regression coverage is authored, UNRUN under hold175205; no runtime or physical
+acceptance is promoted. All 37 ledger IDs remain present; STD-016/017/020 remain
+unchecked, STD-031/037 pending and other partial statuses retain their limits.
+See components/wheel/docs/2026-10-16-automatic-hpattern-pedals.md.
+
 October 15 shared Steam consumer successor (source only): reuse the qualified
 `SteamLaunchContext.ps1` af22ae3/8CE6326E directly; its46 pure checks and native
 declaration compile remain qualified under168570, without rerun. The Woden

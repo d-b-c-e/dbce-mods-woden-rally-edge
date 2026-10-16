@@ -319,7 +319,21 @@ Test("H-pattern: a gate steps the game's own shift actions, one press at a time,
     Check(presses == before && h.Status.Contains("manual"), "an automatic gearbox is left alone with a status");
     var (t1, b1) = HPatternShifter.Pedals(HPatternShifter.Reverse, .7f, .2f); var (t0, b0) = HPatternShifter.Pedals(0, .7f, .2f); var (t3, b3) = HPatternShifter.Pedals(3, .7f, .2f);
     Check(t1 == .2f && b1 == .7f && t0 == 0 && b0 == .2f && t3 == .7f && b3 == .2f, "R swaps the pedals, out of gear cuts the throttle, a gear passes them through");
-});Test("shared force shaping: symmetric sign, literal gain, cap, ramp and low-speed fade", () => {
+});
+Test("H-pattern: automatic pedals ignore neutral and reverse while manual emulation is retained", () => {
+    foreach (var (gate, manualThrottle, manualBrake) in new[] { (0, 0f, .2f), (HPatternShifter.Reverse, .2f, .7f), (3, .7f, .2f) })
+    {
+        var automatic = HPatternShifter.Pedals(gate, .7f, .2f, automatic: true);
+        Check(automatic == (.7f, .2f), $"automatic gate {gate} preserves throttle and brake");
+        var manual = HPatternShifter.Pedals(gate, .7f, .2f, automatic: false);
+        Check(manual == (manualThrottle, manualBrake), $"manual gate {gate} retains neutral/reverse/forward pedals");
+        var h = new HPatternShifter();
+        h.Step(6, 1, 6, false, false, 0); // Start a manual shift before switching to automatic.
+        var shift = h.Step(gate, 1, 6, true, false, .01);
+        Check(!shift.Up && !shift.Down && h.Status.Contains("manual"), $"automatic gate {gate} stops shifting and keeps the manual-mode hint");
+    }
+});
+Test("shared force shaping: symmetric sign, literal gain, cap, ramp and low-speed fade", () => {
     var left = new ForceSignal(); var right = new ForceSignal(); var inverted = new ForceSignal(); float final = 0;
     for (int i = 1; i <= 100; i++) {
         var a = left.Evaluate(Contact(i * .02), new()); var b = right.Evaluate(Contact(i * .02, -.3), new());

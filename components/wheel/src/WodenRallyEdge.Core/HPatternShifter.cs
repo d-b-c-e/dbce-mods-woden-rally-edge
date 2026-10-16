@@ -50,5 +50,9 @@ public sealed class HPatternShifter
     public static (float Throttle, float Brake) Pedals(int gate, float throttle, float brake) =>
         gate == Reverse ? (brake, throttle) : gate == 0 ? (0f, brake) : (throttle, brake);
 
+    /// <summary>Emulate manual gearbox pedals only; automatic retains the supplied pedals unchanged.</summary>
+    public static (float Throttle, float Brake) Pedals(int gate, float throttle, float brake, bool automatic) =>
+        automatic ? (throttle, brake) : Pedals(gate, throttle, brake);
+
     public void Stop() { _pressing = false; _direction = 0; _until = double.NegativeInfinity; }
 }
