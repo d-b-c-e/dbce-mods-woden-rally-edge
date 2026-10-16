@@ -32,7 +32,38 @@ internal static class TripleView
     internal static bool Allowed => _mode != null && _mode.Value != TripleMode.Off;
     /// <summary>The saved views setting (F6 Cameras selector, STD-022).</summary>
     internal static TripleMode Mode { get => _mode?.Value ?? TripleMode.Auto; set { if (_mode != null && _mode.Value != value) _mode.Value = value; } }
-    internal static bool MatchGameFov { get => _matchGameFov?.Value ?? false; set { if (_matchGameFov != null && _matchGameFov.Value != value) _matchGameFov.Value = value; } }
+    internal static bool MatchGameFov
+    {
+        get => _matchGameFov?.Value ?? false;
+        set
+        {
+            if (_matchGameFov == null || _matchGameFov.Value == value) return;
+            if (value) StartAdjustableAtShownAngle(); // before the switch, while the center angle is still the rig's
+            _matchGameFov.Value = value;
+        }
+    }
+
+    /// <summary>
+    /// Both F6 routes to Adjustable (the Triple FOV choice and the locked row's button) start the on-screen mounted lens
+    /// at the angle shown (Core FovModeSwitch). Only that view's saved lens changes: the other view, Fit to car and the
+    /// height, forward and tilt stay. A chase view, a fitted bonnet or no measured angle leaves every value alone.
+    /// </summary>
+    private static void StartAdjustableAtShownAngle()
+    {
+        try
+        {
+            var view = MountedCamera.Cycle.View;
+            bool mounted = Active && view != WodenRallyEdge.Core.MountedView.Stock, bumper = view == WodenRallyEdge.Core.MountedView.Bumper;
+            var cfg = Runtime.Settings;
+            if (WodenRallyEdge.Core.FovModeSwitch.AdjustableStart(CenterVerticalFov, mounted, bumper || !cfg.CameraAutoFit) is not { } fov) return;
+            var pose = cfg.GetCameraPose(bumper);
+            if (Math.Abs(pose.Fov - fov) < .05f) return;
+            cfg.SetCameraPose(bumper, pose with { Fov = fov });
+            Panel.SettingsChanged();
+            Runtime.Log.LogInfo(FormattableString.Invariant($"Adjustable FOV: {(bumper ? "bumper" : "bonnet")} lens starts at the shown {fov:0.0}° (saved lens was {pose.Fov:0.0}°)"));
+        }
+        catch (Exception ex) { Runtime.Log.LogWarning("Adjustable FOV start: " + ex.Message); }
+    }
     internal static bool MountedFovLocked => Active && !MatchGameFov;
     // Lock texts name the actual center angle (Core FovLockText); nothing here changes MatchGameFov.
     internal static string FovLockMessage => WodenRallyEdge.Core.FovLockText.KeyMessage(CenterVerticalFov);

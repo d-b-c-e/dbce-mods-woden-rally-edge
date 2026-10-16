@@ -365,6 +365,19 @@ Test("camera fit, manual tuning, bounds and key bindings survive legacy and new 
     Check(FovLockText.Angle(33.6) == "33.6° vertical" && FovLockText.Angle(null) == "the measured rig" && FovLockText.Angle(double.NaN) == "the measured rig" &&
           FovLockText.KeyMessage(33.6).Contains(FovLockText.SwitchPath) && FovLockText.ViewHint(true, null).StartsWith("Bumper FOV is set by your rig (the measured rig"),
           "FOV lock texts name the actual angle, fall back without one, and give the one switch");
+    Check(FovModeSwitch.AdjustableStart(33.62, true, true) == 33.6f && FovModeSwitch.AdjustableStart(33.6, false, true) == null &&
+          FovModeSwitch.AdjustableStart(33.6, true, false) == null && FovModeSwitch.AdjustableStart(null, true, true) == null &&
+          FovModeSwitch.AdjustableStart(double.NaN, true, true) == null && FovModeSwitch.AdjustableStart(20, true, true) == 30f &&
+          FovModeSwitch.AdjustableStart(130, true, true) == 110f,
+          "Adjustable starts at the shown angle only for a saved mounted lens on screen, within the lens bounds");
+    // Owner rig (97BBB): 708.4 x 398.5 mm panels, 660 mm eye, 70 degree sides, 8 mm bezel; saved bonnet lens 30 (the floor).
+    var rig = WodenRallyEdge.TripleGeometry.Compute(708.4, 398.5, 660, 70, 8);
+    double shown = (Math.Atan(rig[1].Top) - Math.Atan(rig[1].Bottom)) * 180 / Math.PI;
+    var start = FovModeSwitch.AdjustableStart(shown, true, true);
+    Check(start is > 30f and < 40f, $"the owner's Physical center angle is the start, not the stale 30 floor: {start}");
+    Near(WodenRallyEdge.TripleGeometry.EyeDistanceForView(398.5, 660, true, true, MountedView.Bonnet, 70, start), 660, "switching to Adjustable keeps the shown projection", 1.5);
+    Check(WodenRallyEdge.TripleGeometry.EyeDistanceForView(398.5, 660, true, true, MountedView.Bonnet, 70, 30) > 700,
+          "adopting the stale 30 degree lens would have narrowed the bonnet on the switch");
     Near(CameraTuning.Adjust(pose with { Forward = -2 }, "Camera back").Forward, -2, "position clamp");
     string path = Path.Combine(Path.GetTempPath(), "woden-camera-bindings-" + Guid.NewGuid() + ".json");
     File.WriteAllText(path, "{\"Version\":1,\"Buttons\":{}}");
