@@ -9,7 +9,10 @@ namespace UnityEngine
     public static class Object { public static T? FindObjectOfType<T>() where T:class => WodenRallyEdge.MenuCameraScript.Available ? new WodenRallyEdge.MenuCameraScript() as T : null; }
     public sealed class GameObject { public bool activeInHierarchy=true; public GameObject? Left,Right; }
     public record struct Color(float r,float g,float b,float a=1) { public static Color white => new(1,1,1); }
-    public record struct Rect(float x,float y,float width,float height);
+    public record struct Rect(float x,float y,float width,float height)
+    {
+        public float yMax => y + height;
+    }
     public record struct Vector2(float x,float y);
     public enum EventType { Repaint, MouseDown, MouseDrag, MouseUp, Used, KeyDown, KeyUp, ScrollWheel }
     public enum KeyCode { None, Tab, Return, Space, LeftArrow, RightArrow, PageDown, PageUp, F6, Escape }
