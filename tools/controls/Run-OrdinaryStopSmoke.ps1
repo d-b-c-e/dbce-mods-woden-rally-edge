@@ -12,6 +12,8 @@ param(
     [Parameter(Mandatory)][string]$SteamExecutable,
     [Parameter(Mandatory)][string]$SteamLaunchHelper,
     [Parameter(Mandatory)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$SteamLaunchHelperSha256,
+    [Parameter(Mandatory)][string]$ForegroundHelper,
+    [Parameter(Mandatory)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$ForegroundHelperSha256,
     [Parameter(Mandatory)][string]$RigLeaseToken,
     [guid]$RequestId = [guid]::NewGuid(),
     [ValidateRange(1,10)][int]$MenuDwellSeconds = 2,
@@ -28,6 +30,9 @@ if (!$NativeObservationSource) { throw 'This shared-launch successor requires on
 if ($SteamLaunchHelperSha256 -cne 'ECD5703B731C8E4A59C8BA84DB91B7490C4861DB1DC0B979B690EDA9DB708667' -or
     (Get-FileHash -LiteralPath $SteamLaunchHelper).Hash -cne $SteamLaunchHelperSha256) { throw 'Qualified shared launch helper changed.' }
 . $SteamLaunchHelper
+if ($ForegroundHelperSha256 -cne '3C12C250764748E649C41ACC56FF2D128C2AD09CA1D055021172BCBB7ED8EF7C' -or
+    (Get-FileHash -LiteralPath $ForegroundHelper).Hash -cne $ForegroundHelperSha256) { throw 'Existing ordinary foreground helper changed.' }
+. $ForegroundHelper
 
 function Pin([string]$Path,[string]$Hash) {
     Assert-ControlPlain $Path
@@ -254,6 +259,20 @@ function Start-OrdinarySteamGame {
     $result.launchAdopted=$true;$result.launchOutcome=$adopted.launchOutcome
     $result['game']=$adopted.record;Save-OrdinaryLaunchCustody
     if (!$adopted.record.integrityMatchesSteam) { throw ('Game token did not match Steam: '+$adopted.record.integrityError) }
+    # The Native menu route waits for actual foreground before dismissing the
+    # daily message. One existing ordinary request, never a focus workaround.
+    $remainingMs = [int][Math]::Floor(($startupDeadline - [DateTime]::UtcNow).TotalMilliseconds)
+    if ($remainingMs -le 2100) { throw 'Original Native startup deadline leaves no bounded foreground attempt.' }
+    $foreground = Request-StageGameForeground -ProcessId $adopted.record.pid `
+        -StartedUtcTicks $adopted.record.startedUtcTicks -ExecutablePath $exe `
+        -LeasePath $slot -LeaseToken $RigLeaseToken `
+        -ReadyTimeoutMs ([Math]::Min(10000, $remainingMs - 2000)) -ConfirmTimeoutMs 2000
+    $result['foreground'] = $foreground
+    $result['foregroundHelperSha256'] = $ForegroundHelperSha256
+    Save-OrdinaryLaunchCustody
+    if (!$foreground.osForegroundObserved -or $foreground.status -cne 'observed') {
+        throw ('Ordinary foreground admission refused: ' + $foreground.reason)
+    }
 }
 
 $mutated = $false
@@ -307,6 +326,7 @@ try {
         ConvertTo-Json | Set-Content -LiteralPath (Join-Path $ResultDirectory 'telemetry-delivery-mute.json')
     Assert-StageRigLease -Path $slot -Token $RigLeaseToken
     Closed
+    $startupDeadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
     $child = Start-Companion $companionPath $ResultDirectory $RequestId
     $requestDeadline=[DateTimeOffset]::UtcNow.AddSeconds(15)
     while (!(Test-Path -LiteralPath $requestPath)) {
@@ -318,7 +338,7 @@ try {
     if ($prepared.Id -ne $RequestId.ToString() -or $prepared.DisableForces -ne $true -or $prepared.InputOrigin -cne 'automated') { throw 'Prepared request identity/mute differs; no launch.' }
     Start-OrdinarySteamGame
     $statusPath = Join-Path $recording 'control/status.txt'
-    $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
+    $deadline = $startupDeadline
     do {
         $status = Status $statusPath
         if ($status -and $status.id -ceq $idText -and $status.status -ceq 'Recording' -and $status.active -ceq 'True') { break }
