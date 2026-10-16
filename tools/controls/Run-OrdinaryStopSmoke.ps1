@@ -14,6 +14,7 @@ param(
     [Parameter(Mandatory)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$SteamLaunchHelperSha256,
     [Parameter(Mandatory)][string]$ForegroundHelper,
     [Parameter(Mandatory)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$ForegroundHelperSha256,
+    [Parameter(Mandatory)][switch]$DesktopClientClick,
     [Parameter(Mandatory)][string]$RigLeaseToken,
     [guid]$RequestId = [guid]::NewGuid(),
     [ValidateRange(1,10)][int]$MenuDwellSeconds = 2,
@@ -33,6 +34,7 @@ if ($SteamLaunchHelperSha256 -cne 'ECD5703B731C8E4A59C8BA84DB91B7490C4861DB1DC0B
 if ($ForegroundHelperSha256 -cne '3C12C250764748E649C41ACC56FF2D128C2AD09CA1D055021172BCBB7ED8EF7C' -or
     (Get-FileHash -LiteralPath $ForegroundHelper).Hash -cne $ForegroundHelperSha256) { throw 'Existing ordinary foreground helper changed.' }
 . $ForegroundHelper
+if (!$DesktopClientClick) { throw 'This successor requires the announced screenshot-grounded operator client click; no programmatic activation fallback.' }
 
 function Pin([string]$Path,[string]$Hash) {
     Assert-ControlPlain $Path
@@ -259,20 +261,50 @@ function Start-OrdinarySteamGame {
     $result.launchAdopted=$true;$result.launchOutcome=$adopted.launchOutcome
     $result['game']=$adopted.record;Save-OrdinaryLaunchCustody
     if (!$adopted.record.integrityMatchesSteam) { throw ('Game token did not match Steam: '+$adopted.record.integrityError) }
-    # The Native menu route waits for actual foreground before dismissing the
-    # daily message. One existing ordinary request, never a focus workaround.
-    $remainingMs = [int][Math]::Floor(($startupDeadline - [DateTime]::UtcNow).TotalMilliseconds)
-    if ($remainingMs -le 2100) { throw 'Original Native startup deadline leaves no bounded foreground attempt.' }
-    $foreground = Request-StageGameForeground -ProcessId $adopted.record.pid `
-        -StartedUtcTicks $adopted.record.startedUtcTicks -ExecutablePath $exe `
-        -LeasePath $slot -LeaseToken $RigLeaseToken `
-        -ReadyTimeoutMs ([Math]::Min(10000, $remainingMs - 2000)) -ConfirmTimeoutMs 2000
-    $result['foreground'] = $foreground
+    # Only observe using the existing canonical native declarations. Desktop
+    # interaction belongs to the announced operator's screenshot-grounded sky
+    # click, not a second SetForegroundWindow request from this supervisor.
+    if ([DateTime]::UtcNow -ge $startupDeadline) { throw 'Original Native startup deadline elapsed before operator admission.' }
+    Initialize-StageForegroundNative
+    $focusDeadline = [DateTime]::UtcNow.AddSeconds(45)
+    if ($focusDeadline -gt $startupDeadline) { $focusDeadline = $startupDeadline }
+    $result['foreground'] = [ordered]@{status='awaiting-desktop-client-click';requested=$null;requestAccepted=$null;osForegroundObserved=$false;window=0L;foregroundWindow=0L;foregroundProcessId=0;processId=$adopted.record.pid;startedUtcTicks=$adopted.record.startedUtcTicks;executablePath=$exe;deadlineUtc=$focusDeadline.ToString('O');inputProof='separate operator transcript required';observations=0}
     $result['foregroundHelperSha256'] = $ForegroundHelperSha256
     Save-OrdinaryLaunchCustody
-    if (!$foreground.osForegroundObserved -or $foreground.status -cne 'observed') {
-        throw ('Ordinary foreground admission refused: ' + $foreground.reason)
+    do {
+        if ([DateTime]::UtcNow -ge $focusDeadline) { break }
+        Assert-StageRigLease -Path $slot -Token $RigLeaseToken
+        $launched.Refresh()
+        if ($launched.HasExited) { throw 'Recorded game exited before operator foreground admission.' }
+        Assert-StageForegroundIdentity -Actual ([pscustomobject]@{Id=$launched.Id;StartedUtcTicks=$launched.StartTime.ToUniversalTime().Ticks;ExecutablePath=[string]$launched.Path}) `
+            -ProcessId $adopted.record.pid -StartedUtcTicks $adopted.record.startedUtcTicks -ExecutablePath $exe
+        $window = $launched.MainWindowHandle
+        if ($window -ne [IntPtr]::Zero) {
+            [uint32]$windowProcess=0
+            if (![Dbce.StageForegroundNative]::GetWindowThreadProcessId($window,[ref]$windowProcess) -or $windowProcess -ne $adopted.record.pid) { throw 'Operator game window ownership differs.' }
+            if ([Dbce.StageForegroundNative]::IsIconic($window)) { throw 'Operator game window is minimized; no restore or click admission.' }
+            if ([Dbce.StageForegroundNative]::IsWindowVisible($window)) {
+                if ($result.foreground.window -and $result.foreground.window -ne $window.ToInt64()) { throw 'Operator game window changed; no stale screenshot admission.' }
+                $result.foreground.window=$window.ToInt64()
+                $foregroundWindow=[Dbce.StageForegroundNative]::GetForegroundWindow()
+                [uint32]$foregroundProcess=0
+                [void][Dbce.StageForegroundNative]::GetWindowThreadProcessId($foregroundWindow,[ref]$foregroundProcess)
+                $result.foreground.foregroundWindow=$foregroundWindow.ToInt64()
+                $result.foreground.foregroundProcessId=$foregroundProcess
+                $result.foreground.osForegroundObserved=$foregroundWindow -eq $window -and $foregroundProcess -eq $adopted.record.pid
+            }
+        }
+        $result.foreground.observations++
+        Observe-OrdinaryLaunch
+        if ($result.foreground.osForegroundObserved -and [DateTime]::UtcNow -lt $focusDeadline) { break }
+        $result.foreground.osForegroundObserved=$false
+        Start-Sleep -Milliseconds 200
+    } while ([DateTime]::UtcNow -lt $focusDeadline)
+    if (!$result.foreground.osForegroundObserved) {
+        $result.foreground.status='unmet';Save-OrdinaryLaunchCustody
+        throw 'Operator client click did not establish exact OS foreground within the original startup bound.'
     }
+    $result.foreground.status='observed';$result.foreground.observedUtc=[DateTime]::UtcNow.ToString('O');Save-OrdinaryLaunchCustody
 }
 
 $mutated = $false
