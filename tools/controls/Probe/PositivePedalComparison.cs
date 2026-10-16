@@ -14,7 +14,7 @@ public sealed partial class ControlsProbe
     static long PositiveSequence=-1;
     static double PositiveSampleAt, PositiveWindowAt, PositiveAppliedTicks, PositiveNextPulse;
     static readonly Dictionary<string,double> PositiveLast=new(StringComparer.Ordinal), PositiveBaseline=new(StringComparer.Ordinal);
-    static readonly Dictionary<string,bool> PositiveWindowStarts=new(StringComparer.Ordinal);
+    static readonly Dictionary<string,bool?> PositiveWindowStarts=new(StringComparer.Ordinal);
     static readonly Dictionary<string,int> PositiveEffects=new(StringComparer.Ordinal);
     static string PositiveVerdict="unrun";
     static void ReadPositiveNativeFields(object car,Dictionary<string,double> channels,List<string> missing)
@@ -116,7 +116,7 @@ public sealed partial class ControlsProbe
         if(Protocol.CandidateForward(Request)&&window.Throttle==65535&&!PositivePedalPlan.CandidateReady(PositiveLast))
             throw new InvalidDataException("Candidate throttle requires current neutral pedals, grounded near-rest car and exact-zero brake; no submission.");
         PositiveAppliedTicks=PositiveLast.TryGetValue("wheelInput.appliedTicks",out double ticks)?ticks:0;
-        PositiveWindowStarts[window.Name]=!Protocol.CandidateForward(Request)&&PositivePedalPlan.ComparableStart(PositiveLast);
+        PositiveWindowStarts[window.Name]=Protocol.CandidateForward(Request)?null:PositivePedalPlan.ComparableStart(PositiveLast);
         PositivePulseSkipped=window.TtlMilliseconds==100 && !PositivePedalPlan.ShouldBrakePulse(PositiveLast);
         if(!PositivePulseSkipped)SubmitPositiveWindow(window);
         PositiveNextPulse=now+.075;

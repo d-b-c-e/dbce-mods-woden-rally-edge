@@ -37,6 +37,8 @@ internal static class CandidateForwardChecks
         Check(PositivePedalPlan.CandidateReady(c),"mapped exact-zero neutral physical pedals and grounded near-rest car admit throttle");
         c["game.brake"]=.013;Check(!PositivePedalPlan.CandidateReady(c),"nonzero native brake refuses submission");c["game.brake"]=0;
         c["motion.velocity.local.z"]=-2;Check(!PositivePedalPlan.CandidateReady(c),"moving start refuses submission");c["motion.velocity.local.z"]=0;
+        c["game.trueSpeed"]=2;Check(!PositivePedalPlan.CandidateReady(c),"native speed above near-rest refuses submission");c["game.trueSpeed"]=0;
+        c["game.handbrake"]=1;Check(!PositivePedalPlan.CandidateReady(c),"nonzero native handbrake refuses submission");c["game.handbrake"]=0;
         c.Remove("game.grounded");Check(!PositivePedalPlan.CandidateReady(c),"missing grounded state is unavailable");c["game.grounded"]=1;
         c["wheelRaw.throttle"]=65535;c["wheelInput.throttle"]=c["controls.throttle"]=c["game.throttle"]=1;
         Check(PositivePedalPlan.CandidateDelivered(windows[1],c),"actual raw/mapped/applied/native path joins to the production 3% normalization");
