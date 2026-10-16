@@ -87,3 +87,26 @@ If no positive-throttle or close samples occur, report those gates unobserved.
 Steam runtime stays queued during owner Steam use and Mudo's build. Before any
 launch/screens/input, require coordinator owner notice and a fresh actual
 handoff/predecessor/lease. This source packet does not grant that slot.
+
+## Post-failure consumer successor (source only)
+
+The one171cc/508281 run passed30 new consumer assertions and composition but
+stopped before shell/game request: shared ShellId collision and consumer strict
+CIM/native tick equality. Owner recovery is independently closedE2680C0F;
+original29853475/CLEANUP_PENDING is retained at hubf1f227a3. No game samples.
+Beni's shared helper successorbb8faaf/ECD5703B passed the actual High->Medium
+shell-context branch read-only; no common46 rerun is needed.
+
+WodenLaunchCustody.ps1 uses canonical BE13 conversion/disposition for the
+existing E58A map plus explicitly labeled leaf records. Canonical native roots
+keep100ns precision; E58A-admitted descendants have CIM microsecond provenance.
+A compatible coarse record can refine to native100ns; a later coarse record
+cannot erase it. Two disagreeing native records, real PID reuse, unknown/malformed
+precision or failed census refuse the entire receipt without partial map changes.
+No elapsed-time tolerance, new OS query, PID cleanup authority or separate
+identity framework is added. The leaf now publishes the actual producer
+precision for its lineage, retaining native registration/handles before token
+checks. New source-linked pure cases cover only that changed precision seam.
+Reuse the passed30 consumer cases and exact D0F4D785 composition; do not rerun
+or recompose unchanged payloads. The separate corrected packet must have fresh
+pins, handoff/notice and lease before one later observation.

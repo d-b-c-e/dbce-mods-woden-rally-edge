@@ -25,7 +25,7 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot/OrdinaryStopSmokeSafety.ps1"
 . 'E:/Source/toolkits/dbce-wheel-mod-toolkit/tools/playback/Stage-RigLease.ps1'
 if (!$NativeObservationSource) { throw 'This shared-launch successor requires one explicit Native observation; no legacy activation fallback.' }
-if ($SteamLaunchHelperSha256 -cne '8CE6326E1A67207E1EE56418AA02BADF5D76F9457CA0532B19B1ED8A3266A2DE' -or
+if ($SteamLaunchHelperSha256 -cne 'ECD5703B731C8E4A59C8BA84DB91B7490C4861DB1DC0B979B690EDA9DB708667' -or
     (Get-FileHash -LiteralPath $SteamLaunchHelper).Hash -cne $SteamLaunchHelperSha256) { throw 'Qualified shared launch helper changed.' }
 . $SteamLaunchHelper
 
@@ -185,9 +185,11 @@ $identityHelper=Join-Path (Split-Path $ownedHelper -Parent) 'Stage-ProcessIdenti
 Pin $ownedHelper 'E58A8AE0B3096A3419196B491A9A773DBE80E45FC33CC41D819D108F513A0725'
 Pin $identityHelper 'BE132A68893EE591DD76DE7143D41F5B87C767FEA6EB628952ABFEF477713A29'
 . $ownedHelper
+. (Join-Path $PSScriptRoot 'WodenLaunchCustody.ps1')
+$ownedPrecision=[Collections.Generic.Dictionary[uint32,string]]::new()
 $result=[ordered]@{schema='woden.shared-launch-custody@1';requestId=$RequestId.ToString('N');steps=@();identities=@();launchAttempted=$false;launchAdopted=$false;launchOutcome='not-requested';childrenQuiescent=$false;sharedHelperSha256=$SteamLaunchHelperSha256}
 function Save-OrdinaryLaunchCustody {
-    $result['ownedLineage']=@($owned.GetEnumerator() | ForEach-Object {[ordered]@{pid=$_.Key;createdUtc=$_.Value.ToString('O');precision='Tick100ns'}})
+    $result['ownedLineage']=@($owned.GetEnumerator() | ForEach-Object {[ordered]@{pid=$_.Key;createdUtc=$_.Value.ToString('O');precision=(Get-WodenOwnedCreationPrecision $_.Key $ownedPrecision)}})
     $path=Join-Path $outputRoot 'custody.json'
     $temp=$path+'.tmp-'+[guid]::NewGuid().ToString('N')
     [IO.File]::WriteAllText($temp,($result|ConvertTo-Json -Depth 12),[Text.UTF8Encoding]::new($false))
@@ -199,6 +201,7 @@ function Register-OrdinaryLaunchProcess($Record,$Process,[string]$Role) {
     $stamp=[DateTime]::new([long]$Record.startedUtcTicks,[DateTimeKind]::Utc)
     if ($owned.ContainsKey([uint32]$Record.pid) -and $owned[[uint32]$Record.pid].Ticks -ne $stamp.Ticks) { throw 'Owned PID changed; retain custody.' }
     $owned[[uint32]$Record.pid]=$stamp
+    $ownedPrecision[[uint32]$Record.pid]='Tick100ns'
     $result.identities+=@([ordered]@{pid=$Record.pid;createdUtc=$stamp.ToString('O');precision='Tick100ns';executable=$Record.executable;role=$Role})
     Save-OrdinaryLaunchCustody
     $null=$Process.SafeHandle
