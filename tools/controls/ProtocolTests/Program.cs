@@ -251,6 +251,7 @@ foreach(var bad in new[]{positive with{Schema=2},positive with{BindingsSha256=ha
     Refuse(()=>Protocol.Admit(Bytes(bad),now,nonce));
 Refuse(()=>Protocol.Command(Bytes(command),nonce,0,now.AddSeconds(1),now,false,Protocol.NativePositive(positive)));
 Check(PositivePedalPlan.Windows.Sum(w=>w.Seconds)==16.5 && PositivePedalPlan.ObservationSeconds==22);
+Check(PositivePedalPlan.Windows[0].Seconds==.25 && PositivePedalPlan.Windows[2].Seconds==4 && PositivePedalPlan.Windows[6].Seconds==4);
 var aCommands=PositivePedalPlan.Windows[6].Commands(PositivePedalPlan.Device).ToArray();
 Check(aCommands.Length==1 && aCommands[0].StartsWith("inject raw axis 2 ") && !aCommands[0].Contains("axis 5"));
 var bCommands=PositivePedalPlan.Windows[2].Commands(PositivePedalPlan.Device).ToArray();
@@ -260,7 +261,8 @@ var pedalValues=new Dictionary<string,double>{["wheelRaw.throttle"]=65535,["whee
     ["wheelRaw.brake"]=900,["wheelInput.brake"]=900/65535.0,["controls.brake"]=900/65535.0,["wheelInput.appliedTicks"]=10,
     ["game.status"]=1,["game.locked"]=0,["game.paused"]=0,["game.replay"]=0,["game.respawning"]=0,["game.automatic"]=1,
     ["game.trueSpeed"]=0,["game.gear"]=1,["game.shifting"]=0,["game.brakeTimer"]=0,["game.grounded"]=1,
-    ["game.handbrake"]=0,["motion.orientation.x"]=0,["motion.orientation.z"]=0};
+    ["game.handbrake"]=0,["motion.orientation.x"]=0,["motion.orientation.z"]=0,["game.maxReverseSpeed"]=50,
+    ["wheel.fl.motorTorque"]=0,["wheel.fr.motorTorque"]=0,["wheel.rl.motorTorque"]=0,["wheel.rr.motorTorque"]=0};
 Check(PositivePedalPlan.Delivered(PositivePedalPlan.Windows[6],pedalValues));
 Check(!PositivePedalPlan.Delivered(PositivePedalPlan.Windows[2],pedalValues));
 pedalValues["wheelRaw.brake"]=pedalValues["wheelInput.brake"]=pedalValues["controls.brake"]=0;
@@ -270,7 +272,22 @@ Check(PositivePedalPlan.Eligible("driving",pedalValues) && !PositivePedalPlan.El
 pedalValues["game.locked"]=1;Check(!PositivePedalPlan.Eligible("driving",pedalValues));pedalValues["game.locked"]=0;
 Check(PositivePedalPlan.ComparableStart(pedalValues));pedalValues["game.trueSpeed"]=-52;Check(!PositivePedalPlan.ComparableStart(pedalValues));
 pedalValues["game.trueSpeed"]=0;pedalValues.Remove("game.gear");Check(!PositivePedalPlan.ComparableStart(pedalValues));
-Console.WriteLine($"PASS: {count} total controls protocol/positive-schedule checks; single-object A, explicit B, release by expiry, no false reverse causation; no engine/device/native.");
+
 
 Check(PositivePedalPlan.Windows.Where(w=>w.Name.StartsWith("service-brake")).All(w=>w.TtlMilliseconds==100 && w.Seconds==2));
 Check(PositivePedalPlan.Windows[9].Commands(PositivePedalPlan.Device).Count()==2); // brake0 keeps the reverse-brake path out of the HB check.
+
+// Native signed brake branch: reverse is not a request to brake harder.
+pedalValues["game.trueSpeed"]=-52;Check(!PositivePedalPlan.ShouldBrakePulse(pedalValues));
+pedalValues["game.trueSpeed"]=1;Check(!PositivePedalPlan.ShouldBrakePulse(pedalValues));
+pedalValues["game.trueSpeed"]=1.01;Check(PositivePedalPlan.ShouldBrakePulse(pedalValues));
+pedalValues.Remove("game.trueSpeed");Check(!PositivePedalPlan.ShouldBrakePulse(pedalValues));pedalValues["game.trueSpeed"]=-52;
+Check(PositivePedalPlan.CausalDataAvailable(pedalValues) && !PositivePedalPlan.ComparableStart(pedalValues)); // A reverse start does not discard P/Z data.
+pedalValues["game.gear"]=1;pedalValues["game.trueSpeed"]=0;pedalValues["game.brakeTimer"]=31;pedalValues["wheel.fl.motorTorque"]=-793;
+Check(!PositivePedalPlan.ComparableStart(pedalValues)); // Gear 1 alone is not a no-reverse witness.
+pedalValues["game.brakeTimer"]=0;Check(PositivePedalPlan.ComparableStart(pedalValues));
+pedalValues["game.handbrake"]=0;pedalValues["wheel.rl.brakeTorque"]=100;pedalValues["wheel.rr.brakeTorque"]=100;
+Check(!PositivePedalPlan.NativeEffect(PositivePedalPlan.Windows[9],pedalValues));pedalValues["game.handbrake"]=1;
+Check(PositivePedalPlan.NativeEffect(PositivePedalPlan.Windows[9],pedalValues));pedalValues.Remove("wheel.rl.brakeTorque");
+Check(!PositivePedalPlan.NativeEffect(PositivePedalPlan.Windows[9],pedalValues));
+Console.WriteLine($"PASS: {count} total controls protocol/positive-schedule checks; single-object A, explicit B, release by expiry, no false reverse causation; no engine/device/native.");

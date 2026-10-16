@@ -7,25 +7,27 @@ namespace Woden.ControlsTesting;
 // no device open/poll, binding Apply, second reader, body/gear write or output arm.
 public sealed partial class ControlsProbe
 {
-    static bool PositiveReady, PositiveComplete, PositiveInjected, PositiveSawRead, PositivePhysicalReturned, PositiveSealedRace, PositiveComparableStarts, PositivePulseSkipped;
+    static bool PositiveReady, PositiveComplete, PositiveInjected, PositiveSawRead, PositivePhysicalReturned, PositiveSealedRace, PositivePzDataAvailable, PositivePulseSkipped;
     static int PositiveCar, PositiveContiguous, PositiveWindow=-1, PositiveReleaseRows, PositiveDeliveryRows;
     static long PositiveSequence=-1;
     static double PositiveSampleAt, PositiveWindowAt, PositiveAppliedTicks, PositiveNextPulse;
     static readonly Dictionary<string,double> PositiveLast=new(StringComparer.Ordinal), PositiveBaseline=new(StringComparer.Ordinal);
+    static readonly Dictionary<string,bool> PositiveWindowStarts=new(StringComparer.Ordinal);
+    static readonly Dictionary<string,int> PositiveEffects=new(StringComparer.Ordinal);
     static string PositiveVerdict="unrun";
     static void ReadPositiveNativeFields(object car,Dictionary<string,double> channels,List<string> missing)
     {
         if(!Protocol.NativePositive(Request))return;
         foreach(var (name,property) in new[]{("game.brakeTimer","BrakeTimer"),("game.maxReverseSpeed","Max_Reverse_Speed")})
             try{double v=Convert.ToDouble(Value(car,property));if(!double.IsFinite(v))throw new InvalidDataException();channels[name]=v;}
-            catch{missing.Add(name);PositiveComparableStarts=false;}
+            catch{missing.Add(name);}
     }
     static void StartPositivePedals(object? launch)
     {
         if(launch is null || Request is null || (Guid)Value(launch,"Id")! != Guid.ParseExact(Request.Nonce,"N") ||
             (string?)Value(launch,"CaseId")!="woden-native-observation-"+Request.Nonce ||
             !(bool)Value(launch,"DisableForces")! || (string?)Value(launch,"InputOrigin")!="automated" ||
-            (string?)Value(launch,"NativeObservationSource")!=Request.StageReference ||
+            !string.Equals((string?)Value(launch,"NativeObservationSource"),Request.StageReference,StringComparison.OrdinalIgnoreCase) ||
             Convert.ToInt32(Value(launch,"NativeObservationSeconds"))!=15 ||
             (DateTimeOffset)Value(launch,"ExpiresUtc")!<Request.ExpiresUtc ||
             (DateTimeOffset)Value(launch,"ExpiresUtc")!>DateTimeOffset.UtcNow.AddMinutes(5))
@@ -40,9 +42,9 @@ public sealed partial class ControlsProbe
         // before first reader admission; never touch the 180s deadline or 8s exit.
         seconds.SetValue(null,(double)Request.PositiveSeconds);
         Patch(Method(transport,"Observe"),nameof(PositiveReaderGate));
-        PositiveReady=PositiveComplete=PositiveInjected=PositiveSawRead=PositivePhysicalReturned=PositiveSealedRace=false;PositiveComparableStarts=true;
+        PositiveReady=PositiveComplete=PositiveInjected=PositiveSawRead=PositivePhysicalReturned=PositiveSealedRace=false;PositivePzDataAvailable=true;
         PositiveCar=PositiveContiguous=PositiveReleaseRows=PositiveDeliveryRows=0;PositiveWindow=-1;PositiveSequence=-1;
-        PositiveLast.Clear();PositiveBaseline.Clear();PositiveVerdict="waiting-for-10-contiguous-RACE-rows";
+        PositiveLast.Clear();PositiveBaseline.Clear();PositiveWindowStarts.Clear();PositiveEffects.Clear();PositiveVerdict="waiting-for-10-contiguous-RACE-rows";
         ObserveUntil=Deadline;
         Row("positive-mode",JsonSerializer.Serialize(new{schema=10,underlyingPassiveSeconds=15,explicitPositiveSeconds=Request.PositiveSeconds,
             startupSeconds=180,normalExitSeconds=8,bindings=Request.BindingsSha256,recipe="physical-zero-B-physical-A@1",causalVerdict="requires actual comparable states/delivery"}));
@@ -69,6 +71,11 @@ public sealed partial class ControlsProbe
             if(ticks>PositiveAppliedTicks && PositivePedalPlan.Delivered(PositivePedalPlan.Windows[PositiveWindow],PositiveLast))PositiveDeliveryRows++;PositiveAppliedTicks=ticks;
         }
         if(!PositiveReady && ++PositiveContiguous>=10){PositiveReady=true;PositiveVerdict="collecting";PositiveWindowAt=now;}
+        if(PositiveWindow>=0 && PositiveWindow<PositivePedalPlan.Windows.Length){
+            var window=PositivePedalPlan.Windows[PositiveWindow];
+            if(PositiveWindow is 0 or 1 && !PositivePedalPlan.CausalDataAvailable(PositiveLast))PositivePzDataAvailable=false;
+            if(PositivePedalPlan.NativeEffect(window,PositiveLast))PositiveEffects[window.Name]=PositiveEffects.TryGetValue(window.Name,out int n)?n+1:1;
+        }
         if(PositiveWindow==0)foreach(var p in PositiveLast)PositiveBaseline[p.Key]=p.Value;
         if(PositiveWindow==PositivePedalPlan.Windows.Length-1 && PositiveSawRead && !PositiveInjected){
             PositiveReleaseRows++;
@@ -81,11 +88,15 @@ public sealed partial class ControlsProbe
         if(!Protocol.NativePositive(Request) || !PositiveReady || PositiveComplete)return;
         if(now-PositiveSampleAt>.1 || !(bool)Runtime.GetProperty("Focused",All)!.GetValue(null)!)
             throw new InvalidDataException("Positive comparison current RACE/focus witness stale; no raw submission.");
+        // Existing08 already proves passive reverse. End this tiny P0 baseline
+        // as soon as three actual reverse-effect rows exist; spend time on positive delivery.
+        if(PositiveWindow==0 && PositiveEffects.TryGetValue("P0-physical",out int reverseRows) && reverseRows>=3)
+            PositiveWindowAt=now-PositivePedalPlan.Windows[0].Seconds;
         if(PositiveWindow>=0 && now-PositiveWindowAt<PositivePedalPlan.Windows[PositiveWindow].Seconds){
             var current=PositivePedalPlan.Windows[PositiveWindow];
             if(current.TtlMilliseconds==100){
-                if(PositivePulseSkipped || PositiveLast.TryGetValue("game.trueSpeed",out double speed) && Math.Abs(speed)<=1){
-                    Row("positive-brake-release-near-rest",JsonSerializer.Serialize(new{index=PositiveWindow,rawState=PositiveLast,expiryMilliseconds=100}));
+                if(PositivePulseSkipped || !PositivePedalPlan.ShouldBrakePulse(PositiveLast)){
+                    Row("positive-brake-release-native-reverse-boundary",JsonSerializer.Serialize(new{index=PositiveWindow,rawState=PositiveLast,expiryMilliseconds=100}));
                     PositiveWindowAt=now-current.Seconds;
                 }else if(now>=PositiveNextPulse){SubmitPositiveWindow(current);PositiveNextPulse=now+.075;return;}
                 else return;
@@ -93,16 +104,16 @@ public sealed partial class ControlsProbe
         }
         if(PositiveWindow>=0 && PositivePedalPlan.Windows[PositiveWindow].Commands(PositivePedalPlan.Device).Any() && PositivePedalPlan.Windows[PositiveWindow].TtlMilliseconds is null && PositiveDeliveryRows<5)
             throw new InvalidDataException("Positive window lacks raw/normalized/applied delivery: "+PositivePedalPlan.Windows[PositiveWindow].Name);
-        if(PositiveWindow>=0)Row("positive-window-end",JsonSerializer.Serialize(new{index=PositiveWindow,deliveryRows=PositiveDeliveryRows,end=PositiveLast}));
+        if(PositiveWindow>=0)Row("positive-window-end",JsonSerializer.Serialize(new{index=PositiveWindow,deliveryRows=PositiveDeliveryRows,nativeEffectRows=PositiveEffects.TryGetValue(PositivePedalPlan.Windows[PositiveWindow].Name,out int effects)?effects:0,end=PositiveLast}));
         PositiveDeliveryRows=0;
         if(++PositiveWindow>=PositivePedalPlan.Windows.Length){
-            PositiveComplete=true;PositiveVerdict=PositivePhysicalReturned?"collection-complete-analysis-required":"unavailable-final-physical-return";
-            Row("positive-complete",JsonSerializer.Serialize(new{PositiveVerdict,PositivePhysicalReturned,PositiveReleaseRows,PositiveComparableStarts,physicalReleaseKnown=false}));Trace!.Flush();return;
+            PositiveComplete=true;PositivePhysicalReturned=PositivePhysicalReturned && Native!.RefreshStatus() && Native.Status.Contains("no sample running",StringComparison.Ordinal);PositiveVerdict=PositivePhysicalReturned?"collection-complete-analysis-required":"unavailable-final-physical-return";
+            Row("positive-complete",JsonSerializer.Serialize(new{PositiveVerdict,PositivePhysicalReturned,PositiveReleaseRows,PositivePzDataAvailable,nativeStatus=Native!.Status,nativeEffects=PositiveEffects,windowStarts=PositiveWindowStarts,physicalReleaseKnown=false}));Trace!.Flush();return;
         }
         var window=PositivePedalPlan.Windows[PositiveWindow];PositiveWindowAt=now;
         PositiveAppliedTicks=PositiveLast.TryGetValue("wheelInput.appliedTicks",out double ticks)?ticks:0;
-        if(window.Throttle==65535 && !PositivePedalPlan.ComparableStart(PositiveLast))PositiveComparableStarts=false;
-        PositivePulseSkipped=window.TtlMilliseconds==100 && PositiveLast.TryGetValue("game.trueSpeed",out double speedAtStart) && Math.Abs(speedAtStart)<=1;
+        PositiveWindowStarts[window.Name]=PositivePedalPlan.ComparableStart(PositiveLast);
+        PositivePulseSkipped=window.TtlMilliseconds==100 && !PositivePedalPlan.ShouldBrakePulse(PositiveLast);
         if(!PositivePulseSkipped)SubmitPositiveWindow(window);
         PositiveNextPulse=now+.075;
         Row("positive-window",JsonSerializer.Serialize(new{index=PositiveWindow,window=window.Name,seconds=window.Seconds,
