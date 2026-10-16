@@ -1,3 +1,15 @@
+# October 16: Explicit pedal deadzone correction (source only)
+
+Native F6 adds an existing-binding Deadzone editor that preserves captured
+endpoints, identity and inversion. Only explicit Save changes the selected
+deadzone; new pedal captures visibly start at3%, steering and saved values
+stay unchanged. Existing calibration normalization supplies exact zero at rest
+and full-range rescaling. No owner file, physics, game DeadZone or force tuning
+changed. Source-linked preservation/default/save-failure/UI and recorded-noise
+checks are authored, UNRUN pending a build slot. Candidate/UAT should explicitly
+suggest Brake3% with notice; no new baseline diagnostic run is needed. See
+[the diagnosis, scope and checks](2026-10-16-pedal-deadzone.md).
+
 # October 16: Repeated action writes restore their original state (source only)
 
 InputLease could snapshot a value it had already changed when a bound shift

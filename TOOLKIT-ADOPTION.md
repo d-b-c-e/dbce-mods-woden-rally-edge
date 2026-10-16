@@ -1,3 +1,14 @@
+# October 16: Explicit saved deadzone editing (source only)
+
+Reuse the existing per-binding calibration/deadzone normalization and the Native
+F6 row/slider/atomic binding writer. Saved endpoints and inversion survive a
+deadzone-only draft; Save is explicit and Cancel/timeout/failure retain the old
+binding. New pedal capture UI starts visibly at3%; steering and existing saved
+values are unchanged. Focused checks are authored, UNRUN; owner/UAT remains
+pending. No shared transport, physics or force-model change. All37 ledger IDs
+remain represented; STD-016/017/020 remain unchecked and STD-031/037 pending.
+See components/wheel/docs/2026-10-16-pedal-deadzone.md.
+
 # October 16: Preserve original action values across repeated writes
 
 The Native and Shim action-table lease now snapshots each action only on its

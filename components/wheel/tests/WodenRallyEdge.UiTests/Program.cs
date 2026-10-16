@@ -34,6 +34,12 @@ if(args.SequenceEqual(new[]{"--help-report-only"}))
     Console.WriteLine($"PASS {checks} focused source-linked Woden Help report checks; no browser/export/game/device/native module.");
     return;
 }
+if(args.SequenceEqual(new[]{"--deadzone-only"}))
+{
+    DeadzoneChecks.Run(dir,Check);
+    Console.WriteLine($"PASS {checks} focused source-linked Woden deadzone checks; no game/device/native module.");
+    return;
+}
 if(args.Length>0)throw new ArgumentException("Unknown fixture mode; refusing the full baseline.");
 Screen.width=7680;Screen.height=1440;GUI.Commands.Clear();Event.current.type=EventType.Repaint;
 var hudColor=GUI.color;var hudEnabled=GUI.enabled;var hudMatrix=GUI.matrix;

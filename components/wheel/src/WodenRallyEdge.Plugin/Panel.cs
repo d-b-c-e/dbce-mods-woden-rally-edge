@@ -252,8 +252,9 @@ internal static partial class Panel
         }
         return editorY+count*(F6Metrics.RowHeight+F6Metrics.RowGap)+6;
     }
-    private static float Slider(float y,string label,ref float value,float min,float max,string format="F2")
+    private static float Slider(float y,string label,ref float value,float min,float max,string format="F2",bool save=true)
     {
+        void Changed() { if(save)Dirty(); }
         var row=F6RowLayout.For(694,F6NumberEditor.Needs());
         float editorX=row.Stacked?250:250+row.LabelWidth+F6Metrics.ColumnGap;
         float editorY=row.Stacked?y+32:y;
@@ -261,8 +262,8 @@ internal static partial class Panel
         Label(250,y,row.LabelWidth,label);
         Label(editorX+parts.ValueX,editorY+5,F6Metrics.ValueWidth,value.ToString(format,CultureInfo.InvariantCulture));
         float step=(max-min)/100;
-        if(Button(editorX+parts.MinusX,editorY,F6Metrics.StepButton,"−")){_drag=-1;value=Math.Clamp(value-step,min,max);Dirty();}
-        if(Button(editorX+parts.PlusX,editorY,F6Metrics.StepButton,"+")){_drag=-1;value=Math.Clamp(value+step,min,max);Dirty();}
+        if(Button(editorX+parts.MinusX,editorY,F6Metrics.StepButton,"−")){_drag=-1;value=Math.Clamp(value-step,min,max);Changed();}
+        if(Button(editorX+parts.PlusX,editorY,F6Metrics.StepButton,"+")){_drag=-1;value=Math.Clamp(value+step,min,max);Changed();}
         var r=R(editorX+parts.SliderX,editorY+3,parts.SliderWidth,28);
         float next=editorY+F6Metrics.RowHeight+F6Metrics.RowGap+6;
         int id=_ordinal++;var e=Event.current;
@@ -271,11 +272,11 @@ internal static partial class Panel
         bool focused=id==_focus && GUIUtility.keyboardControl==0;
         if (e.type==EventType.MouseDown && e.button==0 && Inside(r,e.mousePosition)) { _drag=(int)y; _focus=id; GUIUtility.keyboardControl=0; e.Use(); }
         if (_drag==(int)y && e.type is EventType.MouseDrag or EventType.MouseDown or EventType.Used)
-        { value=min+Math.Clamp((e.mousePosition.x-r.x)/r.width,0,1)*(max-min); Dirty(); if(e.type!=EventType.Used)e.Use(); }
+        { value=min+Math.Clamp((e.mousePosition.x-r.x)/r.width,0,1)*(max-min); Changed(); if(e.type!=EventType.Used)e.Use(); }
         if (_drag==(int)y && e.type==EventType.MouseUp) { _drag=-1; e.Use(); }
         if (focused && e.type==EventType.KeyDown && e.keyCode is KeyCode.LeftArrow or KeyCode.RightArrow)
-        { value=Math.Clamp(value+(e.keyCode==KeyCode.RightArrow?1:-1)*(max-min)/100,min,max); Dirty(); e.Use(); }
-        if(focused && _menuStep!=0) { value=Math.Clamp(value+_menuStep*(max-min)/100,min,max);_menuStep=0;Dirty(); }
+        { value=Math.Clamp(value+(e.keyCode==KeyCode.RightArrow?1:-1)*(max-min)/100,min,max); Changed(); e.Use(); }
+        if(focused && _menuStep!=0) { value=Math.Clamp(value+_menuStep*(max-min)/100,min,max);_menuStep=0;Changed(); }
         Fill(r,ColorOf(focused?F6Palette.ButtonHover:F6Palette.Track));
         Fill(new Rect(r.x,r.y+r.height*.4f,r.width*Math.Clamp((value-min)/(max-min),0,1),r.height*.2f),Accent);
         float knob=r.x+r.width*Math.Clamp((value-min)/(max-min),0,1); Fill(new Rect(knob-3*_scale,r.y,6*_scale,r.height),Color.white);
@@ -442,17 +443,18 @@ internal static partial class Panel
         var input=Runtime.Wheel!; if(!input.Capturing)return false;
         string action=input.CaptureAxis??input.CaptureButton??"Pending binding change";
         Label(250,158,690,"Binding: "+ActionLabel(action));
-        Label(250,202,690,input.SavePending?"Your previous binding remains active. Retry the saved proposal, or Cancel to discard it.":input.CaptureAxis=="Steer"?"Center the wheel. Turn right first, then sweep fully both ways.":input.CaptureAxis!=null?"Release the control, then press or pull fully and release.":CameraTuning.Actions.Contains(action)?"Press a key or wheel button. F6/F8 are reserved; Escape cancels.":"Press one wheel button. Escape cancels. Native keyboard controls stay in the game menu.",true,48);
+        Label(250,202,690,input.SavePending?"Your previous binding remains active. Retry the saved proposal, or Cancel to discard it.":input.EditingDeadzone?"Adjust the deadzone without recapturing. Values inside it become exactly zero; full travel stays full input.":input.CaptureAxis=="Steer"?"Center the wheel. Turn right first, then sweep fully both ways.":input.CaptureAxis!=null?"Release the control, then press or pull fully and release.":CameraTuning.Actions.Contains(action)?"Press a key or wheel button. F6/F8 are reserved; Escape cancels.":"Press one wheel button. Escape cancels. Native keyboard controls stay in the game menu.",true,48);
         Label(250,250,690,input.Status,true,32);
-        if(input.Capture!=null)
+        if(input.Capture!=null || input.EditingDeadzone)
         {
             var b=input.PreviewBinding;
             Label(250,286,690,b==null?"Waiting for the full range…":Runtime.Devices!.Describe(b.DeviceGuid)+" · "+Axes[b.Axis]+" axis",true,28);
             float v=0; bool ok=Runtime.Devices!.TryAxis(b,out v);Bar(250,330,500,ok?v:0,action=="Steer");Label(770,318,170,ok?Value(v,action=="Steer"):"--",true);
-            Toggle(250,354,390,"Invert calibration",ref input.CaptureInvert);
-            float end=Slider(396,"Deadzone (%)",ref input.CaptureDeadzone,0,25,"F0");
-            Label(250,end,690,b==null?input.Capture.Status:$"Endpoints {b.Calibration.Rest} → {b.Calibration.End}"+(b.Calibration.Centre is int c?$" · center {c}":""),true,28);
-            if(Button(250,518,248,"Save calibration",false,b!=null&&ok))input.FinishAxis();
+            if(!input.EditingDeadzone)Toggle(250,354,390,"Invert calibration",ref input.CaptureInvert);
+            else Label(250,354,690,"Inversion: "+(b?.Inverted==true?"On":"Off")+" (unchanged)",true);
+            float end=Slider(396,"Deadzone (%)",ref input.CaptureDeadzone,0,25,"F0",save:false);
+            Label(250,end,690,b==null?input.Capture?.Status??"Saved calibration unavailable":$"Endpoints {b.Calibration.Rest} → {b.Calibration.End}"+(b.Calibration.Centre is int c?$" · center {c}":""),true,28);
+            if(Button(250,518,248,input.EditingDeadzone?"Save deadzone":"Save calibration",false,b!=null&&(ok||input.EditingDeadzone)))input.FinishAxis();
             if(Button(514,518,150,"Cancel"))input.Cancel();
             Label(250,568,690,"Previous bindings stay active after Cancel or timeout. Handbrake axis and button remain independent.",true,46);End(622);
         }
@@ -480,7 +482,8 @@ internal static partial class Panel
             if(Button(250,y+60,100,"Bind"))input.BeginAxis(name);
             if(Button(362,y+60,142,"Calibrate",false,b!=null))input.BeginAxis(name,true);
             if(Button(516,y+60,100,"Clear",false,b!=null)) { input.TryCommit(proposed => proposed.SetAxis(name,null)); }
-            if(b!=null)Label(638,y+64,304,$"Invert: {(b.Inverted?"On":"Off")} · Deadzone {b.Calibration.Deadzone:P0}",true);
+            if(Button(638,y+60,142,"Deadzone",false,b?.Valid==true)) { input.BeginDeadzone(name);_scroll=0;_focus=0; }
+            if(b!=null)Label(790,y+64,152,$"{b.Calibration.Deadzone:P0} · Invert {(b.Inverted?"On":"Off")}",true);
             y+=104;
         }
         foreach(var group in new[]{("Driving buttons",new[]{"Gear up","Gear down","Handbrake","Camera","Rear view","Respawn"}),("Menu buttons",new[]{"Pause","Confirm","Back","Menu up","Menu down","Menu left","Menu right"}),("Mod buttons",new[]{"Settings panel","Panic stop"}),("Extra game buttons",new[]{"Lights","Horn","Records","Next song"}),("Shifter bindings",WheelInput.GateActions)})

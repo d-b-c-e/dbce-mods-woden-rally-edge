@@ -57,6 +57,14 @@ Test("calibration endpoints, asymmetric centre, inverted pedals and deadzone", (
     var pedal = new AxisCalibration(60000, 1000); Near(pedal.Normalize(60000), 0, "rest"); Near(pedal.Normalize(1000), 1, "full"); Near(pedal.Normalize(30500), .5, "half");
     Check(!new AxisCalibration(1, 1).Valid, "zero span rejected"); Check(!new AxisCalibration(0, 100, 100).Valid, "centre endpoint rejected");
     Check(!new AxisCalibration(0, 100, null, double.NaN).Valid, "NaN deadzone rejected");
+    var quietBrake = new AxisCalibration(0, 65535, Deadzone: .03);
+    foreach (int raw in new[] { 0, 830, 913, 927, 1966 })
+        Check(quietBrake.Normalize(raw) == 0, "pedal rest/noise maps to exact zero: " + raw);
+    Check(quietBrake.Normalize(1967) > 0, "input above explicit deadzone remains available");
+    Check(quietBrake.Normalize(65535) == 1, "deadzone preserves full pedal travel");
+    Near(quietBrake.Normalize(32768), (32768d / 65535 - .03) / .97, "pedal travel rescales above deadzone");
+    Check(new AxisCalibration(65535, 0, Deadzone: .03).Normalize(65535 - 927) == 0,
+        "reversed pedal uses the same explicit rest deadzone");
 Check(string.Join("|", TripleLayoutChoice.Labels) == "Off|Surround|Separate monitors", "STD-022 selector labels"); Check(TripleLayoutChoice.Current(true, false) == 0 && TripleLayoutChoice.Current(true, true) == 0, "views off wins over a saved span"); Check(TripleLayoutChoice.Current(false, false) == 1 && TripleLayoutChoice.Current(false, true) == 2, "Surround vs Separate"); Check(TripleLayoutChoice.Apply(0) == (true, false) && TripleLayoutChoice.Apply(1) == (false, false) && TripleLayoutChoice.Apply(2) == (false, true), "Off also ends the span at the next start"); for (int tl = 0; tl < 3; tl++) { var tc = TripleLayoutChoice.Apply(tl); Check(TripleLayoutChoice.Current(tc.Off, tc.Span) == tl, "selector round trip " + tl); }
 });
 Test("world finite difference rotated into current local frame", () => {
