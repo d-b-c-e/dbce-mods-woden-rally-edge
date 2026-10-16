@@ -146,7 +146,7 @@ $positiveControl=Join-Path $env:LOCALAPPDATA 'dbce/super-woden-rally-edge'
 $positiveRequest=Join-Path $positiveControl 'controls-request.json';$positiveMarker=Join-Path $positiveControl 'inject.on'
 if($PositivePedalComparison -or $CandidateForward){
     if($PositivePedalComparison -and $CandidateForward){throw 'Comparison and candidate-forward modes are separate'}
-    if($NativeObservationSeconds -ne $(if($CandidateForward){10}else{15}) -or !$PositiveProbePath -or $PositiveProbeSha256 -cnotmatch '^[A-F0-9]{64}$'){throw 'Positive test requires explicit passive15 transport and exact new probe'}
+    if($NativeObservationSeconds -ne $(if($CandidateForward){10}else{15}) -or !$PositiveProbePath -or $PositiveProbeSha256 -cnotmatch '^[A-F0-9]{64}$'){throw $(if($CandidateForward){'Candidate forward requires passive10 transport and exact qualified probe'}else{'Positive comparison requires passive15 transport and exact qualified probe'})}
     if($CandidateForward){
         if($CandidateBindingsSha256 -cne '04EB80F80EB0D6F98728BC6E5AFFB680688C4DCCAE3FD5940FEB65014AA2D6F0'){throw 'Only the reviewed EC81 BrakeDZ03 private derivative is supported'}
         Assert-ControlPlain $CandidateBindingsPath;Pin $CandidateBindingsPath $CandidateBindingsSha256

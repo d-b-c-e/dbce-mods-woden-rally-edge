@@ -213,7 +213,9 @@ Root185109 requests one useful Native check after the deadzone product build.
 -PositiveProbePath <new qualified probe> -PositiveProbeSha256 <actual hash>
 -NativeObservationSeconds 10` reuses the same sealed Kenya startup, resident raw
 client and original reader. OwnerEC81 is pinned before mutation and its exact
-snapshot is restored. The reviewed private copy differs only in
+snapshot is restored. The private binding derivative is temporarily applied to
+GameDir under that backup/restore; this is not a separate game installation.
+The reviewed private binding copy differs only in
 Brake.Calibration.Deadzone=0.03; Rest/End/Centre/Invert and every other value stay
 exact. The changed probe requires its explicit schema11/hash/ten-second tuple;
 legacy schema10 remains EC81/22s. No schema spoofing or hidden normalization.
