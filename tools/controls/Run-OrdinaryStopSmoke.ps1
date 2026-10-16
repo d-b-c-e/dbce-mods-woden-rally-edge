@@ -268,7 +268,7 @@ function Start-OrdinarySteamGame {
     Initialize-StageForegroundNative
     $focusDeadline = [DateTime]::UtcNow.AddSeconds(45)
     if ($focusDeadline -gt $startupDeadline) { $focusDeadline = $startupDeadline }
-    $result['foreground'] = [ordered]@{status='awaiting-desktop-client-click';requested=$null;requestAccepted=$null;osForegroundObserved=$false;window=0L;foregroundWindow=0L;foregroundProcessId=0;processId=$adopted.record.pid;startedUtcTicks=$adopted.record.startedUtcTicks;executablePath=$exe;deadlineUtc=$focusDeadline.ToString('O');inputProof='separate operator transcript required';observations=0}
+    $result['foreground'] = [ordered]@{status='awaiting-desktop-client-click';requested=$null;requestAccepted=$null;osForegroundObserved=$false;window=0L;foregroundWindow=0L;foregroundProcessId=0;processId=$adopted.record.pid;startedUtcTicks=$adopted.record.startedUtcTicks;createdUtc=$adopted.record.startUtc;executablePath=$exe;deadlineUtc=$focusDeadline.ToString('O');inputProof='separate operator transcript required';observations=0}
     $result['foregroundHelperSha256'] = $ForegroundHelperSha256
     Save-OrdinaryLaunchCustody
     do {
