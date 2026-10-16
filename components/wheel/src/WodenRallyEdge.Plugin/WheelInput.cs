@@ -117,6 +117,10 @@ internal sealed class WheelInput
         Status = "Only the deadzone changes. Saved endpoints and inversion stay unchanged. Save deadzone applies this draft.";
         _captureDeadline = Runtime.Clock.Elapsed.TotalSeconds + 120;
     }
+    internal void DeadzoneEdited()
+    {
+        if (EditingDeadzone && !SavePending) _captureDeadline = Runtime.Clock.Elapsed.TotalSeconds + 120;
+    }
     internal void BeginButton(string name)
     {
         Cancel(); Status = "Press one button or camera key. Escape cancels."; CaptureButton = name; _captureDeadline = Runtime.Clock.Elapsed.TotalSeconds + 20;

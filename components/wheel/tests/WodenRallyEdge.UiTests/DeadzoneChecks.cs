@@ -115,8 +115,11 @@ internal static class DeadzoneChecks
             dirty.SetValue(null,false);
             var plus=GUI.Commands.First(c=>c.Kind=="text" && c.Text=="+");
             float beforeStep=input.CaptureDeadzone;
+            Runtime.Clock.Advance(119);
             Draw(new(){type=EventType.MouseDown,button=0,mousePosition=new(plus.Rect.x+8,plus.Rect.y+8)}); Draw();
             check(Math.Abs(input.CaptureDeadzone-beforeStep-.25f)<.0001,"the observed + control actually changes the provisional value");
+            Runtime.Clock.Advance(2); input.UpdateCapture();
+            check(input.EditingDeadzone,"actual slider changes refresh the manual editor inactivity timeout");
             check(dirty.GetValue(null) is false,"editing a provisional deadzone does not dirty unrelated saved settings");
             var cancel=GUI.Commands.First(c=>c.Kind=="text" && c.Text=="Cancel");
             Draw(new(){type=EventType.MouseDown,button=0,mousePosition=new(cancel.Rect.x+10,cancel.Rect.y+10)}); Draw();

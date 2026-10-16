@@ -454,7 +454,12 @@ internal static partial class Panel
             else Label(250,354,690,"Inversion: "+(b?.Inverted==true?"On":"Off")+" (unchanged)",true);
             float end;
             if(input.EditingDeadzone&&input.SavePending) { Label(250,396,690,$"Deadzone {input.CaptureDeadzone:F2}% · waiting for Retry save or Cancel",true);end=442; }
-            else end=Slider(396,"Deadzone (%)",ref input.CaptureDeadzone,0,25,"F0",save:false);
+            else
+            {
+                float before=input.CaptureDeadzone;
+                end=Slider(396,"Deadzone (%)",ref input.CaptureDeadzone,0,25,"F0",save:false);
+                if(input.CaptureDeadzone!=before)input.DeadzoneEdited();
+            }
             Label(250,end,690,b==null?input.Capture?.Status??"Saved calibration unavailable":$"Endpoints {b.Calibration.Rest} → {b.Calibration.End}"+(b.Calibration.Centre is int c?$" · center {c}":""),true,28);
             if(Button(250,518,248,input.EditingDeadzone?(input.SavePending?"Retry save":"Save deadzone"):"Save calibration",false,b!=null&&(ok||input.EditingDeadzone)))
             { if(input.EditingDeadzone&&input.SavePending)input.RetrySave();else input.FinishAxis(); }

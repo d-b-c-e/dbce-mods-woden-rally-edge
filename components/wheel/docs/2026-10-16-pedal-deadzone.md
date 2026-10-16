@@ -7,7 +7,10 @@ normalization: input inside the deadzone becomes exactly zero, and the remaining
 travel rescales to full input. Cancel, Escape and timeout retain the original
 binding. A failed Save keeps the original live binding and the proposal for
 explicit Retry/Cancel. Editing this setting does not require a connected device
-or a new calibration sweep.
+or a new calibration sweep. Manual deadzone drafts expire after two minutes
+without a value change; slider changes refresh that window. New captures keep
+their existing 30-second limit. A missing device hub still leaves Save/Cancel
+usable; a failed deadzone Save freezes its proposal until explicit Retry/Cancel.
 
 New Throttle, Brake and Handbrake captures start the existing visible deadzone
 control at 3%. New steering stays at 0%; recalibration of an existing binding
