@@ -8,7 +8,10 @@ param(
     [Parameter(Mandatory)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$NativeProvenanceSha256,
     [Parameter(Mandatory)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$OriginalReceiptSha256,
     [Parameter(Mandatory)][string]$GameDir,
-    [Parameter(Mandatory)][string]$Result,
+    [Parameter(Mandatory)][Alias('Result')][string]$ResultDirectory,
+    [Parameter(Mandatory)][string]$SteamExecutable,
+    [Parameter(Mandatory)][string]$SteamLaunchHelper,
+    [Parameter(Mandatory)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$SteamLaunchHelperSha256,
     [Parameter(Mandatory)][string]$RigLeaseToken,
     [guid]$RequestId = [guid]::NewGuid(),
     [ValidateRange(1,10)][int]$MenuDwellSeconds = 2,
@@ -21,6 +24,10 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot/Environment.ps1"
 . "$PSScriptRoot/OrdinaryStopSmokeSafety.ps1"
 . 'E:/Source/toolkits/dbce-wheel-mod-toolkit/tools/playback/Stage-RigLease.ps1'
+if (!$NativeObservationSource) { throw 'This shared-launch successor requires one explicit Native observation; no legacy activation fallback.' }
+if ($SteamLaunchHelperSha256 -cne '8CE6326E1A67207E1EE56418AA02BADF5D76F9457CA0532B19B1ED8A3266A2DE' -or
+    (Get-FileHash -LiteralPath $SteamLaunchHelper).Hash -cne $SteamLaunchHelperSha256) { throw 'Qualified shared launch helper changed.' }
+. $SteamLaunchHelper
 
 function Pin([string]$Path,[string]$Hash) {
     Assert-ControlPlain $Path
@@ -53,7 +60,7 @@ function Assert-Inventory([object]$Before,$Roots,$Files) {
         if ($now[$i].key -cne $expected[$i].key -or $now[$i].hash -cne $expected[$i].hash) { throw "Owner inventory differs: $($expected[$i].key)" }
     }
 }
-function Start-Companion([string]$Script,[string]$OutputRoot,[guid]$Id) {
+function Start-Companion([string]$Script,[string]$CaptureOutputRoot,[guid]$Id) {
     $start = [Diagnostics.ProcessStartInfo]::new((Get-Command pwsh).Source)
     $start.UseShellExecute = $false
     $start.CreateNoWindow = $true
@@ -62,16 +69,19 @@ function Start-Companion([string]$Script,[string]$OutputRoot,[guid]$Id) {
     $casePrefix = if ($NativeObservationSource) { 'woden-native-observation-' } else { 'woden-menu-smoke-' }
     foreach ($arg in @('-NoProfile','-File',$Script,'-GameDir',$GameDir,'-RequestId',$Id.ToString(),'-CaseId',($casePrefix + $Id.ToString('N')),'-StartupTimeoutSeconds',$StartupTimeoutSeconds.ToString(),'-SessionTimeoutMinutes','5')) { [void]$start.ArgumentList.Add($arg) }
     if ($NativeObservationSource) {
-        foreach ($arg in @('-InputOrigin','automated','-NativeObservationSource',$NativeObservationSource,'-NativeObservationSeconds',$NativeObservationSeconds.ToString())) { [void]$start.ArgumentList.Add($arg) }
+        foreach ($arg in @('-ExternalLaunch','-InputOrigin','automated','-NativeObservationSource',$NativeObservationSource,'-NativeObservationSeconds',$NativeObservationSeconds.ToString())) { [void]$start.ArgumentList.Add($arg) }
     }
     $child = [Diagnostics.Process]::Start($start)
     if ($null -eq $child) { throw 'Installed companion did not start.' }
+    $stamp=$child.StartTime.ToUniversalTime()
+    Register-OrdinaryLaunchProcess ([pscustomobject]@{pid=$child.Id;startUtc=$stamp.ToString('O');startedUtcTicks=$stamp.Ticks;precision='Tick100ns';executable=$start.FileName}) $child 'companion'
     $stdout = $child.StandardOutput.ReadToEndAsync()
     $stderr = $child.StandardError.ReadToEndAsync()
-    return [pscustomobject]@{process=$child;stdout=$stdout;stderr=$stderr;outputRoot=$OutputRoot}
+    return [pscustomobject]@{process=$child;stdout=$stdout;stderr=$stderr;outputRoot=$CaptureOutputRoot}
 }
 function Save-Companion($Child) {
-    if (!$Child.process.WaitForExit(15000)) { throw 'Companion did not finish after source completion; retain lease.' }
+    $until=[DateTimeOffset]::UtcNow.AddSeconds(15)
+    while (!$Child.process.WaitForExit(100)) { Observe-OrdinaryLaunch; if ([DateTimeOffset]::UtcNow -gt $until) { throw 'Companion did not finish after source completion; retain lease.' } }
     $Child.stdout.GetAwaiter().GetResult() | Set-Content -LiteralPath (Join-Path $Child.outputRoot 'companion.stdout.txt')
     $Child.stderr.GetAwaiter().GetResult() | Set-Content -LiteralPath (Join-Path $Child.outputRoot 'companion.stderr.txt')
     $Child.process.ExitCode | Set-Content -LiteralPath (Join-Path $Child.outputRoot 'companion.exit.txt')
@@ -82,7 +92,7 @@ $PackageRoot = [IO.Path]::GetFullPath($PackageRoot)
 $NativeCandidatePath = [IO.Path]::GetFullPath($NativeCandidatePath)
 $NativeProvenancePath = [IO.Path]::GetFullPath($NativeProvenancePath)
 $GameDir = [IO.Path]::GetFullPath($GameDir).TrimEnd('\','/')
-$Result = [IO.Path]::GetFullPath($Result)
+$ResultDirectory = [IO.Path]::GetFullPath($ResultDirectory)
 $slot = Join-Path $env:LOCALAPPDATA 'dbce/test-slot.txt'
 $prefsKey = 'HKCU:\Software\ViJuDa\Super Woden Rally Edge'
 $receiptPath = Join-Path $GameDir 'BepInEx/WodenWheel-install.json'
@@ -105,6 +115,7 @@ $roots = [ordered]@{
 $files = [ordered]@{
     receipt=$receiptPath
     log=(Join-Path $GameDir 'BepInEx/LogOutput.log')
+    steamAppId=(Join-Path $GameDir 'steam_appid.txt')
 }
 
 # These checks precede the first filesystem or game mutation. The 24A9 native
@@ -113,8 +124,8 @@ if ($RequestId -eq [guid]::Empty -or $NativeSha256 -ne '088F1089BEB6D18D478F3758
     $NativeProvenanceSha256 -ne '6068B7A848F85FE42AE88EE8A86B10F1EF4C4E307B9C4235BE44C1A84BBEA8E5') {
     throw 'Exact qualified x64 load-muted native and provenance are required.'
 }
-foreach ($path in @($PackageRoot,$NativeCandidatePath,$NativeProvenancePath,$GameDir,$Result,$recording)) { Assert-ControlPlain $path }
-if (Test-Path -LiteralPath $Result) { throw 'Result must be a new directory.' }
+foreach ($path in @($PackageRoot,$NativeCandidatePath,$NativeProvenancePath,$GameDir,$ResultDirectory,$recording)) { Assert-ControlPlain $path }
+if (Test-Path -LiteralPath $ResultDirectory) { throw 'Result must be a new directory.' }
 if (Test-Path -LiteralPath $recording) { throw 'RequestId recording directory already exists.' }
 if (Test-Path -LiteralPath $requestPath) { throw 'A one-shot ordinary recording request already exists.' }
 if ($NativeObservationSource) {
@@ -123,6 +134,15 @@ if ($NativeObservationSource) {
     if (!(Test-Path -LiteralPath (Join-Path $NativeObservationSource 'complete.tsv') -PathType Leaf)) { throw 'Sealed native observation reference required.' }
 }
 Closed
+# This route uses the actual Steam library image. No disposable EXE or AppID-file writer.
+$appManifest=Join-Path (Split-Path (Split-Path $GameDir -Parent) -Parent) 'appmanifest_3218630.acf'
+Assert-ControlPlain $appManifest
+$acf=[IO.File]::ReadAllText($appManifest)
+$appIds=[regex]::Matches($acf,'(?m)^\s*"appid"\s*"([^"]+)"\s*$')
+$installDirs=[regex]::Matches($acf,'(?m)^\s*"installdir"\s*"([^"]+)"\s*$')
+if ($appIds.Count -ne 1 -or $appIds[0].Groups[1].Value -cne '3218630' -or $installDirs.Count -ne 1 -or
+    ![string]::Equals([IO.Path]::GetFullPath((Join-Path (Split-Path $appManifest -Parent) ('common/'+$installDirs[0].Groups[1].Value))),$GameDir,[StringComparison]::OrdinalIgnoreCase)) { throw 'Woden must be the exact installed Steam library image.' }
+if ((Test-Path -LiteralPath $files.steamAppId) -and [IO.File]::ReadAllText($files.steamAppId).Trim() -cne '3218630') { throw 'Existing owner AppID file differs; preserve it and refuse.' }
 Pin $receiptPath $OriginalReceiptSha256
 Pin $manifestPath $PackageManifestSha256
 Pin $NativeCandidatePath $NativeSha256
@@ -156,21 +176,100 @@ $packageSidecar = Join-Path $PackageRoot 'WheelFfb.noforce.provenance.json'
 Pin $packageSidecar $NativeProvenanceSha256
 Assert-StageRigLease -Path $slot -Token $RigLeaseToken
 
+$sourceRoot=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+$outputRoot=Join-Path $ResultDirectory 'launch-custody'
+$observeExternal=$null
+# Import the exact shared owned/identity implementation; no copied supervisor.
+$ownedHelper='E:/Source/toolkits/dbce-wheel-mod-toolkit/tools/playback/Stage-OwnedProcess.ps1'
+$identityHelper=Join-Path (Split-Path $ownedHelper -Parent) 'Stage-ProcessIdentity.ps1'
+Pin $ownedHelper 'E58A8AE0B3096A3419196B491A9A773DBE80E45FC33CC41D819D108F513A0725'
+Pin $identityHelper 'BE132A68893EE591DD76DE7143D41F5B87C767FEA6EB628952ABFEF477713A29'
+. $ownedHelper
+$result=[ordered]@{schema='woden.shared-launch-custody@1';requestId=$RequestId.ToString('N');steps=@();identities=@();launchAttempted=$false;launchAdopted=$false;launchOutcome='not-requested';childrenQuiescent=$false;sharedHelperSha256=$SteamLaunchHelperSha256}
+function Save-OrdinaryLaunchCustody {
+    $result['ownedLineage']=@($owned.GetEnumerator() | ForEach-Object {[ordered]@{pid=$_.Key;createdUtc=$_.Value.ToString('O');precision='Tick100ns'}})
+    $path=Join-Path $outputRoot 'custody.json'
+    $temp=$path+'.tmp-'+[guid]::NewGuid().ToString('N')
+    [IO.File]::WriteAllText($temp,($result|ConvertTo-Json -Depth 12),[Text.UTF8Encoding]::new($false))
+    [IO.File]::Move($temp,$path,$true)
+}
+function Register-OrdinaryLaunchProcess($Record,$Process,[string]$Role) {
+    # Retain first, then publish exact identity before token/readiness refusal.
+    $ownedRoots.Add($Process)
+    $stamp=[DateTime]::new([long]$Record.startedUtcTicks,[DateTimeKind]::Utc)
+    if ($owned.ContainsKey([uint32]$Record.pid) -and $owned[[uint32]$Record.pid].Ticks -ne $stamp.Ticks) { throw 'Owned PID changed; retain custody.' }
+    $owned[[uint32]$Record.pid]=$stamp
+    $result.identities+=@([ordered]@{pid=$Record.pid;createdUtc=$stamp.ToString('O');precision='Tick100ns';executable=$Record.executable;role=$Role})
+    Save-OrdinaryLaunchCustody
+    $null=$Process.SafeHandle
+}
+function Observe-OrdinaryLaunch {
+    [void]@(Observe-Owned)
+    Save-OrdinaryLaunchCustody
+}
+function Assert-OrdinaryLaunchClosed {
+    Complete-Owned
+    Save-OrdinaryLaunchCustody
+    if (($result.launchAttempted -and !$result.launchAdopted) -or !$result.childrenQuiescent) { throw 'Shared launch outcome/descendants not closed; retain lease and owner state.' }
+}
+function Start-OrdinarySteamGame {
+    Closed
+    $context=Get-SteamLaunchContext -SteamExecutable $SteamExecutable
+    $result['context']=$context; Save-OrdinaryLaunchCustody
+    if ($context.decision -cnotin @('direct','broker')) { throw ('Shared Steam context refused: '+$context.reason) }
+    $spec=@{Executable=$exe;WorkingDirectory=$GameDir;AppId='3218630';Environment=@{};AllowedEnvironmentNames=@()}
+    # Child gets mandatory mute and both Steam IDs from the qualified helper.
+    $started=[DateTimeOffset]::UtcNow
+    if ($context.decision -ceq 'broker') {
+        $broker=Join-Path $outputRoot 'launch-woden.cmd'
+        $brokerHash=New-ChildEnvironmentBroker -Path $broker @spec
+        $result['brokerPath']=$broker;$result['brokerSha256']=$brokerHash
+        $result.launchAttempted=$true;$result.launchOutcome='unknown';Save-OrdinaryLaunchCustody
+        try {
+            $shell=Start-MediumBroker -Path $broker -BrokerSha256 $brokerHash -Context $context
+            Register-OrdinaryLaunchProcess $shell.record $shell.process 'shell-request'
+        } catch {
+            $data=$_.Exception.Data
+            if ($data.Contains('SteamShellRequestAttempted') -and !$data['SteamShellRequestAttempted']) { $result.launchAttempted=$false;$result.launchOutcome='not-requested' }
+            if ($data.Contains('ShellRequestRecord') -and $data.Contains('ShellRequestProcess')) { Register-OrdinaryLaunchProcess $data['ShellRequestRecord'] $data['ShellRequestProcess'] 'shell-request' }
+            Save-OrdinaryLaunchCustody;throw
+        }
+    } else {
+        $start=New-SteamChildStartInfo @spec
+        $result.launchAttempted=$true;$result.launchOutcome='unknown';Save-OrdinaryLaunchCustody
+        $game=[Diagnostics.Process]::Start($start)
+        if (!$game) { throw 'Direct game start returned no process; retain unknown launch custody.' }
+        $stamp=$game.StartTime.ToUniversalTime()
+        $script:launched=$game
+        Register-OrdinaryLaunchProcess ([pscustomobject]@{pid=$game.Id;startedUtcTicks=$stamp.Ticks;executable=$exe}) $game 'direct-game'
+    }
+    $adopted=Wait-SteamLaunchProcess -Executable $exe -LaunchStartedUtc $started -Context $context -OnAdopted {
+        param($record,$process)
+        $script:launched=$process
+        Register-OrdinaryLaunchProcess $record $process 'game'
+    }
+    $result.launchAdopted=$true;$result.launchOutcome=$adopted.launchOutcome
+    $result['game']=$adopted.record;Save-OrdinaryLaunchCustody
+    if (!$adopted.record.integrityMatchesSteam) { throw ('Game token did not match Steam: '+$adopted.record.integrityError) }
+}
+
 $mutated = $false
 $restored = $false
 $launched = $null
 $child = $null
 $errorText = $null
 try {
-    [IO.Directory]::CreateDirectory($Result) | Out-Null
-    Save-ControlFiles (Join-Path $Result 'owner-before') $roots $files
-    Registry-Snapshot (Join-Path $Result 'preferences.json')
-    $before = Get-Content -LiteralPath (Join-Path $Result 'owner-before/manifest.json') -Raw | ConvertFrom-Json
-    $prefsHash = Get-ControlHash (Join-Path $Result 'preferences.json')
-    [ordered]@{schema=1;gameDir=$GameDir;requestId=$RequestId;packageManifestSha256=$PackageManifestSha256;nativeSha256=$NativeSha256;nativeProvenanceSha256=$NativeProvenanceSha256;originalReceiptSha256=$OriginalReceiptSha256;leasePath=$slot;ownerBackupSha256=(Get-ControlHash (Join-Path $Result 'owner-before/manifest.json'));preferencesSha256=$prefsHash} |
-        ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $Result 'recovery.json')
+    [IO.Directory]::CreateDirectory($ResultDirectory) | Out-Null
+    [IO.Directory]::CreateDirectory($outputRoot) | Out-Null
+    Save-OrdinaryLaunchCustody
+    Save-ControlFiles (Join-Path $ResultDirectory 'owner-before') $roots $files
+    Registry-Snapshot (Join-Path $ResultDirectory 'preferences.json')
+    $before = Get-Content -LiteralPath (Join-Path $ResultDirectory 'owner-before/manifest.json') -Raw | ConvertFrom-Json
+    $prefsHash = Get-ControlHash (Join-Path $ResultDirectory 'preferences.json')
+    [ordered]@{schema=1;gameDir=$GameDir;requestId=$RequestId;packageManifestSha256=$PackageManifestSha256;nativeSha256=$NativeSha256;nativeProvenanceSha256=$NativeProvenanceSha256;originalReceiptSha256=$OriginalReceiptSha256;leasePath=$slot;ownerBackupSha256=(Get-ControlHash (Join-Path $ResultDirectory 'owner-before/manifest.json'));preferencesSha256=$prefsHash} |
+        ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $ResultDirectory 'recovery.json')
     $mutated = $true
-    & pwsh -NoProfile -File (Join-Path $PackageRoot 'Manage-Install.ps1') -Mode Install -PackageRoot $PackageRoot -GameDir $GameDir *> (Join-Path $Result 'install.log')
+    & pwsh -NoProfile -File (Join-Path $PackageRoot 'Manage-Install.ps1') -Mode Install -PackageRoot $PackageRoot -GameDir $GameDir *> (Join-Path $ResultDirectory 'install.log')
     if ($LASTEXITCODE -ne 0) { throw "Candidate installer failed: $LASTEXITCODE" }
     $installed = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
     $expectedPayloads = @($manifest | Where-Object { $_.path.Replace('\','/').StartsWith('BepInEx/plugins/WodenRallyEdgeWheel/',[StringComparison]::OrdinalIgnoreCase) })
@@ -202,22 +301,32 @@ try {
     # force analysis and the request-bound source recorder remain active.
     Set-OrdinaryTelemetryDeliveryOff $configPath
     [ordered]@{schema=1;config='Telemetry/Enabled = false';temporaryConfigSha256=(Get-ControlHash $configPath)} |
-        ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Result 'telemetry-delivery-mute.json')
+        ConvertTo-Json | Set-Content -LiteralPath (Join-Path $ResultDirectory 'telemetry-delivery-mute.json')
     Assert-StageRigLease -Path $slot -Token $RigLeaseToken
     Closed
-    $child = Start-Companion $companionPath $Result $RequestId
+    $child = Start-Companion $companionPath $ResultDirectory $RequestId
+    $requestDeadline=[DateTimeOffset]::UtcNow.AddSeconds(15)
+    while (!(Test-Path -LiteralPath $requestPath)) {
+        Observe-OrdinaryLaunch
+        if ($child.process.HasExited -or [DateTimeOffset]::UtcNow -gt $requestDeadline) { throw 'External-launch companion did not prepare the request.' }
+        Start-Sleep -Milliseconds 100
+    }
+    $prepared=Get-Content -LiteralPath $requestPath -Raw | ConvertFrom-Json
+    if ($prepared.Id -ne $RequestId.ToString() -or $prepared.DisableForces -ne $true -or $prepared.InputOrigin -cne 'automated') { throw 'Prepared request identity/mute differs; no launch.' }
+    Start-OrdinarySteamGame
     $statusPath = Join-Path $recording 'control/status.txt'
     $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
     do {
         $status = Status $statusPath
         if ($status -and $status.id -ceq $idText -and $status.status -ceq 'Recording' -and $status.active -ceq 'True') { break }
         if ($child.process.HasExited) { throw 'Installed companion exited before Recording status.' }
+        Observe-OrdinaryLaunch
         Start-Sleep -Milliseconds 200
     } while ([DateTime]::UtcNow -lt $deadline)
     if (!$status -or $status.status -cne 'Recording') { throw 'Timed out waiting for exact Recording status.' }
     $pidValue = 0; $ticks = [long]0
     if (![int]::TryParse($status.pid,[ref]$pidValue) -or ![long]::TryParse($status.startedUtcTicks,[ref]$ticks)) { throw 'Recorder process identity is invalid.' }
-    $launched = Get-Process -Id $pidValue -ErrorAction Stop
+    if (!$launched -or $launched.Id -ne $pidValue) { throw 'Recorder differs from the already adopted exact game.' }
     if ($launched.StartTime.ToUniversalTime().Ticks -ne $ticks -or ![string]::Equals($launched.Path,$exe,[StringComparison]::OrdinalIgnoreCase) -or
         @(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue).Count -ne 1) { throw 'Exact Woden process identity differs.' }
     if (Test-Path -LiteralPath $requestPath) {
@@ -226,7 +335,7 @@ try {
     }
     if (!$NativeObservationSource) {
         Start-Sleep -Seconds $MenuDwellSeconds
-        & pwsh -NoProfile -File $companionPath -GameDir $GameDir -Stop -RequestId $RequestId *> (Join-Path $Result 'stop.log')
+        & pwsh -NoProfile -File $companionPath -GameDir $GameDir -Stop -RequestId $RequestId *> (Join-Path $ResultDirectory 'stop.log')
         if ($LASTEXITCODE -ne 0) { throw "Installed request-bound Stop refused: $LASTEXITCODE" }
     }
     # Native observation owns its bounded first-reader interval and Stop/normal exit; never inject raw driving here.
@@ -234,6 +343,7 @@ try {
     do {
         $status = Status $statusPath
         if ($status -and $status.id -ceq $idText -and $status.status -ceq 'Completed' -and $status.active -ceq 'False') { break }
+        Observe-OrdinaryLaunch
         Start-Sleep -Milliseconds 200
     } while ([DateTime]::UtcNow -lt $deadline)
     if (!$status -or $status.status -cne 'Completed') { throw 'Request-bound Stop did not complete original source.' }
@@ -258,8 +368,8 @@ try {
     if ($NativeObservationSource -and $nativeSamples -lt 10) { throw 'Native observation lacks original aligned raw/normalized/delivered samples.' }
     $sourceHash = Get-ControlHash $source
     $exit = Save-Companion $child
-    $companionOutput = (Get-Content -LiteralPath (Join-Path $Result 'companion.stdout.txt') -Raw) +
-        (Get-Content -LiteralPath (Join-Path $Result 'companion.stderr.txt') -Raw)
+    $companionOutput = (Get-Content -LiteralPath (Join-Path $ResultDirectory 'companion.stdout.txt') -Raw) +
+        (Get-Content -LiteralPath (Join-Path $ResultDirectory 'companion.stderr.txt') -Raw)
     if (!$NativeObservationSource) { Assert-OrdinaryNoDrivingRefusal $exit $companionOutput }
     $notice = Get-Content -LiteralPath (Join-Path $recording 'control/finalization.json') -Raw | ConvertFrom-Json
     if ($NativeObservationSource) {
@@ -267,7 +377,7 @@ try {
             (Get-ControlHash $source) -ne $sourceHash -or ($exit -eq 0) -ne ($notice.State -ceq 'saved')) { throw 'Native source finalization identity differs.' }
         $logText = [IO.File]::ReadAllText($files.log)
         if ($logText -notmatch 'Native observation phase=ended; captured-current-reader;' -or $logText -match 'Native observation phase=ended; (unavailable|refused):') { throw 'Native observation did not complete its first-reader interval.' }
-        Copy-ControlExact $files.log (Join-Path $Result 'native-observation.log') (Get-ControlHash $files.log)
+        Copy-ControlExact $files.log (Join-Path $ResultDirectory 'native-observation.log') (Get-ControlHash $files.log)
     } elseif ($notice.RequestId -ne $RequestId.ToString() -or $notice.State -cne 'incomplete' -or !$notice.Error -or
         (Get-ControlHash $source) -ne $sourceHash -or (Test-Path -LiteralPath (Join-Path $recording 'case.json')) -or
         (Test-Path -LiteralPath (Join-Path $recording 'force-observation.jsonl'))) { throw 'Menu-only no-driving finalization differs.' }
@@ -275,7 +385,7 @@ try {
     Assert-OrdinaryGameExit $launched
     Closed
     Assert-StageRigLease -Path $slot -Token $RigLeaseToken
-    $archive = Join-Path $Result 'recording-evidence'
+    $archive = Join-Path $ResultDirectory 'recording-evidence'
     [IO.Directory]::CreateDirectory($archive) | Out-Null
     foreach ($name in @('source.jsonl','force-config.json','capture-profile.json','control/status.txt','control/finalization.json')) {
         $from = Join-Path $recording $name
@@ -284,34 +394,36 @@ try {
         Copy-ControlExact $from (Get-ControlChild $archive $name) $hash
     }
     [ordered]@{schema=1;result=$(if ($NativeObservationSource) { 'native-current-reader' } else { 'menu-only-incomplete' });nativeSamples=$nativeSamples;syntheticDriving=$false;requestId=$RequestId;sourceSha256=$sourceHash;companionExit=$exit;gamePid=$pidValue;gameStartUtcTicks=$ticks} |
-        ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Result 'smoke-result.json')
+        ConvertTo-Json | Set-Content -LiteralPath (Join-Path $ResultDirectory 'smoke-result.json')
 } catch {
     $errorText = $_.Exception.Message
-    if (Test-Path -LiteralPath $Result) { $errorText | Set-Content -LiteralPath (Join-Path $Result 'run-error.txt') }
+    if (Test-Path -LiteralPath $ResultDirectory) { $errorText | Set-Content -LiteralPath (Join-Path $ResultDirectory 'run-error.txt') }
 } finally {
     if ($mutated) {
         try {
             # The companion can still launch Woden after a startup failure. Both
             # actors must be finished, and no launch request may remain.
             Assert-OrdinaryCompanionStopped $child $requestPath
-            if ($child -and !(Test-Path -LiteralPath (Join-Path $Result 'companion.stdout.txt'))) { $null = Save-Companion $child }
+            if ($child -and !(Test-Path -LiteralPath (Join-Path $ResultDirectory 'companion.stdout.txt'))) { $null = Save-Companion $child }
             $gameExit = Wait-OrdinaryGameExitForRestore $launched
-            if ($gameExit) { $gameExit | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Result 'game-exit-before-restore.json') }
+            if ($gameExit) { $gameExit | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $ResultDirectory 'game-exit-before-restore.json') }
+            # A shell timeout/late child can outlive recorder readiness. Never infer absence.
+            Assert-OrdinaryLaunchClosed
             # Never mutate owner files under a live or unverified game process.
             Closed
             Assert-StageRigLease -Path $slot -Token $RigLeaseToken
-            Restore-ControlFiles (Join-Path $Result 'owner-before') (Join-Path $Result 'candidate-after') $roots $files
-            if ((Get-ControlHash (Join-Path $Result 'preferences.json')) -ne $prefsHash) { throw 'Preference snapshot changed.' }
-            Registry-Restore (Join-Path $Result 'preferences.json')
+            Restore-ControlFiles (Join-Path $ResultDirectory 'owner-before') (Join-Path $ResultDirectory 'candidate-after') $roots $files
+            if ((Get-ControlHash (Join-Path $ResultDirectory 'preferences.json')) -ne $prefsHash) { throw 'Preference snapshot changed.' }
+            Registry-Restore (Join-Path $ResultDirectory 'preferences.json')
             Assert-Inventory $before $roots $files
             Pin $receiptPath $OriginalReceiptSha256
-            'restored' | Set-Content -LiteralPath (Join-Path $Result 'restored.txt')
+            'restored' | Set-Content -LiteralPath (Join-Path $ResultDirectory 'restored.txt')
             $restored = $true
         } catch {
-            $_.Exception.Message | Set-Content -LiteralPath (Join-Path $Result 'restore-error.txt')
+            $_.Exception.Message | Set-Content -LiteralPath (Join-Path $ResultDirectory 'restore-error.txt')
         }
     }
 }
-if (!$restored) { throw "Owner restoration not verified; retain caller-owned lease and inspect $Result. Run error: $errorText" }
+if (!$restored) { throw "Owner restoration not verified; retain caller-owned lease and inspect $ResultDirectory. Run error: $errorText" }
 if ($errorText) { throw "Smoke failed after verified restoration: $errorText" }
-Write-Host "Ordinary diagnostic completed; owner state restored. Evidence: $Result"
+Write-Host "Ordinary diagnostic completed; owner state restored. Evidence: $ResultDirectory"

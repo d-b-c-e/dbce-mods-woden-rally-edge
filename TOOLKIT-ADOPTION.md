@@ -1,3 +1,15 @@
+October 15 shared Steam consumer successor (source only): reuse the qualified
+`SteamLaunchContext.ps1` af22ae3/8CE6326E directly; its46 pure checks and native
+declaration compile remain qualified under168570, without rerun. The Woden
+supervisor owns exact early game/shell identity and retained handles before
+recorder readiness; the companion's explicit ExternalLaunch mode owns only
+request/capture/finalization. Canonical E58A/BE13 process custody and exact
+snapshot restoration remain required. Unknown shell outcome retains the lease
+and owner state. Baseline is now installed3eb/A751, not the historical d45/A93.
+Only new Woden consumer cases are authored; runtime Steam/focus/pedal/F6 proof
+is still queued. See components/wheel/docs/2026-10-15-shared-steam-launch-consumer.md.
+STD-016/017/020 remain unchecked; STD-031/037 remain pending. No status promotion.
+
 **Current owner install - October 15, 07:37 CT:** private `0.2.16+fe5828d68e17dce02e8641c2dee5825cabd38b20`, revision-5 receipt `422F8E52578FD2B81B404398D0DE068FADB4D76228B9BC71A5FCFD4BC62F46CE`. Exact ZIP `0DDECAC4A0AD9AFA45E3CCE306B8FBB45AE4F1F637D39809C767ADBB54B9789A` / manifest `995B1D1E55ED8F18F2FA7AA6F2EE672876A844ECDBD8001D205D998EEFD773CC`; packaging source `2fb68a2`, compiled source `fe5828d` (UI source qualified at `92794b8`). Closed-game update passed all 23 payloads twice, exact automatic backup of the prior 857F receipt/23 payloads/five configs, and byte-exact preservation of all five configs, native bindings, force tune, raw typed preferences and 305 protected nonowned/save/loader files plus 10 directory entries. Only Plugin/Core/case finalizer and the already-qualified request-ID runner DF140 changed; other 19 payloads including normal F836 force native and 4AF shim remain unchanged. The one bff4ce86 setup helper is package-only, never installed or applied to owner. No game/native/device/force test or public push accompanied installation. Evidence: hub `artifacts/woden-ui-0.2.16-20261015`, owner result `4AA681E0E793D4C7EF0A72BD9770DE9EB54F77E3A041C560EC073D98FDA45108`; backup `WodenWheelBackups/before-install-20261015-073749-8603e4cc`. Dine owns the separate volume-trigger/seam source candidate; it is not installed and seam improvement remains unproven. Earlier checkpoints below are historical.
 
 # Toolkit standards adoption
