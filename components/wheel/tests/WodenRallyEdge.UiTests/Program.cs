@@ -51,7 +51,7 @@ ShimChecks.Run(dir, Check);
 SharedBindingChecks.Run(dir, Check);
 void Draw(Event? e=null)
 {
-    bool repaint=e==null||e.type==EventType.Repaint;string viewBefore=Runtime.Settings.UiView;
+    bool repaint=e==null||e.type==EventType.Repaint;string viewBefore=Runtime.Settings.UiView;bool closingBefore=MenuOwnership.Closing;
     GUI.Commands.Clear();Event.current=e??new();Panel.Draw();Check(Runtime.Log.Errors.Count==0,string.Join("\n",Runtime.Log.Errors));
     if(!Panel.Open)return;
     float scale=FixtureScale();
@@ -60,7 +60,11 @@ void Draw(Event? e=null)
     // still check every actually drawn tab's full bounds.
     var tabs=repaint&&viewBefore==Runtime.Settings.UiView?SettingsPresentation.Pages(Runtime.Settings.UiView):SettingsPresentation.CorePages
         .Concat(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text=="Driving")?new[]{"Driving"}:Array.Empty<string>());
-    foreach(string command in new[]{"Simple","Advanced",MenuOwnership.Closing?"Cancel close":"Close","Stop FFB"}.Concat(tabs))
+    var closeLabels=GUI.Commands.Where(c=>c.Kind=="text"&&c.Text is "Close" or "Cancel close").ToArray();
+    Check(closeLabels.Length==1,"exactly one complete Close/Cancel close footer is drawn");
+    if(repaint&&closingBefore==MenuOwnership.Closing)
+        Check(closeLabels[0].Text==(MenuOwnership.Closing?"Cancel close":"Close"),"stable repaint footer matches pending-close state");
+    foreach(string command in new[]{"Simple","Advanced",closeLabels[0].Text,"Stop FFB"}.Concat(tabs))
     {
         var label=GUI.Commands.FirstOrDefault(c=>c.Kind=="text"&&c.Text==command);
         Check(label!=null&&label.Rect.x-8*scale>=0&&label.Rect.y-5*scale>=0&&label.Rect.x+label.Rect.width+8*scale<=Screen.width&&label.Rect.y-5*scale+Dbce.Wheel.Ui.F6Metrics.RowHeight*scale<=Screen.height,
