@@ -325,3 +325,11 @@ This isolated Help branch starts at product3eb6bbad per root176874; separate
 
 
 October16 positive-pedal diagnostic (sana181873), source only: explicit test-probe schema10 reuses the resident STD-033 native injection client and existing raw/native-car observer; no second reader/backend/force. EC81 binding identity is pinned and no production Apply runs. New22s cold mode starts after contiguous eligibleRACE; passive behavior is preserved. All37 existing standard IDs remain represented; STD-016/017/020 unchecked and STD-031/037 pending remain unchanged. No install, runtime or physical qualification is claimed by this test source.
+
+October16 Native deadzone persistence correction (188509): saved camera keys remain
+explicit choices even when equal to older defaults (STD-005); the existing atomic
+binding writer updates only the edited deadzone in the saved document, preserving
+other values and optional button-field presence (STD-004/030). Focused legacy-shape
+WheelInput persistence regression added; validation pending a focused leased build.
+All37 ledger IDs remain represented; STD-016/017/020 unchecked and STD-031/037
+pending remain unchanged. No runtime, owner-profile migration or physical claim.

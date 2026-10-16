@@ -74,7 +74,7 @@ internal sealed class WheelInput
         try
         {
             Bindings = Bindings.Load(path);
-            if (Bindings.CameraKeysMigrated) Runtime.Log.LogInfo("Camera keys: default numpad layout is 8/2 forward/back, 9/3 up/down, 4/6 left/right, 7/1 tilt, +/- FOV, 5 reset (untouched old defaults moved)");
+            if (Bindings.CameraKeysMigrated) Runtime.Log.LogInfo("Camera keys: no saved keys; using default numpad layout 8/2 forward/back, 9/3 up/down, 4/6 left/right, 7/1 tilt, +/- FOV, 5 reset");
         }
         catch (Exception ex) { Status = "Bindings could not load: " + ex.Message; SaveError = Status; }
     }
@@ -84,7 +84,9 @@ internal sealed class WheelInput
         var proposed = Bindings.Copy();
         try
         {
-            edit(proposed); proposed.Save(_path);
+            edit(proposed);
+            if (EditingDeadzone) proposed.SaveDeadzone(_path, CaptureAxis!, _deadzoneBinding!);
+            else proposed.Save(_path);
             Bindings = proposed; _pendingEdit = null; Status = "Bindings saved"; SaveError = null; return true;
         }
         catch (Exception ex) { _pendingEdit = edit; Status = "Save failed: " + ex.Message + ". Retry save or Cancel to retain the previous binding."; SaveError = Status; return false; }

@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using BepInEx.Configuration;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -142,5 +143,38 @@ internal static class DeadzoneChecks
         Panel.Close(false);
         check(Runtime.Settings.FfbEnabled && Runtime.Force.Reconnects==reconnects && Runtime.Force.Changes==forceChanges,
             "editor retains the On preference without reconnecting or changing force settings");
+        LegacyPersistence(directory, check);
+    }
+    private static void LegacyPersistence(string directory, Action<bool,string> check)
+    {
+        string path = Path.Combine(directory,"legacy-deadzone-bindings.json");
+        var guid = Guid.NewGuid();
+        var original = new Bindings { Brake = new(guid,5,new(0,65535)) };
+        foreach (string action in new[] { "Gear up","Gear down","Handbrake","Camera","Rear view","Lights","Horn","Respawn","Pause","Settings panel","Confirm","Next song" })
+            original.Buttons[action] = new(guid,3);
+        original.CameraKeys["Camera up"]="Numpad8"; original.CameraKeys["Camera down"]="Numpad2";
+        original.CameraKeys["Camera forward"]="Numpad9"; original.CameraKeys["Camera back"]="Numpad7";
+        original.CameraKeys["Camera pitch down"]="Numpad3"; original.CameraKeys["Camera reset"]="Numpad0";
+        var document = JsonSerializer.SerializeToNode(original)!.AsObject();
+        foreach (var button in document["Buttons"]!.AsObject()) button.Value!.AsObject().Remove("HatNeighbours");
+        document["Buttons"]!["Confirm"]!["HatNeighbours"]=false; // Preserve explicit false as well as absent defaults.
+        document["UnrelatedExtension"]=JsonNode.Parse("{\"values\":[0,null,true],\"note\":\"preserve\"}");
+        File.WriteAllText(path,document.ToJsonString()); string before = File.ReadAllText(path);
+        var input = new WheelInput(path); Runtime.Wheel = input;
+        check(input.Bindings.CameraKeys.OrderBy(p=>p.Key).SequenceEqual(original.CameraKeys.OrderBy(p=>p.Key)) && !input.Bindings.CameraKeysMigrated,
+            "loading an explicitly saved earlier camera layout never migrates its keys");
+        input.BeginDeadzone("Brake"); input.CaptureDeadzone=3; input.Cancel();
+        check(File.ReadAllText(path)==before,"legacy-shape Cancel keeps exact bytes, including absent button fields");
+        input.BeginDeadzone("Brake"); input.CaptureDeadzone=3; input.FinishAxis();
+        var saved = JsonNode.Parse(File.ReadAllText(path))!;
+        check(!input.Capturing && saved["Brake"]!["Calibration"]!["Deadzone"]!.GetValue<double>()==.03,
+            "actual WheelInput Save writes numeric0.03 through the existing atomic writer");
+        saved["Brake"]!["Calibration"]!["Deadzone"]=0;
+        check(JsonNode.DeepEquals(saved,document),
+            "legacy Save changes only the edited deadzone: all camera keys, optional button fields, extensions and other values remain exact");
+        check(File.ReadAllText(path+".bak")==before,"deadzone-only save retains the exact legacy backup");
+        var restarted = new WheelInput(path);
+        check(restarted.Bindings.Brake!.Calibration.Deadzone==.03 && restarted.Bindings.CameraKeys.OrderBy(p=>p.Key).SequenceEqual(original.CameraKeys.OrderBy(p=>p.Key)),
+            "cold WheelInput readback retains3% and the original saved camera keys");
     }
 }
