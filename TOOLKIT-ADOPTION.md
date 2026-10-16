@@ -330,6 +330,11 @@ October16 Native deadzone persistence correction (188509): saved camera keys rem
 explicit choices even when equal to older defaults (STD-005); the existing atomic
 binding writer updates only the edited deadzone in the saved document, preserving
 other values and optional button-field presence (STD-004/030). Focused legacy-shape
-WheelInput persistence regression added; validation pending a focused leased build.
+WheelInput persistence regression passed in the existing61-check --deadzone-only
+fixture; affectedCore/Plugin Release build passed with0warnings/errors from dd8aa4f.
+Useful logs: artifacts/native-f6-persistence/run-01/{plugin-build,deadzone-checks}.stdout.log.
+The combined UI attempt stopped before F6 on supported desktop activation failure;
+normal close restored owner state and released the lease. Newproduct runtime
+Save/restart and driving acceptance remain pending; earlier positives remain valid.
 All37 ledger IDs remain represented; STD-016/017/020 unchecked and STD-031/037
 pending remain unchanged. No runtime, owner-profile migration or physical claim.
