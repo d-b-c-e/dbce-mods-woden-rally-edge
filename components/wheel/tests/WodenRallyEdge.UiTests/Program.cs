@@ -60,7 +60,7 @@ void Draw(Event? e=null)
     // still check every actually drawn tab's full bounds.
     var tabs=repaint&&viewBefore==Runtime.Settings.UiView?SettingsPresentation.Pages(Runtime.Settings.UiView):SettingsPresentation.CorePages
         .Concat(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text=="Driving")?new[]{"Driving"}:Array.Empty<string>());
-    foreach(string command in new[]{"Simple","Advanced","Close","Stop FFB"}.Concat(tabs))
+    foreach(string command in new[]{"Simple","Advanced",MenuOwnership.Closing?"Cancel close":"Close","Stop FFB"}.Concat(tabs))
     {
         var label=GUI.Commands.FirstOrDefault(c=>c.Kind=="text"&&c.Text==command);
         Check(label!=null&&label.Rect.x-8*scale>=0&&label.Rect.y-5*scale>=0&&label.Rect.x+label.Rect.width+8*scale<=Screen.width&&label.Rect.y-5*scale+Dbce.Wheel.Ui.F6Metrics.RowHeight*scale<=Screen.height,
