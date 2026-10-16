@@ -72,11 +72,38 @@ try {
     $stillRunning = Fake-Process $false 0
     Refuses { Wait-OrdinaryGameExitForRestore $stillRunning } 'still alive after bounded restore wait'
     if ($stillRunning.CloseCalls -ne 0) { throw 'Restore wait must not send Close or Kill.' }
+
+    # The native observation log, as actual 08 met it: while a writer holds it (the live game), the read is a sharing
+    # violation; once that handle is closed, the same bytes pass, and a refused interval is still refused.
+    $log = Join-Path $sourceFixture 'LogOutput.log'
+    [IO.File]::WriteAllText($log, "[Info] Native observation phase=ended; captured-current-reader; samples=241`r`n")
+    $writer = [IO.File]::Open($log, [IO.FileMode]::Open, [IO.FileAccess]::Write, [IO.FileShare]::Read)
+    try { Refuses { Assert-OrdinaryNativeObservationLog $log } 'being used by another process' } finally { $writer.Dispose() }
+    Assert-OrdinaryNativeObservationLog $log
+    [IO.File]::WriteAllText($log, "[Info] Native observation phase=ended; refused: no reader`r`n")
+    Refuses { Assert-OrdinaryNativeObservationLog $log } 'did not complete its first-reader interval'
+    # The supervisor reads that log only after the exact game exit and Closed, and before the finally restore.
+    $parseTokens = $null; $parseErrors = $null
+    $supervisor = [Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'Run-OrdinaryStopSmoke.ps1'), [ref]$parseTokens, [ref]$parseErrors)
+    if ($parseErrors.Count) { throw 'Supervisor does not parse.' }
+    $commands = @($supervisor.FindAll({ param($node) $node -is [Management.Automation.Language.CommandAst] }, $true))
+    $exitAt = @($commands | Where-Object { $_.GetCommandName() -ceq 'Assert-OrdinaryGameExit' } | ForEach-Object { $_.Extent.StartOffset })
+    $logGateAt = @($commands | Where-Object { $_.GetCommandName() -ceq 'Assert-OrdinaryNativeObservationLog' } | ForEach-Object { $_.Extent.StartOffset })
+    $closedAt = @($commands | Where-Object { $_.GetCommandName() -ceq 'Closed' -and $exitAt.Count -eq 1 -and $_.Extent.StartOffset -gt $exitAt[0] } |
+        ForEach-Object { $_.Extent.StartOffset } | Sort-Object | Select-Object -First 1)
+    $logReads = @($supervisor.FindAll({ param($node) $node -is [Management.Automation.Language.MemberExpressionAst] -and
+        $node.Expression.Extent.Text -ceq '$files' -and $node.Member.Extent.Text -ceq 'log' }, $true) | ForEach-Object { $_.Extent.StartOffset })
+    $restoreAt = @($supervisor.FindAll({ param($node) $node -is [Management.Automation.Language.TryStatementAst] -and $node.Finally }, $true) |
+        Where-Object { $_.Finally.Extent.Text -match 'Restore-ControlFiles' } | ForEach-Object { $_.Finally.Extent.StartOffset })
+    if ($exitAt.Count -ne 1 -or $logGateAt.Count -ne 1 -or $closedAt.Count -ne 1 -or $restoreAt.Count -ne 1 -or $logReads.Count -lt 1 -or
+        @($logReads | Where-Object { $_ -le $closedAt[0] -or $_ -ge $restoreAt[0] }).Count -ne 0 -or $logGateAt[0] -le $closedAt[0]) {
+        throw 'The supervisor reads the game log before the exact exit and Closed, or after the owner restore.'
+    }
     'Ordinary Stop smoke safety gates: PASS'
 } finally {
     if (Test-Path -LiteralPath $request) { Remove-Item -LiteralPath $request }
     if (Test-Path -LiteralPath $sourceFixture) {
-        foreach ($file in @('force-config.json','capture-profile.json','temporary.cfg')) {
+        foreach ($file in @('force-config.json','capture-profile.json','temporary.cfg','LogOutput.log')) {
             $path = Join-Path $sourceFixture $file
             if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path }
         }

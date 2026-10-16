@@ -469,9 +469,6 @@ try {
     if ($NativeObservationSource) {
         if ($notice.RequestId -ne $RequestId.ToString() -or $notice.State -notin @('saved','incomplete') -or
             (Get-ControlHash $source) -ne $sourceHash -or ($exit -eq 0) -ne ($notice.State -ceq 'saved')) { throw 'Native source finalization identity differs.' }
-        $logText = [IO.File]::ReadAllText($files.log)
-        if ($logText -notmatch 'Native observation phase=ended; captured-current-reader;' -or $logText -match 'Native observation phase=ended; (unavailable|refused):') { throw 'Native observation did not complete its first-reader interval.' }
-        Copy-ControlExact $files.log (Join-Path $ResultDirectory 'native-observation.log') (Get-ControlHash $files.log)
     } elseif ($notice.RequestId -ne $RequestId.ToString() -or $notice.State -cne 'incomplete' -or !$notice.Error -or
         (Get-ControlHash $source) -ne $sourceHash -or (Test-Path -LiteralPath (Join-Path $recording 'case.json')) -or
         (Test-Path -LiteralPath (Join-Path $recording 'force-observation.jsonl'))) { throw 'Menu-only no-driving finalization differs.' }
@@ -479,6 +476,11 @@ try {
     Assert-OrdinaryGameExit $launched
     Closed
     Assert-StageRigLease -Path $slot -Token $RigLeaseToken
+    # The game's log is read only now, after its exact exit and Closed, and before the owner restore in finally.
+    if ($NativeObservationSource) {
+        Assert-OrdinaryNativeObservationLog $files.log
+        Copy-ControlExact $files.log (Join-Path $ResultDirectory 'native-observation.log') (Get-ControlHash $files.log)
+    }
     $archive = Join-Path $ResultDirectory 'recording-evidence'
     [IO.Directory]::CreateDirectory($archive) | Out-Null
     foreach ($name in @('source.jsonl','force-config.json','capture-profile.json','control/status.txt','control/finalization.json')) {

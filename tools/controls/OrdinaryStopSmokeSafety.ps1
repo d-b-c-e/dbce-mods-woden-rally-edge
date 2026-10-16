@@ -41,6 +41,14 @@ function Assert-OrdinaryGameExit($GameProcess) {
     $GameProcess.Refresh() # Get-Process/GetProcessById needs this before ExitCode readback.
     if ($GameProcess.ExitCode -ne 0) { throw "Exact Woden process exited with $($GameProcess.ExitCode), not a normal exit." }
 }
+function Assert-OrdinaryNativeObservationLog([string]$LogPath) {
+    # Called only after Assert-OrdinaryGameExit and Closed: the live game keeps BepInEx/LogOutput.log open for writing,
+    # so an earlier read is a sharing violation (actual 08), not something to retry.
+    $text = [IO.File]::ReadAllText($LogPath)
+    if ($text -notmatch 'Native observation phase=ended; captured-current-reader;' -or $text -match 'Native observation phase=ended; (unavailable|refused):') {
+        throw 'Native observation did not complete its first-reader interval.'
+    }
+}
 function Wait-OrdinaryGameExitForRestore($GameProcess) {
     # Caller supplies the exact process admitted by request ID, start ticks and executable. An error may occur
     # after the recorder stops but before its scheduled normal Quit; never restore underneath that process.
