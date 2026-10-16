@@ -26,6 +26,9 @@ param(
     [string]$NativeObservationSource,
     [ValidateRange(5,15)][int]$NativeObservationSeconds = 10,
     [switch]$PositivePedalComparison,
+    [switch]$CandidateForward,
+    [string]$CandidateBindingsPath,
+    [string]$CandidateBindingsSha256,
     [string]$PositiveProbePath,
     [string]$PositiveProbeSha256,
     [ValidateRange(30,300)][int]$StartupTimeoutSeconds = 180
@@ -141,15 +144,20 @@ $files = [ordered]@{
 }
 $positiveControl=Join-Path $env:LOCALAPPDATA 'dbce/super-woden-rally-edge'
 $positiveRequest=Join-Path $positiveControl 'controls-request.json';$positiveMarker=Join-Path $positiveControl 'inject.on'
-if($PositivePedalComparison){
-    if($NativeObservationSeconds -ne 15 -or !$PositiveProbePath -or $PositiveProbeSha256 -cnotmatch '^[A-F0-9]{64}$'){throw 'Positive test requires explicit passive15 transport and exact new probe'}
+if($PositivePedalComparison -or $CandidateForward){
+    if($PositivePedalComparison -and $CandidateForward){throw 'Comparison and candidate-forward modes are separate'}
+    if($NativeObservationSeconds -ne $(if($CandidateForward){10}else{15}) -or !$PositiveProbePath -or $PositiveProbeSha256 -cnotmatch '^[A-F0-9]{64}$'){throw 'Positive test requires explicit passive15 transport and exact new probe'}
+    if($CandidateForward){
+        if($CandidateBindingsSha256 -cne '04EB80F80EB0D6F98728BC6E5AFFB680688C4DCCAE3FD5940FEB65014AA2D6F0'){throw 'Only the reviewed EC81 BrakeDZ03 private derivative is supported'}
+        Assert-ControlPlain $CandidateBindingsPath;Pin $CandidateBindingsPath $CandidateBindingsSha256
+    }elseif($CandidateBindingsPath -or $CandidateBindingsSha256){throw 'Candidate binding parameters require candidate-forward mode'}
     Pin $PositiveProbePath $PositiveProbeSha256
     Pin (Join-Path $GameDir 'GameAssembly.dll') 'F422894D8D2B0DF4EDB7E5259E5E60CB8C4F8DEA2E85EBDFC09DD6766349250C'
     Pin (Join-Path $roots.config 'wheel-bindings.json') 'EC81BEB085E6483F83998EDEB949661FC889C5D319D542865128ADB8E21D2097'
     foreach($p in @($positiveRequest,$positiveMarker)){if(Test-Path -LiteralPath $p){throw 'Foreign controls request/marker; preserve'}}
     $roots.positiveControl=$positiveControl
     $files.positiveProbe=Join-Path $GameDir 'BepInEx/plugins/DbceControlsTest/Woden.ControlsProbe.dll'
-}elseif($PositiveProbePath -or $PositiveProbeSha256){throw 'Positive probe parameters require the explicit test-only mode'}
+}elseif($PositiveProbePath -or $PositiveProbeSha256 -or $CandidateBindingsPath -or $CandidateBindingsSha256){throw 'Positive probe parameters require the explicit test-only mode'}
 
 
 # These checks precede the first filesystem or game mutation. The 24A9 native
@@ -410,12 +418,13 @@ try {
     Set-OrdinaryTelemetryDeliveryOff $configPath
     [ordered]@{schema=1;config='Telemetry/Enabled = false';temporaryConfigSha256=(Get-ControlHash $configPath)} |
         ConvertTo-Json | Set-Content -LiteralPath (Join-Path $ResultDirectory 'telemetry-delivery-mute.json')
-    if($PositivePedalComparison){
+    if($PositivePedalComparison -or $CandidateForward){
         foreach($pair in @(@('ForceFeedback','Enabled'),@('Telemetry','Enabled'),@('Diagnostics','RecordSession'),@('Dev','InputCommandFile'))){Set-OrdinaryTelemetryDeliveryOff $configPath $pair[0] $pair[1]}
         $positiveRoot=Join-Path $ResultDirectory 'positive-probe';[IO.Directory]::CreateDirectory($positiveRoot)|Out-Null
         Copy-ControlExact $configPath (Join-Path $positiveRoot 'applied.cfg') (Get-ControlHash $configPath)
         Copy-ControlExact $PositiveProbePath $files.positiveProbe $PositiveProbeSha256
-        $cold=[ordered]@{schema=10;mode='native-positive-pedals';positiveSeconds=22;nonce=$idText;expiresUtc=[DateTime]::UtcNow.AddMinutes(4).ToString('O');pluginSha256=(Get-ControlHash (Join-Path $plugin 'WodenRallyEdgeWheel.dll'));coreSha256=(Get-ControlHash (Join-Path $plugin 'WodenRallyEdge.Core.dll'));configSha256=(Get-ControlHash $configPath);bindingsSha256='EC81BEB085E6483F83998EDEB949661FC889C5D319D542865128ADB8E21D2097';nativeSha256=$NativeSha256;outputDirectory=(Join-Path $positiveRoot 'trace');stageReference=$NativeObservationSource}
+        if($CandidateForward){Copy-ControlExact $CandidateBindingsPath (Join-Path $roots.config 'wheel-bindings.json') $CandidateBindingsSha256}
+        $cold=[ordered]@{schema=$(if($CandidateForward){11}else{10});mode=$(if($CandidateForward){'native-candidate-forward'}else{'native-positive-pedals'});positiveSeconds=$(if($CandidateForward){10}else{22});nonce=$idText;expiresUtc=[DateTime]::UtcNow.AddMinutes(4).ToString('O');pluginSha256=(Get-ControlHash (Join-Path $plugin 'WodenRallyEdgeWheel.dll'));coreSha256=(Get-ControlHash (Join-Path $plugin 'WodenRallyEdge.Core.dll'));configSha256=(Get-ControlHash $configPath);bindingsSha256=$(if($CandidateForward){$CandidateBindingsSha256}else{'EC81BEB085E6483F83998EDEB949661FC889C5D319D542865128ADB8E21D2097'});nativeSha256=$NativeSha256;outputDirectory=(Join-Path $positiveRoot 'trace');stageReference=$NativeObservationSource}
         [IO.Directory]::CreateDirectory($positiveControl)|Out-Null
         [IO.File]::WriteAllText($positiveMarker,$idText);[IO.File]::WriteAllText($positiveRequest,($cold|ConvertTo-Json -Depth 4))
         Copy-ControlExact $positiveRequest (Join-Path $positiveRoot 'request.json') (Get-ControlHash $positiveRequest)
@@ -500,10 +509,10 @@ try {
     Start-Sleep -Seconds 5
     Assert-OrdinaryGameExit $launched
     Closed
-    if($PositivePedalComparison){
+    if($PositivePedalComparison -or $CandidateForward){
         $positiveResult=Get-Content (Join-Path $ResultDirectory 'positive-probe/trace/result.json') -Raw|ConvertFrom-Json
         if(!$positiveResult.positiveEvidence.complete -or !$positiveResult.positiveEvidence.physicalReturned){throw 'Positive input collection/release incomplete; preserve actual evidence, no causal verdict'}
-        Pin (Join-Path $roots.config 'wheel-bindings.json') 'EC81BEB085E6483F83998EDEB949661FC889C5D319D542865128ADB8E21D2097'
+        Pin (Join-Path $roots.config 'wheel-bindings.json') $(if($CandidateForward){$CandidateBindingsSha256}else{'EC81BEB085E6483F83998EDEB949661FC889C5D319D542865128ADB8E21D2097'})
     }
     Assert-StageRigLease -Path $slot -Token $RigLeaseToken
     # The game's log is read only now, after its exact exit and Closed, and before the owner restore in finally.
@@ -519,7 +528,7 @@ try {
         if ($hash -eq 'absent') { throw "Original recording evidence missing: $name" }
         Copy-ControlExact $from (Get-ControlChild $archive $name) $hash
     }
-    [ordered]@{schema=1;result=$(if ($NativeObservationSource) { 'native-current-reader' } else { 'menu-only-incomplete' });nativeSamples=$nativeSamples;syntheticDriving=[bool]$PositivePedalComparison;positivePedalComparison=[bool]$PositivePedalComparison;causalVerdict='requires joined actual delivery/state review';requestId=$RequestId;sourceSha256=$sourceHash;companionExit=$exit;gamePid=$pidValue;gameStartUtcTicks=$ticks} |
+    [ordered]@{schema=1;result=$(if ($NativeObservationSource) { 'native-current-reader' } else { 'menu-only-incomplete' });nativeSamples=$nativeSamples;syntheticDriving=[bool]($PositivePedalComparison -or $CandidateForward);positivePedalComparison=[bool]$PositivePedalComparison;candidateForward=[bool]$CandidateForward;causalVerdict='requires joined actual delivery/state review';requestId=$RequestId;sourceSha256=$sourceHash;companionExit=$exit;gamePid=$pidValue;gameStartUtcTicks=$ticks} |
         ConvertTo-Json | Set-Content -LiteralPath (Join-Path $ResultDirectory 'smoke-result.json')
 } catch {
     $errorText = $_.Exception.Message

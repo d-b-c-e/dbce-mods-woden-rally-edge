@@ -1,3 +1,14 @@
+# October 16: Candidate forward source handoff
+
+Deadzone productcf655d45 is qualified offline: Plugin1D9741CC/retained8c84Core7ADA,
+55 focused UI/28 calibration/6500 required UI+95 managed shim checks; exact actual
+FDF29060/independent66C9D375 closure. Current child changes test tools only. Schema11
+pins private04EB80F8 (EC81 with only BrakeDZ03) for one4s throttle-only window,
+normal expiry and actual motion/brake-release evidence. Existing reader/native
+client/launch/restore stay in use; no P/Z/getter baseline, physics or force retune.
+Focused protocol mode is authored/unrun; build new Probe only, retain product.
+Fresh package/runtime handoff and owner notice remain pending. See controls README.
+
 # October 16: Pedal deadzone implementation pending qualification
 
 Source adds explicit Native existing-binding deadzone editing and visible3%

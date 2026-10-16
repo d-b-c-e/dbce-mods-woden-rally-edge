@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup>
   <ItemGroup><Compile Include="../Probe/PositivePedalPlan.cs" Link="PositivePedalPlan.cs" /><Compile Include="../Probe/Protocol.cs" Link="Protocol.cs" /><Compile Include="../Probe/ConfigContract.cs" Link="ConfigContract.cs" /><Compile Include="../Probe/CarWorkload.cs" Link="CarWorkload.cs" /><Compile Include="../Probe/AppliedCarWorkload.cs" Link="AppliedCarWorkload.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../../components/wheel/src/WodenRallyEdge.Core/AxisCalibration.cs" Link="Production/AxisCalibration.cs" /></ItemGroup>
 </Project>

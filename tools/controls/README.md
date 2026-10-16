@@ -204,3 +204,46 @@ uses schema-10 `native-positive-pedals`, exact EC81 Native bindings, qualified08
 The one fixed maximum16.5second schedule is P0physical at most.25s (ends early after3actualreverse-effect rows), Zrawbrake0 for.5s, Bfullthrottle+rawbrake0 for4s, servicebrake up to2s, release.5s, P1physical.25s, Athrottle-only with physicalbrake4s, servicebrake up to2s, release.5s, analogHBfull+brake0 for1.5s, final physicalrelease1s. Servicebrake uses distinct sequenced100msTTL commands scheduled75ms apart and runs only while signedTrueSpeed>1 and ceases at the first signedTrueSpeed<=1 (including any reverse); it is not a guaranteed stop/reset. A supplies ONLY throttleaxis2, preserving physicalbrakeaxis5; B supplies both named objects. Releases submit nothing and wait for expiry. No failed/uncertain command is retried. No new reader/backend or physics/transmission writes.
 
 Existing raw-read and native-car rows must prove the actual delivered objects (LastReadInjected is only per slot), EC81 normalization, advancing applied ticks, Controls, game fields and native torque/motion. Read-only BrakeTimer/Max_Reverse_Speed getters are added only to this probe trace against pinnedF422 game; missing fields remain unavailable. Every window records actual start/end gear/automatic/speed/power/fuel/grounding/orientation. Each moving/reverse/unreadable A/B start is recorded and prevents treating A/B as controlled. P/Z causal-data availability is separately derived from its grounded/upright/timer/native-torque rows; a reverse A start does not invalidate P/Z data. Gear1 alone is never a no-reverse witness. Actual native effect row counts include full game.handbrake plus rear brake torque for H. Both failing narrows downstream only after each raw/normalized/applied path is proven. Runtime collection completion is not a no-drive-fixed/physical release verdict. Final native injection expiry plus return near the original physical raw baseline is required; owner files, probe, switches and typed preferences are restored by existing routes. Remaining Help/close/cancel is a separate restored menu-only F6 interval; no passive Native recapture is needed for it.
+
+## Explicit candidate forward check (schema11; source only)
+
+Root185109 requests one useful Native check after the deadzone product build.
+`Run-OrdinaryStopSmoke.ps1 -CandidateForward -CandidateBindingsPath <private copy>
+-CandidateBindingsSha256 04EB80F80EB0D6F98728BC6E5AFFB680688C4DCCAE3FD5940FEB65014AA2D6F0
+-PositiveProbePath <new qualified probe> -PositiveProbeSha256 <actual hash>
+-NativeObservationSeconds 10` reuses the same sealed Kenya startup, resident raw
+client and original reader. OwnerEC81 is pinned before mutation and its exact
+snapshot is restored. The reviewed private copy differs only in
+Brake.Calibration.Deadzone=0.03; Rest/End/Centre/Invert and every other value stay
+exact. The changed probe requires its explicit schema11/hash/ten-second tuple;
+legacy schema10 remains EC81/22s. No schema spoofing or hidden normalization.
+
+After ten contiguous focused/current/sealed RACE rows, collect physical input
+for1s, submit exactly one throttleaxis2=65535 for4000ms, then collect1s without
+commands for TTL expiry. Before that submission, mapped/native throttle, brake
+and handbrake must be zero, grounded and near-rest current speed/velocity. The
+original ten-second transport is configured only before its first reader; no
+active extension or180startup/8exit change. No brake/handbrake/service-brake or
+camera command is submitted. Focus/state/identity loss stops collection; no
+retry. Final fresh native status must have no sample running and at least ten
+physical-return rows matching the initial raw objects. Physical release remains
+unknown.
+
+Candidate delivery uses the actual production AxisCalibration source for the
+3% brake mapping, raw/mapped/Controls/MainCar values and advancing applied ticks.
+Response rows require actual forward local velocity and all four brake torques
+zero, with native throttle1/brake0/handbrake0. Analyze the motion trend/start/end
+and actual source identity; the count alone is not feature/physical acceptance.
+MotorTorque is not used to witness propulsion. P/Z, service-brake and missing
+MaxReverse getter coverage are intentionally absent. No product, Core, native,
+helper or force tuning change belongs to this test-only successor.
+
+`ProtocolTests --candidate-forward-only` links actual calibration source and runs
+only the new admission/recipe/delivery/motion cases. Authored UNRUN pending one
+focused Probe compile/check and copy-only package slot. Product cf655d45 already
+qualified: Plugin1D9741CC, retained8c84 Core7ADA,55 focused deadzone UI,28 exact
+calibration,6500 required UI+95 managed shim checks; do not repeat those builds or
+suites for this test-tool delta. Existing schema9 F6 remains Shim/menu-only; its
+views/draft/discard/close cannot prove Native deadzone Save or mounted FOV.
+Supported Sky's left-tile capture limit must remain explicit; mark unsupported
+views unobserved while completing the useful drive witness.

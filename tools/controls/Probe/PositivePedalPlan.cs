@@ -20,6 +20,11 @@ public static class PositivePedalPlan
         new("service-brake-after-A",2,0,65535,TtlMilliseconds:100), new("release-stop-A",.5),
         new("handbrake",1.5,Brake:0,Handbrake:65535), new("final-release",1)
     };
+    public const string CandidateRecipe="candidate-rest-throttle-release@1";
+    public const int CandidateObservationSeconds=10;
+    public static readonly PedalWindow[] CandidateWindows={
+        new("candidate-physical",1), new("candidate-throttle",4,65535), new("final-release",1)
+    };
     public static bool Delivered(PedalWindow window, IDictionary<string,double> c)
     {
         bool Near(string name,double value)=>c.TryGetValue(name,out double actual)&&double.IsFinite(actual)&&Math.Abs(actual-value)<.00001;
@@ -29,6 +34,29 @@ public static class PositivePedalPlan
             (window.Throttle is null || Near("controls.throttle",window.Throttle.Value/65535.0)) &&
             (window.Brake is null || Near("controls.brake",window.Brake.Value/65535.0)) &&
             c.TryGetValue("wheelInput.appliedTicks",out double ticks) && double.IsFinite(ticks) && ticks>0;
+    }
+    public static bool CandidateDelivered(PedalWindow window,IDictionary<string,double> c)
+    {
+        bool Near(string name,double wanted)=>c.TryGetValue(name,out double v)&&double.IsFinite(v)&&Math.Abs(v-wanted)<.00001;
+        if(!c.TryGetValue("wheelRaw.brake",out double raw)||!double.IsFinite(raw)||raw is <0 or >65535||raw!=Math.Truncate(raw))return false;
+        double mapped=new WodenRallyEdge.Core.AxisCalibration(0,65535,Deadzone:.03).Normalize((int)raw);
+        return Near("wheelInput.brake",mapped)&&Near("controls.brake",mapped)&&Near("game.brake",mapped)&&
+            (window.Throttle is null || mapped==0&&Near("wheelRaw.throttle",65535)&&Near("wheelInput.throttle",1)&&Near("controls.throttle",1)&&Near("game.throttle",1))&&
+            c.TryGetValue("wheelInput.appliedTicks",out double ticks)&&double.IsFinite(ticks)&&ticks>0;
+    }
+    public static bool CandidateReady(IDictionary<string,double> c)
+    {
+        bool Value(string name,double wanted)=>c.TryGetValue(name,out double v)&&double.IsFinite(v)&&v==wanted;
+        return new[]{"wheelInput.throttle","controls.throttle","game.throttle","wheelInput.brake","controls.brake","game.brake","wheelInput.handbrake","game.handbrake"}.All(k=>Value(k,0))&&
+            Value("game.grounded",1)&&c.TryGetValue("game.trueSpeed",out double speed)&&double.IsFinite(speed)&&Math.Abs(speed)<=1&&
+            c.TryGetValue("motion.velocity.local.z",out double forward)&&double.IsFinite(forward)&&Math.Abs(forward)<=1;
+    }
+    public static bool CandidateForwardResponse(IDictionary<string,double> c)
+    {
+        bool Value(string name,double wanted)=>c.TryGetValue(name,out double v)&&double.IsFinite(v)&&v==wanted;
+        return Value("game.throttle",1)&&Value("game.brake",0)&&Value("game.handbrake",0)&&
+            new[]{"fl","fr","rl","rr"}.All(w=>Value("wheel."+w+".brakeTorque",0))&&
+            c.TryGetValue("motion.velocity.local.z",out double forward)&&double.IsFinite(forward)&&forward>1;
     }
     public static bool ShouldBrakePulse(IDictionary<string,double> c) =>
         c.TryGetValue("game.trueSpeed",out double speed)&&double.IsFinite(speed)&&speed>1; // Native branch is SIGNED, including all negative speeds.

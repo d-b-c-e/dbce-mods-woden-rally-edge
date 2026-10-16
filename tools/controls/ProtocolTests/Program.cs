@@ -4,6 +4,8 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Woden.ControlsTesting;
 
+if(args.SequenceEqual(new[]{"--candidate-forward-only"})) { CandidateForwardChecks.Run();return; }
+if(args.Length>0)throw new ArgumentException("Unknown fixture selection; refusing a baseline repeat.");
 int count = 0;
 void Check(bool ok) { count++; if (!ok) throw new Exception("Check failed " + count); }
 void Refuse(Action action) { count++; try { action(); } catch (InvalidDataException) { return; } catch (JsonException) { return; } throw new Exception("Accepted invalid case " + count); }

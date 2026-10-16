@@ -1,3 +1,14 @@
+# October 16: Explicit candidate-forward test tools (source only)
+
+Reuse the existing sealed Native observation, original recorder, resident raw
+client and actual per-binding calibration normalization. Explicit schema11
+admits only the reviewed EC81 BrakeDZ03 private derivative, one4s throttle-only
+window and normal expiry. No new reader/backend, shared API or product change.
+Focused protocol cases are authored/unrun; productcf655d45 already passed its
+actual affected build. OwnerEC81 is untouched; runtime requires a fresh handoff.
+All37 ledger IDs remain present; unchecked016/017/020 and pending031/037 retain
+their existing status. See tools/controls/README.md for limits and exact checks.
+
 # October 16: Explicit saved deadzone editing (source only)
 
 Reuse the existing per-binding calibration/deadzone normalization and the Native

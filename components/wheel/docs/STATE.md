@@ -1,3 +1,15 @@
+# October 16: Deadzone product qualified; candidate-forward tools prepared
+
+Productcf655d45 compiled Plugin1D9741CC with zero warnings/errors against retained
+actual8c84 Core7ADA. Exact calibration28, focused deadzone UI55, required UI6500
+plus95 managed shim checks passed. Build originalFDF29060 and independent66C9D375
+prove closure/owner pins/free lease; hub a8e475a6 retains evidence. No owner
+install or runtime acceptance followed. The isolated successor changes only
+explicit candidate-forward test tools/docs, not product code. Its schema11,
+one4s throttle window and EC81-derived BrakeDZ03 copy04EB80F8 need focused Probe
+compile/protocol qualification and copy-only packaging; do not repeat the product
+build or existing passed suites. OwnerEC81 remains unchanged.
+
 # October 16: Explicit pedal deadzone correction (source only)
 
 Native F6 adds an existing-binding Deadzone editor that preserves captured
