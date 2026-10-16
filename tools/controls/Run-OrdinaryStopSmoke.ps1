@@ -15,6 +15,11 @@ param(
     [Parameter(Mandatory)][string]$ForegroundHelper,
     [Parameter(Mandatory)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$ForegroundHelperSha256,
     [Parameter(Mandatory)][switch]$DesktopClientClick,
+    [Parameter(Mandatory)][string]$UnityClientHelper,
+    [Parameter(Mandatory)][string]$UnityClientHelperSha256,
+    [Parameter(Mandatory)][string]$CaptureTool,
+    [Parameter(Mandatory)][string]$CaptureToolSha256,
+    [Parameter(Mandatory)][string]$CaptureAssemblySha256,
     [Parameter(Mandatory)][string]$RigLeaseToken,
     [guid]$RequestId = [guid]::NewGuid(),
     [ValidateRange(1,10)][int]$MenuDwellSeconds = 2,
@@ -34,6 +39,13 @@ if ($SteamLaunchHelperSha256 -cne 'ECD5703B731C8E4A59C8BA84DB91B7490C4861DB1DC0B
 if ($ForegroundHelperSha256 -cne '3C12C250764748E649C41ACC56FF2D128C2AD09CA1D055021172BCBB7ED8EF7C' -or
     (Get-FileHash -LiteralPath $ForegroundHelper).Hash -cne $ForegroundHelperSha256) { throw 'Existing ordinary foreground helper changed.' }
 . $ForegroundHelper
+if ($UnityClientHelperSha256 -cne 'E25AEF755088D669912BC8EDC54BDB28483C2C7774A6DAC8370298A2C8F9D3A9' -or
+    (Get-FileHash -LiteralPath $UnityClientHelper).Hash -cne $UnityClientHelperSha256 -or
+    $CaptureToolSha256 -cne '2EDBC484C9610E382A54187F8E66801057A0A4E374CF241662B1D9142A0C2F64' -or
+    (Get-FileHash -LiteralPath $CaptureTool).Hash -cne $CaptureToolSha256 -or
+    $CaptureAssemblySha256 -cne 'D49AFD43A800B09C3A9BCAF7A93F9B5D206335F8AD90E71C4DD49F97A325377A' -or
+    (Get-FileHash -LiteralPath ([IO.Path]::ChangeExtension($CaptureTool,'.dll'))).Hash -cne $CaptureAssemblySha256) { throw 'Shared client selector or qualified capture tool changed.' }
+. $UnityClientHelper
 if (!$DesktopClientClick) { throw 'This successor requires the announced screenshot-grounded operator client click; no programmatic activation fallback.' }
 
 function Pin([string]$Path,[string]$Hash) {
@@ -278,22 +290,32 @@ function Start-OrdinarySteamGame {
         if ($launched.HasExited) { throw 'Recorded game exited before operator foreground admission.' }
         Assert-StageForegroundIdentity -Actual ([pscustomobject]@{Id=$launched.Id;StartedUtcTicks=$launched.StartTime.ToUniversalTime().Ticks;ExecutablePath=[string]$launched.Path}) `
             -ProcessId $adopted.record.pid -StartedUtcTicks $adopted.record.startedUtcTicks -ExecutablePath $exe
-        $window = $launched.MainWindowHandle
-        if ($window -ne [IntPtr]::Zero) {
-            [uint32]$windowProcess=0
-            if (![Dbce.StageForegroundNative]::GetWindowThreadProcessId($window,[ref]$windowProcess) -or $windowProcess -ne $adopted.record.pid) { throw 'Operator game window ownership differs.' }
-            if ([Dbce.StageForegroundNative]::IsIconic($window)) { throw 'Operator game window is minimized; no restore or click admission.' }
-            if ([Dbce.StageForegroundNative]::IsWindowVisible($window)) {
-                if ($result.foreground.window -and $result.foreground.window -ne $window.ToInt64()) { throw 'Operator game window changed; no stale screenshot admission.' }
-                $result.foreground.window=$window.ToInt64()
-                $foregroundWindow=[Dbce.StageForegroundNative]::GetForegroundWindow()
-                [uint32]$foregroundProcess=0
-                [void][Dbce.StageForegroundNative]::GetWindowThreadProcessId($foregroundWindow,[ref]$foregroundProcess)
-                $result.foreground.foregroundWindow=$foregroundWindow.ToInt64()
-                $result.foreground.foregroundProcessId=$foregroundProcess
-                $result.foreground.osForegroundObserved=$foregroundWindow -eq $window -and $foregroundProcess -eq $adopted.record.pid
-            }
+        # Existing capture --list is itself owned by the unchanged canonical
+        # child boundary; it records process start and OS window class/owner.
+        if (($focusDeadline - [DateTime]::UtcNow).TotalSeconds -lt 6) { break }
+        $listName='unity-client-list-'+$result.steps.Count
+        $result.steps+=@([ordered]@{name=$listName;state='started';startedUtc=[DateTime]::UtcNow.ToString('O')})
+        try { Invoke-OwnedProcess $listName $CaptureTool @([string]$adopted.record.pid,'--list') 5 }
+        finally {
+            if ($result.steps[-1].process) { $ownedPrecision[[uint32]$result.steps[-1].process.pid]='Tick100ns' }
+            $result.steps[-1].endedUtc=[DateTime]::UtcNow.ToString('O');Save-OrdinaryLaunchCustody
         }
+        $listPath=Join-Path $outputRoot ($listName+'.stdout.log')
+        $windowList=Get-Content -LiteralPath $listPath -Raw|ConvertFrom-Json -DateKind String
+        $client=Select-StageUnityGameClient -WindowList $windowList -Process $launched `
+            -ProcessId $adopted.record.pid -StartedUtcTicks $adopted.record.startedUtcTicks `
+            -ExecutablePath $exe -ExpectedWindowHandle $result.foreground.window
+        $result.foreground['clientSelection']=$client
+        $result.foreground['windowListPath']=$listPath
+        $result.foreground['windowListSha256']=(Get-FileHash -LiteralPath $listPath).Hash
+        $result.foreground['selectorSha256']=$UnityClientHelperSha256
+        if ($client.state -ceq 'selected') {
+            $result.foreground.status='awaiting-desktop-client-click'
+            $result.foreground.window=$client.window
+            $result.foreground.foregroundWindow=$client.foregroundWindow
+            $result.foreground.foregroundProcessId=$client.foregroundProcessId
+            $result.foreground.osForegroundObserved=$client.osForegroundObserved
+        } else { $result.foreground.status='waiting-for-unity-client' }
         $result.foreground.observations++
         Observe-OrdinaryLaunch
         if ($result.foreground.osForegroundObserved -and [DateTime]::UtcNow -lt $focusDeadline) { break }
