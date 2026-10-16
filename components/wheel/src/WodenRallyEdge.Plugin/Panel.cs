@@ -21,7 +21,7 @@ internal static partial class Panel
     private static bool _sharedClosePrompt;
     private static bool _revealFocus;
     private static string? _sharedDeviceGuid;
-    private static GUIStyle? _label, _title, _help;
+    private static GUIStyle? _label, _title, _help, _link;
     private static CursorLockMode _cursorLock;
     private static Pause? _ownedPause;
     private static double _nextHotkeyError;
@@ -211,6 +211,21 @@ internal static partial class Panel
         { _focus = id; _activate = false; if(e.type != EventType.Repaint) e.Use(); GUIUtility.keyboardControl = 0; return true; }
         return false;
     }
+    private static bool Link(float x,float y,float width,string text)
+    {
+        var r=R(x,y,width,F6Metrics.LinkHeight);
+        int id=_ordinal++;var e=Event.current;
+        if(id==_focus){Reveal(r);r=R(x,y,width,F6Metrics.LinkHeight);}
+        if(!Visible(r))return false;
+        bool hover=Inside(r,e.mousePosition),focused=id==_focus&&GUIUtility.keyboardControl==0;
+        var color=focused||hover?ColorOf(F6Palette.Text):Accent;
+        _link!.normal.textColor=color;
+        GUI.Label(r,new GUIContent(text),_link);
+        Fill(new Rect(r.x,r.yMax-3*_scale,r.width,F6Metrics.LinkUnderline*_scale),color);
+        if(e.type==EventType.MouseDown&&e.button==0&&hover||focused&&_activate)
+        {_focus=id;_activate=false;if(e.type!=EventType.Repaint)e.Use();GUIUtility.keyboardControl=0;return true;}
+        return false;
+    }
     private static void Toggle(float x,float y,float width,string text,ref bool value)
     {
         Label(x,y+4,width-2*F6Metrics.ButtonMinWidth-F6Metrics.RowGap-8,text+":");
@@ -296,9 +311,10 @@ internal static partial class Panel
             GUI.color=Color.white; GUI.enabled=true; _body=false;
             _scale=Math.Min((Screen.width-32f)/980, (Screen.width>=3000?1.5f:1)*Runtime.Settings.UiScale/100);
             _height=Math.Min(740,(Screen.height-32f)/_scale); _left=(Screen.width-980*_scale)/2; _top=(Screen.height-_height*_scale)/2;
-            _label??=new(); _title??=new(); _help??=new();
+            _label??=new(); _title??=new(); _help??=new(); _link??=new();
             UiNative.Style(_label,(int)(F6Metrics.BodySize*_scale),true); _label.normal.textColor=ColorOf(F6Palette.Text);
             UiNative.Style(_help,(int)(F6Metrics.HelpSize*_scale),true); _help.normal.textColor=ColorOf(F6Palette.Secondary);
+            UiNative.Style(_link,(int)(F6Metrics.HelpSize*_scale),true); _link.normal.textColor=Accent;
             UiNative.Style(_title,(int)(F6Metrics.TitleSize*_scale),false); _title.normal.textColor=ColorOf(F6Palette.Text);
             var e=Event.current;
             _revealFocus=false;

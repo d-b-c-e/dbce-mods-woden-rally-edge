@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 using Dbce.Wheel.Support;
+using Dbce.Wheel.Ui;
 using UnityEngine;
 
 namespace WodenRallyEdge;
@@ -24,9 +25,11 @@ internal static partial class Panel
     private static float ReportHelp(float y)
     {
         if(Button(250,y,250,"Submit GitHub Issue")){_reportOpen=!_reportOpen;_reportReviewed=false;}
-        if(Button(512,y,194,"Mod on GitHub"))OpenReportUrl(ReportProduct.ModPage);
-        if(Button(718,y,226,"Wheelkit on GitHub"))OpenReportUrl(ReportProduct.WheelkitPage);
         y+=50;
+        if(Link(250,y,110,"Mod on GitHub"))OpenReportUrl(ReportProduct.ModPage);
+        y+=F6Metrics.LinkHeight+F6Metrics.RowGap;
+        if(Link(250,y,150,"Wheelkit on GitHub"))OpenReportUrl(ReportProduct.WheelkitPage);
+        y+=F6Metrics.LinkHeight+F6Metrics.RowGap;
         if(!_reportOpen)return y;
         Label(250,y,694,"Describe the problem. Redaction is a best effort; review the text before sharing.",true,48);y+=58;
         Label(250,y,694,"Issue title");y+=32;

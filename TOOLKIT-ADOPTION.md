@@ -286,3 +286,17 @@ STD-004/STD-030 adopts toolkit d342370 BindingSaveStatus for independent binding
 Save warnings. Scoped host/footer wiring preserves readers/writers/capture gates,
 ActiveSaved distinctions, native settings and FFB. Focused source-linked checks
 are prepared, not run. This candidate is not the accepted installed artifact.
+
+
+October16 Help link presentation (request176441), source-only successor:
+Shared toolkit d06aee8a supplies LinkHeight/LinkUnderline metrics and the small
+F6Widgets.Link renderer. Mod on GitHub and Wheelkit on GitHub now appear as
+underlined help-size text below the separate unchanged issue/report action.
+Art/DRIVE consume the exact shared widgets; stripped IL2CPP hosts retain their
+existing focus/input/render primitives with the same shared metrics/palette.
+URLs, report preparation/review/submission, persistence and tuning are unchanged.
+Affected compile and rendered qualification remain unrun; no styling suite added.
+All37 ledger IDs remain represented; STD-016/017/020 remain unchecked,
+STD-031/037 remain pending and existing partial status is unchanged.
+This isolated Help branch starts at product3eb6bbad per root176874; separate
+3986 automatic/H-pattern source is intentionally not combined by this commit.
