@@ -290,32 +290,49 @@ function Start-OrdinarySteamGame {
         if ($launched.HasExited) { throw 'Recorded game exited before operator foreground admission.' }
         Assert-StageForegroundIdentity -Actual ([pscustomobject]@{Id=$launched.Id;StartedUtcTicks=$launched.StartTime.ToUniversalTime().Ticks;ExecutablePath=[string]$launched.Path}) `
             -ProcessId $adopted.record.pid -StartedUtcTicks $adopted.record.startedUtcTicks -ExecutablePath $exe
-        # Existing capture --list is itself owned by the unchanged canonical
-        # child boundary; it records process start and OS window class/owner.
-        if (($focusDeadline - [DateTime]::UtcNow).TotalSeconds -lt 6) { break }
-        $listName='unity-client-list-'+$result.steps.Count
-        $result.steps+=@([ordered]@{name=$listName;state='started';startedUtc=[DateTime]::UtcNow.ToString('O')})
-        try { Invoke-OwnedProcess $listName $CaptureTool @([string]$adopted.record.pid,'--list') 5 }
-        finally {
-            if ($result.steps[-1].process) { $ownedPrecision[[uint32]$result.steps[-1].process.pid]='Tick100ns' }
-            $result.steps[-1].endedUtc=[DateTime]::UtcNow.ToString('O');Save-OrdinaryLaunchCustody
+        if (!$result.foreground.window) {
+            # Existing capture --list is itself owned by the unchanged canonical
+            # child boundary; it records process start and OS window class/owner.
+            if (($focusDeadline - [DateTime]::UtcNow).TotalSeconds -lt 6) { break }
+            $listName='unity-client-list-'+$result.steps.Count
+            $result.steps+=@([ordered]@{name=$listName;state='started';startedUtc=[DateTime]::UtcNow.ToString('O')})
+            try { Invoke-OwnedProcess $listName $CaptureTool @([string]$adopted.record.pid,'--list') 5 }
+            finally {
+                if ($result.steps[-1].process) { $ownedPrecision[[uint32]$result.steps[-1].process.pid]='Tick100ns' }
+                $result.steps[-1].endedUtc=[DateTime]::UtcNow.ToString('O');Save-OrdinaryLaunchCustody
+            }
+            $listPath=Join-Path $outputRoot ($listName+'.stdout.log')
+            $windowList=Get-Content -LiteralPath $listPath -Raw|ConvertFrom-Json -DateKind String
+            $client=Select-StageUnityGameClient -WindowList $windowList -Process $launched `
+                -ProcessId $adopted.record.pid -StartedUtcTicks $adopted.record.startedUtcTicks `
+                -ExecutablePath $exe -ExpectedWindowHandle $result.foreground.window
+            $result.foreground['clientSelection']=$client
+            $result.foreground['windowListPath']=$listPath
+            $result.foreground['windowListSha256']=(Get-FileHash -LiteralPath $listPath).Hash
+            $result.foreground['selectorSha256']=$UnityClientHelperSha256
+            if ($client.state -ceq 'selected') {
+                $result.foreground.status='awaiting-desktop-client-click'
+                $result.foreground.window=$client.window
+                $result.foreground.foregroundWindow=$client.foregroundWindow
+                $result.foreground.foregroundProcessId=$client.foregroundProcessId
+                $result.foreground.osForegroundObserved=$client.osForegroundObserved
+            } else { $result.foreground.status='waiting-for-unity-client' }
+        } else {
+            # Keep the selected Unity HWND; foreground polling does not spawn
+            # another enumerator after renderer/class selection succeeded.
+            $window=[IntPtr]$result.foreground.window
+            [uint32]$windowProcess=0
+            if (![Dbce.StageForegroundNative]::GetWindowThreadProcessId($window,[ref]$windowProcess) -or
+                $windowProcess -ne $adopted.record.pid -or ![Dbce.StageForegroundNative]::IsWindowVisible($window) -or
+                [Dbce.StageForegroundNative]::IsIconic($window)) { throw 'Selected Unity client ownership/visibility/minimized state changed.' }
+            $foreground=[Dbce.StageForegroundNative]::GetForegroundWindow()
+            [uint32]$foregroundProcess=0
+            [void][Dbce.StageForegroundNative]::GetWindowThreadProcessId($foreground,[ref]$foregroundProcess)
+            $result.foreground.foregroundWindow=$foreground.ToInt64()
+            $result.foreground.foregroundProcessId=$foregroundProcess
+            $result.foreground.osForegroundObserved=$foreground -eq $window -and $foregroundProcess -eq $adopted.record.pid
+            $result.foreground['foregroundCheckedUtc']=[DateTime]::UtcNow.ToString('O')
         }
-        $listPath=Join-Path $outputRoot ($listName+'.stdout.log')
-        $windowList=Get-Content -LiteralPath $listPath -Raw|ConvertFrom-Json -DateKind String
-        $client=Select-StageUnityGameClient -WindowList $windowList -Process $launched `
-            -ProcessId $adopted.record.pid -StartedUtcTicks $adopted.record.startedUtcTicks `
-            -ExecutablePath $exe -ExpectedWindowHandle $result.foreground.window
-        $result.foreground['clientSelection']=$client
-        $result.foreground['windowListPath']=$listPath
-        $result.foreground['windowListSha256']=(Get-FileHash -LiteralPath $listPath).Hash
-        $result.foreground['selectorSha256']=$UnityClientHelperSha256
-        if ($client.state -ceq 'selected') {
-            $result.foreground.status='awaiting-desktop-client-click'
-            $result.foreground.window=$client.window
-            $result.foreground.foregroundWindow=$client.foregroundWindow
-            $result.foreground.foregroundProcessId=$client.foregroundProcessId
-            $result.foreground.osForegroundObserved=$client.osForegroundObserved
-        } else { $result.foreground.status='waiting-for-unity-client' }
         $result.foreground.observations++
         Observe-OrdinaryLaunch
         if ($result.foreground.osForegroundObserved -and [DateTime]::UtcNow -lt $focusDeadline) { break }
