@@ -1,3 +1,16 @@
+# October 16: Preserve original action values across repeated writes
+
+The Native and Shim action-table lease now snapshots each action only on its
+first write. Bound shift buttons and synthetic H-pattern pulses can target the
+same action; both normal and interrupted cleanup must restore its pre-lease
+value. The existing source-linked fixture covers both backends, held/released
+buttons, repeated Restore and interruption of the second write. Authored, not
+yet executed; include in the next affected Woden build. No installed files,
+settings, runtime packets, force behavior or standards status changed.
+Ledger review: all 37 IDs present; STD-016/017/020 remain unchecked and
+STD-031/037 pending. This is not evidence of the reported Native/Automatic
+no-drive cause, whose current profile has no H-pattern gates.
+
 # October 16 source-only H-pattern eligibility correction
 
 STD-033/034 input-consumption semantics: Native Automatic now passes supplied

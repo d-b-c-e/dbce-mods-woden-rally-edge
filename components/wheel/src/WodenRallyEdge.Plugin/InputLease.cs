@@ -19,7 +19,9 @@ internal sealed class InputLease
         {
             // Actions is a non-blittable VALUE array. The indexer boxes a copy;
             // write the changed value back through the array indexer explicitly.
-            _original[index] = actions[index];
+            // A bound shift button and the H-pattern pulse can write the same
+            // action. Restore the value from before this lease, not our first edit.
+            if (!_original.ContainsKey(index)) _original[index] = actions[index];
             var action = actions[index];
             action.value = merge ? Math.Max(action.value, value) : value;
             action.Pressed = merge ? action.Pressed || value > .5f : value > .5f;

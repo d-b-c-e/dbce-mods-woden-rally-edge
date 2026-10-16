@@ -1,3 +1,14 @@
+# October 16: Repeated action writes restore their original state (source only)
+
+InputLease could snapshot a value it had already changed when a bound shift
+button and an H-pattern pulse targeted the same action. It now retains the
+first snapshot until restoration. Existing source-linked tests add Native and
+Shim overlap, held/released buttons, idempotent restore and a failure on the
+second write. Tests are authored but unrun, queued with the combined affected
+build; no game, owner install or device work occurred. The current owner's
+Native/Automatic profile has no H-pattern gates, so this fix does not establish
+the cause of the reported brake/no-drive issue. Frozen Woden07 is unchanged.
+
 # October 16: Automatic H-pattern pedal eligibility (source only)
 
 Isolated successor off eed77ffc makes Native H-pattern pedal emulation obey the
