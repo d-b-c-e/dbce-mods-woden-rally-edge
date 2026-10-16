@@ -45,8 +45,10 @@ internal static class TripleView
 
     /// <summary>
     /// Both F6 routes to Adjustable (the Triple FOV choice and the locked row's button) start the on-screen mounted lens
-    /// at the angle shown (Core FovModeSwitch). Only that view's saved lens changes: the other view, Fit to car and the
-    /// height, forward and tilt stay. A chase view, a fitted bonnet or no measured angle leaves every value alone.
+    /// at the angle shown, within the 30–110° lens bounds (Core FovModeSwitch). Only that view's saved lens changes: the
+    /// other view, Fit to car and the height, forward and tilt stay. A chase view, a fitted bonnet or no measured angle
+    /// leaves every value alone (the saved lens then applies). The Advanced editor caches its pose before the button
+    /// and saves only an edited pose, so this value is not overwritten in the same draw.
     /// </summary>
     private static void StartAdjustableAtShownAngle()
     {
@@ -55,12 +57,13 @@ internal static class TripleView
             var view = MountedCamera.Cycle.View;
             bool mounted = Active && view != WodenRallyEdge.Core.MountedView.Stock, bumper = view == WodenRallyEdge.Core.MountedView.Bumper;
             var cfg = Runtime.Settings;
-            if (WodenRallyEdge.Core.FovModeSwitch.AdjustableStart(CenterVerticalFov, mounted, bumper || !cfg.CameraAutoFit) is not { } fov) return;
+            double? shown = CenterVerticalFov;
+            if (WodenRallyEdge.Core.FovModeSwitch.AdjustableStart(shown, mounted, bumper || !cfg.CameraAutoFit) is not { } fov) return;
             var pose = cfg.GetCameraPose(bumper);
             if (Math.Abs(pose.Fov - fov) < .05f) return;
             cfg.SetCameraPose(bumper, pose with { Fov = fov });
             Panel.SettingsChanged();
-            Runtime.Log.LogInfo(FormattableString.Invariant($"Adjustable FOV: {(bumper ? "bumper" : "bonnet")} lens starts at the shown {fov:0.0}° (saved lens was {pose.Fov:0.0}°)"));
+            Runtime.Log.LogInfo(FormattableString.Invariant($"Adjustable FOV: {(bumper ? "bumper" : "bonnet")} lens starts at {fov:0.0}° (shown {shown:0.0}°, saved lens was {pose.Fov:0.0}°)"));
         }
         catch (Exception ex) { Runtime.Log.LogWarning("Adjustable FOV start: " + ex.Message); }
     }

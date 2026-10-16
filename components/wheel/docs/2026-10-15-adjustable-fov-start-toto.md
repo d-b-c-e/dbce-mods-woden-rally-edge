@@ -1,4 +1,4 @@
-# Woden bonnet FOV closeout: Physical lock, stale lens and an Adjustable start that doesn't jump (toto, sana 166662)
+# Woden bonnet FOV closeout: Physical lock, stale lens and an Adjustable start at the shown angle (toto, sana 166662)
 
 Source and retained evidence only. Nothing was built, run or launched, and no owner config or install was touched. The
 branch is based on Livo `c433e10`, which puts the camera hint on the center screen.
@@ -37,6 +37,18 @@ already find too narrow.
 **`Core/FovModeSwitch.AdjustableStart(centerVertical, mountedOnScreen, savedLensInUse)`** returns the shown angle,
 rounded to 0.1° and clamped to 30–110. It returns null for a chase view, a fitted bonnet or no measured angle.
 
+The view is kept only in the case that applies to the owner: a measured angle inside the lens bounds, a saved bonnet
+lens with Fit to car off, and the view on screen. In the other cases the switch can still change the view:
+- a shown angle outside 30–110 starts at the nearest bound;
+- with no start, the saved or fitted lens applies.
+
+The log line names the start value, the shown angle and the previous saved value, so a clamped start is visible.
+
+**No overwrite in the same draw.** In `CameraPage` the Advanced editor reads `pose` and `fov` before the locked row's
+button. It saves only `if (edited != pose)`. After the click both still hold the old lens, so nothing is saved and the
+seeded value stands. The next pass reads the new lens. The Simple Triple FOV choice runs before the Advanced editor, so
+there the editor reads the seeded pose.
+
 **`TripleView.MatchGameFov` setter.**
 - Only on a change false → true, and before the switch, it sets the on-screen mounted view's saved lens to that angle.
 - It marks settings dirty, which saves them through the existing Panel path, and logs
@@ -61,7 +73,9 @@ because Woden is IL2CPP.
 2. **Install with the closed-game route.** Include c433e10 and this commit.
 3. **One attended owner check** in bonnet view, triples on:
    - The first-view hint and the +/- message appear on the **center** screen and name 33.6°.
-   - "Use Adjustable FOV" causes no visible jump. The log shows the start line, and the center vfov stays 33.6.
+   - With the owner's state (33.6° shown, Fit to car off), "Use Adjustable FOV" causes no visible jump. The log shows
+     `Adjustable FOV: bonnet lens starts at 33.6° (shown 33.6°, saved lens was 30.0°)`, and the center vfov stays
+     33.6.
    - Each FOV + or − press visibly changes the view by 2°.
    - Restoring Physical is the owner's choice. The lens keeps whatever they set.
 

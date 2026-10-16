@@ -2,7 +2,9 @@ namespace WodenRallyEdge.Core;
 
 /// <summary>
 /// Physical rig → Adjustable FOV, chosen by the player in F6: the mounted lens on screen starts at the vertical angle
-/// the player is looking at, so the switch itself never jumps and the FOV keys then zoom from there.
+/// the player is looking at, so the switch keeps the view and the FOV keys then zoom from there. Exceptions: a shown
+/// angle outside the 30–110° lens bounds starts at the nearest bound, and when no start applies (chase view, a fitted
+/// bonnet, no measured angle) the saved lens is used unchanged, so the view can still change on the switch.
 /// </summary>
 /// <remarks>
 /// Owner UAT 2026-10-15: bonnet "too narrow", +/- "no visible change". In Physical mode the measured rig sets the
