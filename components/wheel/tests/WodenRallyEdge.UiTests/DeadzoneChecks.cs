@@ -63,6 +63,8 @@ internal static class DeadzoneChecks
             input.Cancel();
         }
         input.BeginAxis("Steer"); check(input.CaptureDeadzone == 0,"new steering capture keeps its zero default"); input.Cancel();
+        input.BeginAxis("Throttle",true);
+        check(input.CaptureDeadzone == 0,"recapturing an existing zero-deadzone pedal does not migrate it"); input.Cancel();
         input.BeginAxis("Brake",true);
         check(Math.Abs(input.CaptureDeadzone-3)<.0001,"recapturing an existing pedal keeps its saved deadzone"); input.Cancel();
         string saved = File.ReadAllText(path);
@@ -103,6 +105,14 @@ internal static class DeadzoneChecks
             var cancel=GUI.Commands.First(c=>c.Kind=="text" && c.Text=="Cancel");
             Draw(new(){type=EventType.MouseDown,button=0,mousePosition=new(cancel.Rect.x+10,cancel.Rect.y+10)}); Draw();
             check(!input.Capturing && input.Bindings.Steer==steering && File.ReadAllText(path)==saved,"UI Cancel preserves the existing binding and disk bytes");
+            input.BeginAxis("Throttle"); Draw();
+            check(GUI.Commands.Any(c=>c.Text=="Deadzone (%)") && GUI.Commands.Any(c=>c.Text=="3"),
+                "new pedal capture visibly shows the 3% default");
+            Keyboard.current![Key.Escape].wasPressedThisFrame=true; Panel.Update(); Keyboard.current.Clear();
+            check(!input.Capturing && File.ReadAllText(path)==saved,"Escape discards a new capture without saving its default");
+            input.BeginDeadzone("Brake"); input.CaptureDeadzone=6;
+            Keyboard.current[Key.Escape].wasPressedThisFrame=true; Panel.Update(); Keyboard.current.Clear();
+            check(!input.Capturing && File.ReadAllText(path)==saved,"Escape discards a deadzone-only draft without saving");
             Panel.Close(false);
         }
         check(!Runtime.Settings.FfbEnabled,"deadzone editing does not enable forces");

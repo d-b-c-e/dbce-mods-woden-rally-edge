@@ -139,7 +139,7 @@ Click("Bind",3);Check(Runtime.Wheel.CaptureAxis=="Handbrake","Handbrake Bind sta
 Click("Advanced");Check(Runtime.Settings.UiView=="Simple","capture locks view");device.Axes[7]=54000;Runtime.Wheel.UpdateCapture();Snapshot("handbrake-calibration-720");Check(Find("Save calibration")!=null&&Find("Cancel")!=null,"calibration Save and Cancel fit alongside preview at 720p");
 Click("Cancel");Check(Runtime.Wheel.Bindings.Handbrake==null&&Runtime.Wheel.Bindings.Buttons["Handbrake"].Button==18,"cancel preserves old button and unbound axis");
 device.Axes[7]=0;Click("Controls");Click("Bind",3);device.Axes[7]=60000;Runtime.Wheel.UpdateCapture();device.Axes[7]=30000;Runtime.Wheel.UpdateCapture();
-Check(Math.Abs(Runtime.Wheel.PreviewBinding!.Normalize(30000)-.5)<.001,"provisional half-pull preview");Click("Save calibration");
+Check(Runtime.Wheel.CaptureDeadzone==3&&Math.Abs(Runtime.Wheel.PreviewBinding!.Normalize(30000)-.4845360825)<.001,"provisional half-pull preview reflects the visible 3% pedal deadzone");Click("Save calibration");
 Check(Runtime.Wheel.Bindings.Handbrake?.Axis==7&&Runtime.Wheel.Bindings.Buttons["Handbrake"].Button==18,"save retains additive axis and button");
 Click("FFB");Snapshot("ffb-720");
 Reach(()=>Find("Custom FFB tuning active. Review in Advanced")!=null,"Simple custom-tune summary");
