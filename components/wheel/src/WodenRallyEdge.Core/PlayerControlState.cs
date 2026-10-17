@@ -10,5 +10,7 @@ public readonly record struct PlayerControlState(PlayerPhase Phase, bool Selecte
     // The game's start-line lock continues to govern the car's physics.
     public bool PreRace => Interactive && Phase == PlayerPhase.Countdown;
     public bool CameraAvailable => Driving || PreRace;
+    // F6 suspends input and force, not the view: the mounted camera stays so lens edits show while the panel is open.
+    public bool CameraShown => (this with { PanelOpen = false }).CameraAvailable;
     public bool WheelAvailable => Driving || PreRace;
 }

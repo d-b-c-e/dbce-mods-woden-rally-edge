@@ -237,6 +237,8 @@ internal static class Runtime
     internal static bool CameraAvailable(MainCar car) => StagePlayback.Owns(car)
         ? StageReplayPolicy.Eligibility(ControlState(car, includeStageOwnership: false), StagePlayback.BackgroundReplay).CameraAvailable
         : ControlState(car).CameraAvailable;
+    // Supervised replays keep their own eligibility; an open panel still ends them.
+    internal static bool CameraShown(MainCar car) => StagePlayback.Owns(car) ? CameraAvailable(car) : ControlState(car).CameraShown;
     internal static void Update()
     {
         using var lease = Activity.TryEnter(); if (lease == null) return;

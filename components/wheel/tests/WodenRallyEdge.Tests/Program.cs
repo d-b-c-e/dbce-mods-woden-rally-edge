@@ -612,6 +612,13 @@ Test("countdown wheel/camera eligibility preserves every existing driving and FF
     foreach (var state in blocked) Check(!state.WheelAvailable && !state.CameraAvailable && !state.Driving, "unsafe/inactive context stays excluded: " + state);
     var green = ready with { Phase = PlayerPhase.Racing, Locked = false };
     Check(green.WheelAvailable && green.CameraAvailable && green.Driving && !green.PreRace, "green enables existing driving path");
+    foreach (var state in new[] { ready, green })
+    {
+        var panel = state with { PanelOpen = true };
+        Check(panel.CameraShown && !panel.CameraAvailable && !panel.WheelAvailable && !panel.Driving, "open F6 keeps the mounted view only: " + panel);
+    }
+    foreach (var state in blocked.Where(s => !s.PanelOpen))
+        Check(!(state with { PanelOpen = true }).CameraShown, "open F6 never shows the mounted view in an excluded context: " + state);
     var cycle = new CameraCycle(); cycle.StockChanged(4, 0, true, true);
     Check(cycle.View == MountedView.Bonnet && !cycle.Reconcile(0, true, true), "preselected bonnet survives normal countdown-to-race without preset change");
 });
