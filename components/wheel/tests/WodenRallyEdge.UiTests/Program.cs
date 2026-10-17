@@ -78,7 +78,7 @@ void Draw(Event? e=null)
     }
 }
 DrawCommand? Find(string label,int index=0)=>GUI.Commands.Where(c=>c.Kind=="text"&&c.Text==label).Skip(index).FirstOrDefault();
-float FixtureScale()=>Math.Min((Screen.width-32f)/980,(Screen.width>=3000?1.5f:1)*Runtime.Settings.UiScale/100);
+float FixtureScale()=>Math.Min((Screen.width-32f)/Panel.Width,(Screen.width>=3000?1.5f:1)*Runtime.Settings.UiScale/100);
 void Reach(Func<bool> visible,string description)
 {
     Draw();

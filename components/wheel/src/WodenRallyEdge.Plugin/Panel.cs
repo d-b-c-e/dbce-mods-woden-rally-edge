@@ -14,6 +14,10 @@ internal static partial class Panel
     internal static bool Open { get; private set; }
     internal static string Message = "F6 settings / F8 stops FFB";
     private static readonly string[] Axes = { "X", "Y", "Z", "Rx", "Ry", "Rz", "Slider 1", "Slider 2" };
+    // Shared F6 frame (zori dd1dc175): title, view switch and Close on one row, page tabs below, fixed footer.
+    // Pages keep their 250-based body coordinates; R() draws them BodyShift units left in the narrower panel.
+    internal const float Width = 742;
+    private const float BodyShift = 226;
     private static float _scale, _left, _top, _height, _scroll, _extent;
     private static int _drag = -1, _focus, _ordinal, _count, _devicePage, _menuMove, _menuStep;
     private static bool _menuConfirm;
@@ -21,7 +25,7 @@ internal static partial class Panel
     private static bool _sharedClosePrompt;
     private static bool _revealFocus;
     private static string? _sharedDeviceGuid;
-    private static GUIStyle? _label, _title, _help, _link;
+    private static GUIStyle? _label, _title, _help, _link, _tab;
     private static CursorLockMode _cursorLock;
     private static Pause? _ownedPause;
     private static double _nextHotkeyError;
@@ -39,7 +43,9 @@ internal static partial class Panel
     private static bool ConnectionDirty => _forza != Runtime.Settings.ForzaPort.ToString() || _detail != Runtime.Settings.DetailPort.ToString() || (int)_rate != Runtime.Settings.DetailHz;
     private static bool Editing => Runtime.Wheel?.Capturing == true || SharedBindingHost.Current.CapturingAction!=null || _sharedClosePrompt || ConnectionDirty || MenuOwnership.Closing;
     private static string ActionLabel(string a) => a switch { "Steer" => "Steering", "Handbrake" => "Handbrake (axis)", "Gear up" => "Shift up", "Gear down" => "Shift down", "Camera" => "Change camera", "Rear view" => "Look behind", "Respawn" => "Reset car", "Settings panel" => "Settings", "Panic stop" => "Stop FFB", _ => a };
-    private static Rect R(float x, float y, float w, float h) => new(_left + x * _scale, _top + (y - (_body ? _scroll : 0)) * _scale, w * _scale, h * _scale);
+    private static Rect R(float x, float y, float w, float h) => _body
+        ? new(_left + (x - BodyShift) * _scale, _top + (y - _scroll) * _scale, w * _scale, h * _scale)
+        : new(_left + x * _scale, _top + y * _scale, w * _scale, h * _scale);
     private static bool Inside(Rect r, Vector2 p) => p.x >= r.x && p.y >= r.y && p.x < r.x + r.width && p.y < r.y + r.height;
     private static bool Visible(Rect r) => !_body || r.y >= _top + 144 * _scale && r.y + r.height <= _top + (_height - 110) * _scale;
     private static void ReadConnection() { _forza = Runtime.Settings.ForzaPort.ToString(); _detail = Runtime.Settings.DetailPort.ToString(); _rate = Runtime.Settings.DetailHz; }
@@ -211,6 +217,19 @@ internal static partial class Panel
         { _focus = id; _activate = false; if(e.type != EventType.Repaint) e.Use(); GUIUtility.keyboardControl = 0; return true; }
         return false;
     }
+    // F6Widgets.Tab geometry: text, the accent line under the selected page, a focus wash.
+    private static bool Tab(float x,float y,float width,string text,bool selected,bool enabled)
+    {
+        var r=R(x,y,width,F6Metrics.RowHeight+6);
+        int id=enabled?_ordinal++:-1;var e=Event.current;
+        bool hover=Inside(r,e.mousePosition),focused=enabled&&id==_focus&&GUIUtility.keyboardControl==0;
+        if(focused||hover&&enabled)Fill(new Rect(r.x,r.y,r.width,r.height-F6Metrics.TabLine*_scale),ColorOf(F6Palette.TabFocus.WithAlpha(focused?.6f:.3f)));
+        GUI.Label(R(x+F6Metrics.TabPadX,y+F6Metrics.TabPadY,width-2*F6Metrics.TabPadX,24),new GUIContent(text),selected?_label!:_tab!);
+        if(selected)Fill(new Rect(r.x+6*_scale,r.yMax-F6Metrics.TabLine*_scale,r.width-12*_scale,F6Metrics.TabLine*_scale),Accent);
+        if(enabled&&(e.type==EventType.MouseDown&&e.button==0&&hover||focused&&_activate))
+        {_focus=id;_activate=false;if(e.type!=EventType.Repaint)e.Use();GUIUtility.keyboardControl=0;return true;}
+        return false;
+    }
     private static bool Link(float x,float y,float width,string text)
     {
         var r=R(x,y,width,F6Metrics.LinkHeight);
@@ -310,9 +329,10 @@ internal static partial class Panel
         try
         {
             GUI.color=Color.white; GUI.enabled=true; _body=false;
-            _scale=Math.Min((Screen.width-32f)/980, (Screen.width>=3000?1.5f:1)*Runtime.Settings.UiScale/100);
-            _height=Math.Min(740,(Screen.height-32f)/_scale); _left=(Screen.width-980*_scale)/2; _top=(Screen.height-_height*_scale)/2;
-            _label??=new(); _title??=new(); _help??=new(); _link??=new();
+            _scale=Math.Min((Screen.width-32f)/Width, (Screen.width>=3000?1.5f:1)*Runtime.Settings.UiScale/100);
+            _height=Math.Min(740,(Screen.height-32f)/_scale); _left=(Screen.width-Width*_scale)/2; _top=(Screen.height-_height*_scale)/2;
+            _label??=new(); _title??=new(); _help??=new(); _link??=new(); _tab??=new();
+            UiNative.Style(_tab,(int)(F6Metrics.BodySize*_scale),false); _tab.normal.textColor=ColorOf(F6Palette.Secondary);
             UiNative.Style(_label,(int)(F6Metrics.BodySize*_scale),true); _label.normal.textColor=ColorOf(F6Palette.Text);
             UiNative.Style(_help,(int)(F6Metrics.HelpSize*_scale),true); _help.normal.textColor=ColorOf(F6Palette.Secondary);
             UiNative.Style(_link,(int)(F6Metrics.HelpSize*_scale),true); _link.normal.textColor=Accent;
@@ -324,54 +344,59 @@ internal static partial class Panel
             { _focus=(_focus+(e.shift?-1:1)+Math.Max(1,_count))%Math.Max(1,_count);_revealFocus=true; GUIUtility.keyboardControl=0; e.Use(); }
             if(_menuMove!=0) { _focus=(_focus+_menuMove+Math.Max(1,_count))%Math.Max(1,_count);_menuMove=0;_revealFocus=true;GUIUtility.keyboardControl=0; }
             _activate=(_menuConfirm || e.type==EventType.KeyDown && e.keyCode is KeyCode.Return or KeyCode.Space) && navigationAllowed;_menuConfirm=false;
-            if(e.type==EventType.ScrollWheel && Inside(R(238,144,724,_height-254),e.mousePosition)) { _scroll=Math.Clamp(_scroll+e.delta.y*30,0,Math.Max(0,_extent-(_height-110))); _drag=-1; e.Use(); }
+            if(e.type==EventType.ScrollWheel && Inside(R(0,144,Width,_height-254),e.mousePosition)) { _scroll=Math.Clamp(_scroll+e.delta.y*30,0,Math.Max(0,_extent-(_height-110))); _drag=-1; e.Use(); }
             if(e.type==EventType.KeyDown && e.keyCode is KeyCode.PageDown or KeyCode.PageUp)
             { _scroll=Math.Clamp(_scroll+(e.keyCode==KeyCode.PageDown?1:-1)*240,0,Math.Max(0,_extent-(_height-110))); _drag=-1; e.Use(); }
             _ordinal=0; _extent=144;
-            Fill(R(0,0,980,_height),ColorOf(F6Palette.Window)); Fill(R(0,100,220,_height-100),ColorOf(F6Palette.Header));
-            GUI.Label(R(24,18,540,42),new GUIContent("Woden / Wheel settings"),_title);
-            Label(585,24,60,"View:");
-            if(Button(648,18,124,"Simple",!Advanced,!Editing))Navigate(Runtime.Settings.UiPage,"Simple");
-            if(Button(780,18,174,"Advanced",Advanced,!Editing))Navigate(Runtime.Settings.UiPage,"Advanced");
-            Label(24,64,925,MenuOwnership.Closing?"Waiting to close · Escape / F6 / Back cancels":Editing?SettingsPresentation.EditLock:"F6 close · F8 stops FFB · Tab / Enter to navigate · "+_saveStatus,true);
-            int row=0; foreach(string page in SettingsPresentation.Pages(Runtime.Settings.UiView))
-                if(Button(16,112+row++*44,188,page,Runtime.Settings.UiPage==page,!Editing))Navigate(page);
-            if(Button(16,_height-108,188,"Stop FFB")) { try { Runtime.Force?.Panic(); } catch(Exception ex) { Message="Save failed: "+ex.Message; } }
-            if(Button(16,_height-64,188,MenuOwnership.Closing?"Cancel close":"Close",false,!Editing||MenuOwnership.Closing))
+            Fill(R(0,0,Width,_height),ColorOf(F6Palette.Window));
+            GUI.Label(R(24,18,330,42),new GUIContent("Woden / Wheel settings"),_title);
+            // Drawn in the earlier sidebar order, so keyboard focus order is unchanged: views, pages, Stop FFB, Close.
+            if(Button(364,18,84,"Simple",!Advanced,!Editing))Navigate(Runtime.Settings.UiPage,"Simple");
+            if(Button(454,18,104,"Advanced",Advanced,!Editing))Navigate(Runtime.Settings.UiPage,"Advanced");
+            Label(24,64,694,MenuOwnership.Closing?"Waiting to close · Escape / F6 / Back cancels":Editing?SettingsPresentation.EditLock:"F6 close · F8 stops FFB · Tab / Enter to navigate · "+_saveStatus,true);
+            float tabX=24; foreach(string page in SettingsPresentation.Pages(Runtime.Settings.UiView))
+            {
+                // The longest page set (Advanced, seven pages) measures 682 of the 694-unit row.
+                float tabWidth=page.Length*10f+2*F6Metrics.TabPadX;
+                if(Tab(tabX,92,tabWidth,page,Runtime.Settings.UiPage==page,!Editing))Navigate(page);
+                tabX+=tabWidth;
+            }
+            Fill(R(0,136,Width,1),ColorOf(F6Palette.Divider));
+            if(Button(598,_height-99,120,"Stop FFB")) { try { Runtime.Force?.Panic(); } catch(Exception ex) { Message="Save failed: "+ex.Message; } }
+            if(Button(574,18,144,MenuOwnership.Closing?"Cancel close":"Close",false,!Editing||MenuOwnership.Closing))
             { if(MenuOwnership.Closing)CancelPendingClose();else Close(true); }
             if(_sharedClosePrompt)
             {
                 if(_focus<0)_focus=_ordinal+1; // Keep editing is the first close-intent default.
-                Label(250,170,690,"Unsaved binding edits. Discard them before closing, or keep editing.",true,72);
-                if(Button(250,260,280,"Discard and close")){SharedBindingHost.Current.Discard();_sharedClosePrompt=false;Close(true);}
-                if(Button(546,260,280,"Keep editing"))_sharedClosePrompt=false;
+                Label(24,170,694,BindingPresentation.Unsaved+". Discard them before closing, or keep editing.",true,72);
+                if(Button(24,260,280,"Discard and close")){SharedBindingHost.Current.Discard();_sharedClosePrompt=false;Close(true);}
+                if(Button(320,260,280,"Keep editing"))_sharedClosePrompt=false;
                 _count=_ordinal;return;
             }
             if(MenuOwnership.Closing)
             {
                 if(_focus<0)_focus=_ordinal;
-                Label(250,170,680,Message,true,110);
-                if(Button(250,300,280,"Keep settings open"))CancelPendingClose();
+                Label(24,170,680,Message,true,110);
+                if(Button(24,300,280,"Keep settings open"))CancelPendingClose();
                 _count=_ordinal;_focus=Math.Clamp(_focus,0,Math.Max(0,_count-1));_menuStep=0;
                 return;
             }
-            Label(250,112,680,Runtime.Settings.UiPage);
             _body=true;
             switch(Runtime.Settings.UiPage)
             { case "Controls":ControlsPage();break; case "FFB":ForcePage();break; case "Cameras":CameraPage();break; case "Driving":DifficultyPage();break; case "Telemetry":TelemetryPage();break; case "Help":HelpPage();break; default:SetupPage();break; }
             _body=false; _scroll=Math.Clamp(_scroll,0,Math.Max(0,_extent-(_height-110)));
             if(_extent>_height-110)
             {
-                if(Button(250,_height-99,90,"Up",false,_scroll>0)) {_scroll=Math.Max(0,_scroll-240);_drag=-1;}
-                if(Button(350,_height-99,100,"Down",false,_scroll<_extent-(_height-110))) {_scroll=Math.Min(_extent-(_height-110),_scroll+240);_drag=-1;}
-                Label(474,_height-94,470,"Scroll or Page Up / Down for more",true);
+                if(Button(24,_height-99,90,"Up",false,_scroll>0)) {_scroll=Math.Max(0,_scroll-240);_drag=-1;}
+                if(Button(124,_height-99,100,"Down",false,_scroll<_extent-(_height-110))) {_scroll=Math.Min(_extent-(_height-110),_scroll+240);_drag=-1;}
+                Label(240,_height-94,340,"Scroll or Page Up / Down for more",true);
             }
-            Fill(R(238,_height-58,720,1),new Color(.25f,.3f,.36f,1));
+            Fill(R(12,_height-58,Width-24,1),new Color(.25f,.3f,.36f,1));
             string status=Runtime.Wheel?.SaveError ?? (_saveStatus=="Save failed"?"Save failed — "+Message:Message);
             status=BindingFooterStatus(SharedBindingHost.Current,status);
-            Label(250,_height-49,698,status,true,43);
+            Label(24,_height-49,694,status,true,43);
             _count=_ordinal;_focus=Math.Clamp(_focus,0,Math.Max(0,_count-1));_menuStep=0;
-            if(e.type==EventType.MouseDown && Inside(R(0,0,980,_height),e.mousePosition))e.Use();
+            if(e.type==EventType.MouseDown && Inside(R(0,0,Width,_height),e.mousePosition))e.Use();
         }
         catch(Exception ex) { if(Runtime.Clock.Elapsed.TotalSeconds>_nextError) { Runtime.Log.LogError("F6 draw: "+ex); _nextError=Runtime.Clock.Elapsed.TotalSeconds+5; } }
         finally { _body=false; GUI.color=previousColor;GUI.enabled=previousEnabled; }
