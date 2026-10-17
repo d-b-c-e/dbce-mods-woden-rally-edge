@@ -369,8 +369,6 @@ internal static partial class Panel
             Fill(R(238,_height-58,720,1),new Color(.25f,.3f,.36f,1));
             string status=Runtime.Wheel?.SaveError ?? (_saveStatus=="Save failed"?"Save failed — "+Message:Message);
             status=BindingFooterStatus(SharedBindingHost.Current,status);
-            if(SharedBindingHost.Current.HasDraft)status="Bindings unsaved · "+status;
-            else if(SharedBindingHost.Current.SavedPendingRestart)status="Bindings saved for next start · "+status;
             Label(250,_height-49,698,status,true,43);
             _count=_ordinal;_focus=Math.Clamp(_focus,0,Math.Max(0,_count-1));_menuStep=0;
             if(e.type==EventType.MouseDown && Inside(R(0,0,980,_height),e.mousePosition))e.Use();
@@ -536,8 +534,12 @@ internal static partial class Panel
         End(GearboxRow(y));
     }
 
-    internal static string BindingFooterStatus(SharedBindingHost host,string generalStatus) =>
-        host.SaveFailure.Length==0?generalStatus:host.SaveFailure+" · "+generalStatus;
+    // Shared wording: a retained Save failure first, then an unsaved draft, then a saved revision for next start.
+    internal static string BindingFooterStatus(SharedBindingHost host,string generalStatus)
+    {
+        string binding=BindingPresentation.Footer(host.HasDraft,host.SavedPendingRestart,host.SaveFailure);
+        return binding.Length==0?generalStatus:string.IsNullOrEmpty(generalStatus)?binding:binding+" · "+generalStatus;
+    }
 
     private static void SharedBindingPage()
     {
@@ -547,13 +549,14 @@ internal static partial class Panel
         // Keep the first binding/value in the initial 720p body. This stripped
         // host uses shared metrics with rectangles rather than GUILayout widgets.
         Label(250,y,690,"Shared controls: "+host.ActiveSource,true,42);y+=42+F6Metrics.RowGap;
-        Label(250,y,690,"Controls setup: close the game and run Set Up Controls.bat from matching standalone Controls Setup, then restart. Wheelkit is optional. In-game binding uses devices already opened by this profile.",true,54);y+=54+F6Metrics.RowGap;
+        // In-game binding uses only devices this profile already opened; there is no Find devices here.
+        Label(250,y,690,BindingPresentation.SetupGuidance(canFindDevices:false),true,72);y+=72+F6Metrics.RowGap;
         float accessHeight=editable?42:68;
         Label(250,y,690,host.AccessReason,true,accessHeight);y+=accessHeight+F6Metrics.RowGap;
-        if(host.SavedPendingRestart){Label(250,y,690,"Bindings saved for next start. Active controls are unchanged.",true,44);y+=52;}
-        if(host.HasDraft){Label(250,y,690,"Unsaved binding edits",true,28);y+=36;}
+        if(host.SavedPendingRestart){Label(250,y,690,BindingPresentation.SavedForNextStart+". Active controls are unchanged.",true,44);y+=52;}
+        if(host.HasDraft){Label(250,y,690,BindingPresentation.Unsaved,true,28);y+=36;}
         if(host.SaveFailure.Length>0){Label(250,y,690,host.SaveFailure,true,90);y+=98;}
-        if(Button(250,y,220,"Save bindings",false,editable&&host.HasDraft&&host.CapturingAction==null))host.Save(out _);
+        if(Button(250,y,220,BindingPresentation.SaveBindings,false,editable&&host.HasDraft&&host.CapturingAction==null))host.Save(out _);
         if(Button(486,y,220,"Discard changes",false,host.HasDraft))host.Discard();y+=F6Metrics.RowHeight+F6Metrics.RowGap;
         var devices=host.Devices;
         int selectedDevice=-1;
@@ -562,9 +565,9 @@ internal static partial class Panel
             _sharedDeviceGuid??=(devices.FirstOrDefault(d=>d.IsDefault)??devices[0]).InstanceGuid;
             for(int i=0;i<devices.Count;i++)if(devices[i].InstanceGuid==_sharedDeviceGuid)selectedDevice=i;
             int prior=selectedDevice;
-            y=Choice(y,"Capture device",devices.Select(d=>d.Name.Length>36?d.Name[..36]+"…":d.Name).ToArray(),ref selectedDevice,false);
+            y=Choice(y,BindingPresentation.BindFrom,devices.Select(d=>d.Name.Length>36?d.Name[..36]+"…":d.Name).ToArray(),ref selectedDevice,false);
             if(prior!=selectedDevice&&selectedDevice>=0)_sharedDeviceGuid=devices[selectedDevice].InstanceGuid;
-            if(selectedDevice<0){Label(250,y,690,"The selected capture device is unavailable. Choose a device explicitly; no substitute was selected.",true,48);y+=56;}
+            if(selectedDevice<0){Label(250,y,690,"The selected device is unavailable. Choose one under Bind from; no substitute was selected.",true,48);y+=56;}
         }
         float captureHeight=editable&&host.CapturingAction==null?54:68;
         Label(250,y,690,host.CapturingAction==null?host.CaptureMessage:$"Binding {host.CapturingAction} · {host.CaptureSecondsLeft:0}s · {host.CaptureMessage}",true,captureHeight);y+=captureHeight+F6Metrics.RowGap;

@@ -24,7 +24,7 @@ internal static class SharedBindingChecks
         check(host.CapturingAction=="modMenu"&&host.CaptureMessage!=failure&&host.SaveFailure==failure,
             "later capture changes transient text without clearing failed Save");
         string footer=Panel.BindingFooterStatus(host,"Unrelated settings message");
-        check(footer.Contains(failure)&&footer.Contains("Unrelated settings message"),
+        check(footer.StartsWith(Dbce.Wheel.Ui.BindingPresentation.Footer(true,false,failure))&&footer.Contains("Unrelated settings message"),
             "production footer preserves binding failure independently of unrelated panel status");
         host.CancelCapture();host.Discard();
         check(host.SaveFailure.Length==0&&!host.HasDraft&&Panel.BindingFooterStatus(host,"General status")=="General status",

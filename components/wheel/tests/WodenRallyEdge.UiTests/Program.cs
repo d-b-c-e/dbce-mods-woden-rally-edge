@@ -385,7 +385,7 @@ try
         Screen.width=resolution.Item1;Screen.height=resolution.Item2;Runtime.Settings.UiScale=100;
         Panel.Close(false);Panel.Toggle();Click("Controls");
         // The sidebar Controls click does not scroll the body: check its initial viewport.
-        Check(Find("Save bindings")!=null&&Find("Discard changes")!=null&&Find("Capture device")!=null,
+        Check(Find("Save bindings")!=null&&Find("Discard changes")!=null&&Find("Bind from")!=null,
             "shared binding toolbar and device selector fit initially at "+resolution);
         var first=panelHost.Rows[0];
         Check(Find(first.Label)!=null&&Find("Active: "+first.Active.Text)!=null,
@@ -402,7 +402,7 @@ try
         "capture instructions and Cancel retain their initial viewport space");
     panelHost.CancelCapture();Draw();
     panelHost.SetInverted("steer",true);Click("FFB");
-    Check(panelHost.HasDraft&&GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.StartsWith("Bindings unsaved")),"shared draft warning remains in fixed footer after switching to FFB");
+    Check(panelHost.HasDraft&&GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.StartsWith(Dbce.Wheel.Ui.BindingPresentation.Unsaved)),"shared draft warning remains in fixed footer after switching to FFB");
     Click("Close");Draw();
     Check(Panel.Open&&panelHost.HasDraft&&!MenuOwnership.Closing&&Find("Discard and close")!=null&&Find("Keep editing")!=null,
         "closing from FFB with a shared draft shows global discard or keep-editing before ownership release");
