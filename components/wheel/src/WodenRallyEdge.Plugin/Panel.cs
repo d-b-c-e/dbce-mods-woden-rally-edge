@@ -575,7 +575,8 @@ internal static partial class Panel
         // host uses shared metrics with rectangles rather than GUILayout widgets.
         Label(250,y,690,"Shared controls: "+host.ActiveSource,true,42);y+=42+F6Metrics.RowGap;
         // In-game binding uses only devices this profile already opened; there is no Find devices here.
-        Label(250,y,690,BindingPresentation.SetupGuidance(canFindDevices:false),true,72);y+=72+F6Metrics.RowGap;
+        // Three help-size lines; a taller row pushes the first binding out of the initial 720p body.
+        Label(250,y,690,BindingPresentation.SetupGuidance(canFindDevices:false),true,54);y+=54+F6Metrics.RowGap;
         float accessHeight=editable?42:68;
         Label(250,y,690,host.AccessReason,true,accessHeight);y+=accessHeight+F6Metrics.RowGap;
         if(host.SavedPendingRestart){Label(250,y,690,BindingPresentation.SavedForNextStart+". Active controls are unchanged.",true,44);y+=52;}
