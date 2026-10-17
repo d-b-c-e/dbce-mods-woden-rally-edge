@@ -115,7 +115,7 @@ public sealed class AxisCapture
     public int Maximum => _max;
     public string Status => Ambiguous ? "Several axes moved. Cancel, release controls, and try again." : !Detected ?
         (_steering ? "Turn the wheel right first, then sweep fully left/right." : "Move the control fully, then release it.") :
-        (_steering ? $"Sweep both ends. Raw {_min} .. {_max}; centre {_rest}." : $"Raw rest {_rest}; observed {_min} .. {_max}.");
+        (_steering ? $"Sweep both ends. Raw {_min} .. {_max}; center {_rest}." : $"Raw rest {_rest}; observed {_min} .. {_max}.");
     private int _direction;
     public AxisCapture(Dictionary<(Guid, int), int> baseline, bool steering) { _baseline = new(baseline); _steering = steering; }
     public void Observe(Dictionary<(Guid guid, int axis), int> values)
