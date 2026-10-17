@@ -390,7 +390,8 @@ try
         var first=panelHost.Rows[0];
         Check(Find(first.Label)!=null&&Find("Active: "+first.Active.Text)!=null,
             "first shared binding label and active value fit initially at "+resolution);
-        Check(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.Contains("Set Up Controls.bat")&&c.Text.Contains("devices already opened")),
+        // Shared no-discovery guidance: available devices only, Set Up Controls.bat to add one.
+        Check(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text==Dbce.Wheel.Ui.BindingPresentation.SetupGuidance(false)&&c.Text.Contains("Set Up Controls.bat")),
             "standalone setup entry and initial device limitation remain visible at "+resolution);
         Check(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text==panelHost.AccessReason)&&GUI.Commands.Any(c=>c.Kind=="text"&&c.Text==panelHost.CaptureMessage),
             "draft/restart and capture guidance remain visible at "+resolution);
