@@ -21,6 +21,8 @@ param(
     [Parameter(Mandatory)][string]$CaptureToolSha256,
     [Parameter(Mandatory)][string]$CaptureAssemblySha256,
     [Parameter(Mandatory)][string]$RigLeaseToken,
+    # Hash-pinned below; a retained copy (with its sibling identity helper) once the canonical helper moves on.
+    [string]$OwnedHelper = 'E:/Source/toolkits/dbce-wheel-mod-toolkit/tools/playback/Stage-OwnedProcess.ps1',
     [guid]$RequestId = [guid]::NewGuid(),
     [ValidateRange(1,10)][int]$MenuDwellSeconds = 2,
     [string]$NativeObservationSource,
@@ -228,9 +230,8 @@ Assert-StageRigLease -Path $slot -Token $RigLeaseToken
 $sourceRoot=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $outputRoot=Join-Path $ResultDirectory 'launch-custody'
 $observeExternal=$null
-# Import the exact shared owned/identity implementation; no copied supervisor.
-$ownedHelper='E:/Source/toolkits/dbce-wheel-mod-toolkit/tools/playback/Stage-OwnedProcess.ps1'
-$identityHelper=Join-Path (Split-Path $ownedHelper -Parent) 'Stage-ProcessIdentity.ps1'
+# Import the exact pinned shared owned/identity implementation; no copied supervisor.
+$identityHelper=Join-Path (Split-Path $OwnedHelper -Parent) 'Stage-ProcessIdentity.ps1'
 Pin $ownedHelper 'E58A8AE0B3096A3419196B491A9A773DBE80E45FC33CC41D819D108F513A0725'
 Pin $identityHelper 'BE132A68893EE591DD76DE7143D41F5B87C767FEA6EB628952ABFEF477713A29'
 . $ownedHelper
