@@ -18,7 +18,10 @@ public static class Protocol
     public const string OwnerBindingsSha256="EC81BEB085E6483F83998EDEB949661FC889C5D319D542865128ADB8E21D2097";
     public const string CandidateBindingsSha256="04EB80F80EB0D6F98728BC6E5AFFB680688C4DCCAE3FD5940FEB65014AA2D6F0";
     public static bool CandidateForward(ColdRequest? request) => request is {Schema:11, Mode:"native-candidate-forward"};
-    public static bool NativePositive(ColdRequest? request) => request is {Schema:10, Mode:"native-positive-pedals"} || CandidateForward(request);
+    // Schema 12 keeps the schema-11 tuple (04EB bindings, load-muted native, ten-second transport) with its own recipe.
+    public static bool DriveResponse(ColdRequest? request) => request is {Schema:12, Mode:"native-drive-response"};
+    public static bool CandidateTuple(ColdRequest? request) => CandidateForward(request) || DriveResponse(request);
+    public static bool NativePositive(ColdRequest? request) => request is {Schema:10, Mode:"native-positive-pedals"} || CandidateTuple(request);
     public static bool F6Workflow(ColdRequest? request) => request is {Schema:9, Mode:"shim-admission"};
     public const string SnapshotShimSha256="4AF269C9F2FDBAE3CEF1A78E563C3877CB0AB820D4BE4C2579A1AD6EA25CECC5";
     public const string LoadMutedSha256="088F1089BEB6D18D478F37582C59330C6BDA6BC37D5E365F6BA7EBF80040F567";
@@ -55,8 +58,8 @@ public static class Protocol
             !ValidNonce(r.Nonce) || marker != r.Nonce || r.ExpiresUtc <= now || r.ExpiresUtc > now.AddMinutes(5))
             throw new InvalidDataException("Cold request identity or expiry refused.");
         if(NativePositive(r) ? r.NativeSha256 != LoadMutedSha256 ||
-            r.BindingsSha256 != (CandidateForward(r)?CandidateBindingsSha256:OwnerBindingsSha256) ||
-            r.PositiveSeconds != (CandidateForward(r)?10:22) : r.PositiveSeconds != 0)
+            r.BindingsSha256 != (CandidateTuple(r)?CandidateBindingsSha256:OwnerBindingsSha256) ||
+            r.PositiveSeconds != (CandidateTuple(r)?10:22) : r.PositiveSeconds != 0)
             throw new InvalidDataException("Native test requires its exact owner/candidate binding, load-muted native and explicit interval.");
         if(F6Workflow(r) && (r.ShimSha256 != SnapshotShimSha256 || r.NativeSha256 != LoadMutedSha256))
             throw new InvalidDataException("F6 workflow requires the exact extension-3 and load-muted native tuple.");

@@ -1,10 +1,10 @@
 namespace Woden.ControlsTesting;
 
-public sealed record PedalWindow(string Name, double Seconds, int? Throttle = null, int? Brake = null, int? Handbrake = null, int? TtlMilliseconds = null)
+public sealed record PedalWindow(string Name, double Seconds, int? Throttle = null, int? Brake = null, int? Handbrake = null, int? TtlMilliseconds = null, int? Steer = null)
 {
     public IEnumerable<string> Commands(string device)
     {
-        foreach(var (axis,value) in new[]{(2,Throttle),(5,Brake),(7,Handbrake)})
+        foreach(var (axis,value) in new[]{(0,Steer),(2,Throttle),(5,Brake),(7,Handbrake)})
             if(value is int raw)yield return $"inject raw axis {axis} dev={device} value={raw} range=0..65535 ms={TtlMilliseconds ?? (int)(Seconds*1000)}";
     }
 }
@@ -57,6 +57,42 @@ public static class PositivePedalPlan
         return Value("game.throttle",1)&&Value("game.brake",0)&&Value("game.handbrake",0)&&
             new[]{"fl","fr","rl","rr"}.All(w=>Value("wheel."+w+".brakeTorque",0))&&
             c.TryGetValue("motion.velocity.local.z",out double forward)&&double.IsFinite(forward)&&forward>1;
+    }
+    // Schema 12 over the same 04EB tuple. Steering raws are the pinned 04EB Steer calibration (Rest6184/Centre33484/
+    // End59740, not inverted) at production-normalized -0.25/+0.25; left first because the schema-11 straight run
+    // drifted right before its first contact at ~45 m. The brake window reuses the 100 ms pulses that stop at native
+    // trueSpeed<=1: a held native brake reverses a stopped car (R9 final-release).
+    public const string DriveRecipe="drive-throttle-steer-brake-release@1";
+    public static readonly WodenRallyEdge.Core.AxisCalibration DriveSteerCalibration=new(6184,59740,Centre:33484);
+    public const int DriveSteerLeft=26659, DriveSteerRight=40048;
+    public static readonly PedalWindow[] DriveWindows={
+        new("drive-physical",1), new("drive-throttle",1.25,65535),
+        new("drive-steer-left",1,Steer:DriveSteerLeft), new("drive-steer-right",1,Steer:DriveSteerRight),
+        new("drive-brake",2,0,65535,TtlMilliseconds:100), new("final-release",1.5)
+    };
+    public static readonly string[] DriveChannels={"wheelRaw.steer","wheelInput.steer","motion.angularVelocity.local.y","drive.simulationSeconds","drive.crashCount"};
+    // Live gate: the mod's raw/normalized/applied path only. The game's own steer/brake values may be smoothed; their
+    // exact equality is a DriveClassifier delivery verdict, not a reason to abort the recipe.
+    public static bool DriveDelivered(PedalWindow window,IDictionary<string,double> c)
+    {
+        if(window.Throttle==65535)return CandidateDelivered(window,c);
+        bool Near(string name,double wanted)=>c.TryGetValue(name,out double v)&&double.IsFinite(v)&&Math.Abs(v-wanted)<.00001;
+        bool ticks=c.TryGetValue("wheelInput.appliedTicks",out double t)&&double.IsFinite(t)&&t>0;
+        if(window.Steer is int steer)return ticks&&Near("wheelRaw.steer",steer)&&Near("wheelInput.steer",DriveSteerCalibration.Normalize(steer));
+        if(window.Brake==65535)return ticks&&Near("wheelRaw.brake",65535)&&Near("wheelInput.brake",1)&&Near("wheelRaw.throttle",0)&&Near("wheelInput.throttle",0);
+        return false;
+    }
+    // Instantaneous native effect counters only; motion verdicts belong to DriveClassifier.
+    public static bool DriveEffect(PedalWindow window,IDictionary<string,double> c)
+    {
+        bool Value(string name,out double v)=>c.TryGetValue(name,out v)&&double.IsFinite(v);
+        if(window.Throttle==65535)return CandidateForwardResponse(c);
+        if(window.Steer is int steer)
+        {
+            int sign=Math.Sign(DriveSteerCalibration.Normalize(steer));
+            return Value("wheel.fl.steerAngle",out double fl)&&Value("wheel.fr.steerAngle",out double fr)&&Math.Sign(fl)==sign&&Math.Sign(fr)==sign;
+        }
+        return window.Brake==65535&&Value("game.brake",out double brake)&&brake==1&&Value("motion.velocity.local.z",out double forward)&&forward>1;
     }
     public static bool ShouldBrakePulse(IDictionary<string,double> c) =>
         c.TryGetValue("game.trueSpeed",out double speed)&&double.IsFinite(speed)&&speed>1; // Native branch is SIGNED, including all negative speeds.

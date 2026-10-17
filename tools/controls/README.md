@@ -249,3 +249,54 @@ suites for this test-tool delta. Existing schema9 F6 remains Shim/menu-only; its
 views/draft/discard/close cannot prove Native deadzone Save or mounted FOV.
 Supported Sky's left-tile capture limit must remain explicit; mark unsupported
 views unobserved while completing the useful drive witness.
+
+The schema-11 run (hub artifacts/woden-candidate-forward-runtime-livo-20261016)
+then showed the throttle pulse: forward velocity 0 to 16.7 m/s over 240 joined rows.
+
+## Explicit drive response check (schema12; source only)
+
+`Run-OrdinaryStopSmoke.ps1 -DriveResponse` takes the same candidate parameters
+as `-CandidateForward` (04EB private bindings, ten-second transport, exact probe)
+plus `-OwnerBindingsSha256`, which names the owner's current bindings (EC81 or
+04EB; the owner adopted 04EB after the schema-11 run). Schema 11 is unchanged.
+
+Recipe `drive-throttle-steer-brake-release@1` (7.75 s inside the ten-second
+transport), after the same ten contiguous sealed RACE rows:
+physical 1 s; throttle axis2=65535 for 1.25 s (CandidateReady neutral near-rest
+gate first); steer axis0=26659 (production -0.25) for 1 s; steer axis0=40048
+(+0.25) for 1 s; brake as the existing 100 ms throttle0+brake65535 pulses while
+native trueSpeed>1, at most 2 s; final release 1.5 s with no commands. Left
+first: the schema-11 straight run drifted right before its first contact at
+about 45 m. The brake pulses stop at the native reverse boundary because a held
+native brake reverses a stopped car (R9 final-release). Steer raws come from the
+pinned 04EB Steer calibration (Rest6184/Centre33484/End59740, not inverted).
+Steering windows coast; no throttle or brake object is held during them.
+
+The live gate stays the mod path: raw, production-normalized and applied ticks
+for at least five rows of each non-pulse window, otherwise the recipe stops.
+`result.json` `positiveEvidence.driveResponse` then reports, per phase, separate
+delivery and response verdicts from the probe's eligible contiguous rows:
+
+| Phase | Delivery | Response |
+|---|---|---|
+| throttle | raw/normalized/Controls/native throttle 1, brake 0 | forward velocity rises above 1 m/s |
+| steer left/right | raw and normalized steer; Controls and game.steer equal the mapped value | later-half yaw rate beyond the run's own straight-line maximum (throttle phase), in the commanded direction |
+| brake | raw/normalized/Controls/native brake 1 | deceleration greater than the steer phases' coasting deceleration |
+| final release | injection expired, raw axes back to the physical baseline | native throttle/brake equal the physical mapping; no drive or reverse beyond 1 m/s |
+
+INCONCLUSIVE, never PASS: fewer than five rows, a phase the run did not finish,
+a production crash-counter increase (`ForceController.CrashCount`, read as
+`drive.crashCount`) or an unavailable counter, a car not moving forward, a
+missing baseline, yaw within the straight-line maximum, or native steer that
+moved toward but never equaled the mapped value. Wheel brake torque is not a
+witness: R9 full service braking decelerated 14.5 to 0.4 m/s with all four brake
+torques 0. Motor torque is not a witness either. This is muted automated
+injection on the private tuple: not physical wheel/pedal release, force or
+mounted-camera acceptance.
+
+`ProtocolTests --drive-response-only` runs admission, recipe, delivery and
+classifier cases, using real rows for throttle (schema-11 run-01 samples
+573-647) and braking (R9 service-brake-after-B); steering rows are synthetic,
+since no run has commanded steering yet. Authored UNRUN in game: a runtime needs a
+Probe compile against the installed plugin, the temporary package and the retained
+helper pins the runner checks.
