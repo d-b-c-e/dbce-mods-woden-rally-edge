@@ -75,5 +75,10 @@ internal static class CloseReleaseChecks
         Runtime.Clock.Advance(.06); Stock(false); MenuOwnership.Tick();
         check(!Panel.Open && events.enabled,"fresh neutral interval completes close and restores prior stock dispatch");
         check(!Runtime.Settings.FfbEnabled,"normal close does not change the saved force preference");
+        check(Panel.Message==Panel.IdleMessage,"completed close clears the pending-close message");
+        Time.frameCount++; Panel.Toggle(); Draw();
+        check(Panel.Open && !MenuOwnership.Closing && !GUI.Commands.Any(c=>c.Text.Contains("Waiting to close")),
+            "reopened panel shows no stale Waiting to close text");
+        Panel.Close(false);
     }
 }

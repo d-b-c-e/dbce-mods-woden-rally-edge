@@ -12,7 +12,8 @@ namespace WodenRallyEdge;
 internal static partial class Panel
 {
     internal static bool Open { get; private set; }
-    internal static string Message = "F6 settings / F8 stops FFB";
+    internal const string IdleMessage = "F6 settings / F8 stops FFB";
+    internal static string Message = IdleMessage;
     private static readonly string[] Axes = { "X", "Y", "Z", "Rx", "Ry", "Rz", "Slider 1", "Slider 2" };
     // Shared F6 frame (zori dd1dc175): title, view switch and Close on one row, page tabs below, fixed footer.
     // Pages keep their 250-based body coordinates; R() draws them BodyShift units left in the narrower panel.
@@ -171,6 +172,9 @@ internal static partial class Panel
     internal static void CompleteClose(bool resume)
     {
         if (!Open) return;
+        // The pending-close text is rewritten every tick while closing; it must not greet the next open as a false
+        // "Waiting to close" footer (joint-01 frames 24-40). A Save failure below still replaces it.
+        Message = IdleMessage;
         Open = false; _imguiSettingsHeld = false;_sharedClosePrompt=false;SharedBindingHost.Current.CancelCapture(); Runtime.Wheel?.Cancel(); _drag = -1; Save();
         try
         {
