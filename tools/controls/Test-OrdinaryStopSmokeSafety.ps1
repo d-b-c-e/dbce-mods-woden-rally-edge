@@ -18,7 +18,7 @@ $request = Join-Path ([IO.Path]::GetTempPath()) ('woden-ordinary-safety-' + [gui
 $sourceFixture = Join-Path ([IO.Path]::GetTempPath()) ('woden-ordinary-source-' + [guid]::NewGuid().ToString('N'))
 try {
     $running = Fake-Process $false 0
-    Refuses { Assert-OrdinaryCompanionStopped ([pscustomobject]@{process=$running}) $request } 'Companion can still launch Woden'
+    Refuses { Assert-OrdinaryCompanionStopped ([pscustomobject]@{process=$running}) $request } 'Companion stop is unacknowledged'
     if ($running.WaitCalls -ne 1) { throw 'Companion exit gate was not invoked.' }
     $exited = Fake-Process $true 0
     [IO.File]::WriteAllText($request,'pending')
@@ -86,7 +86,8 @@ try {
     Assert-OrdinaryNativeObservationLog $log
     [IO.File]::WriteAllText($log, "[Info] Native observation phase=ended; refused: no reader`r`n")
     Refuses { Assert-OrdinaryNativeObservationLog $log } 'did not complete its first-reader interval'
-    # The supervisor reads that log only after the exact game exit and Closed, and before the finally restore.
+    # Gameplay reads that log after exact exit and Closed. Restoration is a
+    # separate callback gated by the shared sequence (consumer fixture covers it).
     $parseTokens = $null; $parseErrors = $null
     $supervisor = [Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'Run-OrdinaryStopSmoke.ps1'), [ref]$parseTokens, [ref]$parseErrors)
     if ($parseErrors.Count) { throw 'Supervisor does not parse.' }
@@ -97,8 +98,7 @@ try {
         ForEach-Object { $_.Extent.StartOffset } | Sort-Object | Select-Object -First 1)
     $logReads = @($supervisor.FindAll({ param($node) $node -is [Management.Automation.Language.MemberExpressionAst] -and
         $node.Expression.Extent.Text -ceq '$files' -and $node.Member.Extent.Text -ceq 'log' }, $true) | ForEach-Object { $_.Extent.StartOffset })
-    $restoreAt = @($supervisor.FindAll({ param($node) $node -is [Management.Automation.Language.TryStatementAst] -and $node.Finally }, $true) |
-        Where-Object { $_.Finally.Extent.Text -match 'Restore-ControlFiles' } | ForEach-Object { $_.Finally.Extent.StartOffset })
+    $restoreAt = @($commands | Where-Object {$_.GetCommandName() -ceq 'Invoke-WodenGameSession'} | ForEach-Object {$_.Extent.StartOffset})
     if ($exitAt.Count -ne 1 -or $logGateAt.Count -ne 1 -or $closedAt.Count -ne 1 -or $restoreAt.Count -ne 1 -or $logReads.Count -lt 1 -or
         @($logReads | Where-Object { $_ -le $closedAt[0] -or $_ -ge $restoreAt[0] }).Count -ne 0 -or $logGateAt[0] -le $closedAt[0]) {
         throw 'The supervisor reads the game log before the exact exit and Closed, or after the owner restore.'

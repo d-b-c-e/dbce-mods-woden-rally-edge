@@ -23,7 +23,8 @@ function Merge-WodenLaunchCustody {
         if(!$incoming){throw 'External creation stamp/precision malformed'}
         $newRecord=[pscustomobject]@{processId=$identityId;createdUtc=$record.createdUtc;precision=$record.precision}
         $live=Get-StageProcessIdentityDisposition -Recorded $newRecord -Snapshot $Snapshot
-        if($live.state -notin 'OriginalAlive','Absent'){throw ('External identity refused: '+$live.state)}
+        if($live.state -notin 'OriginalAlive','Absent','Reused' -or
+            ($live.state -ceq 'Reused' -and ($live.originalAbsent -isnot [bool] -or !$live.originalAbsent))){throw ('External identity refused: '+$live.state)}
         $hasOld=$updates.ContainsKey($identityId) -or $Owned.ContainsKey($identityId)
         if($hasOld){
             $oldTime=if($updates.ContainsKey($identityId)){$updates[$identityId]}else{$Owned[$identityId]}
@@ -36,7 +37,8 @@ function Merge-WodenLaunchCustody {
             $pair=[pscustomobject]@{querySucceeded=$true;rows=@($newRecord)}
             $same=Get-StageProcessIdentityDisposition -Recorded $oldRecord -Snapshot $pair
             $oldLive=Get-StageProcessIdentityDisposition -Recorded $oldRecord -Snapshot $Snapshot
-            if($same.state -cne 'OriginalAlive' -or $oldLive.state -notin 'OriginalAlive','Absent'){throw 'External PID identity changed or unknown'}
+            if($same.state -cne 'OriginalAlive' -or $oldLive.state -notin 'OriginalAlive','Absent','Reused' -or
+                ($oldLive.state -ceq 'Reused' -and ($oldLive.originalAbsent -isnot [bool] -or !$oldLive.originalAbsent))){throw 'External PID identity changed or unknown'}
             if($incoming.quantum -lt $old.quantum){
                 $updates[$identityId]=[DateTime]::new($incoming.ticks,[DateTimeKind]::Utc)
                 $precisions[$identityId]=$record.precision;$refined.Add($identityId)
@@ -48,8 +50,8 @@ function Merge-WodenLaunchCustody {
             $precisions[$identityId]=$record.precision
         }
     }
-    # Validate the entire receipt before changing caller custody. Unknown/reuse
-    # never replaces an existing owned identity, even after an earlier valid row.
+    # A canonical Reused comparison proves only original absence; the replacement
+    # birth is never admitted to Owned. Unknown timestamps retain custody.
     foreach($identityId in $updates.Keys){$Owned[$identityId]=$updates[$identityId];$KnownPrecision[$identityId]=$precisions[$identityId]}
     [pscustomobject]@{records=$Records.Count;refinedProcessIds=@($refined)}
 }

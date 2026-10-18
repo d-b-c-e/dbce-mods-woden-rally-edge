@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Woden.ControlsTesting;
 
+if(args.SequenceEqual(new[]{"--session-gate-only"})) { SessionGateChecks.Run();return; }
 if(args.SequenceEqual(new[]{"--candidate-forward-only"})) { CandidateForwardChecks.Run();return; }
 if(args.SequenceEqual(new[]{"--drive-response-only"})) { DriveResponseChecks.Run();return; }
 if(args.Length>0)throw new ArgumentException("Unknown fixture selection; refusing a baseline repeat.");

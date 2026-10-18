@@ -15,8 +15,8 @@ function Set-OrdinaryTelemetryDeliveryOff([string]$Path,[string]$Section='Teleme
         throw 'Temporary telemetry delivery mute did not persist.'
     }
 }
-function Assert-OrdinaryCompanionStopped($Child,[string]$RequestPath) {
-    if ($Child -and !$Child.process.WaitForExit(15000)) { throw 'Companion can still launch Woden; retain lease and owner state.' }
+function Assert-OrdinaryCompanionStopped($Child,[string]$RequestPath,[int]$TimeoutMilliseconds=60000) {
+    if ($Child -and !$Child.process.WaitForExit($TimeoutMilliseconds)) { throw 'Companion stop is unacknowledged; retain lease and owner state.' }
     if (Test-Path -LiteralPath $RequestPath) { throw 'One-shot launch request remains; retain lease and owner state.' }
 }
 function Assert-OrdinaryNoDrivingRefusal([int]$Exit,[string]$Output) {

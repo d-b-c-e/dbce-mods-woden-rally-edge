@@ -55,6 +55,9 @@ public sealed partial class ControlsProbe
         // legacy comparison owns22. Never touch the 180s deadline or 8s exit.
         seconds.SetValue(null,(double)Request.PositiveSeconds);
         Patch(Method(transport,"Observe"),nameof(PositiveReaderGate));
+        // Native menu transitions are workload too. Leave the transport's
+        // deadline/normal-exit tick running, but admit no startup transition cold.
+        Patch(Method(Type("StageStartup"),"TickNativeObservation"),nameof(PositiveStartupGate));
         PositiveReady=PositiveComplete=PositiveInjected=PositiveSawRead=PositivePhysicalReturned=PositiveSealedRace=false;PositivePzDataAvailable=!Protocol.CandidateTuple(Request);
         PositiveCar=PositiveContiguous=PositiveReleaseRows=PositiveDeliveryRows=0;PositiveWindow=-1;PositiveSequence=-1;
         PositiveLast.Clear();PositiveBaseline.Clear();PositiveWindowStarts.Clear();PositiveEffects.Clear();DriveRows.Clear();PositiveVerdict="waiting-for-10-contiguous-RACE-rows";
@@ -62,15 +65,23 @@ public sealed partial class ControlsProbe
         Row("positive-mode",JsonSerializer.Serialize(new{schema=Request.Schema,underlyingPassiveSeconds=Protocol.CandidateTuple(Request)?10:15,explicitPositiveSeconds=Request.PositiveSeconds,
             startupSeconds=180,normalExitSeconds=8,bindings=Request.BindingsSha256,recipe=PositiveRecipe,causalVerdict="requires actual comparable states/delivery"}));
     }
+    static bool PositiveStartupGate()
+    {
+        if(!Armed || Gate.Revoked)return false;
+        try{RequireSessionFocus();return true;}
+        catch(Exception ex){RequestStop("Positive startup focus lost: "+ex.Message);return false;}
+    }
     static bool PositiveReaderGate(object __0)
     {
         if(!Protocol.NativePositive(Request))return true;
-        try { PositiveSealedRace=(bool)Method(Type("StageStartup"),"ValidateRace").Invoke(null,new[]{__0})!;return PositiveReady && PositiveSealedRace; }
+        if(!Armed || Gate.Revoked)return false;
+        try { RequireSessionFocus();PositiveSealedRace=(bool)Method(Type("StageStartup"),"ValidateRace").Invoke(null,new[]{__0})!;return PositiveReady && PositiveSealedRace; }
         catch(Exception ex){PositiveSealedRace=false;RequestStop("Positive sealed race validation failed: "+ex.Message);return false;}
     }
     static void ObservePositiveSample(object car,long sequence,string state,IDictionary<string,double> values)
     {
         if(!Protocol.NativePositive(Request))return;
+        RequireSessionFocus();
         bool eligible=PositiveSealedRace && PositivePedalPlan.Eligible(state,values) && (bool)Runtime.GetProperty("Focused",All)!.GetValue(null)!;
         int id=Convert.ToInt32(car);double now=Clock.Elapsed.TotalSeconds;
         bool contiguous=PositiveSequence<0 || id==PositiveCar && sequence==PositiveSequence+1 && now-PositiveSampleAt<=.1;
@@ -146,6 +157,7 @@ public sealed partial class ControlsProbe
         // Raw acceptance is only a request. Later raw-read/native-car rows must
         // prove every object, mapping, applied ticks and actual game response.
         foreach(string command in window.Commands(PositivePedalPlan.Device)){
+            RequireSessionFocus();
             if(++RawCommands>256)throw new InvalidDataException("Positive command limit");
             bool accepted=Native!.SubmitRaw(command,out string reason);
             Row(accepted?"positive-request-accepted":"positive-request-refused",JsonSerializer.Serialize(new{sequence=RawCommands,window=window.Name,command,reason}));

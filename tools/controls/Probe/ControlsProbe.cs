@@ -34,6 +34,9 @@ public sealed partial class ControlsProbe : BasePlugin
     static StreamWriter? Trace;
     static readonly Dictionary<string,string> Observed = new(StringComparer.Ordinal);
     static bool Requested, Armed, Closed;
+    static readonly SessionGate Gate=new();
+    static bool NativeEnabled;
+    static double NextFocusReceipt;
     static int Sequence, RawCommands, Rows;
     static double Deadline, ObserveUntil, NextStatus, NextIdentity;
     static string NativePath = "", NativeHash = "";
@@ -42,6 +45,9 @@ public sealed partial class ControlsProbe : BasePlugin
     static IntPtr NativeModule;
     static DateTimeOffset ProcessStart;
     [DllImport("kernel32", CharSet=CharSet.Ansi, ExactSpelling=true)] static extern IntPtr GetProcAddress(IntPtr module, string name);
+    [DllImport("user32",CharSet=CharSet.Unicode)] static extern int GetClassName(IntPtr window,StringBuilder name,int count);
+    [DllImport("user32")] [return:MarshalAs(UnmanagedType.Bool)] static extern bool IsWindowVisible(IntPtr window);
+    [DllImport("user32")] [return:MarshalAs(UnmanagedType.Bool)] static extern bool IsIconic(IntPtr window);
     static object? Field(Type t, string name, object? instance = null) => t.GetField(name, All)?.GetValue(instance) ?? throw new MissingFieldException(t.FullName, name);
     static MethodInfo Method(Type t, string name) => t.GetMethod(name, All) ?? throw new MissingMethodException(t.FullName, name);
     static Type Type(string name) => Mod.GetType("WodenRallyEdge." + name, true)!;
@@ -98,7 +104,6 @@ public sealed partial class ControlsProbe : BasePlugin
             NativePath=(string)force.GetProperty("LoadedFrom")!.GetValue(null)!;
             NativeHash=Request.NativeSha256; NativeModule=VerifyModule();
             Native=NativeTestInjectionClient.FromResidentExports(n=>GetProcAddress(NativeModule,n));
-            if(!Native.Arm()) throw new InvalidOperationException(Native.Status);
             Mute();
             string output=Path.GetFullPath(Request.OutputDirectory);
             if(output.StartsWith(Path.TrimEndingDirectorySeparator(Paths.GameRootPath)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))
@@ -121,13 +126,12 @@ public sealed partial class ControlsProbe : BasePlugin
             Patch(Method(Type("GameSampler"),"Read"),postfix:nameof(AfterSample));
             double remaining=(Request.ExpiresUtc-DateTimeOffset.UtcNow).TotalSeconds;
             if(remaining<=0) throw new InvalidDataException("Cold request expired during admission.");
-            Deadline=Clock.Elapsed.TotalSeconds+Math.Min(300,remaining); Armed=true;
+            Deadline=Clock.Elapsed.TotalSeconds+Math.Min(300,remaining);
+            // Install the passive transport admission gate before its first row.
+            // It cannot admit a reader interval until the explicit session arm.
             if(Protocol.NativePositive(Request))StartPositivePedals(recordLaunch);
-            if(Protocol.MenuTrial(Request))StartMenuTrial();
-            if(Protocol.CarTrial(Request))StartCarTrial();
-            if(Protocol.HudStopOnly(Request))StartHudStopOnly();
-            Row("armed",Native.Status); Trace.Flush();
-            Log.LogInfo("Raw controls test armed; native force fence and progression/network mute latched. Focus guards unchanged.");
+            Row("admitted-unarmed","explicit nonce/sequence arm and exact native/game focus required"); Trace.Flush();
+            Log.LogInfo("Raw controls admitted UNARMED; managed force/progression mute latched; zero stimulus before focus acknowledgment.");
         }
         catch(Exception ex) { Log.LogError("Raw controls refused: "+ex); Close("admission failed: "+ex.Message); }
         finally { if(Requested && Runtime is not null) try { Mute(); } catch(Exception ex) { Log.LogError("Managed mute failed; raw input stopped: "+ex); Close("managed mute failed"); } }
@@ -166,23 +170,56 @@ public sealed partial class ControlsProbe : BasePlugin
     static void BeforeTick()
     {
         if(PendingStop is {} pending) { PendingStop=null; Close(pending); }
-        if(!Armed) return;
+        if(Closed || Request is null || OwnedEvidence is null) return;
         try
         {
             double now=Clock.Elapsed.TotalSeconds;
+            CheckRevocation();
+            if(Closed)return;
             if(now>=Deadline) { Close("duration ended"); return; }
-            TickPositivePedals(now);
-            if(now>=NextIdentity) { NextIdentity=now+1; if(VerifyModule()!=NativeModule || !Native!.RefreshStatus()) throw new InvalidDataException("Native fence identity lost."); }
+            if(now>=NextFocusReceipt){NextFocusReceipt=now+.1;PublishGameFocus();}
             string command=Path.Combine(Request!.OutputDirectory,"command.json");
-            if(!File.Exists(command)) return;
+            if(File.Exists(command))ProcessCommand(command,now);
+            // Stop/revoke always precedes another recipe tick or raw pulse.
+            if(!Armed || Closed)return;
+            RequireSessionFocus();
+            if(now>=NextIdentity) { NextIdentity=now+1; if(VerifyModule()!=NativeModule || !Native!.RefreshStatus()) throw new InvalidDataException("Native fence identity lost."); }
+            TickPositivePedals(now);
+        }
+        catch(Exception ex) { Close("command failed: "+ex.Message); }
+    }
+    static void ProcessCommand(string command,double now)
+    {
             Plain(command);
             // Claim the exact file before parsing. A subsequent writer cannot
             // replace bytes between our validation and archival/submission.
-            string claimed=Path.Combine(Request.OutputDirectory,"command-claimed.json");
+            string claimed=Path.Combine(Request!.OutputDirectory,"command-claimed.json");
             File.Move(command,claimed);
             var r=Protocol.Command(ReadBounded(claimed,2048),Request.Nonce,Sequence,File.GetLastWriteTimeUtc(claimed),ProcessStart,Protocol.ShimAdmission(Request),Protocol.LatchedTrial(Request)||Protocol.NativePositive(Request),Protocol.F6Workflow(Request));
             Sequence=r.Sequence; File.Move(claimed,Path.Combine(Request.OutputDirectory,"command-"+Sequence+".json"));
             bool ok=true; string reply=Native!.Status;
+            if(r.Operation=="stop")
+            {
+                Close("stopped by command");
+                Publish("reply.json",new{r.Sequence,r.Nonce,ok=true,reply="revoked",revoked=true,physicalOutput=false});
+                return;
+            }
+            if(r.Operation=="arm")
+            {
+                CheckRevocation();
+                if(Closed)throw new InvalidDataException("Arm revoked.");
+                bool focused=NativeFocused(r.Client!);
+                Gate.Arm(r.Client!,r.Sequence,focused,GameFocused());
+                // Never enable the native test lane on mere cold admission.
+                if(VerifyModule()!=NativeModule || !Native.Arm())throw new InvalidDataException("Native arm refused: "+Native.Status);
+                NativeEnabled=true;Armed=true;RequireSessionFocus();
+                if(Protocol.MenuTrial(Request))StartMenuTrial();
+                if(Protocol.CarTrial(Request))StartCarTrial();
+                if(Protocol.HudStopOnly(Request))StartHudStopOnly();
+                Row("armed","nonce/sequence and exact focus acknowledged");
+                reply="armed";
+            }
+            else if(r.Operation!="status")RequireSessionFocus();
             if(r.Operation=="raw")
             {
                 if(++RawCommands>256) throw new InvalidDataException("Raw command limit.");
@@ -193,18 +230,46 @@ public sealed partial class ControlsProbe : BasePlugin
             }
             if(r.Operation is "panel" or "shot") ShimVisual(r.Operation);
             if(r.Operation=="workflow"){var result=F6WorkflowCommand(r.Arguments!);ok=result.Accepted;reply=result.Reply;}
-            string nextReply=Path.Combine(Request.OutputDirectory,"reply.next.json");
-            File.WriteAllText(nextReply,JsonSerializer.Serialize(new{r.Sequence,r.Nonce,ok,reply,physicalOutput=false},Protocol.Json));
-            File.Move(nextReply,Path.Combine(Request.OutputDirectory,"reply.json"),true);
-            if(r.Operation=="stop") Close("stopped by command");
-        }
-        catch(Exception ex) { Close("command failed: "+ex.Message); }
+            Publish("reply.json",new{r.Sequence,r.Nonce,ok,reply,armed=Gate.Armed,armSequence=Gate.ArmSequence,physicalOutput=false});
+    }
+    static bool GameFocused() => (bool)Runtime.GetProperty("Focused",All)!.GetValue(null)!;
+    static bool NativeFocused(SessionClient client)
+    {
+        if(client.ProcessId!=Environment.ProcessId || client.StartedUtcTicks!=ProcessStart.UtcDateTime.Ticks ||
+            !string.Equals(Path.GetFullPath(client.ExecutablePath),Path.GetFullPath(Environment.ProcessPath!),StringComparison.OrdinalIgnoreCase))return false;
+        var window=new IntPtr(client.Window);var name=new StringBuilder(256);
+        return GetWindowThreadProcessId(window,out uint owner)!=0 && owner==Environment.ProcessId &&
+            GetClassName(window,name,name.Capacity)>0 && name.ToString()==client.Class && client.Class=="UnityWndClass" &&
+            IsWindowVisible(window) && !IsIconic(window) && GetForegroundWindow()==window;
+    }
+    static void Publish(string file,object value)
+    {
+        string target=Path.Combine(OwnedEvidence!,file),temp=target+".next";
+        Plain(target);Plain(temp);
+        File.WriteAllText(temp,JsonSerializer.Serialize(value,Protocol.Json));File.Move(temp,target,true);
+    }
+    static void PublishGameFocus() => Publish("game-focus.json",new{processId=Environment.ProcessId,
+        startedUtcTicks=ProcessStart.UtcDateTime.Ticks,focused=GameFocused(),checkedUtc=DateTimeOffset.UtcNow,armed=Gate.Armed,revoked=Gate.Revoked});
+    static void CheckRevocation()
+    {
+        string path=Path.Combine(Path.GetDirectoryName(Request!.OutputDirectory)!,"revoke.json");
+        if(!File.Exists(path))return;
+        Plain(path);var revoke=Protocol.Decode<RevokeRequest>(ReadBounded(path,2048),2048);
+        if(revoke.Schema!=1 || revoke.Nonce!=Request.Nonce)throw new InvalidDataException("Invalid revocation identity; fail closed.");
+        Close("terminal nonce revocation");
+    }
+    static void RequireSessionFocus()
+    {
+        CheckRevocation();
+        if(Closed || !Armed || Clock.Elapsed.TotalSeconds>=Deadline || Gate.Client is not {} client || !Gate.AdmitRow(NativeFocused(client),GameFocused()))
+            throw new InvalidDataException("Session unarmed/revoked or native/game focus lost; zero further stimulus.");
     }
     static void AfterTick()
     {
         if(!Armed) return;
         try
         {
+            RequireSessionFocus();
             TickMenuTrial();
             TickCarTrial();
             TickHudStopOnly();
@@ -223,7 +288,10 @@ public sealed partial class ControlsProbe : BasePlugin
             Close("state observation failed: "+cause.GetType().Name+": "+cause.Message); }
     }
     static string ObjectPath(Transform t) { var names=new List<string>(); for(int i=0;t!=null && i<32;t=t.parent,i++) names.Add(Uri.EscapeDataString(t.name)); names.Reverse(); return string.Join("/",names); }
-    static bool Observing => Armed && Clock.Elapsed.TotalSeconds<=ObserveUntil;
+    static bool Observing {
+        get { if(!Armed || Clock.Elapsed.TotalSeconds>ObserveUntil)return false;
+            try{RequireSessionFocus();return true;}catch(Exception ex){RequestStop(ex.Message);return false;} }
+    }
     static void AfterPoll(object __instance)
     {
         if(!Observing) return;
@@ -312,6 +380,7 @@ public sealed partial class ControlsProbe : BasePlugin
     static void Row(string kind,string data)
     {
         if(Trace is null) return;
+        if(Armed){try{RequireSessionFocus();}catch(Exception ex){RequestStop(ex.Message);return;}}
         if(++Rows>200000) { RequestStop("trace row limit"); return; }
         if(data.Length>4096) { RequestStop("trace value limit"); return; }
         try { Trace.WriteLine(Clock.Elapsed.TotalSeconds.ToString("R",CultureInfo.InvariantCulture)+"\t"+Time.frameCount+"\t"+kind+"\t"+data.Replace('\t',' ').Replace('\r',' ').Replace('\n',' ')); if(kind is "car-trial-active" or "car-recorder-stop" or "hud-recorder-stop")Trace.Flush(); }
@@ -319,11 +388,12 @@ public sealed partial class ControlsProbe : BasePlugin
     }
     // Observation runs inside device/car enumerations. Do not close their readers
     // or unpatch a method from inside that callback; finish at the next runtime tick.
-    static void RequestStop(string reason) { Armed=false; PendingStop ??= reason; }
+    static void RequestStop(string reason) { Gate.Revoke();Armed=false; PendingStop ??= reason; }
     static void OnStop() => Close("game stopping");
     static void Close(string reason)
     {
-        if(Closed) return; Closed=true; Armed=false;
+        if(Closed) return; Closed=true; Gate.Revoke();Armed=false;
+        bool neutral=true;
         // The ordinary shim owns a separate reader. Closing DeviceHub alone
         // cannot neutralize it at timeout/failure; ownership remains sticky.
         if(Protocol.ShimAdmission(Request))
@@ -335,10 +405,22 @@ public sealed partial class ControlsProbe : BasePlugin
             try { RestoreShimPresentation(); }
             catch(Exception ex) { reason+="; presentation restore failed: "+ex.Message; }
             try { Method(Type("ShimInput"),"Stop").Invoke(null,new object[]{"admission test ended: "+reason}); }
-            catch(Exception ex) { reason+="; shim stop failed: "+ex.Message; }
+            catch(Exception ex) { neutral=false;reason+="; shim stop failed: "+ex.Message; }
         }
         try { var hub=Runtime?.GetField("Devices",All)?.GetValue(null); if(hub is not null) Method(Hub,"CloseReaders").Invoke(hub,null); }
-        catch(Exception ex) { reason+="; reader close failed: "+ex.Message; }
+        catch(Exception ex) { neutral=false;reason+="; reader close failed: "+ex.Message; }
+        // Reuse the existing transport's recorder Stop and eight-second normal
+        // Quit on abort. Do not leave a cold/pending workload alive until180s.
+        if(Protocol.NativePositive(Request) && !PositiveComplete)
+            try{Method(Type("NativeObservation"),"Finish").Invoke(null,new object[]{"refused: controls session revoked: "+reason});}
+            catch(Exception ex){neutral=false;reason+="; observation stop failed: "+ex.Message;}
+        // CloseReadDevices drops pending native samples. Verify its resident
+        // readback rather than treating a stop request as a neutral receipt.
+        try{if(NativeEnabled)neutral=neutral && Native!.RefreshStatus() && Native.Status.Contains("no sample running",StringComparison.Ordinal);}
+        catch(Exception ex){neutral=false;reason+="; neutral readback failed: "+ex.Message;}
+        try{if(OwnedEvidence is not null)Publish("stop-ack.json",new{schema=1,nonce=Request!.Nonce,sequence=Sequence,
+            processId=Environment.ProcessId,startedUtcTicks=ProcessStart.UtcDateTime.Ticks,revoked=true,probeNeutral=neutral,checkedUtc=DateTimeOffset.UtcNow});}
+        catch(Exception ex){reason+="; stop acknowledgment failed: "+ex.Message;}
         try { Trace?.Dispose(); } catch(Exception ex) { reason+="; trace close failed: "+ex.Message; } finally { Trace=null; }
         try { if(OwnedEvidence is not null) File.WriteAllText(Path.Combine(OwnedEvidence,"result.json"),JsonSerializer.Serialize(new{reason,rows=Rows,commands=RawCommands,inputVerdict=Protocol.HudStopOnly(Request)?HudVerdict:Protocol.CarTrial(Request)?CarVerdict:Protocol.MenuTrial(Request)?TrialVerdict:"unclassified",physicalOutput=false,
             positiveEvidence=Protocol.NativePositive(Request)?new{verdict=PositiveVerdict,complete=PositiveComplete,physicalReturned=PositivePhysicalReturned,releaseRows=PositiveReleaseRows,seconds=Request!.PositiveSeconds,recipe=PositiveRecipe,pzDataAvailable=!Protocol.CandidateTuple(Request)&&PositivePzDataAvailable,windowStarts=PositiveWindowStarts,nativeEffects=PositiveEffects,handbrakeEffectObserved=PositiveEffects.TryGetValue("handbrake",out int hbEffects)&&hbEffects>0,driveResponse=PositiveDriveReport(),causalVerdict=Protocol.DriveResponse(Request)?"driveResponse phase verdicts; delivery and vehicle response separate, INCONCLUSIVE is not a pass":Protocol.CandidateForward(Request)?"requires actual forward motion trend and brake release; no repeated P/Z comparison":PositivePzDataAvailable?"requires joined P/Z native analysis; A/B start states not controlled":"unavailable P/Z grounding/orientation/timer/torque fields"}:null,

@@ -31,6 +31,12 @@ Check ($owned[67492].Ticks -eq $fine.Ticks) 'Canonical direct root is never misl
 Reset;$later=$coarse.AddMilliseconds(1);$snapshot.rows[0].createdUtc=$later
 Refuses {Merge @(Record $later)}
 Check ($owned[67492].Ticks -eq $coarse.Ticks -and $precision.Count -eq 0) 'Real PID reuse does not replace original custody'
+Reset;$snapshot.rows[0].createdUtc=$coarse.AddMilliseconds(1)
+$null=Merge @(Record $fine)
+Check ($owned[67492].Ticks -eq $fine.Ticks -and $precision[67492] -ceq 'Tick100ns') 'Verified later OS birth proves original absence without adopting replacement'
+Reset;$snapshot.rows[0].createdUtc=$null
+Refuses {Merge @(Record $fine)}
+Check ($owned[67492].Ticks -eq $coarse.Ticks -and $precision.Count -eq 0) 'Unknown live birth retains original custody'
 Reset;$snapshot.querySucceeded=$false
 Refuses {Merge @(Record $fine)}
 Check ($owned[67492].Ticks -eq $coarse.Ticks) 'Failed census cannot refine'

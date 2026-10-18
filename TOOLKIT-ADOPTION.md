@@ -1,3 +1,21 @@
+# October 17: Private fail-closed session adoption (source/offline only)
+
+STD-038 is adopted in this private successor from frozen499f265 using toolkit
+**e4f3c098397da856edcc422664938ad0a29a3df8**, alongside the unchanged
+BE132A68 process-identity comparison. The exact six helper hashes and route are
+recorded in [WODEN-FAILCLOSED-SESSION](docs/WODEN-FAILCLOSED-SESSION.md).
+Existing lease, Steam launch, render selector, recorder Stop and owner restore
+routes remain the owners of their actions; Woden supplies callbacks and its
+nonce/sequence protocol. Cold admission does not enable workload; renderer,
+native/game focus and matching arm acknowledgment precede all menu transitions
+and raw pulses. Abort terminally revokes before stop/neutral and complete census.
+No idle wait, PowerShell activation substitute, runtime or canonical adoption.
+
+The prior37 ledger entries retain their existing states; this adds private
+STD-038 source qualification only. It does not close pending physical, force,
+camera, FOV or no-drive acceptance. See the handoff for the focused checks and
+fresh-build/runtime boundary. No global testing skill is changed.
+
 # October 16: Explicit candidate-forward test tools (source only)
 
 Reuse the existing sealed Native observation, original recorder, resident raw

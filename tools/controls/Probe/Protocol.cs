@@ -12,7 +12,9 @@ public sealed record ColdRequest(int Schema, string Nonce, DateTimeOffset Expire
     string? StageReference = null, string? WorkloadDirectory = null,
     string? ProfileSha256 = null, string? WorkloadSha256 = null, string? ProfileRevision = null,
     string? ApplyReadbackSha256 = null, int PositiveSeconds = 0);
-public sealed record RawRequest(int Sequence, string Nonce, string Operation, string? Raw, string? Arguments = null);
+public sealed record SessionClient(int ProcessId, long StartedUtcTicks, long Window, string Class, string ExecutablePath);
+public sealed record RevokeRequest(int Schema, string Nonce);
+public sealed record RawRequest(int Sequence, string Nonce, string Operation, string? Raw, string? Arguments = null, SessionClient? Client = null);
 public static class Protocol
 {
     public const string OwnerBindingsSha256="EC81BEB085E6483F83998EDEB949661FC889C5D319D542865128ADB8E21D2097";
@@ -84,8 +86,15 @@ public static class Protocol
         var r = Decode<RawRequest>(bytes, 2048);
         if (!ValidNonce(nonce) || r.Nonce != nonce || r.Sequence != previous + 1 || r.Sequence > 1024 || created <= processStart)
             throw new InvalidDataException("Stale or mismatched command refused.");
-        if (r.Operation is not ("status" or "stop") && (menuTrial || !(shimAdmission ? r.Operation is "panel" or "shot" || f6Workflow && r.Operation == "workflow" : r.Operation == "raw")))
+        if (r.Operation is not ("status" or "stop" or "arm") && (menuTrial || !(shimAdmission ? r.Operation is "panel" or "shot" || f6Workflow && r.Operation == "workflow" : r.Operation == "raw")))
             throw new InvalidDataException("Operation unavailable in this test mode.");
+        if(r.Operation=="arm")
+        {
+            if(r.Client is not {} c || c.ProcessId<=0 || c.StartedUtcTicks!=processStart.UtcDateTime.Ticks || c.Window<=0 ||
+                c.Class!="UnityWndClass" || string.IsNullOrWhiteSpace(c.ExecutablePath) || !Path.IsPathFullyQualified(c.ExecutablePath))
+                throw new InvalidDataException("Arm requires the exact render client and process birth.");
+        }
+        else if(r.Client is not null)throw new InvalidDataException("Unexpected arm client.");
         if(r.Operation == "workflow")
         {
             if(!f6Workflow || r.Raw is not null || string.IsNullOrEmpty(r.Arguments) || r.Arguments.Length>1024 || r.Arguments.Any(c=>c<32||c>126))

@@ -14,7 +14,7 @@ param(
     [Parameter(Mandatory)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$SteamLaunchHelperSha256,
     [Parameter(Mandatory)][string]$ForegroundHelper,
     [Parameter(Mandatory)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$ForegroundHelperSha256,
-    [Parameter(Mandatory)][switch]$DesktopClientClick,
+    [Parameter(Mandatory)][Alias('DesktopClientClick')][switch]$ProviderActivation,
     [Parameter(Mandatory)][string]$UnityClientHelper,
     [Parameter(Mandatory)][string]$UnityClientHelperSha256,
     [Parameter(Mandatory)][string]$CaptureTool,
@@ -22,7 +22,10 @@ param(
     [Parameter(Mandatory)][string]$CaptureAssemblySha256,
     [Parameter(Mandatory)][string]$RigLeaseToken,
     # Hash-pinned below; a retained copy (with its sibling identity helper) once the canonical helper moves on.
-    [string]$OwnedHelper = 'E:/Source/toolkits/dbce-wheel-mod-toolkit/tools/playback/Stage-OwnedProcess.ps1',
+    [Parameter(Mandatory)][string]$OwnedHelper,
+    [Parameter(Mandatory)][string]$OwnedHelperSha256,
+    [Parameter(Mandatory)][string]$SessionHelper,
+    [Parameter(Mandatory)][string]$SessionHelperSha256,
     [guid]$RequestId = [guid]::NewGuid(),
     [ValidateRange(1,10)][int]$MenuDwellSeconds = 2,
     [string]$NativeObservationSource,
@@ -43,22 +46,25 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot/OwnerFiles.ps1"
 . "$PSScriptRoot/Environment.ps1"
 . "$PSScriptRoot/OrdinaryStopSmokeSafety.ps1"
+. "$PSScriptRoot/WodenGameSession.ps1"
 . 'E:/Source/toolkits/dbce-wheel-mod-toolkit/tools/playback/Stage-RigLease.ps1'
-if (!$NativeObservationSource) { throw 'This shared-launch successor requires one explicit Native observation; no legacy activation fallback.' }
+if (!$NativeObservationSource -or !($PositivePedalComparison -or $CandidateForward -or $DriveResponse)) { throw 'Fail-closed session requires an explicit cold positive probe and Native observation; no legacy activation fallback.' }
 if ($SteamLaunchHelperSha256 -cne 'ECD5703B731C8E4A59C8BA84DB91B7490C4861DB1DC0B979B690EDA9DB708667' -or
     (Get-FileHash -LiteralPath $SteamLaunchHelper).Hash -cne $SteamLaunchHelperSha256) { throw 'Qualified shared launch helper changed.' }
 . $SteamLaunchHelper
-if ($ForegroundHelperSha256 -cne '3C12C250764748E649C41ACC56FF2D128C2AD09CA1D055021172BCBB7ED8EF7C' -or
-    (Get-FileHash -LiteralPath $ForegroundHelper).Hash -cne $ForegroundHelperSha256) { throw 'Existing ordinary foreground helper changed.' }
-. $ForegroundHelper
-if ($UnityClientHelperSha256 -cne 'E25AEF755088D669912BC8EDC54BDB28483C2C7774A6DAC8370298A2C8F9D3A9' -or
-    (Get-FileHash -LiteralPath $UnityClientHelper).Hash -cne $UnityClientHelperSha256 -or
+if ((Get-FileHash -LiteralPath $ForegroundHelper).Hash -cne $ForegroundHelperSha256) { throw 'Existing ordinary foreground helper changed.' }
+if ((Get-FileHash -LiteralPath $UnityClientHelper).Hash -cne $UnityClientHelperSha256 -or
     $CaptureToolSha256 -cne '2EDBC484C9610E382A54187F8E66801057A0A4E374CF241662B1D9142A0C2F64' -or
     (Get-FileHash -LiteralPath $CaptureTool).Hash -cne $CaptureToolSha256 -or
     $CaptureAssemblySha256 -cne 'D49AFD43A800B09C3A9BCAF7A93F9B5D206335F8AD90E71C4DD49F97A325377A' -or
     (Get-FileHash -LiteralPath ([IO.Path]::ChangeExtension($CaptureTool,'.dll'))).Hash -cne $CaptureAssemblySha256) { throw 'Shared client selector or qualified capture tool changed.' }
-. $UnityClientHelper
-if (!$DesktopClientClick) { throw 'This successor requires the announced screenshot-grounded operator client click; no programmatic activation fallback.' }
+if (!$ProviderActivation) { throw 'This successor requires the announced supported Sky provider activation route.' }
+if($SessionHelperSha256 -cne '5642E42B1B7110F33CF2E05AE1780E578D6FFDDC5A52B2E56D6AC25E520896C9' -or
+    $ForegroundHelperSha256 -cne 'D7261290CDA14A7BF4C358E87E1F9A17D08DBA419F2DF2AD1C2FF86E0823F750' -or
+    $UnityClientHelperSha256 -cne '2576CBF96BC0081939992202599F803DFF988FBABF8BA1712962410A18BEFBD1' -or
+    $OwnedHelperSha256 -cne 'C34C5891813736542E29C37F6A374DAAAE00A61DA7A8E83282E3F34D12D0F2E4'){
+    throw 'Only the e4f3c098 private shared session successor is qualified for this runner.'
+}
 
 function Pin([string]$Path,[string]$Hash) {
     Assert-ControlPlain $Path
@@ -98,13 +104,14 @@ function Start-Companion([string]$Script,[string]$CaptureOutputRoot,[guid]$Id) {
     $start.RedirectStandardOutput = $true
     $start.RedirectStandardError = $true
     $casePrefix = if ($NativeObservationSource) { 'woden-native-observation-' } else { 'woden-menu-smoke-' }
-    foreach ($arg in @('-NoProfile','-File',$Script,'-GameDir',$GameDir,'-RequestId',$Id.ToString(),'-CaseId',($casePrefix + $Id.ToString('N')),'-StartupTimeoutSeconds',$StartupTimeoutSeconds.ToString(),'-SessionTimeoutMinutes','5')) { [void]$start.ArgumentList.Add($arg) }
-    if ($NativeObservationSource) {
-        foreach ($arg in @('-ExternalLaunch','-InputOrigin','automated','-NativeObservationSource',$NativeObservationSource,'-NativeObservationSeconds',$NativeObservationSeconds.ToString())) { [void]$start.ArgumentList.Add($arg) }
-    }
+    $arguments=New-WodenCompanionArguments -OwnedHelper $OwnedHelper -OwnedHelperSha256 $OwnedHelperSha256 -CompanionScript $Script -GameDirectory $GameDir -RequestId $Id -CaseId ($casePrefix+$Id.ToString('N')) -StartupTimeoutSeconds $StartupTimeoutSeconds -NativeObservationSource $NativeObservationSource -NativeObservationSeconds $NativeObservationSeconds
+    foreach($argument in $arguments){[void]$start.ArgumentList.Add($argument)}
+    Protect-StageStdHandles
     $child = [Diagnostics.Process]::Start($start)
     if ($null -eq $child) { throw 'Installed companion did not start.' }
-    $stamp=$child.StartTime.ToUniversalTime()
+    $ownedRoots.Add($child)
+    try{$stamp=$child.StartTime.ToUniversalTime()}
+    catch{$script:StageOwnedProcessState.QuerySafe=$false;throw}
     Register-OrdinaryLaunchProcess ([pscustomobject]@{pid=$child.Id;startUtc=$stamp.ToString('O');startedUtcTicks=$stamp.Ticks;precision='Tick100ns';executable=$start.FileName}) $child 'companion'
     $stdout = $child.StandardOutput.ReadToEndAsync()
     $stderr = $child.StandardError.ReadToEndAsync()
@@ -232,27 +239,40 @@ $outputRoot=Join-Path $ResultDirectory 'launch-custody'
 $observeExternal=$null
 # Import the exact pinned shared owned/identity implementation; no copied supervisor.
 $identityHelper=Join-Path (Split-Path $OwnedHelper -Parent) 'Stage-ProcessIdentity.ps1'
-Pin $ownedHelper 'E58A8AE0B3096A3419196B491A9A773DBE80E45FC33CC41D819D108F513A0725'
+Pin $OwnedHelper $OwnedHelperSha256
+Pin $SessionHelper $SessionHelperSha256
 Pin $identityHelper 'BE132A68893EE591DD76DE7143D41F5B87C767FEA6EB628952ABFEF477713A29'
-. $ownedHelper
+$sharedDirectory=[IO.Path]::GetFullPath((Split-Path $SessionHelper -Parent))
+foreach($helper in @($OwnedHelper,$ForegroundHelper,$UnityClientHelper,$identityHelper)){
+    if([IO.Path]::GetFullPath((Split-Path $helper -Parent)) -ine $sharedDirectory){throw 'Shared helper closure must be one pinned directory'}
+}
+. $SessionHelper
+. $UnityClientHelper
+. $OwnedHelper
+Protect-StageStdHandles
+$owned=$script:StageOwnedProcessState.Identities
+$ownedRoots=$script:StageOwnedProcessState.Roots
 . (Join-Path $PSScriptRoot 'WodenLaunchCustody.ps1')
-$ownedPrecision=[Collections.Generic.Dictionary[uint32,string]]::new()
-$result=[ordered]@{schema='woden.shared-launch-custody@1';requestId=$RequestId.ToString('N');steps=@();identities=@();launchAttempted=$false;launchAdopted=$false;launchOutcome='not-requested';childrenQuiescent=$false;sharedHelperSha256=$SteamLaunchHelperSha256}
+$ownedPrecision=$script:StageOwnedProcessState.Precision
+$script:result=[ordered]@{schema='woden.shared-launch-custody@1';requestId=$RequestId.ToString('N');steps=@();identities=@();launchAttempted=$false;launchAdopted=$false;launchOutcome='not-requested';childrenQuiescent=$false;sharedHelperSha256=$SteamLaunchHelperSha256}
 function Save-OrdinaryLaunchCustody {
-    $result['ownedLineage']=@($owned.GetEnumerator() | ForEach-Object {[ordered]@{pid=$_.Key;createdUtc=$_.Value.ToString('O');precision=(Get-WodenOwnedCreationPrecision $_.Key $ownedPrecision)}})
+    $script:result['ownedLineage']=@($owned.GetEnumerator() | ForEach-Object {[ordered]@{pid=$_.Key;createdUtc=$_.Value.ToString('O');precision=(Get-WodenOwnedCreationPrecision $_.Key $ownedPrecision)}})
     $path=Join-Path $outputRoot 'custody.json'
     $temp=$path+'.tmp-'+[guid]::NewGuid().ToString('N')
-    [IO.File]::WriteAllText($temp,($result|ConvertTo-Json -Depth 12),[Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText($temp,($script:result|ConvertTo-Json -Depth 12),[Text.UTF8Encoding]::new($false))
     [IO.File]::Move($temp,$path,$true)
 }
 function Register-OrdinaryLaunchProcess($Record,$Process,[string]$Role) {
     # Retain first, then publish exact identity before token/readiness refusal.
-    $ownedRoots.Add($Process)
-    $stamp=[DateTime]::new([long]$Record.startedUtcTicks,[DateTimeKind]::Utc)
-    if ($owned.ContainsKey([uint32]$Record.pid) -and $owned[[uint32]$Record.pid].Ticks -ne $stamp.Ticks) { throw 'Owned PID changed; retain custody.' }
+    if(!$ownedRoots.Contains($Process)){$ownedRoots.Add($Process)}
+    try{
+        if($Record.pid -ne $Process.Id -or $Record.startedUtcTicks -le 0){throw 'Owned process birth unavailable; retain custody.'}
+        $stamp=[DateTime]::new([long]$Record.startedUtcTicks,[DateTimeKind]::Utc)
+        if ($owned.ContainsKey([uint32]$Record.pid) -and $owned[[uint32]$Record.pid].Ticks -ne $stamp.Ticks) { throw 'Owned PID changed; retain custody.' }
+    }catch{$script:StageOwnedProcessState.QuerySafe=$false;throw}
     $owned[[uint32]$Record.pid]=$stamp
     $ownedPrecision[[uint32]$Record.pid]='Tick100ns'
-    $result.identities+=@([ordered]@{pid=$Record.pid;createdUtc=$stamp.ToString('O');precision='Tick100ns';executable=$Record.executable;role=$Role})
+    $script:result.identities+=@([ordered]@{pid=$Record.pid;createdUtc=$stamp.ToString('O');precision='Tick100ns';executable=$Record.executable;role=$Role})
     Save-OrdinaryLaunchCustody
     $null=$Process.SafeHandle
 }
@@ -263,12 +283,12 @@ function Observe-OrdinaryLaunch {
 function Assert-OrdinaryLaunchClosed {
     Complete-Owned
     Save-OrdinaryLaunchCustody
-    if (($result.launchAttempted -and !$result.launchAdopted) -or !$result.childrenQuiescent) { throw 'Shared launch outcome/descendants not closed; retain lease and owner state.' }
+    if (($script:result.launchAttempted -and !$script:result.launchAdopted) -or !$script:result.childrenQuiescent) { throw 'Shared launch outcome/descendants not closed; retain lease and owner state.' }
 }
 function Start-OrdinarySteamGame {
     Closed
     $context=Get-SteamLaunchContext -SteamExecutable $SteamExecutable
-    $result['context']=$context; Save-OrdinaryLaunchCustody
+    $script:result['context']=$context; Save-OrdinaryLaunchCustody
     if ($context.decision -cnotin @('direct','broker')) { throw ('Shared Steam context refused: '+$context.reason) }
     $spec=@{Executable=$exe;WorkingDirectory=$GameDir;AppId='3218630';Environment=@{};AllowedEnvironmentNames=@()}
     # Child gets mandatory mute and both Steam IDs from the qualified helper.
@@ -276,23 +296,25 @@ function Start-OrdinarySteamGame {
     if ($context.decision -ceq 'broker') {
         $broker=Join-Path $outputRoot 'launch-woden.cmd'
         $brokerHash=New-ChildEnvironmentBroker -Path $broker @spec
-        $result['brokerPath']=$broker;$result['brokerSha256']=$brokerHash
-        $result.launchAttempted=$true;$result.launchOutcome='unknown';Save-OrdinaryLaunchCustody
+        $script:result['brokerPath']=$broker;$script:result['brokerSha256']=$brokerHash
+        $script:result.launchAttempted=$true;$script:result.launchOutcome='unknown';Save-OrdinaryLaunchCustody
         try {
             $shell=Start-MediumBroker -Path $broker -BrokerSha256 $brokerHash -Context $context
             Register-OrdinaryLaunchProcess $shell.record $shell.process 'shell-request'
         } catch {
             $data=$_.Exception.Data
-            if ($data.Contains('SteamShellRequestAttempted') -and !$data['SteamShellRequestAttempted']) { $result.launchAttempted=$false;$result.launchOutcome='not-requested' }
+            if ($data.Contains('SteamShellRequestAttempted') -and !$data['SteamShellRequestAttempted']) { $script:result.launchAttempted=$false;$script:result.launchOutcome='not-requested' }
             if ($data.Contains('ShellRequestRecord') -and $data.Contains('ShellRequestProcess')) { Register-OrdinaryLaunchProcess $data['ShellRequestRecord'] $data['ShellRequestProcess'] 'shell-request' }
             Save-OrdinaryLaunchCustody;throw
         }
     } else {
         $start=New-SteamChildStartInfo @spec
-        $result.launchAttempted=$true;$result.launchOutcome='unknown';Save-OrdinaryLaunchCustody
+        $script:result.launchAttempted=$true;$script:result.launchOutcome='unknown';Save-OrdinaryLaunchCustody
         $game=[Diagnostics.Process]::Start($start)
         if (!$game) { throw 'Direct game start returned no process; retain unknown launch custody.' }
-        $stamp=$game.StartTime.ToUniversalTime()
+        $ownedRoots.Add($game)
+        try{$stamp=$game.StartTime.ToUniversalTime()}
+        catch{$script:StageOwnedProcessState.QuerySafe=$false;throw}
         $script:launched=$game
         Register-OrdinaryLaunchProcess ([pscustomobject]@{pid=$game.Id;startedUtcTicks=$stamp.Ticks;executable=$exe}) $game 'direct-game'
     }
@@ -301,82 +323,57 @@ function Start-OrdinarySteamGame {
         $script:launched=$process
         Register-OrdinaryLaunchProcess $record $process 'game'
     }
-    $result.launchAdopted=$true;$result.launchOutcome=$adopted.launchOutcome
-    $result['game']=$adopted.record;Save-OrdinaryLaunchCustody
+    $script:result.launchAdopted=$true;$script:result.launchOutcome=$adopted.launchOutcome
+    $script:result['game']=$adopted.record;Save-OrdinaryLaunchCustody
     if (!$adopted.record.integrityMatchesSteam) { throw ('Game token did not match Steam: '+$adopted.record.integrityError) }
-    # Only observe using the existing canonical native declarations. Desktop
-    # interaction belongs to the announced operator's screenshot-grounded sky
-    # click, not a second SetForegroundWindow request from this supervisor.
-    if ([DateTime]::UtcNow -ge $startupDeadline) { throw 'Original Native startup deadline elapsed before operator admission.' }
     Initialize-StageForegroundNative
-    $focusDeadline = [DateTime]::UtcNow.AddSeconds(45)
-    if ($focusDeadline -gt $startupDeadline) { $focusDeadline = $startupDeadline }
-    $result['foreground'] = [ordered]@{status='awaiting-desktop-client-click';requested=$null;requestAccepted=$null;osForegroundObserved=$false;window=0L;foregroundWindow=0L;foregroundProcessId=0;processId=$adopted.record.pid;startedUtcTicks=$adopted.record.startedUtcTicks;createdUtc=$adopted.record.startUtc;executablePath=$exe;deadlineUtc=$focusDeadline.ToString('O');inputProof='separate operator transcript required';observations=0}
-    $result['foregroundHelperSha256'] = $ForegroundHelperSha256
+}
+function Select-WodenRenderClient {
+    $name='unity-client-list-'+$script:result.steps.Count
+    $script:result.steps+=@([ordered]@{name=$name;state='started';startedUtc=[DateTime]::UtcNow.ToString('O')})
+    try{Invoke-OwnedProcess $name $CaptureTool @([string]$launched.Id,'--list') 5}
+    finally{Save-OrdinaryLaunchCustody}
+    $list=Get-Content -LiteralPath (Join-Path $outputRoot ($name+'.stdout.log')) -Raw|ConvertFrom-Json -DateKind String
+    Select-StageUnityGameClient -WindowList $list -Process $launched -ProcessId $launched.Id -StartedUtcTicks $launched.StartTime.ToUniversalTime().Ticks -ExecutablePath $exe
+}
+function Get-WodenSessionCensus {
+    $remaining=@(Observe-Owned)
     Save-OrdinaryLaunchCustody
-    do {
-        if ([DateTime]::UtcNow -ge $focusDeadline) { break }
-        Assert-StageRigLease -Path $slot -Token $RigLeaseToken
-        $launched.Refresh()
-        if ($launched.HasExited) { throw 'Recorded game exited before operator foreground admission.' }
-        Assert-StageForegroundIdentity -Actual ([pscustomobject]@{Id=$launched.Id;StartedUtcTicks=$launched.StartTime.ToUniversalTime().Ticks;ExecutablePath=[string]$launched.Path}) `
-            -ProcessId $adopted.record.pid -StartedUtcTicks $adopted.record.startedUtcTicks -ExecutablePath $exe
-        if (!$result.foreground.window) {
-            # Existing capture --list is itself owned by the unchanged canonical
-            # child boundary; it records process start and OS window class/owner.
-            if (($focusDeadline - [DateTime]::UtcNow).TotalSeconds -lt 6) { break }
-            $listName='unity-client-list-'+$result.steps.Count
-            $result.steps+=@([ordered]@{name=$listName;state='started';startedUtc=[DateTime]::UtcNow.ToString('O')})
-            try { Invoke-OwnedProcess $listName $CaptureTool @([string]$adopted.record.pid,'--list') 5 }
-            finally {
-                if ($result.steps[-1].process) { $ownedPrecision[[uint32]$result.steps[-1].process.pid]='Tick100ns' }
-                $result.steps[-1].endedUtc=[DateTime]::UtcNow.ToString('O');Save-OrdinaryLaunchCustody
-            }
-            $listPath=Join-Path $outputRoot ($listName+'.stdout.log')
-            $windowList=Get-Content -LiteralPath $listPath -Raw|ConvertFrom-Json -DateKind String
-            $client=Select-StageUnityGameClient -WindowList $windowList -Process $launched `
-                -ProcessId $adopted.record.pid -StartedUtcTicks $adopted.record.startedUtcTicks `
-                -ExecutablePath $exe -ExpectedWindowHandle $result.foreground.window
-            $result.foreground['clientSelection']=$client
-            $result.foreground['windowListPath']=$listPath
-            $result.foreground['windowListSha256']=(Get-FileHash -LiteralPath $listPath).Hash
-            $result.foreground['selectorSha256']=$UnityClientHelperSha256
-            if ($client.state -ceq 'selected') {
-                $result.foreground.status='awaiting-desktop-client-click'
-                $result.foreground.window=$client.window
-                $result.foreground.foregroundWindow=$client.foregroundWindow
-                $result.foreground.foregroundProcessId=$client.foregroundProcessId
-                $result.foreground.osForegroundObserved=$client.osForegroundObserved
-            } else { $result.foreground.status='waiting-for-unity-client' }
-        } else {
-            # Keep the selected Unity HWND; foreground polling does not spawn
-            # another enumerator after renderer/class selection succeeded.
-            $window=[IntPtr]$result.foreground.window
-            [uint32]$windowProcess=0
-            if (![Dbce.StageForegroundNative]::GetWindowThreadProcessId($window,[ref]$windowProcess) -or
-                $windowProcess -ne $adopted.record.pid -or ![Dbce.StageForegroundNative]::IsWindowVisible($window) -or
-                [Dbce.StageForegroundNative]::IsIconic($window)) { throw 'Selected Unity client ownership/visibility/minimized state changed.' }
-            $foreground=[Dbce.StageForegroundNative]::GetForegroundWindow()
-            [uint32]$foregroundProcess=0
-            [void][Dbce.StageForegroundNative]::GetWindowThreadProcessId($foreground,[ref]$foregroundProcess)
-            $result.foreground.foregroundWindow=$foreground.ToInt64()
-            $result.foreground.foregroundProcessId=$foregroundProcess
-            $result.foreground.osForegroundObserved=$foreground -eq $window -and $foregroundProcess -eq $adopted.record.pid
-            $result.foreground['foregroundCheckedUtc']=[DateTime]::UtcNow.ToString('O')
-        }
-        $result.foreground.observations++
-        Observe-OrdinaryLaunch
-        if ($result.foreground.osForegroundObserved -and [DateTime]::UtcNow -lt $focusDeadline) { break }
-        $result.foreground.osForegroundObserved=$false
-        Start-Sleep -Milliseconds 200
-    } while ([DateTime]::UtcNow -lt $focusDeadline)
-    if (!$result.foreground.osForegroundObserved) {
-        $result.foreground.status='unmet';Save-OrdinaryLaunchCustody
-        throw 'Operator client click did not establish exact OS foreground within the original startup bound.'
+    $snapshot=Get-StageProcessIdentitySnapshot
+    $identities=@(foreach($entry in $owned.GetEnumerator()){
+        Get-StageProcessIdentityDisposition -Recorded ([pscustomobject]@{processId=$entry.Key;createdUtc=$entry.Value;precision=(Get-WodenOwnedCreationPrecision $entry.Key $ownedPrecision)}) -Snapshot $snapshot
+    })
+    [pscustomobject]@{querySucceeded=($snapshot.querySucceeded -and $script:StageOwnedProcessState.QuerySafe -and $remaining.Count -eq 0);identities=$identities}
+}
+function Stop-WodenCompanion {
+    param($Reason,$Deadline)
+    $left=$Deadline-$sessionClock.ElapsedMilliseconds
+    if($left -le 0){throw 'Companion stop deadline elapsed'}
+    # This is the existing exact request-bound Stop entry, even after completion.
+    # Its benign inactive refusal is accepted only with independently closed state.
+    $script:result.steps+=@([ordered]@{name='companion-stop';state='started';startedUtc=[DateTime]::UtcNow.ToString('O')})
+    try{Invoke-OwnedProcess 'companion-stop' (Get-Command pwsh).Source @('-NoProfile','-File',$companionPath,'-GameDir',$GameDir,'-Stop','-RequestId',$RequestId.ToString()) ([int][Math]::Max(1,[Math]::Min(10,[Math]::Floor($left/1000))))}
+    catch{
+        $status=Status (Join-Path $recording 'control/status.txt')
+        if(!$status -or $status.id -cne $idText -or $status.active -cne 'False' -or $status.status -cne 'Completed'){throw}
     }
-    $result.foreground.status='observed';$result.foreground.observedUtc=[DateTime]::UtcNow.ToString('O');Save-OrdinaryLaunchCustody
+
 }
 
+function Restore-WodenOwner {
+    Closed
+    Assert-StageRigLease -Path $slot -Token $RigLeaseToken
+    Restore-ControlFiles (Join-Path $ResultDirectory 'owner-before') (Join-Path $ResultDirectory 'candidate-after') $roots $files
+    if ((Get-ControlHash (Join-Path $ResultDirectory 'preferences.json')) -ne $prefsHash) { throw 'Preference snapshot changed.' }
+    Registry-Restore (Join-Path $ResultDirectory 'preferences.json')
+    Assert-Inventory $before $roots $files
+    Pin $receiptPath $OriginalReceiptSha256
+    'restored' | Set-Content -LiteralPath (Join-Path $ResultDirectory 'restored.txt')
+    $script:restored = $true
+}
+
+$sessionStarted=$false
+$sessionClock=[Diagnostics.Stopwatch]::StartNew()
 $mutated = $false
 $restored = $false
 $launched = $null
@@ -450,6 +447,8 @@ try {
     $prepared=Get-Content -LiteralPath $requestPath -Raw | ConvertFrom-Json
     if ($prepared.Id -ne $RequestId.ToString() -or $prepared.DisableForces -ne $true -or $prepared.InputOrigin -cne 'automated') { throw 'Prepared request identity/mute differs; no launch.' }
     Start-OrdinarySteamGame
+    $identity=[pscustomobject]@{processId=$launched.Id;startedUtcTicks=$launched.StartTime.ToUniversalTime().Ticks;executablePath=$exe}
+    $gameplay={param($Client)
     $statusPath = Join-Path $recording 'control/status.txt'
     $deadline = $startupDeadline
     do {
@@ -538,35 +537,33 @@ try {
     }
     [ordered]@{schema=1;result=$(if ($NativeObservationSource) { 'native-current-reader' } else { 'menu-only-incomplete' });nativeSamples=$nativeSamples;syntheticDriving=[bool]($PositivePedalComparison -or $candidateTuple);positivePedalComparison=[bool]$PositivePedalComparison;candidateForward=[bool]$CandidateForward;driveResponse=[bool]$DriveResponse;causalVerdict=$(if($DriveResponse){'positive-probe/trace/result.json driveResponse phase verdicts'}else{'requires joined actual delivery/state review'});requestId=$RequestId;sourceSha256=$sourceHash;companionExit=$exit;gamePid=$pidValue;gameStartUtcTicks=$ticks} |
         ConvertTo-Json | Set-Content -LiteralPath (Join-Path $ResultDirectory 'smoke-result.json')
+        [pscustomobject]@{completed=$true}
+    }
+    $sessionStarted=$true
+    $session=Invoke-WodenGameSession -Identity $identity -RequestId $RequestId -ProbeRoot $positiveRoot -ResultDirectory $ResultDirectory -LaunchRequest $requestPath -SelectClient {Select-WodenRenderClient} -Gameplay $gameplay -StopCompanion ${function:Stop-WodenCompanion} -CompanionExited {if(!$child){return $true};$child.process.HasExited} -Census {Get-WodenSessionCensus} -Restore ${function:Restore-WodenOwner} -Elapsed {$sessionClock.ElapsedMilliseconds} -Wait {Observe-OrdinaryLaunch;Start-Sleep -Milliseconds 100}
+    if($session.status -cne 'completed'){throw ('Woden session '+$session.status+': '+$session.reason)}
+
 } catch {
     $errorText = $_.Exception.Message
     if (Test-Path -LiteralPath $ResultDirectory) { $errorText | Set-Content -LiteralPath (Join-Path $ResultDirectory 'run-error.txt') }
 } finally {
-    if ($mutated) {
-        try {
-            # The companion can still launch Woden after a startup failure. Both
-            # actors must be finished, and no launch request may remain.
-            Assert-OrdinaryCompanionStopped $child $requestPath
-            if ($child -and !(Test-Path -LiteralPath (Join-Path $ResultDirectory 'companion.stdout.txt'))) { $null = Save-Companion $child }
-            $gameExit = Wait-OrdinaryGameExitForRestore $launched
-            if ($gameExit) { $gameExit | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $ResultDirectory 'game-exit-before-restore.json') }
-            # A shell timeout/late child can outlive recorder readiness. Never infer absence.
-            Assert-OrdinaryLaunchClosed
-            # Never mutate owner files under a live or unverified game process.
-            Closed
-            Assert-StageRigLease -Path $slot -Token $RigLeaseToken
-            Restore-ControlFiles (Join-Path $ResultDirectory 'owner-before') (Join-Path $ResultDirectory 'candidate-after') $roots $files
-            if ((Get-ControlHash (Join-Path $ResultDirectory 'preferences.json')) -ne $prefsHash) { throw 'Preference snapshot changed.' }
-            Registry-Restore (Join-Path $ResultDirectory 'preferences.json')
-            Assert-Inventory $before $roots $files
-            Pin $receiptPath $OriginalReceiptSha256
-            'restored' | Set-Content -LiteralPath (Join-Path $ResultDirectory 'restored.txt')
-            $restored = $true
-        } catch {
-            $_.Exception.Message | Set-Content -LiteralPath (Join-Path $ResultDirectory 'restore-error.txt')
-        }
+    if ($mutated -and !$restored -and !$sessionStarted) {
+        # Failure before adoption cannot manufacture a game identity or neutral
+        # receipt. Revoke the nonce and request-bound companion, retain custody.
+        $preErrors=[Collections.Generic.List[string]]::new()
+        try{if($positiveRoot){Revoke-WodenSession $positiveRoot $idText}}catch{$preErrors.Add($_.Exception.Message)}
+        try{if($child){Stop-WodenCompanion 'pre-session failure' ($sessionClock.ElapsedMilliseconds+60000)}}catch{$preErrors.Add($_.Exception.Message)}
+        try{Remove-WodenLaunchRequest $requestPath $RequestId}catch{$preErrors.Add($_.Exception.Message)}
+        try{
+            $census=Get-WodenSessionCensus
+            $allAbsent=$census.querySucceeded -and @($census.identities|Where-Object {$_.originalAbsent -isnot [bool] -or !$_.originalAbsent -or $_.state -cnotin 'Absent','Reused'}).Count -eq 0
+            if(!$script:result.launchAttempted -and !$child -and $allAbsent -and $preErrors.Count -eq 0){Restore-WodenOwner}
+            else{$preErrors.Add('No admitted session/neutral acknowledgment; retain lease and inspect custody.')}
+        }catch{$preErrors.Add($_.Exception.Message)}
+        if($preErrors.Count){$preErrors -join '; '|Set-Content -LiteralPath (Join-Path $ResultDirectory 'restore-error.txt')}
     }
 }
+
 if (!$restored) { throw "Owner restoration not verified; retain caller-owned lease and inspect $ResultDirectory. Run error: $errorText" }
 if ($errorText) { throw "Smoke failed after verified restoration: $errorText" }
 Write-Host "Ordinary diagnostic completed; owner state restored. Evidence: $ResultDirectory"
