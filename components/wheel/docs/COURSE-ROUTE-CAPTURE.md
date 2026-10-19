@@ -1,5 +1,28 @@
 # Course route capture (read-only, opt-in, private)
 
+## October19 current-main integration
+
+Kobe286136: Mubi reconciled existing c575200 onto the current4b6b900 close/recovery
+baseline in isolated mubi/woden-course-integration-20261019. The six route-capture
+paths apply cleanly as8fb62ff; only this integration note and TOOLKIT-ADOPTION.md
+follow. No control/focus/close/recovery source or default is changed.
+
+Qualification is reused, not repeated: all product compiler inputs equal c575200,
+vendor/build inputs are unchanged, and116 core/interop/toolkit/recording dependency
+files match the qualified private worktree and canonical dependency copies by SHA256.
+Zola279786 and retained research-private/course-map-zola-20261018/
+woden-course-run-01-build.log prove Plugin/Core Release0warnings/0errors;
+woden-course-run-01-harness.log proves94suites/51700assertions PASS, including
+the four capture suites. No new build/tests are warranted by a conflict-free merge
+which leaves these inputs identical. The current tools/controls tree is byte-identical
+to4b6b900. Runtime's Activity.StopAndDrain still precedes CourseRouteDump.Stop.
+
+Toolkit90f14a0 and its offline reader/comparison remain the existing separate
+private dependency; no new protocol, serializer or shared source is introduced.
+The existing extractor output stays compatible with that reader. Source integration
+does not install the plugin, arm a request, read a running stage, prove units, or
+register a SimHub definition. The capture/runtime gates below remain unchanged.
+
 2026-10-19, zola (kobe 278516). Source and offline fixtures only; it has never run in the game.
 
 ## Purpose

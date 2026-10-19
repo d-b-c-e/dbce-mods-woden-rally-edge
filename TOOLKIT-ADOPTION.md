@@ -16,6 +16,18 @@ STD-038 source qualification only. It does not close pending physical, force,
 camera, FOV or no-drive acceptance. See the handoff for the focused checks and
 fresh-build/runtime boundary. No global testing skill is changed.
 
+# October19: Existing opt-in course capture reconciled
+
+Kobe286136 integrates existing Woden c575200 onto4b6b900 without changing the
+qualified extractor/compiler inputs, activity-drained lifecycle or close/focus
+recovery tools. Existing toolkit course90f14a0 reader/comparison and protocol are
+reused; no shared file, native binary, telemetry transport or default is changed.
+Retained Plugin/Core0warning/error and94suite/51700assertion evidence is preserved;
+116 dependency hashes match, so no identical build/tests are repeated. See
+components/wheel/docs/COURSE-ROUTE-CAPTURE.md for exact integration and runtime limits.
+All37 ledger IDs remain present; STD-016/017/020 stay unchecked and031/037 pending.
+No installed, captured, mapped, normalized-progress or physical acceptance claim.
+
 # October 19: Current-main fail-closed drive-response integration
 
 Kobe283748 consumer release work integrates the private schema-12 drive-response
