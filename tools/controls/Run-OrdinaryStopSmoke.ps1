@@ -329,6 +329,12 @@ function Start-OrdinarySteamGame {
     Initialize-StageForegroundNative
 }
 function Select-WodenRenderClient {
+    Assert-StageRigLease -Path $slot -Token $RigLeaseToken
+    $launched.Refresh()
+    if($launched.HasExited){throw 'Recorded game exited before renderer selection.'}
+    Assert-StageForegroundIdentity -Actual ([pscustomobject]@{
+        Id=$launched.Id;StartedUtcTicks=$launched.StartTime.ToUniversalTime().Ticks;ExecutablePath=[string]$launched.Path
+    }) -ProcessId $result.game.pid -StartedUtcTicks $result.game.startedUtcTicks -ExecutablePath $exe
     $name='unity-client-list-'+$script:result.steps.Count
     $script:result.steps+=@([ordered]@{name=$name;state='started';startedUtc=[DateTime]::UtcNow.ToString('O')})
     try{Invoke-OwnedProcess $name $CaptureTool @([string]$launched.Id,'--list') 5}

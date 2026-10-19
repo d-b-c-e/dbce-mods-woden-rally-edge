@@ -5,7 +5,7 @@ $ErrorActionPreference='Stop'
 $tokens=$null;$errors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'Run-OrdinaryStopSmoke.ps1'),[ref]$tokens,[ref]$errors)
 if ($errors.Count) { throw 'Consumer parse failed' }
-$names=@('Save-OrdinaryLaunchCustody','Register-OrdinaryLaunchProcess','Observe-OrdinaryLaunch','Assert-OrdinaryLaunchClosed','Start-OrdinarySteamGame')
+$names=@('Save-OrdinaryLaunchCustody','Register-OrdinaryLaunchProcess','Observe-OrdinaryLaunch','Assert-OrdinaryLaunchClosed','Start-OrdinarySteamGame','Select-WodenRenderClient')
 foreach ($name in $names) {
     $nodes=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq $name},$false))
     if ($nodes.Count -ne 1) { throw ('Missing exact production function '+$name) }
@@ -74,11 +74,11 @@ function Complete-Owned { $result.childrenQuiescent=$quiescent }
 function Observe-Owned { $events.Add('observe');@() }
 # Operator foreground boundary: native declarations, lease, identity, owned window list and client selector.
 function Initialize-StageForegroundNative { $events.Add('foreground-native') }
-function Assert-StageRigLease { param($Path,$Token) Check ($Path -ceq $slot -and $Token -ceq $RigLeaseToken) 'Foreground wait keeps asserting the exact lease' }
+function Assert-StageRigLease { param($Path,$Token) Check ($Path -ceq $slot -and $Token -ceq $RigLeaseToken) 'Renderer query keeps asserting the exact lease';$events.Add('lease') }
 function Assert-StageForegroundIdentity {
     param($Actual,$ProcessId,$StartedUtcTicks,$ExecutablePath)
     Check ($Actual.Id -eq 34 -and $ProcessId -eq 34 -and $Actual.StartedUtcTicks -eq 638900000000000003 -and $StartedUtcTicks -eq 638900000000000003 -and
-        $Actual.ExecutablePath -ceq $exe -and $ExecutablePath -ceq $exe) 'Foreground wait compares the exact adopted game identity'
+        $Actual.ExecutablePath -ceq $exe -and $ExecutablePath -ceq $exe) 'Renderer query compares the exact adopted game identity'
     $events.Add('identity')
 }
 function Invoke-OwnedProcess {
@@ -99,11 +99,12 @@ try {
     Reset-Case;Start-OrdinarySteamGame
     Check ($result.launchAdopted -and $owned.Count -eq 2 -and $ownedRoots.Count -eq 2 -and $launched.Id -eq 34) 'Successful adoption retains game and shell identities/objects'
     Check ($events.IndexOf('handle-game') -lt $events.IndexOf('token-result')) 'Game handle captured before token result admission'
-    Check ($events.IndexOf('token-result') -lt $events.IndexOf('foreground-native') -and $events.IndexOf('foreground-native') -lt $events.IndexOf('identity') -and
-        $events.IndexOf('identity') -lt $events.IndexOf('window-list') -and $events.IndexOf('window-list') -lt $events.IndexOf('select-selected')) 'Foreground wait starts only after token admission, identity before enumeration'
-    Check ($result.foreground.status -ceq 'observed' -and $result.foreground.osForegroundObserved -and $result.foreground.window -eq 77 -and
-        $result.foreground.clientSelection.state -ceq 'selected' -and $result.foreground.selectorSha256 -ceq $UnityClientHelperSha256) 'Observed foreground records the selected Unity client'
-    Check ($result.steps.Count -eq 1 -and $result.steps[0].name -ceq 'unity-client-list-0' -and $result.steps[0].endedUtc -and $ownedPrecision[56] -ceq 'Tick100ns') 'Window list step is closed and its owned child keeps Tick100ns precision'
+    Check ($events.IndexOf('token-result') -lt $events.IndexOf('foreground-native') -and !$events.Contains('window-list') -and !$result.Contains('foreground')) 'Process adoption initializes declarations without renderer selection, activation or foreground admission'
+    $client=Select-WodenRenderClient
+    Check ($events.IndexOf('lease') -lt $events.IndexOf('identity') -and $events.IndexOf('identity') -lt $events.IndexOf('window-list') -and
+        $events.IndexOf('window-list') -lt $events.IndexOf('select-selected')) 'Separate renderer callback validates lease and exact adopted identity before enumeration'
+    Check ($client.state -ceq 'selected' -and $client.window -eq 77 -and !$result.Contains('foreground')) 'Renderer selection returns a client; shared session owns foreground admission'
+    Check ($result.steps.Count -eq 1 -and $result.steps[0].name -ceq 'unity-client-list-0') 'Renderer query retains the bounded capture step'
     $receipt=Get-Content -LiteralPath (Join-Path $outputRoot 'custody.json') -Raw|ConvertFrom-Json -DateKind String
     Check (@($receipt.ownedLineage|Where-Object {$_.pid -eq 34 -and $_.precision -ceq 'Tick100ns'}).Count -eq 1) 'Custody receipt publishes adopted game precision'
     Assert-OrdinaryLaunchClosed
@@ -112,12 +113,15 @@ try {
     Check ($result.launchAdopted -and $owned.ContainsKey(34) -and $launched.Id -eq 34) 'Token refusal retains exact adopted game custody'
     Check (!$events.Contains('foreground-native') -and !$result.Contains('foreground')) 'Token refusal never reaches the foreground wait'
     Assert-OrdinaryLaunchClosed
-    Reset-Case;$script:startupDeadline=[DateTime]::UtcNow.AddSeconds(-1)
-    Refuses { Start-OrdinarySteamGame } 'startup deadline elapsed before operator admission'
-    Check ($owned.ContainsKey(34) -and !$events.Contains('foreground-native')) 'Elapsed startup bound retains game custody and skips the foreground wait'
-    Reset-Case;$script:clientState='waiting';$script:startupDeadline=[DateTime]::UtcNow.AddSeconds(6.6)
-    Refuses { Start-OrdinarySteamGame } 'did not establish exact OS foreground'
-    Check ($result.foreground.status -ceq 'unmet' -and !$result.foreground.osForegroundObserved -and $owned.ContainsKey(34)) 'Unselected client stays unmet within the original bound and retains custody'
+    Reset-Case;Start-OrdinarySteamGame;$script:clientState='waiting'
+    $client=Select-WodenRenderClient
+    Check ($client.state -ceq 'waiting' -and !$result.Contains('foreground') -and $owned.ContainsKey(34)) 'No renderer returns waiting without consuming an activation deadline or losing custody'
+    Reset-Case;Start-OrdinarySteamGame;$script:launched.HasExited=$true
+    Refuses { Select-WodenRenderClient } 'Recorded game exited before renderer selection'
+    Check (!$events.Contains('window-list')) 'Exited original is refused before enumeration'
+    Reset-Case;Start-OrdinarySteamGame;$script:launched.Path='C:/fixture/replacement.exe'
+    Refuses { Select-WodenRenderClient } 'exact adopted game identity'
+    Check (!$events.Contains('window-list') -and $owned.ContainsKey(34)) 'Changed image refuses enumeration and retains original custody'
     Reset-Case;$script:requestFailure='after'
     Refuses { Start-OrdinarySteamGame } 'fake shell refusal'
     Refuses { Assert-OrdinaryLaunchClosed } 'retain lease and owner state'

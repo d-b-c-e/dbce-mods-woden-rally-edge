@@ -16,6 +16,19 @@ STD-038 source qualification only. It does not close pending physical, force,
 camera, FOV or no-drive acceptance. See the handoff for the focused checks and
 fresh-build/runtime boundary. No global testing skill is changed.
 
+# October 19: Current-main fail-closed drive-response integration
+
+Kobe283748 consumer release work integrates the private schema-12 drive-response
+and fail-closed session successors onto main7d3e908. Renderer discovery is a
+separate session callback after process adoption; each query rechecks the exact
+lease, original process birth/image and exit state before window enumeration.
+The 69-check consumer fixture retains current-main custody cases and verifies
+that adoption cannot activate or admit input. Focus/arm/revoke semantics and
+qualified product/probe binaries are preserved. See
+docs/2026-10-19-release-session-handoff-mubi.md for targeted results and gates.
+All37 ledger IDs remain represented. STD-016/017/020 stay unchecked;
+STD-031/037 stay pending. No product, tune, installed-state or physical claim.
+
 # October 16: Explicit candidate-forward test tools (source only)
 
 Reuse the existing sealed Native observation, original recorder, resident raw
