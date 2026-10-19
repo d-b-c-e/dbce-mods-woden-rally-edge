@@ -1203,6 +1203,10 @@ Test("S2 admission writes a route-compatible derived package and never changes t
 Test("S2 admission refuses originals outside the native-arcade-v1 first-stage scope", () => WodenRallyEdge.AdmissionChecks.Scope(Check));
 Test("input origin: a request states human or automated exactly, omission is unknown; the package maps owner only for human and must match its source", () => WodenRallyEdge.OriginChecks.Run(Check));
 Test("S2b: an FFB-on ordinary original is admitted and passes the ordinary review; the muted supervisor review still refuses it", () => WodenRallyEdge.AdmissionChecks.OrdinaryReview(Check));
+Test("course route request: one launch, claimed before reading, bounded expiry and seconds", () => WodenRallyEdge.CourseRouteChecks.Request(Check));
+Test("course route identity: exact build, raw track names, direction-aware folder, unusable routes refused whole", () => WodenRallyEdge.CourseRouteChecks.Identity(Check));
+Test("course route coordinates: Unity x, y, z stored unconverted and bit-exact in route and progress files", () => WodenRallyEdge.CourseRouteChecks.Coordinates(Check));
+Test("course route lifecycle: no rows before the route, seconds/rows/bytes caps, faults write nothing, written once, never overwritten", () => WodenRallyEdge.CourseRouteChecks.Lifecycle(Check));
 if (Environment.GetEnvironmentVariable("WODEN_GRIP_CAPTURE") is { Length: > 0 } gripCapture)
     Test("private native Grip5 capture: exact old replay and isolated Grip6 trial", () => GripV6Checks.NativeCapture(Check, gripCapture));
 Console.WriteLine($"{passed} suites passed; {failed} failed; {checks} assertions.");

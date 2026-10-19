@@ -133,6 +133,7 @@ internal static class Runtime
             throw new IOException("Native observation requires network delivery disabled before startup");
         if (_recordLaunch != null) Log.LogInfo($"Diagnostic launch {_recordLaunch.Id}; physical FFB suppressed={DiagnosticNoForce}");
         StagePlayback.Initialize();
+        CourseRouteDump.Initialize(Log);
         ApplyOutputs();
         if (_recordLaunch != null && Output != null && _recordingPath != null)
         {
@@ -296,6 +297,7 @@ internal static class Runtime
         HudGuiTrace.Flush();
 #endif
         TripleView.Stop("plugin stopping");
+        CourseRouteDump.Stop();
         Force.Shutdown();
         ShimInput.Stop("plugin stopping");
         Panel.Close(false);
@@ -337,6 +339,7 @@ internal static class CarHook
             TimingDiagnostics.Record(sample);
             Runtime.Output?.Publish(sample);
             NativeObservation.Observe(__instance, sample);
+            CourseRouteDump.Observe(__instance, sample);
         }
         catch (Exception ex) { Runtime.Force.Suspend("Sample failed"); if (Runtime.LocalTicks % 100 == 1) Runtime.Log.LogError("Sample failed: " + ex); }
     }
