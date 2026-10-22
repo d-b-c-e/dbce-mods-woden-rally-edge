@@ -1,5 +1,69 @@
 # Native wheel prompts: incomplete source investigation, October 22
 
+## Continuation 01M5J1XPBADV9SW6C877XCRT3C (lale)
+
+Started from clean `8a7d37e8ab30279be748c95844291620b346d23e`.
+Current ancestry checks for `15bc663389564d8ab8c22cb5054e473ba47f5eca`
+and `7b6808d` both exited zero. The existing merge and camera/clutch work
+were preserved. The supported GameAssembly hash below was verified again.
+
+Additional static metadata narrows the unresolved target:
+
+* EnhancedButton's cached Text array at 60 and Image array at 70 pair with
+  Color arrays at 68 and 78. Update's retained assembly uses them for selection
+  color updates; they are not established per-key prompt objects.
+* GamePadListener has RebindSystem, ActionName, Waiting, ControllerIndex,
+  ActionIndex and separate Actiontext/Padtext/Keytext fields at 60/68/70.
+  These are candidates for rebinding presentation, not evidence that an
+  EnhancedButton prompt uses them. Its action enum is a separate type.
+* ButtonContainer contains spacing, row count, child transforms and offset;
+  TextBg contains Text, background RectTransform and padding; UiFunctions
+  contains sub-images/texts, transparency and blink/fade state. None of these
+  declarations supplies a demonstrated association with Gamepadkeys.
+* A bounded direct-call scan of EnhancedButton, GamePadSystem,
+  GamePadListener, TextBg, ButtonContainer, UiFunctions, MainUiScript and
+  UI_Menu found no direct calls to the metadata Text setter at 182851060.
+  This scan does **not** resolve virtual calls or serialized scene references
+  and cannot establish that these types never update text.
+
+Commands: `dotnet run --project artifacts/wheel-prompts/Audit.csproj -c Release --no-restore`
+was run for each metadata/direct-call survey, with the existing LibCpp2IL/Iced
+references and no dependency installation/network. All three exited zero.
+Ignored proprietary/generated evidence stays outside Git:
+
+| Result | SHA-256 |
+| --- | --- |
+| artifacts/wheel-prompts/prompt-types-lale.txt | 31766A8B4F9154D32966639426B26CF79EDEF6CA6E8E5026F2F675EEDFF3B2B7 |
+| artifacts/wheel-prompts/prompt-widgets-lale.txt | 09B18A3899827E11D326D6EE01315265F718E9EB456A0F11E6899EA43F71E03C |
+| artifacts/wheel-prompts/text-calls-lale.txt | FFD3B5A3F89E9004136AB3D962FCFE1DB216FDF96186E5165672D8745F84BD3F |
+
+The missing prerequisite is a supported-build scene/widget association and
+its actual text/glyph producer, obtained through static serialized-asset
+evidence or a separately authorized bounded runtime survey. This task does
+not authorize that runtime. Do not reoffer implementation from the same field
+names alone. No production hook or test-only substitute was added; all feature
+and production-linked fixture requirements remain incomplete. The candidate
+for this continuation is the documentation commit reported by full hash to Fleet.
+
+Required verification was rerun on the unchanged product source. Initial
+`pwsh -NoProfile -File artifacts/wheel-prompts/Verify-Lale.ps1` failed before
+lease acquisition because pwsh is not on this session's PATH. The existing
+installed executable was then used without installation:
+
+`& 'C:/Program Files/WindowsApps/Microsoft.PowerShell_7.6.7.0_x64__8wekyb3d8bbwe/pwsh.exe' -NoProfile -File artifacts/wheel-prompts/Verify-Lale.ps1`
+
+The retained runner acquires the existing shared lease as lale, invokes
+`tools/game/Verify-Source.ps1 -NuGetConfig artifacts/wheel-prompts/NuGet.Config`
+with cleared package sources, and releases the exact lease in finally. Exit
+was zero, with `Lease released: True`. Log
+`artifacts/wheel-prompts/verify-source-lale.log` SHA-256 is
+`7B7B030AD550AB0150895956060DE51CFC4B2486C7759EF0D2BA3306301583EA`.
+Wheel build: zero warnings/errors; 94 suites / 51,700 assertions; UI 6,527
+assertions plus 95 production Shim/lease checks; stage analysis 10,757;
+triples 22; force-envelope 10,836. These remain baseline results, not feature
+coverage or rendered/owner acceptance. No runtime suite was repeated.
+
+
 GLY is not implemented or qualified by this checkpoint. No prompt hook or
 parallel test implementation has been added. The October 7 roadmap entry was
 an interop survey, not proof that its two suggested fields draw the prompts.

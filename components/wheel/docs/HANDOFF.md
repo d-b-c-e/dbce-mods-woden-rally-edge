@@ -1,5 +1,12 @@
 # October 22: Partial native prompt source handoff
 
+Continuation lale: source implementation is still incomplete. Additional
+metadata/direct-call evidence is recorded in WHEEL-PROMPTS; unresolved virtual
+calls and scene references prevent a supported prompt target from being named.
+Source coordination must supply that association or scope a separate bounded
+runtime survey before another implementation offer. Preserve the existing
+menu/layout/input-switching runtime checklist and all unqualified gates.
+
 No GLY implementation or new feature fixture is ready. Existing source passed
 Verify-Source; the successful log hash, prerequisite failure and interrupted
 unleased attempt are preserved in [WHEEL-PROMPTS](WHEEL-PROMPTS.md). The corrected

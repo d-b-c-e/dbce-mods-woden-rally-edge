@@ -1,5 +1,12 @@
 # October 22: STD-020 native prompt investigation remains incomplete
 
+Continuation lale: additional metadata and direct-call inspection distinguishes
+selection-color arrays, rebinding text and layout helpers, but still does not
+establish a rendered per-key prompt. STD-020/GLY remains unimplemented and
+unchecked; production-linked feature fixtures remain outstanding. All ledger
+IDs remain represented. STD-016/017 unchecked and STD-031/037 pending are unchanged.
+See WHEEL-PROMPTS for the exact missing scene/widget prerequisite.
+
 The GLY investigation preserved the merged safety/camera baseline and passed
 Verify-Source offline, but did not establish a rendered Text/Image consumer.
 EnhancedButton's selector reaches native menu activation; its display-named

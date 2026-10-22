@@ -80,6 +80,12 @@ Current reference docs were inspected on 2026-09-12. Their own verification limi
 
 ## Wheel button prompts (GLY, STD-020) — where they come from (2026-10-07, Claude)
 
+October 22 continuation (lale): metadata distinguishes generic selection tint,
+rebinding and layout helpers. The direct Text-setter scan leaves virtual calls
+and serialized associations unresolved. Implementation remains waiting for an
+identified supported-build prompt widget and its actual producer; do not infer
+a target from field names. See WHEEL-PROMPTS continuation evidence.
+
 October 22 continuation: the selector is an input consumer, but the proposed
 ControllerButtons/ButtonNames text-draw connection remains unestablished.
 No prompt feature is implemented. The bounded next task is static scene/widget
