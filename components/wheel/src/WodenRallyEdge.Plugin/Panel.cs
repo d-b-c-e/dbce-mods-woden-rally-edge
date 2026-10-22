@@ -148,7 +148,8 @@ internal static class Panel
     }
     internal static void CompleteClose(bool resume)
     {
-        if (!Open) return;
+        // Camera shortcuts can leave a pending save while F6 is already closed.
+        if (!Open) { if (_dirty) Save(); return; }
         Open = false; _imguiSettingsHeld = false; Runtime.Wheel?.Cancel(); _drag = -1; Save();
         try
         {

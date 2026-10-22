@@ -10,6 +10,12 @@ using Dbce.Wheel.Ui.Unity;
 var outputDir=Path.GetFullPath("artifacts/ux-ui-fixture");Directory.CreateDirectory(outputDir);
 var dir=Path.Combine(outputDir,Guid.NewGuid().ToString("N"));Directory.CreateDirectory(dir);
 int checks=0;void Check(bool ok,string message){checks++;if(!ok)throw new Exception(message);}
+PanelShutdownChecks.Run(dir, Check);
+if(args.Contains("--panel-shutdown-only"))
+{
+    Console.WriteLine($"Panel shutdown fixture: {checks} assertions passed; no game or force output.");
+    return;
+}
 Screen.width=7680;Screen.height=1440;GUI.Commands.Clear();Event.current.type=EventType.Repaint;
 var hudColor=GUI.color;var hudEnabled=GUI.enabled;var hudMatrix=GUI.matrix;
 new StrippedSessionStatusHud(UiNative.Style).Draw(RecordingHudLine.Describe("Recording",65,new(),null,true,true)!,true,112);
