@@ -1,5 +1,116 @@
 # Native wheel prompts: incomplete source investigation, October 22
 
+## Finite offline prerequisite 01M5JTFN6N750578VKCN0RTMS0 (lido)
+
+**Negative result; prerequisite complete, parent still blocked.** This attempt
+`01M5JTNGP7NGB37YY44F78X8B5` inspected existing local serialized-input availability
+and retained indirect-call evidence from clean
+`1518854bd6f0cb899f0b3ea4fc8d82516cd5e074`. Retained parent
+`01M5HZX0K1CDPFPQ149F1C2E9Y` must remain in engineering-wait. Nothing below
+supersedes the prior negative evidence, baseline results or restoration gates.
+
+### Inputs and bounded availability
+
+Read-only SHA-256 receipts, October 22. Game-relative paths below resolve under
+`D:/Program Files (x86)/Steam/steamapps/common/Super Woden Rally Edge`;
+`Data/` abbreviates `Super Woden Rally Edge_Data/` only in this table.
+
+| Input | SHA-256 |
+| --- | --- |
+| GameAssembly.dll | F422894D8D2B0DF4EDB7E5259E5E60CB8C4F8DEA2E85EBDFC09DD6766349250C |
+| Data/il2cpp_data/Metadata/global-metadata.dat | 3B5D7167AEA83FEBDC625F1635FC7CB414FF13CA609D78CC32158133C3877815 |
+| Data/level0 | 72568EBFC97CAFABBA71C46EB578F041686E926BCC5A6186EA2F6D2FD60E367B |
+| Data/level1 | 270E79AABDE580E62746BDC7F92F68209421AA7376D4B70C21C68690585A436A |
+| Data/resources.assets | EE3957A98C2511C6A0AC7DB4F5F7701C4D6477A79D65C3B4A926AE5A785E4304 |
+| Data/sharedassets0.assets | B3128A48839C42E69F5F053BE3AAE4FCFBD690C29C9C240AF1E1818F03AB91A4 |
+| artifacts/wheel-prompts/EnhancedButton.Update.asm | 155716C7902945629B7A5C079FCECBFA40B0FD647A2B49BF0CEABEABCD61F0EA |
+| artifacts/wheel-prompts/EnhancedButton.MoveNext.asm | F138A4FBDE06DB174F5FDB43D75302A72CA8645CD9A688465B57414D0D9F50B4 |
+| artifacts/wheel-prompts/GamePadSystem.all.asm | 4F822A4072B5832B07EF036FC73F302688C5171F8DE4A7894BCC60A421675558 |
+
+The installed Data directory contains `level0` through `level37`,
+`globalgamemanagers`, `globalgamemanagers.assets`, `resources.assets` and
+`sharedassets0.assets` through `sharedassets37.assets`. Raw assets are present;
+their presence does not identify which scene contains the prompt. The four
+asset receipts above identify available samples, not decoded or qualified scenes.
+
+No `.unity`, `.prefab`, scene-JSON or asset-JSON export was found in this
+checkout's artifacts or the canonical Woden checkout's artifacts by the bounded
+filename search including ignored files; the seven matching JSON paths were
+NuGet `obj/project.assets.json` files. The existing `ux-ui-fixture` material is mod-panel fixture
+output, not an exported native scene reference graph. Existing
+`artifacts/wheel-prompts/Audit.csproj` and `Program.cs` consume GameAssembly and
+metadata through LibCpp2IL/Iced; they do not decode Unity serialized objects.
+Their hashes are respectively
+`08E8D84CEA8C138EE013285CB5D67A715A4451493012E25CC009E016E87160B2` and
+`09D6A4611C0FBB5E3742F035E9D1D07492DDFB1362B46FCDF205025F48120CE5`.
+UnityPy was not available in the current Python environment. No AssetRipper or
+AssetStudio command was found on PATH; the bounded filename inventory of the
+canonical Woden tree, local dotnet tools and `E:/Tools`, including ignored
+files, found only `AssetRipper.Primitives.dll` and `AssetRipper.CIL.dll` matches,
+not an asset-reader executable or AssetsTools/UnityPy/AssetStudio match.
+This is a local search boundary,
+not proof that no suitable tooling exists anywhere on the machine.
+
+REA `binary_session` reported no open target. Its available Windows Ghidra
+profile explicitly excludes DLL targets and creates temporary analysis files;
+no target was opened, no analysis database created and no setup attempted.
+No available Unity serialized-object decoder was established by these checks.
+
+### Virtual consumers: identities without a widget association
+
+Existing disassembly supplies concrete unresolved call sites, not a hook:
+
+* `EnhancedButton.Update` at `18057EA40`: indirect calls at `18057EBB2`,
+  `18057ECB2`, `18057ED56` and `18057EDE6` use receiver-class slot `2A8`.
+  The first site's receiver comes from the array at `this+70`; its argument
+  is a four-float value assembled on the stack. This agrees with the retained
+  selection-color evidence and does not supply a key-to-Text/Image link.
+* At `18057F1EB`, the same Update dispatches slot `398` on the object loaded
+  from `this+38` (`SelectWithButtonTarget` in the retained declarations).
+  Its concrete receiver class and destination are not resolved in the export.
+  Selection dispatch is not evidence that this call refreshes a glyph.
+* The retained GamePadSystem export contains indirect sites `180BFE2AC`
+  (slot `308`) and `180C006A7` / `180C006BB` / `180C006CE`
+  (slots `228` / `1D8` / `1B8`). The export does not provide concrete
+  receiver-vtable targets tying these sites to `ButtonNames`, a Text setter
+  or an Image sprite assignment. They remain unresolved, not absent consumers.
+
+No new metadata/direct-call survey or baseline verification was run. Field
+names, slot numbers, the existing color arrays and GamePadListener rebinding
+fields are explicitly insufficient. No supported scene/object path, serialized
+fileID/pathID pair, component reference, key-to-widget association or actual
+prompt refresh producer was established. Consequently there is no demonstrated
+native method suitable for a presentation patch.
+
+### Exact missing input and stopping boundary
+
+The missing input is a **decoded, supported-build serialized reference slice**
+for one actual stock prompt: source asset hash and object pathID, hierarchy path,
+MonoScript/component identity, EnhancedButton key (or ButtonNames index), and
+resolved Text/Image component PPtr including external-file references. It must
+be accompanied by the concrete receiver class plus virtual/interface target
+identity at the refresh call, and the data path from that key to text/sprite.
+The existing raw assets and code exports do not supply that resolved slice.
+
+The smallest later offline observation is one such prompt's reference chain
+and its writer, obtained using an existing compatible decoder/export supplied
+to source coordination. If static resolution cannot supply it, a separately
+authorized bounded runtime observation must identify that same single widget,
+its key and actual writer across one stock refresh/input-mode transition;
+this attempt grants no runtime authority. Repeating field/direct-call surveys
+or baseline checks is not the next step.
+
+Restoration cannot yet be implemented or qualified: the real widget and writer
+are unknown. A later hook must snapshot that object's current stock text/sprite
+and affected presentation state, preserve subsequent stock refreshes, and
+restore on input handoff, loss/replacement, disable and teardown through the
+real producer, as required below. This attempt mutated no asset, widget, input,
+profile or owner state, so there is no runtime state to restore. Only this
+document changes; no proprietary/generated asset is added to Git. No download,
+setup, game, attachment, UI, device, build or test was performed. This finite
+negative result closes this prerequisite, not the blocked parent implementation
+or any source-fixture, rendered, runtime or owner-acceptance gate.
+
 ## Continuation 01M5J1XPBADV9SW6C877XCRT3C (lale)
 
 Started from clean `8a7d37e8ab30279be748c95844291620b346d23e`.
