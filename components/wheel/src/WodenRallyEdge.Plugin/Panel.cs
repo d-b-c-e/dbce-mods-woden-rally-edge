@@ -667,7 +667,7 @@ internal static partial class Panel
         if(!Advanced && cfg.CustomFfb){if(Button(250,y,694,"Custom FFB tuning active. Review in Advanced"))Navigate("FFB","Advanced");y+=44;}
         // One force model for players (STD-026): no selector. A saved Classic choice is kept, and said so, until Grip is tuned for this game.
         Label(250,y,690,cfg.FfbModel=="Grip"?"Steering strength sets cornering resistance and return to center from the front tires' grip; the wheel lightens as the front slides. Now: "+force.GripStatus:"Earlier force model, kept from your saved settings until the current one is tuned for this game. Reset FFB tuning (Advanced) switches to the current model.",true,46);y+=52;
-        y=ToggleRow(y,"Crash kick",ref cfg.CrashEnabled);Label(250,y,690,"A short push and rattle when you hit something. Now: "+force.CrashStatus,true,40);y+=46;
+        y=ToggleRow(y,"Crash effects",ref cfg.CrashEnabled);Label(250,y,690,"A short push and rattle when you hit something. Now: "+force.CrashStatus,true,40);y+=46;
         if(cfg.CrashEnabled){y=Slider(y,"Crash strength (%)",ref cfg.CrashStrength,0,100,"F0");Label(250,y,690,"Force of the hardest hit; separate from Steering strength.",true,40);y+=48;}
         if(Advanced)
         {
@@ -687,7 +687,7 @@ internal static partial class Panel
                 y=Slider(y,"Reference front load",ref cfg.FfbLoadReference,100,50000,"F0");Label(250,y,690,"Earlier model: higher values reduce the tire estimate. Unity force units; default 6000.",true,40);y+=48;
                 y=Slider(y,"Slip response scale",ref cfg.FfbSlipScale,.02f,3);Label(250,y,690,"Earlier model: larger values soften the slip response. Game slip units; default 0.35.",true,40);y+=48;
             }
-            y=ToggleRow(y,"Invert FFB",ref cfg.FfbInvert);
+            y=ToggleRow(y,"Invert force direction",ref cfg.FfbInvert);
             if(Button(250,y,280,"Reset FFB tuning")){cfg.FfbModel="Grip";cfg.FfbLoadRatio=2;cfg.FfbGripSmoothing=.2f;cfg.FfbStrength=50;cfg.FfbPeak=25;cfg.FfbSmoothing=35;cfg.FfbDamping=.05f;cfg.FfbLoadReference=6000;cfg.FfbSlipScale=.35f;cfg.FfbInvert=false;Dirty();}y+=46;
             Label(250,y,690,$"Accepted output {force.Sent:P1}; calls {force.Attempts}; failures {force.Failures}. Reset preserves On/Off and device.",true,46);y+=52;
         }
@@ -704,7 +704,7 @@ internal static partial class Panel
         int fovMode=TripleView.MatchGameFov?1:0;y=Choice(y,"Triple FOV",new[]{"Physical rig","Adjustable FOV"},ref fovMode);TripleView.MatchGameFov=fovMode==1;
         Label(250,y,690,TripleView.MatchGameFov?"Bonnet and bumper use the active view lens, including Fit to car. All three views are recalculated together using a virtual eye distance; your measured rig is kept.":"Bonnet and bumper use the measured rig geometry. Their FOV keys and slider are inactive while triples are on; stock chase keeps its saved FOV behavior.",true,64);y+=72;
         Label(250,y,690,TripleView.CenterFovStatus,true,46);y+=54;
-        y=ToggleRow(y,"Bonnet",ref cfg.Bonnet);y=ToggleRow(y,"Bumper",ref cfg.Bumper);
+        y=ToggleRow(y,"Bonnet camera",ref cfg.Bonnet);y=ToggleRow(y,"Bumper camera",ref cfg.Bumper);
         BindingRow(y,"Camera");y+=100;
         Label(250,y,690,"Cycle to Bonnet or Bumper to adjust the active view. Open Adjustment bindings for your saved keys or to rebind them.",true,46);y+=60;
         if(Button(250,y,694,(_lookBehind?"− ":"+ ")+"Look behind binding",_lookBehind))_lookBehind=!_lookBehind;y+=44;
@@ -746,7 +746,7 @@ internal static partial class Panel
             if(Button(250,y,330,"Default steps: 0.02 m, 1°, 2°")){cfg.CameraMoveStep=CameraSteps.Default.Move;cfg.CameraTiltStep=CameraSteps.Default.Tilt;cfg.CameraFovStep=CameraSteps.Default.Fov;Dirty();}y+=46;
             Label(250,y,690,"Steps set how far each numpad press moves, tilts or zooms the active view. Smaller steps place the view more finely.",true,46);y+=54;
         }
-        y=ToggleRow(y,"Show frame rate on screen",ref cfg.ShowFrameRate);
+        y=ToggleRow(y,"Frame rate display",ref cfg.ShowFrameRate);
         Label(250,y,690,"Frame rate, last 10 s: "+FrameRate.Summary,true,42);y+=48;
         Label(250,y,690,MountedCamera.Status,true,42);End(y+50);
     }

@@ -1,0 +1,94 @@
+[
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/1e08c032-620d-483f-b45e-c31f6a8e43ea.cfg",
+        "sha256":  "C246EA1ECDAD47F01F8CCA13F8F062E034C2FEDCF4040B383C4551DE9021FC7C"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/3e390755-a837-426e-9293-542c94453894.cfg",
+        "sha256":  "2F492BDF69D94ED9A2D2949D09E1FFFC771EFE14FA16A1D8E937CA497CADAFA5"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/bindings.json",
+        "sha256":  "15CC1569CEB29A8ADB2EE26AD4A06FFB87EBACACB28385967C92C18611446F6E"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/bindings.json.bak",
+        "sha256":  "24970B615797387DDA9698872A68DD023B0D8760B463EF246DAF05020002625E"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/broken-bindings.json",
+        "sha256":  "F526795C95399CEA27C055C842C3D6AB018ED0FA4F66F701C28AB22DEC28237B"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/cameras-720.json",
+        "sha256":  "BEDCF41F3FCA28F6F3996756C1602F747770B0AE862798311302987419DF3B1B"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/controls-720.json",
+        "sha256":  "A4BFCD0E1E49C713F7E4EE83C90DD60E84421AE557A3B5766C139B1C97E0BD49"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/dbce-controls.ini",
+        "sha256":  "E2D103683FBF9D94FB02D19B984BD14FE33FACDFA7A9248E2281ADFE594A0EE8"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/fac53d58-827d-4a49-a3b9-b600835021d8.cfg",
+        "sha256":  "37E375DE58D0713CFBDE4AFA007817A78D1F78443E3C545DB1FAC32426057C91"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/ffb-720.json",
+        "sha256":  "E8B70F7F4C30753D80F51FB0DD14420F06FC010850A05061470DB32146BD5D63"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/handbrake-calibration-720.json",
+        "sha256":  "1844A2A03B443A0CE5D7E4DBBC73081AC0575BB029AAE1A3525098C8B57FFED2"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/help-720.json",
+        "sha256":  "DFAA064B062E2AA2CBA67DD12D14AF25512669F4DBF9923B4C12AD5F4AD6E616"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/panel-shared-controls.ini",
+        "sha256":  "B3E9C7D8926728C33AC25E1B17A9EB6D9489C34652FB35BBB362AADD6675EE29"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/settings.cfg",
+        "sha256":  "B19A56DC5015ACED622E3598F7B65CF4BD2CB925488AD8EB48AAC51A52C7B7B5"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/setup-4k.json",
+        "sha256":  "657DA3D76A25DB8BE33E9081B5B59294547FF0CF3DDA801234630BA333752803"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/setup-720-scale150.json",
+        "sha256":  "1D7554CC33513DF47A2E33BE2AF15B5DA2D60BFE322BC037930F4D5DA81CC977"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/setup-720.json",
+        "sha256":  "07CB7AB62510B7DD689835801710C2AF5719C563CD711E9F4A7E0126CAD27E63"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/shared-controls-initial-1280x720.json",
+        "sha256":  "13FDB75638D11CA3FCF1E29D667406E6F650715A3921DBF6A53C01354887A880"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/shared-controls-initial-7680x1440.json",
+        "sha256":  "1DCDCA7FB2D6713CD841285AA76C0713B629407CA478282861999466EE7661A9"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/shared-controls.ini",
+        "sha256":  "B432810F616F78D5818BD759F588ED9570270A57362B5165F38F07CBC696F76E"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/shared-controls.ini.bindings-backup-73a7ddfebcd64cac981d9a069f47574f",
+        "sha256":  "FB6B54F4A6062F28AC0BB22490876B895C09669BFC730E7F7E4E5027C63D2171"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/shim-panel.json",
+        "sha256":  "AC5C16B1D9DD82B77C9D9C342DB1081CD9BC8724DFA88D8AC8528429EB87A865"
+    },
+    {
+        "path":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273/snapshot-controls.ini",
+        "sha256":  "82F614047F4B53ADD7EB893F1626FF65C3A8CD266E1D90BD98C4E0B173188275"
+    }
+]

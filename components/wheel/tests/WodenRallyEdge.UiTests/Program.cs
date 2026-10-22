@@ -113,7 +113,7 @@ void KeyPress(Key key,bool modifier=false)
     if(modifier)Keyboard.current[Key.LeftShift].isPressed=true;
     Runtime.Wheel!.UpdateCapture();Keyboard.current.Clear();
 }
-void Snapshot(string name){Draw();File.WriteAllText(Path.Combine(outputDir,name+".json"),JsonSerializer.Serialize(new{width=Screen.width,height=Screen.height,commands=GUI.Commands},new JsonSerializerOptions{IncludeFields=true,WriteIndented=true}));}
+void Snapshot(string name){Draw();File.WriteAllText(Path.Combine(dir,name+".json"),JsonSerializer.Serialize(new{width=Screen.width,height=Screen.height,commands=GUI.Commands},new JsonSerializerOptions{IncludeFields=true,WriteIndented=true}));}
 
 var settingsFile=new ConfigFile(Path.Combine(dir,"settings.cfg"),false);
 Runtime.Settings=new(settingsFile);TripleView.Bind(settingsFile);SpanWindow.Bind(settingsFile);Runtime.Wheel=new(Path.Combine(dir,"bindings.json"));
@@ -142,19 +142,23 @@ device.Axes[7]=0;Click("Controls");Click("Bind",3);device.Axes[7]=60000;Runtime.
 Check(Runtime.Wheel.CaptureDeadzone==3&&Math.Abs(Runtime.Wheel.PreviewBinding!.Normalize(30000)-.4845360825)<.001,"provisional half-pull preview reflects the visible 3% pedal deadzone");Click("Save calibration");
 Check(Runtime.Wheel.Bindings.Handbrake?.Axis==7&&Runtime.Wheel.Bindings.Buttons["Handbrake"].Button==18,"save retains additive axis and button");
 Click("FFB");Snapshot("ffb-720");
+Reach(()=>Find("Crash effects:")!=null,"Crash effects label");
+Click("Advanced");Reach(()=>Find("Invert force direction:")!=null,"Invert force direction label");Click("Simple");Click("FFB");
 Reach(()=>Find("Custom FFB tuning active. Review in Advanced")!=null,"Simple custom-tune summary");
 Check(Find("Custom FFB tuning active. Review in Advanced")!=null,"Simple custom tune summary remains reachable with shared stacked row spacing");
 Click("FFB"); // Return to the device controls at the top before the next scenario.
 Click("Use steering wheel  v");Click("MOZA R12");Check(!Runtime.Settings.FfbFollowSteering&&Runtime.Settings.FfbGuid==id.ToString(),"direct dropdown saves explicit device");
 Click("MOZA R12  v");Click("Use steering wheel");Check(Runtime.Settings.FfbFollowSteering&&!Runtime.Settings.FfbEnabled,"follow selection preserves Off");
 Click("Cameras");
+Reach(()=>Find("Bonnet camera:")!=null,"Bonnet camera label");
+Reach(()=>Find("Bumper camera:")!=null,"Bumper camera label");
 DrawCommand? FpsOn()
 {
-    var label=Find("Show frame rate on screen:");if(label==null)return null;
+    var label=Find("Frame rate display:");if(label==null)return null;
     return GUI.Commands.FirstOrDefault(c=>c.Kind=="text"&&c.Text=="On"&&Math.Abs(c.Rect.y-label.Rect.y-37*FixtureScale())<1);
 }
-Reach(()=>Find("Show frame rate on screen:")!=null&&FpsOn()!=null,"frame-rate label and its actual On control");
-Check(Find("Show frame rate on screen:")!=null,"F6 Cameras shows the frame-rate toggle (STD-023)");
+Reach(()=>Find("Frame rate display:")!=null&&FpsOn()!=null,"frame-rate label and its actual On control");
+Check(Find("Frame rate display:")!=null,"F6 Cameras shows the frame-rate toggle (STD-023)");
 var fpsOn=FpsOn()!;Draw(new(){type=EventType.MouseDown,mousePosition=new(fpsOn.Rect.x+10,fpsOn.Rect.y+12)});Draw();
 Check(Runtime.Settings.ShowFrameRate,"frame-rate toggle turns the on-screen counter on");
 Reach(()=>GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.StartsWith("Frame rate, last 10 s: 52 fps")),"10-second frame-rate summary");

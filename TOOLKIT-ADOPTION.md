@@ -1,3 +1,21 @@
+## October 22: settings coverage and remaining label alignment
+
+Compared the current toolkit ledger with this file: all 37 ledger IDs are
+represented; the existing private STD-038 note is additional. STD-004 gains
+only the five confirmed F6 label changes and the current source inventory;
+STD-017 advances from unchecked to partial on the supported-page source audit;
+STD-030 retains its partial runtime/input boundaries. Full details, exact keys,
+defaults, dependencies, timing, actions and Wheelkit differences are in
+[SETTINGS-PARITY](components/wheel/docs/SETTINGS-PARITY.md).
+
+Release source-linked UiTests build passed with zero warnings/errors; the
+executable passed 6,810 UI assertions plus 95 managed shim/lease checks. Logs
+and lease release are in artifacts/settings-parity (run02); earlier passing
+run01 and unique fixture snapshots are retained. STD-016/020 remain unchecked,
+STD-031/037 pending. No install/package/game/input/display/device/force run,
+physical acceptance, full settings parity or owner tune change is claimed.
+Older dated audit/status notes below remain historical.
+
 # October 17: Private fail-closed session adoption (source/offline only)
 
 STD-038 is adopted in this private successor from frozen499f265 using toolkit
@@ -224,7 +242,7 @@ Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 | STD-001 | One mod per game | adopted | one combined mod |
 | STD-002 | Recording and playback from launch | n/a | Superseded by STD-012. |
 | STD-003 | Normalized FFB strength | partial | Original analysis model and offline strength/cap trials validated; 25% cap occupied 46.46% of valid intervals. Physical normalization and defaults remain pending. See docs/FFB-COMPARISON.md. |
-| STD-004 | Consistent settings UX | adopted | F6 Simple/Advanced |
+| STD-004 | Consistent settings UX | adopted | F6 Simple/Advanced; October 22 source inventory and five confirmed labels in components/wheel/docs/SETTINGS-PARITY.md. Existing keys, values, tune and active/draft/restart behavior retained; source-linked UI only, no new runtime acceptance. |
 | STD-005 | Camera numpad layout 8/2 9/3 4/6 7/1 +/- 5 | adopted | 580a907, retained in merged source 83b72d9; October 15 FOV mode correction preserves saved keys, UI harness 965 assertions passed; new runtime pending |
 | STD-006 | Camera step sizes are settings | adopted | 2e32e46, retained in merged source 83b72d9; October 15 physical mode labels inactive FOV, adjustable mode retains saved steps; geometry 95/UI 965 assertions passed; new runtime pending |
 | STD-007 | Triple screens in one wide window | adopted | Owner drove the earlier triple build under Surround 2026-10-04; October 6 combined Kenya playback passed all 3,601 poses at 7680x1440 on separate monitors, frames 01/03 inspected by Claude and Codex with bonnet across three views and centre HUD. |
@@ -237,7 +255,7 @@ Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 | STD-014 | Request reciprocal review when progress stalls | adopted | Claude's failed combined replay led to Codex's scoped focus fix. The naturally unfocused October 6 replay passed; Claude and Codex inspected frames and exact evidence. Historical pre-fix failures and the earlier focused-only pass remain distinct. |
 | STD-015 | Triples on Surround and separate monitors | adopted | Surround: owner-driven 2026-10-04. Separate monitors: span on by default (2026-10-06) after Astra's 02:05 cold Kenya replay on "Sim Racing" passed (3,601 poses, 0.06 mm; five 7680x1440 frames, triples on, seams continuous; Claude reviewed the frames). See docs/2026-10-06-span-qualification.md. Per-display rendering (Display.Activate) not attempted. |
 | STD-016 | Telemetry: Forza Horizon layout, on by default | unchecked | Added from the October 6 ledger reconciliation. Existing telemetry implementation/owner settings are preserved; default and complete layout/HUD audit not performed in this muted replay check. |
-| STD-017 | Hide settings pages with nothing to offer | unchecked | Added from the October 6 ledger reconciliation; panel inventory audit remains. |
+| STD-017 | Hide settings pages with nothing to offer | partial | October 22 source inventory finds supported options/actions on Setup, Controls, FFB, Cameras, Telemetry and Help, plus Advanced-only Driving. SettingsPresentation normalizes invalid/Simple Driving pages to Setup; disconnected devices keep useful pages/status. Source-linked UI checks pass; actual game rendering and backend/runtime visibility remain unqualified. See components/wheel/docs/SETTINGS-PARITY.md. |
 | STD-018 | Handling changes never reach online scores | adopted | `LeaderboardGuard` (2026-10-06): once the default-off countdown assist adjusts the time limit in a race, that race's `SteamLeaderBoard.UpdateScore` is refused; a new local car clears it. Input mapping and the analog handbrake (native grip-loss branch scaled) do not block uploads. |
 | STD-019 | Menus on the centre screen; side screens only in gameplay | partial | October 6 replay frames establish centre gameplay HUD. The 11:34 plain-launch frames show startup line backgrounds extending onto both sides; centre-only loading/front-end/mod-panel coverage remains incomplete. |
 | STD-020 | Standard feature checklist per game | unchecked | Added from the October 6 ledger reconciliation; reconcile the portfolio feature row with current scoped evidence before release. |
@@ -250,7 +268,7 @@ Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 | STD-027 | Independent steering and effect strengths | adopted in source (2026-10-08, Grip v5; awaiting review and install) | Grip v5: Steering strength scales the tyre force only; damping has its own gain; crash strength separate; both on the Simple FFB page. Classic still scales its damping with strength (kept for comparisons). Previous note: Crash strength is separate, but Strength also scales damping in the current models. Audit/isolate steering-only adjustment with versioned replay before claiming full centering-only independence; preserve the owner-selected model and saved tune. Toolkit docs/FFB-STRENGTH-CONTROLS.md. |
 | STD-028 | Complete raw registry preservation | adopted for bounded shim admission | October 12 runs 01/02/03 independently restored 83 files and all 25 raw registry names/types/bytes, no extras, receipt unchanged. Process closed and lease released. See docs/SHIM-ADMISSION-TEST.md; broader lifecycle coverage remains separate. |
 | STD-029 | New functionality installed and on | partial private pilot | The private `24d7203` package is installed closed-game with 23/23 payloads (October 14): the save guard and Gearbox at start are present, with Gearbox at start left at Keep so the owner's saved transmission is not changed unasked. Saved Backend stays Native; the shim capability is present but Shim input is not opted in. Existing row/playback behavior retains its prior qualification. Ordinary Shim FFB-open/shared-reader coexistence, physical response and rendered acceptance remain unqualified. |
-| STD-030 | F6 comes first | partial | Run03 rendered active Shim/unfocused status, profile/restart scope and Live bars. Seven device-free panel checks cover pending/refusal too. Keyboard F6 response and input delivery remain unqualified; screenshot invoked the exact panel method. |
+| STD-030 | F6 comes first | partial | October 22 settings/action inventory and five confirmed wording changes pass source-linked UiTests (6,810 assertions plus 95 managed shim checks); no shared binding presentation/native prompt changes or runtime promotion. Run03 rendered active Shim/unfocused status, profile/restart scope and Live bars. Seven device-free panel checks cover pending/refusal too. Keyboard F6 response and input delivery remain unqualified; screenshot invoked the exact panel method. |
 | STD-031 | Updated Art reference level | pending | Owner-accepted Classic/Grip gains and saved tune deliberately preserved by the shim task. No normalization or physical acceptance claim. |
 | STD-032 | Wheelkit and portfolio records agree | partial | Published Wheelkit 0.6.42, running on the owner's PC, accepts the installed `24d7203` revision-5 receipt's playback and native-controls capabilities and offers Gearbox at start from its `nativeGearboxPreference` (hub `artifacts/woden-private-owner-install-24d7203-20261014`; earlier 0.6.34 check in `artifacts/wheelkit-0.6.34-20261013`). Its Woden shim writer is unchanged from 0.6.31 and still writes schema 1. The ordinary signal recording and the stage playback path keep their separate replay claims. Remaining: Wheelkit's revision-5 public release installer is in source but unreleased, so the mod's packaged `Manage-Install.ps1` stays the private delivery route. The hub records the exact October 13 receipts and limits. |
 | STD-033 | Rig-profile controls contract | partial | Installer retains native `woden-bindings-1`. October 13 source adds H-pattern gates 1-6, reverse and neutral through the existing Manual gearbox emulator; 899 production-linked assertions pass. The explicit private package adds a receipt-owned ABI 2 DLL and `sharedInputCandidate.controls` for 27 actions; clutch, Select and gates 7/8 remain unsupported. Native/private PS5.1 installer fixtures passed 114/29 checks. The current private install is `f252deb` (receipt `3041965C`), with the same shim and controls contract as the earlier `d8df97b` install (`F645FE98`). Saved Backend remains Native, and ordinary Shim game/FFB coexistence is not qualified; the owner-attended steps are in docs/READY-TO-TEST.md. See docs/2026-10-13-shim-hpattern.md, docs/2026-10-13-private-shim-package.md and docs/SHIM-PILOT.md. |

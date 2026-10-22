@@ -1,0 +1,14 @@
+{
+    "canonicalConfigKeyCount":  62,
+    "missingConfigKeys":  [
+
+                          ],
+    "ledgerCount":  37,
+    "missingStandards":  [
+
+                         ],
+    "panelSha256":  "AB2976EE1D0A304C6D59F1A3F334F1D54CCCD7A2226DC210D2843945C67C0952",
+    "fixtureSha256":  "40466E9D69516CF74A979AEA442A29803796BFEC49626504FCFEDFD408A23DAD",
+    "fixtureRun02":  "artifacts/ux-ui-fixture/3c87de2908c2475ab80bf63c4ae2d273",
+    "fullParityClaimed":  false
+}

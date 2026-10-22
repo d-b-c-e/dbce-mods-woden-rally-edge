@@ -1,0 +1,3 @@
+Private native ABI check: NOT RUN; managed shim consumer fixture only.
+PASS 95 production shim/lease checks; fake handle calls, no device/game/force. Native ABI result reported separately.
+UI fixture: 6810 assertions passed. Actual Panel/WheelInput/Settings source, simulated Unity events/devices; no game or force output. Artifacts: E:\Source\games\dbce-mods-woden-rally-edge\artifacts\ux-ui-fixture
