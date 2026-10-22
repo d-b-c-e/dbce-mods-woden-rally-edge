@@ -1,3 +1,23 @@
+## October 22: focused Help host qualification
+
+STD-004/030 Help clarification gains bounded host evidence on clean candidate
+`5211ec5083c851fc8e98d14f3179fcfafd469253`: existing underlined-link successor
+`daac644`, unchanged shared SupportReport pin `ab638898`, Woden repository and
+loaded-version descriptor retained. Affected Plugin Release and source-linked
+fixture builds passed with zero warnings/errors; focused Help35 passed deliberate
+GitHub dispatch, unreviewed refusal, immutable sanitized short/attachment handoff,
+edit/log review invalidation and shell/export recovery without settings writes.
+Shell calls were intercepted; selected logs/exports used fixture paths only.
+Historical Help13/build PASS at `4f153da` remains retained. Ignored evidence is
+`artifacts/help-report` (final clean successor build/fixture/result run05) and
+`artifacts/ux-ui-fixture`; each shared lease was directly acquired and released.
+See [the adapter note](components/wheel/docs/2026-10-15-shared-help-report.md).
+
+Ledger comparison: all37 IDs present, none missing. Current STD-017 remains
+partial after the separate settings audit; STD-016/020 unchecked and STD-031/037
+pending remain open. No common toolkit/full gameplay/unrelated suite rerun,
+install, packaging/publication, runtime or physical acceptance is claimed.
+
 ## October 22: settings coverage and remaining label alignment
 
 Compared the current toolkit ledger with this file: all 37 ledger IDs are
