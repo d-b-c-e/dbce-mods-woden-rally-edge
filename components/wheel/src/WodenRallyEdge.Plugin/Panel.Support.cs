@@ -18,6 +18,8 @@ internal static partial class Panel
     private static PreparedReport? _reportPrepared;
     private static List<string> _reportPages=new();
     private static int _reportPage;
+    private static Func<string> _reportRoot = () => BepInEx.Paths.BepInExRootPath;
+    private static Action<ProcessStartInfo> _reportShell = info => Process.Start(info);
 
     private static void InvalidateReport()
     { _reportPrepared=null;_reportReviewed=false;_reportFile=null;_reportPages.Clear();_reportPage=0; }
@@ -76,7 +78,7 @@ internal static partial class Panel
         InvalidateReport();
         try
         {
-            string[] selected=_reportIncludeLog?new[]{Path.Combine(BepInEx.Paths.BepInExRootPath,"LogOutput.log")}:Array.Empty<string>();
+            string[] selected=_reportIncludeLog?new[]{Path.Combine(_reportRoot(),"LogOutput.log")}:Array.Empty<string>();
             _reportPrepared=SupportReport.Prepare(ReportProduct,_reportTitle,_reportDescription,selected);
             _reportPages=ReportPreviewPages(_reportPrepared.Preview);
             _reportStatus="Review the report, then confirm. Pages show the complete text; nothing has been sent.";
@@ -111,7 +113,7 @@ internal static partial class Panel
             var submission=_reportPrepared.CreateBrowserSubmission(_reportReviewed);
             if(submission.NeedsAttachment&&_reportFile==null)
             {
-                string folder=Path.Combine(BepInEx.Paths.BepInExRootPath,"WodenSupport","report-"+Guid.NewGuid().ToString("N"));
+                string folder=Path.Combine(_reportRoot(),"WodenSupport","report-"+Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(folder);
                 string path=Path.Combine(folder,"support-report.txt");
                 _reportPrepared.WriteReviewFile(path);_reportFile=path;
@@ -126,7 +128,7 @@ internal static partial class Panel
     private static bool OpenReportUrl(Uri url)
     {
         if(url.Scheme!="https"||url.Host!="github.com")return false;
-        try{Process.Start(new ProcessStartInfo(url.AbsoluteUri){UseShellExecute=true});return true;}
+        try{_reportShell(new ProcessStartInfo(url.AbsoluteUri){UseShellExecute=true});return true;}
         catch(Exception ex) when(ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         { Message=_reportStatus="Could not open GitHub. Check the default browser and try again.";return false; }
     }
@@ -134,7 +136,7 @@ internal static partial class Panel
     private static void OpenReportFolder()
     {
         if(_reportFile==null)return;
-        try{Process.Start(new ProcessStartInfo(Path.GetDirectoryName(_reportFile)!){UseShellExecute=true});}
+        try{_reportShell(new ProcessStartInfo(Path.GetDirectoryName(_reportFile)!){UseShellExecute=true});}
         catch(Exception ex) when(ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         { _reportStatus="Could not open the report folder. Use the local report path shown here."; }
     }
