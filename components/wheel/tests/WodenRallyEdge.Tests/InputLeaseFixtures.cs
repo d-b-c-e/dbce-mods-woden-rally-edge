@@ -8,12 +8,13 @@ namespace Il2CppInterop.Runtime.InteropTypes.Arrays
     {
         private readonly T[] _values;
         internal int ThrowOnceOnSet = -1;
+        internal int ThrowAfterMatchingWrites = 1;
         internal Il2CppReferenceArray(T[] values) => _values = values;
         private static T Copy(T value) => value is WodenRallyEdge.GamePadSystem.Actions a ? (T)(object)(a with { }) : value;
         internal T this[int i]
         {
             get => Copy(_values[i]);
-            set { if (ThrowOnceOnSet == i) { ThrowOnceOnSet = -1; throw new IOException("Fixture interrupted action write"); } _values[i] = Copy(value); }
+            set { if (ThrowOnceOnSet == i && --ThrowAfterMatchingWrites == 0) { ThrowOnceOnSet = -1; throw new IOException("Fixture interrupted action write"); } _values[i] = Copy(value); }
         }
     }
 }
@@ -70,6 +71,29 @@ namespace WodenRallyEdge
             bool threw = false; try { _ = new InputLease(actions, .4f, .8f, .3f, input, car); } catch (IOException) { threw = true; }
             check(threw, "fixture exercises interrupted write");
             for (int i = 0; i < 18; i++) check(actions[i] == original[i], "partial override restored after exception: " + i);
+
+            input.Bindings.Buttons["Gear up"] = new(Guid.NewGuid(), 2);
+            input.Bindings.Buttons["Gear down"] = new(Guid.NewGuid(), 3);
+            foreach (bool shim in new[] { false, true })
+            foreach (bool held in new[] { false, true })
+            {
+                input.Pressed.Clear();
+                if (held) { input.Pressed.Add("Gear up"); input.Pressed.Add("Gear down"); }
+                lease = new InputLease(actions, 0, .6f, 0, input, car, shiftUp: true, shiftDown: true, shim: shim);
+                check(actions[1].Pressed && actions[3].Pressed && actions[1].value == 1 && actions[3].value == 1,
+                    "synthetic shifts merge with bound buttons in either backend");
+                lease.Restore(); lease.Restore();
+                for (int i = 0; i < 18; i++) check(actions[i] == original[i],
+                    "repeated action writes restore pre-lease value: shim=" + shim + ", held=" + held + ", index=" + i);
+            }
+
+            // Fail after the bound button write, on the later synthetic pulse.
+            actions.ThrowOnceOnSet = 3; actions.ThrowAfterMatchingWrites = 2;
+            threw = false;
+            try { _ = new InputLease(actions, 0, .6f, 0, input, car, shiftUp: true, shiftDown: true); }
+            catch (IOException) { threw = true; }
+            check(threw, "fixture interrupts a repeated action write");
+            for (int i = 0; i < 18; i++) check(actions[i] == original[i], "failed repeated write restores original: " + i);
         }
     }
 }

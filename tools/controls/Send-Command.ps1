@@ -1,6 +1,6 @@
 #Requires -Version 7.0
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$Result,[Parameter(Mandatory)][ValidateSet('status','raw','stop','panel','shot')][string]$Operation,[string]$Raw)
+param([Parameter(Mandatory)][string]$Result,[Parameter(Mandatory)][ValidateSet('status','raw','stop','panel','shot','workflow')][string]$Operation,[string]$Raw,[string]$Arguments)
 $ErrorActionPreference='Stop'
 $Result=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Result)
 . "$PSScriptRoot/OwnerFiles.ps1"
@@ -10,6 +10,9 @@ $c=Get-Content -LiteralPath "$Result/context.json" -Raw | ConvertFrom-Json
 if($c.schema -ne 1 -or $c.nonce -notmatch '^[a-f0-9]{32}$' -or $c.nonce -eq ('0'*32)){throw 'Invalid command context.'}
 if(($c.mode -eq 'shim-admission' -and $Operation -eq 'raw') -or ($c.mode -ne 'shim-admission' -and $Operation -in @('panel','shot')) -or
    ($c.mode -in @('shim-menu-trial','shim-car-trial','shim-force-capture') -and $Operation -notin @('status','stop'))){throw 'Operation unavailable in this test mode.'}
+if($Operation -eq 'workflow'){
+    if($c.mode -ne 'shim-admission' -or $c.f6Workflow -ne $true -or !$Arguments -or $Arguments.Length -gt 1024 -or $Arguments -match '[^\x20-\x7e]' -or $Raw){throw 'Workflow requires the schema-9 context and bounded ASCII arguments.'}
+}elseif($Arguments){throw 'Unexpected workflow arguments.'}
 if($Operation -eq 'raw') {
     if(!$Raw -or !$Raw.StartsWith('inject raw ') -or $Raw.Length -gt 512 -or $Raw -match '[^\x20-\x7e]'){throw 'Only bounded raw commands are supported.'}
 } elseif($Raw){throw 'Unexpected raw command.'}
@@ -31,7 +34,7 @@ try {
     $last=if(Test-Path "$Result/last-sequence.txt"){[int](Get-Content "$Result/last-sequence.txt" -Raw)}else{0}
     $next=$last+1
     if($next -gt 1024){throw 'Command limit.'}
-    $message=[ordered]@{sequence=$next;nonce=$c.nonce;operation=$Operation;raw=$(if($Operation -eq 'raw'){$Raw}else{$null})}
+    $message=[ordered]@{sequence=$next;nonce=$c.nonce;operation=$Operation;raw=$(if($Operation -eq 'raw'){$Raw}else{$null});arguments=$(if($Operation -eq 'workflow'){$Arguments}else{$null})}
     $json=$message | ConvertTo-Json
     [IO.File]::WriteAllText("$Result/pending-command.json",$json)
     $temp="$Result/trace/command.next.json"; $target="$Result/trace/command.json"

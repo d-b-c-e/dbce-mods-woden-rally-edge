@@ -17,6 +17,9 @@ internal static class StageStartup
 {
     private static JsonElement _context;
     private static bool _requested, _done, _raceVerified, _inputTrial;
+    private static bool _nativeObservation;
+    private static bool _observationAdmitted;
+    private static bool? _observationAutomatic;
     private static string? _failure, _scene, _issuedFor;
     private static double _enteredAt;
     private static readonly List<(int Mode, int Preset, MountedView View)> Cameras = new();
@@ -88,6 +91,7 @@ internal static class StageStartup
     private static T? Find<T>() where T : UnityEngine.Object => UnityEngine.Object.FindObjectOfType<T>();
     internal static void Tick(bool active, bool replayActive, bool playing, double now)
     {
+        if (_nativeObservation) return; // The explicit ordinary diagnostic owns navigation, never trajectory playback.
         if (_inputTrial) return;
         if (!_requested || _done) return;
         if (_failure != null) { _done = true; throw new IOException(_failure); }
@@ -129,6 +133,28 @@ internal static class StageStartup
         NativeStep(now);
     }
     internal static void StopInputTrial() { if (_inputTrial) { _done = true; Status = null; } }
+    internal static void InitializeNativeObservation(string source)
+    {
+        if (_requested || !StagePlayback.OutputMuted || !Runtime.DiagnosticNoForce || Runtime.Settings.Player != 0 ||
+            Runtime.Settings.InputBackend != "Native") throw new IOException("Native observation requires a fresh muted Native launch");
+        Initialize(source);
+        if (!Validated || _failure != null || Text("scene") != "Kenya SS1" || Number("carId") != 8 || Number("arcadeRoute") != 0)
+            throw new IOException(_failure ?? "Native observation requires the sealed Kenya original");
+        _nativeObservation = true;
+        Status = "NATIVE OBSERVATION - existing reader, saved transmission";
+    }
+    internal static void TickNativeObservation(double now)
+    {
+        if (!_nativeObservation || !StagePlayback.OutputMuted || !Runtime.DiagnosticNoForce ||
+            Runtime.Settings.InputBackend != "Native" || ShimInput.Owns || Panel.Open)
+            throw new IOException("Native observation lost its mute/backend/menu admission");
+        if (!Runtime.Focused)
+        {
+            if (!_observationAdmitted) return; // Initial SplashScreen focus is not admission; total deadline still applies.
+            throw new IOException("Native observation lost focus after native entry admission");
+        }
+        NativeStep(now);
+    }
     private static void NativeStep(double now)
     {
         string scene = SceneManager.GetActiveScene().name;
@@ -181,6 +207,15 @@ internal static class StageStartup
             var cars = Ints("arcadeCars"); var skins = Ints("arcadeSkins");
             var automatic = Bools("arcadeAutoTransmission"); var cameras = Ints("playerCamera");
             if (_inputTrial) automatic[0] = false; // Explicit diagnostic choice; reference bytes remain immutable.
+            if (_nativeObservation)
+            {
+                var current = stats.Arcade_Auto_Transmission;
+                if (current == null || current.Length != 4) throw new IOException("Current Arcade transmission selection unavailable");
+                automatic = current.ToArray(); // Preserve current slots, not the reference capture's transmission.
+                var choice = NativeGearboxPreference.Parse(Runtime.Settings.NativeGearbox);
+                if (choice != NativeGearboxPreference.Choice.Keep) automatic[0] = choice == NativeGearboxPreference.Choice.Automatic;
+                _observationAutomatic = automatic[0];
+            }
             var catalog = progress.CarContainer?.CarIndex;
             if (catalog == null || cars[0] >= catalog.Length || catalog[cars[0]] == null)
                 throw new IOException("Recorded Arcade car is absent");
@@ -202,6 +237,7 @@ internal static class StageStartup
             if (presentation.field_Private_Boolean_1) throw new IOException("Stage presentation is a results screen");
             ValidateRound(presentation.field_Private_GameRound_0);
             _issuedFor = scene;
+            if (_nativeObservation) _observationAdmitted = true;
             Runtime.Log.LogInfo("Stage startup: native ProceedToStage -> " + Text("scene"));
             presentation.field_Private_Boolean_0 = false;
             presentation.ProceedToStage();
@@ -210,6 +246,7 @@ internal static class StageStartup
     }
     private static void Load(string target, bool showLoading)
     {
+        if (_nativeObservation) _observationAdmitted = true; // First genuinely focused, ready native menu transition.
         _issuedFor = _scene;
         Runtime.Log.LogInfo("Stage startup: native menu load " + _scene + " -> " + target);
         MenuCameraScript.LoadScene(target, showLoading, false);
@@ -236,13 +273,16 @@ internal static class StageStartup
             throw new IOException("Native race rules differ from recording");
         if (_inputTrial && (car.PlayerIndex != 0 || car.Aids?.Automatic != false))
             throw new IOException("Input trial requires actual player zero Manual gearbox");
+        if (_nativeObservation && (car.PlayerIndex != 0 || !_observationAutomatic.HasValue || car.Aids?.Automatic != _observationAutomatic))
+            throw new IOException("Native observation's actual transmission differs from the saved/current selection");
+        if (_nativeObservation) _observationAdmitted = true;
         if (!_raceVerified) Runtime.Log.LogInfo("Stage startup: actual single-player car, stage and rules verified");
         _raceVerified = true;
         return true;
     }
     internal static void ApplyCamera(Car_Cam camera, int row)
     {
-        if (!_requested || _inputTrial || row < 0 || row >= Cameras.Count) return;
+        if (!_requested || _inputTrial || _nativeObservation || row < 0 || row >= Cameras.Count) return;
         var desired = Cameras[row];
         MountedCamera.RecordedView(camera, desired.Mode, desired.Preset, desired.View);
     }

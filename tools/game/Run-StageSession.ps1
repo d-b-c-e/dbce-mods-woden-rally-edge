@@ -93,6 +93,17 @@ function Read-Status([string]$Path) {
     } catch [IO.IOException] { return @() }
     finally { if ($reader) { $reader.Dispose() } elseif ($stream) { $stream.Dispose() } }
 }
+function Set-PreparedReplayIdentity([string[]]$Lines,[string]$RequestedId) {
+    $guid=[Guid]::Empty
+    if(![Guid]::TryParseExact($RequestedId,'N',[ref]$guid)){throw 'Requested replay ID is invalid.'}
+    $fields=[Collections.Generic.Dictionary[string,string]]::new([StringComparer]::Ordinal)
+    foreach($line in $Lines){$eq=$line.IndexOf('=');if($eq -le 0 -or $line -match '[\r\n]' -or !$fields.TryAdd($line.Substring(0,$eq),$line.Substring($eq+1))){throw 'Prepared replay request is malformed.'}}
+    if($fields.Count -ne 5 -or !$fields.ContainsKey('id') -or ![Guid]::TryParseExact($fields['id'],'N',[ref]$guid) -or
+        !$fields.ContainsKey('action') -or $fields['action'] -cne 'replay' -or !$fields.ContainsKey('expiresUtc') -or
+        !$fields.ContainsKey('path') -or ![IO.Path]::IsPathFullyQualified($fields['path']) -or
+        !$fields.ContainsKey('output') -or ![IO.Path]::IsPathFullyQualified($fields['output'])){throw 'Prepared request is not the expected replay.'}
+    foreach($line in $Lines){if($line.StartsWith('id=',[StringComparison]::Ordinal)){'id='+$RequestedId.ToLowerInvariant()}else{$line}}
+}
 function Review-Recording([string]$Path) {
     $inspector = Join-Path $PSScriptRoot 'WodenCaseFinalizer.exe'
     if (!(Test-Path -LiteralPath $inspector)) { $inspector = Join-Path $PSScriptRoot '../../components/wheel/tools/TelemetryInspector/bin/Release/net10.0/TelemetryInspector.dll' }
@@ -271,12 +282,24 @@ try {
     }
     if ($Record) { & $command -Game woden -Action Record -Path $Recording -Seconds $Seconds | Out-Null }
     else { & $command -Game woden -Action Replay -Path $Recording -Output (Join-Path $Result 'playback') | Out-Null }
+    $preparedPath=Join-Path $control 'request.txt'
+    $id = ((Get-Content -LiteralPath $preparedPath) | Where-Object { $_ -like 'id=*' }).Substring(3)
+    if($RequestId){
+        Assert-Closed
+        Assert-StageRigLease -Path $slot -Token $rigLease.token
+        $preparedLines=@(Set-PreparedReplayIdentity ([IO.File]::ReadAllLines($preparedPath)) $RequestId)
+        $identityTemp=Join-Path $control ($RequestId+'.identity.tmp')
+        if(Test-Path -LiteralPath $identityTemp){throw 'Prepared identity temporary file already exists.'}
+        try{[IO.File]::WriteAllLines($identityTemp,[string[]]$preparedLines,[Text.UTF8Encoding]::new($false));[IO.File]::Move($identityTemp,$preparedPath,$true);$id=$RequestId}
+        finally{if(Test-Path -LiteralPath $identityTemp){Remove-Item -LiteralPath $identityTemp}}
+    }
     Add-Content -LiteralPath (Join-Path $control 'request.txt') -Value 'autoExit=true'
     if (!$Record) { Add-Content -LiteralPath (Join-Path $control 'request.txt') -Value 'coldStart=native-arcade-v1' }
     if ($AdmittedPackage) { $outputsMuted = $true } # Stage-Session replay is muted by the game adapter.
     $request = Get-Content -LiteralPath (Join-Path $control 'request.txt')
     $request | Set-Content -LiteralPath (Join-Path $Result 'request.txt')
     $id = ($request | Where-Object { $_ -like 'id=*' }).Substring(3)
+    if($RequestId -and $id -cne $RequestId){throw 'Prepared replay ID differs from requested identity.'}
     Write-Output ((@{ $true='RECORDING: select a single-player Arcade practice stage and drive normally. The game will save and close; no automatic switch to playback.'; $false='PLAYBACK: automatic offline startup.' })[[bool]$Record] + ' Request '+$id)
     Start-Process 'steam://rungameid/3218630'
     $clock = [Diagnostics.Stopwatch]::StartNew()

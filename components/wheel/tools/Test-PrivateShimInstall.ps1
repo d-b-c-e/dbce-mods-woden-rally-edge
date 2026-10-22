@@ -10,8 +10,12 @@ $null = New-Item -ItemType Directory -Path $fixture
 'Disposable private installer regression fixture' | Set-Content -LiteralPath (Join-Path $fixture '.woden-installer-fixture')
 Copy-Item -LiteralPath 'D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge\GameAssembly.dll' -Destination $fixture
 $archive = Join-Path $root 'lib\loader\BepInEx-Unity.IL2CPP-win-x64-6.0.0-be.788+5b766a3.zip'
-$nativeInstaller = Join-Path $NativePackageRoot 'Manage-Install.ps1'
+$legacyNativeInstaller = Join-Path $NativePackageRoot 'Manage-Install.ps1'
 $privateInstaller = Join-Path $PrivatePackageRoot 'Manage-Install.ps1'
+# Both transition directions qualify the current shipped installer against
+# explicit package inputs. The historical Native installer cannot recognize a
+# later 4AF receipt; retain its safe refusal as a separate compatibility check.
+$nativeInstaller = $privateInstaller
 $receiptPath = Join-Path $fixture 'BepInEx\WodenWheel-install.json'
 $shimPath = Join-Path $fixture 'BepInEx\plugins\WodenRallyEdgeWheel\dbce_shim.dll'
 $config = Join-Path $fixture 'BepInEx\config'
@@ -26,6 +30,28 @@ function Refuses([scriptblock]$action,[string]$pattern) {
     try { & $action } catch { if ($_.Exception.Message -notmatch $pattern) { throw }; $failed = $true }
     Check $failed ('Expected refusal: ' + $pattern)
 }
+
+# Exercise the shipped candidate contract against both reviewed historical/current
+# hashes without claiming these inert entries are installed binary witnesses.
+$reviewedPrivateShimHashes = @('9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8','4AF269C9F2FDBAE3CEF1A78E563C3877CB0AB820D4BE4C2579A1AD6EA25CECC5')
+$tokens=$null;$parseErrors=$null
+$installerAst=[Management.Automation.Language.Parser]::ParseFile($privateInstaller,[ref]$tokens,[ref]$parseErrors)
+if($parseErrors.Count){throw 'Private installer syntax failed'}
+$candidateFunction=@($installerAst.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Expected-Candidate'},$true))
+Check ($candidateFunction.Count -eq 1) 'Expected one production candidate contract'
+. ([scriptblock]::Create($candidateFunction[0].Extent.Text))
+$gameHash='F422894D8D2B0DF4EDB7E5259E5E60CB8C4F8DEA2E85EBDFC09DD6766349250C'
+$savedShimPath=$shimPath
+try {
+    $shimPath='BepInEx\plugins\WodenRallyEdgeWheel\dbce_shim.dll'
+    $entries=@('WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','WheelFfb.dll','dbce_shim.dll'|ForEach-Object {[pscustomobject]@{path=('BepInEx\plugins\WodenRallyEdgeWheel\'+$_);sha256=('1'*64)}})
+    foreach($reviewedHash in $reviewedPrivateShimHashes){$entries[-1].sha256=$reviewedHash;Check ((Expected-Candidate $entries).shimSha256 -ceq $reviewedHash.ToLowerInvariant()) 'Candidate receipt must retain actual reviewed shim hash'}
+    $entries[-1].sha256='0'*64
+    Refuses {Expected-Candidate $entries} 'does not match the reviewed ABI 2 pins'
+} finally {$shimPath=$savedShimPath}
+$packageControls=(Get-Content -LiteralPath (Join-Path $PrivatePackageRoot 'private-shim-capability.json') -Raw|ConvertFrom-Json).controls
+$expectedShimHash=$packageControls.shimSha256
+Check ($expectedShimHash -in $reviewedPrivateShimHashes) 'Fixture private package must use an exact reviewed shim hash'
 
 Native
 $native = Receipt
@@ -75,11 +101,16 @@ $private = Receipt
 Check ($private.installerRevision -eq 5 -and $private.files.Count -eq 23 -and $private.ordinarySession.schema -eq 'woden.signal-session@1') 'Legacy private receipt upgrades to revision-5 ordinary ownership'
 Check (($private.ordinarySession.inputOrigin -join ',') -ceq 'human,automated') 'Legacy private upgrade gains explicit-origin capability'
 Copy-Item -LiteralPath $receiptPath -Destination (Join-Path $fixture 'private-install-receipt.json')
-Check ((Hash $shimPath) -eq '9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8') 'Installed shim pin'
+Check ((Hash $shimPath) -eq $expectedShimHash -and $private.sharedInputCandidate.controls.shimSha256 -ceq $expectedShimHash) 'Installed shim and receipt retain the actual reviewed package pin'
 Check (@($private.files | Where-Object { $_.path -like '*dbce_shim.dll' }).Count -eq 1) 'Private shim ownership entry'
 Check ($private.controlsProfileSchema -eq 1 -and $private.adapter -eq 'woden-bindings-1') 'Native capability changed'
 Check ($private.sharedInputCandidate.controls.adapter -eq 'woden-shim-ini-controls-1' -and $private.sharedInputCandidate.controls.delivered.Count -eq 27) 'Shared candidate omitted'
 Check ($private.sharedInputCandidate.controls.optIn.default -eq 'Native') 'Private capability changed default backend'
+if($expectedShimHash -eq '4AF269C9F2FDBAE3CEF1A78E563C3877CB0AB820D4BE4C2579A1AD6EA25CECC5'){
+    $legacyReceiptHash=Hash $receiptPath;$legacyShimHash=Hash $shimPath
+    Refuses { & $legacyNativeInstaller -GameDir $fixture -PackageRoot $NativePackageRoot -LoaderArchive $archive } 'Invalid prior install ownership receipt'
+    Check ((Hash $receiptPath) -eq $legacyReceiptHash -and (Hash $shimPath) -eq $legacyShimHash -and (Hash $settings) -eq $settingsHash -and (Hash $controls) -eq $controlsHash) 'Historical 9B8-only installer refusal preserves the current 4AF install/config'
+}
 Private
 Check ((Receipt).files.Count -eq 23 -and (Hash $shimPath) -eq $private.sharedInputCandidate.controls.shimSha256) 'Private update lost ownership'
 $nativeSettingsBytes = [IO.File]::ReadAllBytes($settings)

@@ -11,10 +11,22 @@ public sealed record ColdRequest(int Schema, string Nonce, DateTimeOffset Expire
     string NativeSha256, string OutputDirectory, string Mode = "raw", string? ControlsSha256 = null, string? ShimSha256 = null,
     string? StageReference = null, string? WorkloadDirectory = null,
     string? ProfileSha256 = null, string? WorkloadSha256 = null, string? ProfileRevision = null,
-    string? ApplyReadbackSha256 = null);
-public sealed record RawRequest(int Sequence, string Nonce, string Operation, string? Raw);
+    string? ApplyReadbackSha256 = null, int PositiveSeconds = 0);
+public sealed record SessionClient(int ProcessId, long StartedUtcTicks, long Window, string Class, string ExecutablePath);
+public sealed record RevokeRequest(int Schema, string Nonce);
+public sealed record RawRequest(int Sequence, string Nonce, string Operation, string? Raw, string? Arguments = null, SessionClient? Client = null);
 public static class Protocol
 {
+    public const string OwnerBindingsSha256="EC81BEB085E6483F83998EDEB949661FC889C5D319D542865128ADB8E21D2097";
+    public const string CandidateBindingsSha256="04EB80F80EB0D6F98728BC6E5AFFB680688C4DCCAE3FD5940FEB65014AA2D6F0";
+    public static bool CandidateForward(ColdRequest? request) => request is {Schema:11, Mode:"native-candidate-forward"};
+    // Schema 12 keeps the schema-11 tuple (04EB bindings, load-muted native, ten-second transport) with its own recipe.
+    public static bool DriveResponse(ColdRequest? request) => request is {Schema:12, Mode:"native-drive-response"};
+    public static bool CandidateTuple(ColdRequest? request) => CandidateForward(request) || DriveResponse(request);
+    public static bool NativePositive(ColdRequest? request) => request is {Schema:10, Mode:"native-positive-pedals"} || CandidateTuple(request);
+    public static bool F6Workflow(ColdRequest? request) => request is {Schema:9, Mode:"shim-admission"};
+    public const string SnapshotShimSha256="4AF269C9F2FDBAE3CEF1A78E563C3877CB0AB820D4BE4C2579A1AD6EA25CECC5";
+    public const string LoadMutedSha256="088F1089BEB6D18D478F37582C59330C6BDA6BC37D5E365F6BA7EBF80040F567";
     public static bool MenuTrial(ColdRequest? request) => request?.Mode == "shim-menu-trial";
     public static bool HudOrdinary(ColdRequest? request) => request is {Schema:6, Mode:"shim-hud-ordinary"};
     public static bool HudStopOnly(ColdRequest? request) => request is {Schema:8, Mode:"shim-hud-stop-only"};
@@ -43,15 +55,21 @@ public static class Protocol
     public static ColdRequest Admit(byte[] bytes, DateTimeOffset now, string marker)
     {
         var r = Decode<ColdRequest>(bytes, 8192);
-        if (!(r.Schema == 2 && r.Mode == "raw" && r.ControlsSha256 is null && r.ShimSha256 is null ||
-              (r.Schema == 3 && r.Mode == "shim-admission" || r.Schema == 4 && MenuTrial(r) || r.Schema == 5 && r.Mode == "shim-car-trial" || r.Schema == 6 && ForceCapture(r) || DynamicCarTrial(r) || HudStopOnly(r)) && r.ControlsSha256 is not null && Hash.IsMatch(r.ControlsSha256) && r.ShimSha256 is not null && Hash.IsMatch(r.ShimSha256)) ||
+        if (!((r.Schema == 2 && r.Mode == "raw" || NativePositive(r)) && r.ControlsSha256 is null && r.ShimSha256 is null ||
+              (r.Schema == 3 && r.Mode == "shim-admission" || F6Workflow(r) || r.Schema == 4 && MenuTrial(r) || r.Schema == 5 && r.Mode == "shim-car-trial" || r.Schema == 6 && ForceCapture(r) || DynamicCarTrial(r) || HudStopOnly(r)) && r.ControlsSha256 is not null && Hash.IsMatch(r.ControlsSha256) && r.ShimSha256 is not null && Hash.IsMatch(r.ShimSha256)) ||
             !ValidNonce(r.Nonce) || marker != r.Nonce || r.ExpiresUtc <= now || r.ExpiresUtc > now.AddMinutes(5))
             throw new InvalidDataException("Cold request identity or expiry refused.");
+        if(NativePositive(r) ? r.NativeSha256 != LoadMutedSha256 ||
+            r.BindingsSha256 != (CandidateTuple(r)?CandidateBindingsSha256:OwnerBindingsSha256) ||
+            r.PositiveSeconds != (CandidateTuple(r)?10:22) : r.PositiveSeconds != 0)
+            throw new InvalidDataException("Native test requires its exact owner/candidate binding, load-muted native and explicit interval.");
+        if(F6Workflow(r) && (r.ShimSha256 != SnapshotShimSha256 || r.NativeSha256 != LoadMutedSha256))
+            throw new InvalidDataException("F6 workflow requires the exact extension-3 and load-muted native tuple.");
         foreach (var value in new[] { r.PluginSha256, r.CoreSha256, r.ConfigSha256, r.BindingsSha256, r.NativeSha256 })
             if (value is null || !Hash.IsMatch(value)) throw new InvalidDataException("Missing artifact hash.");
         if (string.IsNullOrEmpty(r.OutputDirectory) || !Path.IsPathFullyQualified(r.OutputDirectory))
             throw new InvalidDataException("Evidence directory must be absolute.");
-        if (CarTrial(r) ? string.IsNullOrEmpty(r.StageReference) || !Path.IsPathFullyQualified(r.StageReference) ||
+        if (NativePositive(r) ? string.IsNullOrEmpty(r.StageReference) || !Path.IsPathFullyQualified(r.StageReference) || r.WorkloadDirectory is not null : CarTrial(r) ? string.IsNullOrEmpty(r.StageReference) || !Path.IsPathFullyQualified(r.StageReference) ||
                 string.IsNullOrEmpty(r.WorkloadDirectory) || !Path.IsPathFullyQualified(r.WorkloadDirectory) :
                 r.StageReference is not null || r.WorkloadDirectory is not null)
             throw new InvalidDataException("Car-trial sources require schema 5/6 and absolute paths.");
@@ -63,13 +81,26 @@ public static class Protocol
             throw new InvalidDataException("Dynamic car sources require schema 7 and four frozen pins.");
         return r;
     }
-    public static RawRequest Command(byte[] bytes, string nonce, int previous, DateTimeOffset created, DateTimeOffset processStart, bool shimAdmission = false,bool menuTrial=false)
+    public static RawRequest Command(byte[] bytes, string nonce, int previous, DateTimeOffset created, DateTimeOffset processStart, bool shimAdmission = false,bool menuTrial=false,bool f6Workflow=false)
     {
         var r = Decode<RawRequest>(bytes, 2048);
         if (!ValidNonce(nonce) || r.Nonce != nonce || r.Sequence != previous + 1 || r.Sequence > 1024 || created <= processStart)
             throw new InvalidDataException("Stale or mismatched command refused.");
-        if (r.Operation is not ("status" or "stop") && (menuTrial || !(shimAdmission ? r.Operation is "panel" or "shot" : r.Operation == "raw")))
+        if (r.Operation is not ("status" or "stop" or "arm") && (menuTrial || !(shimAdmission ? r.Operation is "panel" or "shot" || f6Workflow && r.Operation == "workflow" : r.Operation == "raw")))
             throw new InvalidDataException("Operation unavailable in this test mode.");
+        if(r.Operation=="arm")
+        {
+            if(r.Client is not {} c || c.ProcessId<=0 || c.StartedUtcTicks!=processStart.UtcDateTime.Ticks || c.Window<=0 ||
+                c.Class!="UnityWndClass" || string.IsNullOrWhiteSpace(c.ExecutablePath) || !Path.IsPathFullyQualified(c.ExecutablePath))
+                throw new InvalidDataException("Arm requires the exact render client and process birth.");
+        }
+        else if(r.Client is not null)throw new InvalidDataException("Unexpected arm client.");
+        if(r.Operation == "workflow")
+        {
+            if(!f6Workflow || r.Raw is not null || string.IsNullOrEmpty(r.Arguments) || r.Arguments.Length>1024 || r.Arguments.Any(c=>c<32||c>126))
+                throw new InvalidDataException("Workflow arguments require the schema-9 menu-only mode and bounded ASCII.");
+        }
+        else if(r.Arguments is not null)throw new InvalidDataException("Unexpected workflow arguments.");
         if (r.Operation == "raw")
         {
             if (string.IsNullOrEmpty(r.Raw) || !r.Raw.StartsWith("inject raw ", StringComparison.Ordinal) ||

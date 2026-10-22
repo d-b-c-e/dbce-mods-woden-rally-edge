@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace WodenRallyEdge.Core;
 
@@ -24,7 +25,7 @@ public sealed class Bindings
     public bool HandbrakeUsesAxis { get; set; }
     public Dictionary<string, ButtonBinding> Buttons { get; set; } = new();
     public Dictionary<string, string> CameraKeys { get; set; } = CameraTuning.DefaultKeys();
-    /// <summary>Load moved untouched old camera defaults to the current layout (not saved).</summary>
+    /// <summary>Load supplied defaults because no camera keys were saved (not saved).</summary>
     [System.Text.Json.Serialization.JsonIgnore] public bool CameraKeysMigrated { get; set; }
     public string? Conflict(string action, ButtonBinding? button = null, string? key = null)
     {
@@ -61,18 +62,39 @@ public sealed class Bindings
         foreach (var name in new[] { "Steer", "Throttle", "Brake", "Handbrake" })
             if (bindings.Axis(name) is { } b && !b.Valid) throw new IOException("Invalid saved " + name + " calibration");
         if (bindings.Buttons == null || bindings.Buttons.Any(x => x.Value?.Valid != true)) throw new IOException("Invalid saved button binding");
-        // No saved keys, or an untouched earlier default set: the current family layout.
+        // Persisted keys are user choices, including layouts equal to earlier defaults.
         if (!hadKeys) { bindings.CameraKeys = CameraTuning.DefaultKeys(); bindings.CameraKeysMigrated = true; }
-        else bindings.CameraKeysMigrated = CameraTuning.MigratePreviousDefaults(bindings.CameraKeys);
         return bindings;
     }
-    public void Save(string path)
+    public void Save(string path) => SaveJson(path, JsonSerializer.Serialize(this, Json));
+    public void SaveDeadzone(string path, string axis, AxisBinding previous)
+    {
+        var updated = Axis(axis) ?? throw new IOException("Missing edited axis");
+        if (!updated.Valid || (updated with { Calibration = updated.Calibration with { Deadzone = previous.Calibration.Deadzone } }) != previous)
+            throw new IOException("Deadzone save cannot change the axis binding");
+        if (!File.Exists(path)) { Save(path); return; }
+        var saved = JsonNode.Parse(File.ReadAllText(path))?.AsObject() ?? throw new IOException("Empty bindings");
+        static string Key(JsonObject owner, string name)
+        {
+            var keys = owner.Select(p => p.Key).Where(k => k.Equals(name, StringComparison.OrdinalIgnoreCase)).ToArray();
+            return keys.Length == 1 ? keys[0] : throw new IOException("Missing or ambiguous saved " + name);
+        }
+        var savedAxis = saved[Key(saved, axis)]!.AsObject();
+        if (JsonSerializer.Deserialize<AxisBinding>(savedAxis.ToJsonString(), Json) != previous)
+            throw new IOException("Saved axis changed; reopen the deadzone editor");
+        var calibration = savedAxis[Key(savedAxis, "Calibration")]!.AsObject();
+        var deadzones = calibration.Select(p => p.Key).Where(k => k.Equals("Deadzone", StringComparison.OrdinalIgnoreCase)).ToArray();
+        if (deadzones.Length > 1) throw new IOException("Ambiguous saved Deadzone");
+        calibration[deadzones.SingleOrDefault() ?? "Deadzone"] = updated.Calibration.Deadzone;
+        SaveJson(path, saved.ToJsonString(Json));
+    }
+    private static void SaveJson(string path, string json)
     {
         string full = Path.GetFullPath(path); Directory.CreateDirectory(Path.GetDirectoryName(full)!);
         string temp = full + ".tmp-" + Guid.NewGuid().ToString("N");
         try
         {
-            File.WriteAllText(temp, JsonSerializer.Serialize(this, Json));
+            File.WriteAllText(temp, json);
             if (File.Exists(full)) File.Replace(temp, full, full + ".bak", true); else File.Move(temp, full);
         }
         finally { if (File.Exists(temp)) File.Delete(temp); }
@@ -93,7 +115,7 @@ public sealed class AxisCapture
     public int Maximum => _max;
     public string Status => Ambiguous ? "Several axes moved. Cancel, release controls, and try again." : !Detected ?
         (_steering ? "Turn the wheel right first, then sweep fully left/right." : "Move the control fully, then release it.") :
-        (_steering ? $"Sweep both ends. Raw {_min} .. {_max}; centre {_rest}." : $"Raw rest {_rest}; observed {_min} .. {_max}.");
+        (_steering ? $"Sweep both ends. Raw {_min} .. {_max}; center {_rest}." : $"Raw rest {_rest}; observed {_min} .. {_max}.");
     private int _direction;
     public AxisCapture(Dictionary<(Guid, int), int> baseline, bool steering) { _baseline = new(baseline); _steering = steering; }
     public void Observe(Dictionary<(Guid guid, int axis), int> values)

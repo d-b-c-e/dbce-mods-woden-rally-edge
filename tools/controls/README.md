@@ -1,3 +1,7 @@
+# Private F6 workflow extension
+
+Source-only schema 9 adds explicit `-ShimF6Workflow` to the existing restored admission route. Exact4AF input and qualified088F load-muted native/provenance are mandatory. The existing nonce/sequence mailbox accepts bounded `workflow` arguments with unique step GUIDs. Only the actual shared host can Begin/Cancel, invert, checked-Save or Discard; edits require actual owned foreground and focused main-menu Controls with accepted reader observations. Passive status and fixed mod-page views do not fake focus. The old DevInput channel and all raw/gameplay trials stay off. One explicit shared Save is witnessed and verified; the full owner-state restoration remains exact. See [recipe and pending final tuple](../../components/wheel/docs/F6-BINDING-WORKFLOW-RECIPE.md). No build or runtime result is claimed for this extension.
+
 # Production Apply and raw controls qualification
 
 October 12: the schema 4 fixed shared-Core menu route passed; see
@@ -46,7 +50,7 @@ is allowed, including on invalid request, timeout, or stopped injection.
   two show raw delivery and normalized values; `Apply` shows the actual input
   lease used by Controls. Record real selected UI/camera separately. Never call
   a consuming button method just to observe it.
-- Refuse binding/calibration edits throughout the process. Keep normal focus,
+- Refuse Native legacy binding/calibration edits throughout the process. Schema 9 alone permits its explicit shared-host workflow; other modes still refuse edits. Keep normal focus,
   pause, ownership, countdown and settings guards. No OS input, focus change,
   virtual pad, display mode override or replacement car input.
 - Bound request/command size, commands, duration and trace. Commands carry the
@@ -190,3 +194,109 @@ after cleanup; incomplete, timed-out or failed trials return an error with the
 owner state already restored. The `commands` field counts the separate raw
 observer commands and may correctly be zero during shared-Core trials.
 `Test-TrialResult.ps1` checks these outcomes without launching a game.
+
+
+## Explicit Native positive-pedal comparison (source only, October 16)
+
+`Run-OrdinaryStopSmoke.ps1 -PositivePedalComparison -PositiveProbePath <new qualified probe> -PositiveProbeSha256 <exact hash> -NativeObservationSeconds 15`
+uses schema-10 `native-positive-pedals`, exact EC81 Native bindings, qualified088F no-force, the existing sealed Kenya/car8 startup and original source recorder. It never runs Wheelkit Apply. The ordinary passive route is unchanged. The explicit cold probe names22seconds; once before first reader admission the probe records/configures the private Native observation `_seconds` from15to22. The probe's prefix gates that existing reader interval until10contiguous focused/current sealed RACE/unlocked/Automatic rows. The180second startup deadline and8second normal exit are unchanged. No actual run/build has occurred yet.
+
+The one fixed maximum16.5second schedule is P0physical at most.25s (ends early after3actualreverse-effect rows), Zrawbrake0 for.5s, Bfullthrottle+rawbrake0 for4s, servicebrake up to2s, release.5s, P1physical.25s, Athrottle-only with physicalbrake4s, servicebrake up to2s, release.5s, analogHBfull+brake0 for1.5s, final physicalrelease1s. Servicebrake uses distinct sequenced100msTTL commands scheduled75ms apart and runs only while signedTrueSpeed>1 and ceases at the first signedTrueSpeed<=1 (including any reverse); it is not a guaranteed stop/reset. A supplies ONLY throttleaxis2, preserving physicalbrakeaxis5; B supplies both named objects. Releases submit nothing and wait for expiry. No failed/uncertain command is retried. No new reader/backend or physics/transmission writes.
+
+Existing raw-read and native-car rows must prove the actual delivered objects (LastReadInjected is only per slot), EC81 normalization, advancing applied ticks, Controls, game fields and native torque/motion. Read-only BrakeTimer/Max_Reverse_Speed getters are added only to this probe trace against pinnedF422 game; missing fields remain unavailable. Every window records actual start/end gear/automatic/speed/power/fuel/grounding/orientation. Each moving/reverse/unreadable A/B start is recorded and prevents treating A/B as controlled. P/Z causal-data availability is separately derived from its grounded/upright/timer/native-torque rows; a reverse A start does not invalidate P/Z data. Gear1 alone is never a no-reverse witness. Actual native effect row counts include full game.handbrake plus rear brake torque for H. Both failing narrows downstream only after each raw/normalized/applied path is proven. Runtime collection completion is not a no-drive-fixed/physical release verdict. Final native injection expiry plus return near the original physical raw baseline is required; owner files, probe, switches and typed preferences are restored by existing routes. Remaining Help/close/cancel is a separate restored menu-only F6 interval; no passive Native recapture is needed for it.
+
+## Explicit candidate forward check (schema11; source only)
+
+Root185109 requests one useful Native check after the deadzone product build.
+`Run-OrdinaryStopSmoke.ps1 -CandidateForward -CandidateBindingsPath <private copy>
+-CandidateBindingsSha256 04EB80F80EB0D6F98728BC6E5AFFB680688C4DCCAE3FD5940FEB65014AA2D6F0
+-PositiveProbePath <new qualified probe> -PositiveProbeSha256 <actual hash>
+-NativeObservationSeconds 10` reuses the same sealed Kenya startup, resident raw
+client and original reader. OwnerEC81 is pinned before mutation and its exact
+snapshot is restored. The private binding derivative is temporarily applied to
+GameDir under that backup/restore; this is not a separate game installation.
+The reviewed private binding copy differs only in
+Brake.Calibration.Deadzone=0.03; Rest/End/Centre/Invert and every other value stay
+exact. The changed probe requires its explicit schema11/hash/ten-second tuple;
+legacy schema10 remains EC81/22s. No schema spoofing or hidden normalization.
+
+After ten contiguous focused/current/sealed RACE rows, collect physical input
+for1s, submit exactly one throttleaxis2=65535 for4000ms, then collect1s without
+commands for TTL expiry. Before that submission, mapped/native throttle, brake
+and handbrake must be zero, grounded and near-rest current speed/velocity. The
+original ten-second transport is configured only before its first reader; no
+active extension or180startup/8exit change. No brake/handbrake/service-brake or
+camera command is submitted. Focus/state/identity loss stops collection; no
+retry. Final fresh native status must have no sample running and at least ten
+physical-return rows matching the initial raw objects. Physical release remains
+unknown.
+
+Candidate delivery uses the actual production AxisCalibration source for the
+3% brake mapping, raw/mapped/Controls/MainCar values and advancing applied ticks.
+Response rows require actual forward local velocity and all four brake torques
+zero, with native throttle1/brake0/handbrake0. Analyze the motion trend/start/end
+and actual source identity; the count alone is not feature/physical acceptance.
+MotorTorque is not used to witness propulsion. P/Z, service-brake and missing
+MaxReverse getter coverage are intentionally absent. No product, Core, native,
+helper or force tuning change belongs to this test-only successor.
+
+`ProtocolTests --candidate-forward-only` links actual calibration source and runs
+only the new admission/recipe/delivery/motion cases. Authored UNRUN pending one
+focused Probe compile/check and copy-only package slot. Product cf655d45 already
+qualified: Plugin1D9741CC, retained8c84 Core7ADA,55 focused deadzone UI,28 exact
+calibration,6500 required UI+95 managed shim checks; do not repeat those builds or
+suites for this test-tool delta. Existing schema9 F6 remains Shim/menu-only; its
+views/draft/discard/close cannot prove Native deadzone Save or mounted FOV.
+Supported Sky's left-tile capture limit must remain explicit; mark unsupported
+views unobserved while completing the useful drive witness.
+
+The schema-11 run (hub artifacts/woden-candidate-forward-runtime-livo-20261016)
+then showed the throttle pulse: forward velocity 0 to 16.7 m/s over 240 joined rows.
+
+## Explicit drive response check (schema12; source only)
+
+`Run-OrdinaryStopSmoke.ps1 -DriveResponse` takes the same candidate parameters
+as `-CandidateForward` (04EB private bindings, ten-second transport, exact probe)
+plus `-OwnerBindingsSha256`, which names the owner's current bindings (EC81 or
+04EB; the owner adopted 04EB after the schema-11 run). Schema 11 is unchanged.
+
+Recipe `drive-throttle-steer-brake-release@1` (7.75 s inside the ten-second
+transport), after the same ten contiguous sealed RACE rows:
+physical 1 s; throttle axis2=65535 for 1.25 s (CandidateReady neutral near-rest
+gate first); steer axis0=26659 (production -0.25) for 1 s; steer axis0=40048
+(+0.25) for 1 s; brake as the existing 100 ms throttle0+brake65535 pulses while
+native trueSpeed>1, at most 2 s; final release 1.5 s with no commands. Left
+first: the schema-11 straight run drifted right before its first contact at
+about 45 m. The brake pulses stop at the native reverse boundary because a held
+native brake reverses a stopped car (R9 final-release). Steer raws come from the
+pinned 04EB Steer calibration (Rest6184/Centre33484/End59740, not inverted).
+Steering windows coast; no throttle or brake object is held during them.
+
+The live gate stays the mod path: raw, production-normalized and applied ticks
+for at least five rows of each non-pulse window, otherwise the recipe stops.
+`result.json` `positiveEvidence.driveResponse` then reports, per phase, separate
+delivery and response verdicts from the probe's eligible contiguous rows:
+
+| Phase | Delivery | Response |
+|---|---|---|
+| throttle | raw/normalized/Controls/native throttle 1, brake 0 | forward velocity rises above 1 m/s |
+| steer left/right | raw and normalized steer; Controls and game.steer equal the mapped value | later-half yaw rate beyond the run's own straight-line maximum (throttle phase), in the commanded direction |
+| brake | raw/normalized/Controls/native brake 1 | deceleration greater than the steer phases' coasting deceleration |
+| final release | injection expired, raw axes back to the physical baseline | native throttle/brake equal the physical mapping; no drive or reverse beyond 1 m/s |
+
+INCONCLUSIVE, never PASS: fewer than five rows, a phase the run did not finish,
+a production crash-counter increase (`ForceController.CrashCount`, read as
+`drive.crashCount`) or an unavailable counter, a car not moving forward, a
+missing baseline, yaw within the straight-line maximum, or native steer that
+moved toward but never equaled the mapped value. Wheel brake torque is not a
+witness: R9 full service braking decelerated 14.5 to 0.4 m/s with all four brake
+torques 0. Motor torque is not a witness either. This is muted automated
+injection on the private tuple: not physical wheel/pedal release, force or
+mounted-camera acceptance.
+
+`ProtocolTests --drive-response-only` runs admission, recipe, delivery and
+classifier cases, using real rows for throttle (schema-11 run-01 samples
+573-647) and braking (R9 service-brake-after-B); steering rows are synthetic,
+since no run has commanded steering yet. Authored UNRUN in game: a runtime needs a
+Probe compile against the installed plugin, the temporary package and the retained
+helper pins the runner checks.

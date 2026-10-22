@@ -37,9 +37,10 @@ internal static class MountedCamera
         }
         bool presetChanged = Cycle.View != MountedView.Stock && camera.PresetIndex != Cycle.ExpectedStockPreset;
         if (Cycle.Reconcile(camera.PresetIndex, Runtime.Settings.Bonnet, Runtime.Settings.Bumper)) Handoff("Mounted camera released", presetChanged);
-        _playerOwned = Runtime.CameraAvailable(camera.Maincar_) && !camera.Changing && !_foreignWriter;
+        bool shown = Runtime.CameraShown(camera.Maincar_);
+        _playerOwned = shown && !camera.Changing && !_foreignWriter;
         if (!_playerOwned) { Restore(); Runtime.Force.Suspend("Camera handoff / " + camera.Mode); }
-        Status = _foreignWriter ? "Game controls camera; press Camera to return to the normal cycle" : !Runtime.CameraAvailable(camera.Maincar_) ?
+        Status = _foreignWriter ? "Game controls camera; press Camera to return to the normal cycle" : !shown ?
             "Game controls camera outside countdown / driving" : camera.Changing ? "Game camera transition" : Cycle.View.ToString();
         return _playerOwned;
     }
@@ -81,7 +82,7 @@ internal static class MountedCamera
         try
         {
             if (!Observe(__instance)) return;
-            bool rear = Runtime.Wheel?.Button("Rear view", false) == true;
+            bool rear = !Panel.Open && Runtime.Wheel?.Button("Rear view", false) == true;
             if (Cycle.View == MountedView.Stock && !rear) return;
             var camera = __instance.field_Private_Camera_0;
             var car = __instance.Maincar_; var cfg = Runtime.Settings;

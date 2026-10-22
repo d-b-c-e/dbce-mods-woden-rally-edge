@@ -101,7 +101,9 @@ internal static partial class ShimInput
             {
                 int window = GameWindow.CaptureForShim();
                 if (window == 0) { Status = "Shim pilot: waiting for a live, visible Woden Unity window; Native retained"; return; }
-                var bytes = ShimProfile.Section(File.ReadAllBytes(Path.Combine(_config, "dbce-controls.ini")));
+                string profilePath=Path.Combine(_config,"dbce-controls.ini");
+                var startupProfile=File.ReadAllBytes(profilePath);
+                var bytes = ShimProfile.Section(startupProfile);
                 reason = ShimNative.Load(_directory); if (reason != null) { RefuseOrStop(reason); return; }
                 string nonce = _trialNonce ?? Guid.NewGuid().ToString("N");
                 string folder = Path.Combine(_reports, "run-" + nonce); Directory.CreateDirectory(folder);
@@ -116,16 +118,19 @@ internal static partial class ShimInput
                 _window = window;
                 if (!GameWindow.IsOwned(_window)) { RefuseOrStop("Owned Unity window changed during open"); return; }
                 SteeringGuid = ShimProfile.SteeringDevice(bytes, ShimNative.ProfileInfo(_handle), out _transmission);
+                SharedBindingHost.Configure(profilePath,startupProfile);
                 Runtime.Wheel?.Cancel();
                 Runtime.Log.LogInfo("Shim pilot owns wheel input; native keyboard retained; " + ShimNative.StartReport(_handle));
             }
             if (_frame != Time.frameCount)
             {
                 _frame = Time.frameCount;
+                double tickStarted=Runtime.Clock.Elapsed.TotalSeconds;
                 int result = ShimNative.Tick(_handle, Frame);
                 if (result != 0) { RefuseOrStop("Tick " + result); return; }
                 ShimNative.Decode(Frame, Actions, out ulong sequence, out _, out _, out byte run);
                 if (!AcceptFrame(sequence,run)) return;
+                if(_trialNonce==null)ShimBindingSnapshots.AfterAcceptedTick(_handle,sequence,tickStarted);
                 _context = Context;
                 _buttons.Observe(Actions, _context, Allowed, KnownNeutralMask);
                 Status = InputFocused ? "Shim pilot active · wheel-only · native keyboard retained" :
@@ -135,7 +140,7 @@ internal static partial class ShimInput
         catch (Exception e) { RefuseOrStop(e.Message); }
     }
     private static bool InputFocused => Runtime.Focused && GameWindow.IsFocused(_window);
-    private static bool Allowed => Ready && InputFocused && Runtime.Wheel?.Capturing != true && (_trialNonce == null || TrialFences);
+    private static bool Allowed => Ready && InputFocused && Runtime.Wheel?.Capturing != true && !SharedBindingHost.Current.BlocksDispatch && (_trialNonce == null || TrialFences);
     private static int Context => !InputFocused ? -1 : Panel.Open ? 3 : Pause.Paused ? 2 : Runtime.Local == null ? 0 : 1;
     internal static bool Button(string action, bool edge, MainCar? car = null)
     {
@@ -159,6 +164,7 @@ internal static partial class ShimInput
     internal static void Stop(string reason)
     {
         if (!_requested && !Owns) return;
+        SharedBindingHost.Current.ReaderStopped();
         _terminal = true; Array.Clear(Actions, 0, Actions.Length);
         _buttons.Observe(Actions, -1, false);
         Status = "Shim stopped; wheel actions neutral until restart: " + reason;

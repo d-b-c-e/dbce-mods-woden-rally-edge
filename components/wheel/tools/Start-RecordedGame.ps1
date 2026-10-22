@@ -4,6 +4,9 @@ param(
     [switch]$AttendedFfb,
     [ValidateSet('human','automated')][string]$InputOrigin,
     [switch]$PrepareOnly,
+    [switch]$ExternalLaunch,
+    [string]$NativeObservationSource,
+    [ValidateRange(5,15)][int]$NativeObservationSeconds = 10,
     [switch]$Stop,
     [guid]$RequestId = [guid]::Empty,
     [ValidateRange(15,600)][int]$StartupTimeoutSeconds = 180,
@@ -54,7 +57,7 @@ function Write-Finalization([string]$ControlRoot, [guid]$Id, [string]$State, [st
     } finally { if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp } }
 }
 if ($Stop) {
-    if ($RequestId -eq [guid]::Empty -or $PrepareOnly -or $AttendedFfb -or $CaseId -or $PSBoundParameters.ContainsKey('InputOrigin')) { throw 'Stop requires only an exact RequestId.' }
+    if ($RequestId -eq [guid]::Empty -or $PrepareOnly -or $ExternalLaunch -or $AttendedFfb -or $CaseId -or $NativeObservationSource -or $PSBoundParameters.ContainsKey('InputOrigin')) { throw 'Stop requires only an exact RequestId.' }
     $captureDirectory = Join-Path $gameRoot ('BepInEx/WodenRecordings/request-' + $RequestId.ToString('N'))
     $controlRoot = Join-Path $captureDirectory 'control'
     $status = Read-ControlStatus (Join-Path $controlRoot 'status.txt')
@@ -68,6 +71,7 @@ if ($Stop) {
     Write-Host "Stop requested for exact ordinary recording $RequestId. Woden remains open; wait for source/case validation."
     return
 }
+if ($ExternalLaunch -and ($PrepareOnly -or $AttendedFfb -or !$NativeObservationSource -or $InputOrigin -cne 'automated')) { throw 'ExternalLaunch requires the explicit automated no-force Native observation companion.' }
 if (Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue) { throw 'Close Woden normally before preparing a recorded launch.' }
 if ((Get-FileHash -LiteralPath (Join-Path $gameRoot 'GameAssembly.dll')).Hash -ne 'F422894D8D2B0DF4EDB7E5259E5E60CB8C4F8DEA2E85EBDFC09DD6766349250C') { throw 'Unsupported game build.' }
 $plugin = Join-Path $gameRoot 'BepInEx/plugins/WodenRallyEdgeWheel/WodenRallyEdgeWheel.dll'
@@ -83,6 +87,14 @@ $captureDirectory = Join-Path $gameRoot ('BepInEx/WodenRecordings/request-' + $r
 if (Test-Path -LiteralPath $captureDirectory) { throw "Recording request directory already exists: $captureDirectory" }
 $request = [ordered]@{ Version = 2; Id = $requestId.ToString(); ExpiresUtc = [DateTimeOffset]::UtcNow.AddMinutes(15).ToString('o'); DisableForces = !$AttendedFfb; CaseId = $CaseId }
 if ($PSBoundParameters.ContainsKey('InputOrigin')) { $request.InputOrigin = $InputOrigin }
+if ($NativeObservationSource) {
+    if ($AttendedFfb -or $InputOrigin -cne 'automated') { throw 'Native observation requires automated origin and suppressed force.' }
+    $reference = (Resolve-Path -LiteralPath $NativeObservationSource -ErrorAction Stop).Path
+    if (!(Test-Path -LiteralPath (Join-Path $reference 'stage-context.json') -PathType Leaf)) { throw 'Native observation requires the sealed stage reference.' }
+    $request.NativeObservationSource = $reference
+    $request.NativeObservationSeconds = $NativeObservationSeconds
+    $request.ExpiresUtc = [DateTimeOffset]::UtcNow.AddMinutes(5).ToString('o')
+}
 $request | ConvertTo-Json | Set-Content -LiteralPath $requestPath -Encoding utf8
 Write-Host "Capture requested for one launch: $($request.Id). Expires in 15 minutes."
 Write-Host "Case: $CaseId (signal reprocessing; not deterministic game-driving replay)."
@@ -93,7 +105,8 @@ $controlRoot = Join-Path $captureDirectory 'control'
 Write-Host "Expected capture directory: $captureDirectory"
 if ($PrepareOnly) { Write-Host 'PrepareOnly: no game launched, input injected, device opened or force actuated.'; return }
 
-Start-Process -FilePath 'steam://rungameid/3218630' -WindowStyle Hidden | Out-Null
+if ($ExternalLaunch) { Write-Host 'ExternalLaunch: the lease-owning supervisor supplies the exact shared Steam launch; companion owns request/capture/finalization only.' }
+else { Start-Process -FilePath 'steam://rungameid/3218630' -WindowStyle Hidden | Out-Null }
 $startupDeadline = [DateTimeOffset]::UtcNow.AddSeconds($StartupTimeoutSeconds)
 do {
     $running = @(Get-Process -Name 'Super Woden Rally Edge' -ErrorAction SilentlyContinue)

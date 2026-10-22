@@ -11,20 +11,23 @@ param(
     [switch]$PrivateStandaloneSetup
 )
 $ErrorActionPreference = 'Stop'
+if ($env:PrivateShimPath) { throw 'Clear the global PrivateShimPath before packaging; managed package checks must not enable native ABI fixtures.' }
 if ($PrivateStandaloneSetup -and -not $PrivateShimPath) { throw 'The setup helper writes the shared profile: package it only with -PrivateShimPath.' }
 if ($HudDepthDiagnostic) { throw 'HudDepthDiagnostic is retired; plane 100/far 110 is ordinary HUD geometry.' }
 if ($HudGuiDiagnostic -and $HudStateTrace) { throw 'HUD state trace is for the matched driving depth trial, not the menu GUI trial.' }
 if ($HudGuiDiagnostic -and $ArtifactLabel -notmatch '^hudgui-') { throw 'HUD GUI diagnostic packages require a hudgui- artifact label.' }
 if ($HudStateTrace -and $ArtifactLabel -notmatch '^hudstate-') { throw 'HUD state trace packages require a hudstate- artifact label.' }
 $root = Split-Path $PSScriptRoot -Parent
-$privateShimHash = '9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8'
+$reviewedPrivateShimHashes = @('9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8','4AF269C9F2FDBAE3CEF1A78E563C3877CB0AB820D4BE4C2579A1AD6EA25CECC5')
+$privateShimHash = $null
 $automationNativeHash = '088F1089BEB6D18D478F37582C59330C6BDA6BC37D5E365F6BA7EBF80040F567'
 $automationProvenanceHash = '6068B7A848F85FE42AE88EE8A86B10F1EF4C4E307B9C4235BE44C1A84BBEA8E5'
 $baseNativeHash = 'F8361A08BBE08EAAB936B37800D308CF1FC7EDAB34E2839DB16A447FE34178C5'
 if ($PrivateShimPath) {
     if (-not [IO.Path]::IsPathFullyQualified($PrivateShimPath) -or -not (Test-Path -LiteralPath $PrivateShimPath -PathType Leaf)) { throw 'PrivateShimPath must be an existing absolute file.' }
     $PrivateShimPath = [IO.Path]::GetFullPath($PrivateShimPath)
-    if ((Get-FileHash -LiteralPath $PrivateShimPath).Hash -ne $privateShimHash) { throw 'PrivateShimPath does not match the reviewed ABI 2 pin.' }
+    $privateShimHash = (Get-FileHash -LiteralPath $PrivateShimPath).Hash
+    if ($privateShimHash -notin $reviewedPrivateShimHashes) { throw 'PrivateShimPath does not match the reviewed ABI 2 pins.' }
 }
 if ($AutomationNativeProvenancePath -and -not $AutomationMutedNativePath) { throw 'Automation native provenance requires the matching native DLL.' }
 if ($AutomationMutedNativePath) {
@@ -55,7 +58,9 @@ if ($AutomationMutedNativePath) {
 }
 & (Join-Path $PSScriptRoot 'Verify-Dependencies.ps1')
 $buildArgs = @('build',(Join-Path $root 'WodenRallyEdgeWheel.sln'),'-c','Release','-warnaserror','-v','q')
-if ($PrivateShimPath) { $buildArgs += ('-p:PrivateShimPath=' + $PrivateShimPath) }
+# Package the already hash-checked private DLL below. Passing PrivateShimPath to
+# the entire solution would also enable the separate real-DLL UI ABI fixture;
+# managed consumer/package checks do not repeat native qualification.
 $diagnostics = @()
 if ($HudGuiDiagnostic) { $diagnostics += 'WODEN_HUD_GUI_DIAGNOSTIC' }
 if ($HudStateTrace) { $diagnostics += 'WODEN_HUD_STATE_TRACE' }

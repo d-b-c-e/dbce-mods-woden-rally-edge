@@ -47,17 +47,19 @@ internal sealed class WheelInput
     private double _captureDeadline, _captureAfter;
     internal float CaptureDeadzone;
     internal bool CaptureInvert;
+    private AxisBinding? _deadzoneBinding;
+    internal bool EditingDeadzone => _deadzoneBinding != null;
     private Action<Bindings>? _pendingEdit;
     internal bool SavePending => _pendingEdit != null;
-    internal bool Capturing => Capture != null || CaptureButton != null || SavePending;
+    internal bool Capturing => Capture != null || CaptureButton != null || EditingDeadzone || SavePending;
     internal string? SaveError { get; private set; }
     internal AxisBinding? PreviewBinding
     {
         get
         {
-            var b = Capture?.Finish(); if (b == null) return null;
-            var c = b.Calibration with { Deadzone = CaptureDeadzone / 100 };
-            return b with { Calibration = c, Inverted = CaptureInvert };
+            var b = _deadzoneBinding ?? Capture?.Finish(); if (b == null) return null;
+            var c = b.Calibration with { Deadzone = CaptureDeadzone / 100d };
+            return EditingDeadzone ? b with { Calibration = c } : b with { Calibration = c, Inverted = CaptureInvert };
         }
     }
     private AppliedInput? _last;
@@ -72,7 +74,7 @@ internal sealed class WheelInput
         try
         {
             Bindings = Bindings.Load(path);
-            if (Bindings.CameraKeysMigrated) Runtime.Log.LogInfo("Camera keys: default numpad layout is 8/2 forward/back, 9/3 up/down, 4/6 left/right, 7/1 tilt, +/- FOV, 5 reset (untouched old defaults moved)");
+            if (Bindings.CameraKeysMigrated) Runtime.Log.LogInfo("Camera keys: no saved keys; using default numpad layout 8/2 forward/back, 9/3 up/down, 4/6 left/right, 7/1 tilt, +/- FOV, 5 reset");
         }
         catch (Exception ex) { Status = "Bindings could not load: " + ex.Message; SaveError = Status; }
     }
@@ -82,7 +84,9 @@ internal sealed class WheelInput
         var proposed = Bindings.Copy();
         try
         {
-            edit(proposed); proposed.Save(_path);
+            edit(proposed);
+            if (EditingDeadzone) proposed.SaveDeadzone(_path, CaptureAxis!, _deadzoneBinding!);
+            else proposed.Save(_path);
             Bindings = proposed; _pendingEdit = null; Status = "Bindings saved"; SaveError = null; return true;
         }
         catch (Exception ex) { _pendingEdit = edit; Status = "Save failed: " + ex.Message + ". Retry save or Cancel to retain the previous binding."; SaveError = Status; return false; }
@@ -90,6 +94,7 @@ internal sealed class WheelInput
     internal void RetrySave()
     {
         if (_pendingEdit == null) return;
+        if (EditingDeadzone) { if (TryCommit(_pendingEdit)) Cancel(); return; }
         if (CaptureAxis != null) { FinishAxis(); return; }
         if (TryCommit(_pendingEdit)) Cancel();
     }
@@ -99,9 +104,24 @@ internal sealed class WheelInput
         var snapshot = Runtime.Devices!.AxesSnapshot(); var old = Bindings.Axis(name);
         if (existing && old != null) snapshot = snapshot.Where(x => x.Key == (old.DeviceGuid, old.Axis)).ToDictionary(x => x.Key, x => x.Value);
         CaptureAxis = name; Capture = new(snapshot, name == "Steer");
-        CaptureDeadzone = existing && old != null ? (float)old.Calibration.Deadzone * 100 : 0; CaptureInvert = false;
+        CaptureDeadzone = existing && old != null ? (float)old.Calibration.Deadzone * 100 : name == "Steer" ? 0 : 3; CaptureInvert = false;
         Status = "Calibration is provisional. Cancel keeps your previous assignment.";
         _captureDeadline = Runtime.Clock.Elapsed.TotalSeconds + 30;
+    }
+    internal void BeginDeadzone(string name)
+    {
+        Cancel();
+        var binding = Bindings.Axis(name);
+        if (binding?.Valid != true) { Status = "Bind the control before editing its deadzone."; return; }
+        Runtime.Force?.Suspend("calibration");
+        _deadzoneBinding = binding; CaptureAxis = name;
+        CaptureDeadzone = (float)binding.Calibration.Deadzone * 100;
+        Status = "Only the deadzone changes. Saved endpoints and inversion stay unchanged. Save deadzone applies this draft.";
+        _captureDeadline = Runtime.Clock.Elapsed.TotalSeconds + 120;
+    }
+    internal void DeadzoneEdited()
+    {
+        if (EditingDeadzone && !SavePending) _captureDeadline = Runtime.Clock.Elapsed.TotalSeconds + 120;
     }
     internal void BeginButton(string name)
     {
@@ -111,7 +131,7 @@ internal sealed class WheelInput
     internal void UpdateCapture()
     {
         if (SavePending) return; // Keep the exact failed proposal until explicit Retry/Cancel.
-        if (Capture == null && CaptureButton == null) return;
+        if (Capture == null && CaptureButton == null && !EditingDeadzone) return;
         if (Runtime.Clock.Elapsed.TotalSeconds > _captureDeadline) { Cancel(); Status = "Binding timed out; previous binding retained"; return; }
         Capture?.Observe(Runtime.Devices!.AxesSnapshot());
         if (CaptureButton != null && !MenuOwnership.CaptureReady()) { Status = "Release keys and menu controls before binding. Escape cancels."; return; }
@@ -143,13 +163,13 @@ internal sealed class WheelInput
     {
         var b = PreviewBinding;
         if (b == null || CaptureAxis == null) { Status = "Sweep the required range before saving"; return; }
-        Runtime.Devices?.Poll();
-        if (Runtime.Devices?.TryAxis(b, out _) != true)
+        if (!EditingDeadzone) Runtime.Devices?.Poll();
+        if (!EditingDeadzone && Runtime.Devices?.TryAxis(b, out _) != true)
         { Status = "Calibration device disconnected. Reconnect and retry, or Cancel to keep the saved binding."; return; }
         string action = CaptureAxis;
         if (TryCommit(proposed => proposed.SetAxis(action, b))) Cancel();
     }
-    internal void Cancel() { if (SavePending) SaveError = null; _pendingEdit = null; Capture = null; CaptureAxis = null; CaptureButton = null; Runtime.Devices?.ClearPresses(); }
+    internal void Cancel() { if (SavePending) SaveError = null; _pendingEdit = null; _deadzoneBinding = null; Capture = null; CaptureAxis = null; CaptureButton = null; Runtime.Devices?.ClearPresses(); }
     internal bool Button(string action, bool edge = true, MainCar? car = null) => (ShimInput.Owns ? ShimInput.Button(action, edge, car) :
         Bindings.Buttons.TryGetValue(action, out var b) && Runtime.Devices?.Button(b, edge, action) == true) || CameraShortcuts.KeyPressed(action, edge);
     internal InputLease? Apply(Controls controls)
@@ -169,8 +189,9 @@ internal sealed class WheelInput
         if (HPatternBound)
         {
             int gate = HeldGate();
-            (throttle, brake) = HPatternShifter.Pedals(gate, throttle, brake);
-            (shiftUp, shiftDown) = Shifter.Step(gate, car.MyGear, car.Gears, car.Aids?.Automatic == true, car.TransmissionSystem?.Changing == true, Runtime.Clock.Elapsed.TotalSeconds);
+            bool automatic = car.Aids?.Automatic == true;
+            (throttle, brake) = HPatternShifter.Pedals(gate, throttle, brake, automatic);
+            (shiftUp, shiftDown) = Shifter.Step(gate, car.MyGear, car.Gears, automatic, car.TransmissionSystem?.Changing == true, Runtime.Clock.Elapsed.TotalSeconds);
         }
         var lease = new InputLease(actions, steer, throttle, brake, this, car, shiftUp, shiftDown);
         _last = new(car.GetInstanceID(), Runtime.Clock.Elapsed.TotalSeconds, steer, throttle, brake, lease.Handbrake);

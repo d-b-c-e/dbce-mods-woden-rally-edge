@@ -57,6 +57,14 @@ Test("calibration endpoints, asymmetric centre, inverted pedals and deadzone", (
     var pedal = new AxisCalibration(60000, 1000); Near(pedal.Normalize(60000), 0, "rest"); Near(pedal.Normalize(1000), 1, "full"); Near(pedal.Normalize(30500), .5, "half");
     Check(!new AxisCalibration(1, 1).Valid, "zero span rejected"); Check(!new AxisCalibration(0, 100, 100).Valid, "centre endpoint rejected");
     Check(!new AxisCalibration(0, 100, null, double.NaN).Valid, "NaN deadzone rejected");
+    var quietBrake = new AxisCalibration(0, 65535, Deadzone: .03);
+    foreach (int raw in new[] { 0, 830, 913, 927, 1966 })
+        Check(quietBrake.Normalize(raw) == 0, "pedal rest/noise maps to exact zero: " + raw);
+    Check(quietBrake.Normalize(1967) > 0, "input above explicit deadzone remains available");
+    Check(quietBrake.Normalize(65535) == 1, "deadzone preserves full pedal travel");
+    Near(quietBrake.Normalize(32768), (32768d / 65535 - .03) / .97, "pedal travel rescales above deadzone");
+    Check(new AxisCalibration(65535, 0, Deadzone: .03).Normalize(65535 - 927) == 0,
+        "reversed pedal uses the same explicit rest deadzone");
 Check(string.Join("|", TripleLayoutChoice.Labels) == "Off|Surround|Separate monitors", "STD-022 selector labels"); Check(TripleLayoutChoice.Current(true, false) == 0 && TripleLayoutChoice.Current(true, true) == 0, "views off wins over a saved span"); Check(TripleLayoutChoice.Current(false, false) == 1 && TripleLayoutChoice.Current(false, true) == 2, "Surround vs Separate"); Check(TripleLayoutChoice.Apply(0) == (true, false) && TripleLayoutChoice.Apply(1) == (false, false) && TripleLayoutChoice.Apply(2) == (false, true), "Off also ends the span at the next start"); for (int tl = 0; tl < 3; tl++) { var tc = TripleLayoutChoice.Apply(tl); Check(TripleLayoutChoice.Current(tc.Off, tc.Span) == tl, "selector round trip " + tl); }
 });
 Test("world finite difference rotated into current local frame", () => {
@@ -319,7 +327,21 @@ Test("H-pattern: a gate steps the game's own shift actions, one press at a time,
     Check(presses == before && h.Status.Contains("manual"), "an automatic gearbox is left alone with a status");
     var (t1, b1) = HPatternShifter.Pedals(HPatternShifter.Reverse, .7f, .2f); var (t0, b0) = HPatternShifter.Pedals(0, .7f, .2f); var (t3, b3) = HPatternShifter.Pedals(3, .7f, .2f);
     Check(t1 == .2f && b1 == .7f && t0 == 0 && b0 == .2f && t3 == .7f && b3 == .2f, "R swaps the pedals, out of gear cuts the throttle, a gear passes them through");
-});Test("shared force shaping: symmetric sign, literal gain, cap, ramp and low-speed fade", () => {
+});
+Test("H-pattern: automatic pedals ignore neutral and reverse while manual emulation is retained", () => {
+    foreach (var (gate, manualThrottle, manualBrake) in new[] { (0, 0f, .2f), (HPatternShifter.Reverse, .2f, .7f), (3, .7f, .2f) })
+    {
+        var automatic = HPatternShifter.Pedals(gate, .7f, .2f, automatic: true);
+        Check(automatic == (.7f, .2f), $"automatic gate {gate} preserves throttle and brake");
+        var manual = HPatternShifter.Pedals(gate, .7f, .2f, automatic: false);
+        Check(manual == (manualThrottle, manualBrake), $"manual gate {gate} retains neutral/reverse/forward pedals");
+        var h = new HPatternShifter();
+        h.Step(6, 1, 6, false, false, 0); // Start a manual shift before switching to automatic.
+        var shift = h.Step(gate, 1, 6, true, false, .01);
+        Check(!shift.Up && !shift.Down && h.Status.Contains("manual"), $"automatic gate {gate} stops shifting and keeps the manual-mode hint");
+    }
+});
+Test("shared force shaping: symmetric sign, literal gain, cap, ramp and low-speed fade", () => {
     var left = new ForceSignal(); var right = new ForceSignal(); var inverted = new ForceSignal(); float final = 0;
     for (int i = 1; i <= 100; i++) {
         var a = left.Evaluate(Contact(i * .02), new()); var b = right.Evaluate(Contact(i * .02, -.3), new());
@@ -362,6 +384,22 @@ Test("camera fit, manual tuning, bounds and key bindings survive legacy and new 
     Near(CameraTuning.Adjust(pose, "Camera wider", fine).Fov, pose.Fov + .5, "fine FOV step"); Near(new CameraSteps(0, float.NaN, 99).Bounded().Move, .005, "step bounds");
     Near(CameraTuning.Adjust(pose, "Camera pitch up").Pitch, pose.Pitch - 1, "pitch up");
     Near(CameraTuning.Adjust(pose with { Fov = 110 }, "Camera wider").Fov, 110, "FOV clamp");
+    Check(FovLockText.Angle(33.6) == "33.6° vertical" && FovLockText.Angle(null) == "the measured rig" && FovLockText.Angle(double.NaN) == "the measured rig" &&
+          FovLockText.KeyMessage(33.6).Contains(FovLockText.SwitchPath) && FovLockText.ViewHint(true, null).StartsWith("Bumper FOV is set by your rig (the measured rig"),
+          "FOV lock texts name the actual angle, fall back without one, and give the one switch");
+    Check(FovModeSwitch.AdjustableStart(33.62, true, true) == 33.6f && FovModeSwitch.AdjustableStart(33.6, false, true) == null &&
+          FovModeSwitch.AdjustableStart(33.6, true, false) == null && FovModeSwitch.AdjustableStart(null, true, true) == null &&
+          FovModeSwitch.AdjustableStart(double.NaN, true, true) == null && FovModeSwitch.AdjustableStart(20, true, true) == 30f &&
+          FovModeSwitch.AdjustableStart(130, true, true) == 110f,
+          "Adjustable starts at the shown angle only for a saved mounted lens on screen, within the lens bounds");
+    // Owner rig (97BBB): 708.4 x 398.5 mm panels, 660 mm eye, 70 degree sides, 8 mm bezel; saved bonnet lens 30 (the floor).
+    var rig = WodenRallyEdge.TripleGeometry.Compute(708.4, 398.5, 660, 70, 8);
+    double shown = (Math.Atan(rig[1].Top) - Math.Atan(rig[1].Bottom)) * 180 / Math.PI;
+    var start = FovModeSwitch.AdjustableStart(shown, true, true);
+    Check(start is > 30f and < 40f, $"the owner's Physical center angle is the start, not the stale 30 floor: {start}");
+    Near(WodenRallyEdge.TripleGeometry.EyeDistanceForView(398.5, 660, true, true, MountedView.Bonnet, 70, start), 660, "switching to Adjustable keeps the shown projection", 1.5);
+    Check(WodenRallyEdge.TripleGeometry.EyeDistanceForView(398.5, 660, true, true, MountedView.Bonnet, 70, 30) > 700,
+          "adopting the stale 30 degree lens would have narrowed the bonnet on the switch");
     Near(CameraTuning.Adjust(pose with { Forward = -2 }, "Camera back").Forward, -2, "position clamp");
     string path = Path.Combine(Path.GetTempPath(), "woden-camera-bindings-" + Guid.NewGuid() + ".json");
     File.WriteAllText(path, "{\"Version\":1,\"Buttons\":{}}");
@@ -372,6 +410,62 @@ Test("camera fit, manual tuning, bounds and key bindings survive legacy and new 
     Check(restored.CameraKeys["Camera up"] == "U" && restored.CameraKeys["Camera down"] == "None", "custom keys and clears persist");
     Check(restored.Buttons["Camera down"].Button == 5, "wheel camera shortcut persists");
     File.Delete(path); File.Delete(path + ".bak");
+});
+Test("triple FOV policy preserves physical geometry and coherently follows mounted lenses", () => {
+    const double width = 708.4, height = 398.5, physicalEye = 660;
+    var baseline = WodenRallyEdge.TripleGeometry.Compute(width, height, physicalEye, 70, 8);
+    double Eye(bool match, bool chase, MountedView view, double game, double? mounted) =>
+        WodenRallyEdge.TripleGeometry.EyeDistanceForView(height, physicalEye, match, chase, view, game, mounted);
+    foreach (var view in new[] { MountedView.Bonnet, MountedView.Bumper })
+    {
+        foreach (double lens in new[] { 30d, 110d })
+        foreach (double game in new[] { 45d, 100d })
+        {
+            double eye = Eye(false, true, view, game, lens);
+            Near(eye, physicalEye, "physical eye remains measured");
+            Check(WodenRallyEdge.TripleGeometry.Compute(width, height, eye, 70, 8).SequenceEqual(baseline),
+                "physical mode keeps all three original frusta");
+        }
+        WodenRallyEdge.PanelFrustum[]? previous = null;
+        foreach (double lens in new[] { 50d, 80d })
+        {
+            double eye = Eye(true, true, view, 45, lens);
+            Near(Eye(true, true, view, 100, lens), eye, "saved mounted lens avoids game-field feedback");
+            var views = WodenRallyEdge.TripleGeometry.Compute(width, height, eye, 70, 0);
+            Near((Math.Atan(views[1].Top) - Math.Atan(views[1].Bottom)) * 180 / Math.PI,
+                lens, "center vertical angle follows saved mounted lens");
+            for (int i = 0; i < 3; i++)
+            {
+                Near(views[i].YawDegrees, (i - 1) * 70, "panel yaw retained");
+                if (previous != null) Check(views[i].Left != previous[i].Left && views[i].Top != previous[i].Top,
+                    "lens adjustment recalculates each projection");
+            }
+            // Zero-bezel adjoining corners must represent the same world-space ray.
+            (double X, double Y, double Z) Ray(WodenRallyEdge.PanelFrustum panel, double x, double y)
+            {
+                double angle = panel.YawDegrees * Math.PI / 180;
+                double rx = Math.Cos(angle) * x + Math.Sin(angle), rz = -Math.Sin(angle) * x + Math.Cos(angle);
+                double length = Math.Sqrt(rx * rx + y * y + rz * rz);
+                return (rx / length, y / length, rz / length);
+            }
+            void SameRay((double X, double Y, double Z) a, (double X, double Y, double Z) b)
+            { Near(a.X, b.X, "seam ray x", 1e-9); Near(a.Y, b.Y, "seam ray y", 1e-9); Near(a.Z, b.Z, "seam ray z", 1e-9); }
+            foreach (bool top in new[] { false, true })
+            {
+                SameRay(Ray(views[1], views[1].Right, top ? views[1].Top : views[1].Bottom),
+                    Ray(views[2], views[2].Left, top ? views[2].Top : views[2].Bottom));
+                SameRay(Ray(views[1], views[1].Left, top ? views[1].Top : views[1].Bottom),
+                    Ray(views[0], views[0].Right, top ? views[0].Top : views[0].Bottom));
+            }
+            previous = views;
+        }
+    }
+    double gameEye = WodenRallyEdge.TripleGeometry.EyeDistanceForVerticalFov(height, 45);
+    Near(Eye(false, true, MountedView.Stock, 45, 80), gameEye, "stock chase retains game lens");
+    Near(Eye(false, false, MountedView.Stock, 45, 80), physicalEye, "stock physical override retained");
+    Near(Eye(true, false, MountedView.Stock, 45, 80), gameEye, "adjustable stock uses game lens");
+    Near(Eye(true, true, MountedView.Bonnet, 45, null), gameEye, "unowned mount retains game fallback");
+    Near(Eye(true, true, MountedView.Bumper, 45, double.NaN), physicalEye, "invalid lens safely keeps measured eye");
 });
 Test("real settings migrate untouched bonnet defaults and preserve custom camera/FFB choices", () => {
     string path = Path.Combine(Path.GetTempPath(), "woden-camera-config-" + Guid.NewGuid() + ".cfg");
@@ -518,6 +612,13 @@ Test("countdown wheel/camera eligibility preserves every existing driving and FF
     foreach (var state in blocked) Check(!state.WheelAvailable && !state.CameraAvailable && !state.Driving, "unsafe/inactive context stays excluded: " + state);
     var green = ready with { Phase = PlayerPhase.Racing, Locked = false };
     Check(green.WheelAvailable && green.CameraAvailable && green.Driving && !green.PreRace, "green enables existing driving path");
+    foreach (var state in new[] { ready, green })
+    {
+        var panel = state with { PanelOpen = true };
+        Check(panel.CameraShown && !panel.CameraAvailable && !panel.WheelAvailable && !panel.Driving, "open F6 keeps the mounted view only: " + panel);
+    }
+    foreach (var state in blocked.Where(s => !s.PanelOpen))
+        Check(!(state with { PanelOpen = true }).CameraShown, "open F6 never shows the mounted view in an excluded context: " + state);
     var cycle = new CameraCycle(); cycle.StockChanged(4, 0, true, true);
     Check(cycle.View == MountedView.Bonnet && !cycle.Reconcile(0, true, true), "preselected bonnet survives normal countdown-to-race without preset change");
 });
@@ -705,6 +806,30 @@ Test("diagnostic launch is bounded, consumed once and rejects expired requests",
     rejected = false; try { DiagnosticLaunch.Consume(path, now); } catch (IOException) { rejected = true; }
     Check(rejected && !File.Exists(path), "unsafe case identity rejected and consumed");
     foreach (string file in Directory.GetFiles(Path.GetDirectoryName(path)!, Path.GetFileName(path) + ".consumed-*")) File.Delete(file);
+});
+Test("native observation launch requires bounded automated no-force identity", () => {
+    string path = Path.Combine(Path.GetTempPath(), "woden-native-observation-" + Guid.NewGuid().ToString("N") + ".json");
+    DateTimeOffset now = DateTimeOffset.UtcNow;
+    var valid = new DiagnosticLaunch(2, Guid.NewGuid(), now.AddMinutes(4), true, "native-observation:baseline", "automated", Path.GetTempPath(), 10);
+    try
+    {
+        File.WriteAllText(path, JsonSerializer.Serialize(valid));
+        Check(DiagnosticLaunch.Consume(path, now) == valid, "explicit bounded observation request accepted unchanged");
+        foreach (var invalid in new[] { valid with { DisableForces = false }, valid with { InputOrigin = "human" },
+            valid with { NativeObservationSource = "relative" }, valid with { NativeObservationSeconds = 0 },
+            valid with { NativeObservationSeconds = 16 }, valid with { ExpiresUtc = now.AddMinutes(6) },
+            valid with { Version = 1 }, valid with { NativeObservationSource = null } })
+        {
+            File.WriteAllText(path, JsonSerializer.Serialize(invalid));
+            bool refused = false; try { DiagnosticLaunch.Consume(path, now); } catch (IOException) { refused = true; }
+            Check(refused && !File.Exists(path), "unsafe/incomplete observation request refused and consumed");
+        }
+    }
+    finally
+    {
+        if (File.Exists(path)) File.Delete(path);
+        foreach (string file in Directory.GetFiles(Path.GetDirectoryName(path)!, Path.GetFileName(path) + ".consumed-*")) File.Delete(file);
+    }
 });
 Test("recorded driving reruns actual ForceSignal into a bound observation case", () => {
     string directory = Path.Combine(Path.GetTempPath(), "woden-reprocess-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
@@ -1078,6 +1203,10 @@ Test("S2 admission writes a route-compatible derived package and never changes t
 Test("S2 admission refuses originals outside the native-arcade-v1 first-stage scope", () => WodenRallyEdge.AdmissionChecks.Scope(Check));
 Test("input origin: a request states human or automated exactly, omission is unknown; the package maps owner only for human and must match its source", () => WodenRallyEdge.OriginChecks.Run(Check));
 Test("S2b: an FFB-on ordinary original is admitted and passes the ordinary review; the muted supervisor review still refuses it", () => WodenRallyEdge.AdmissionChecks.OrdinaryReview(Check));
+Test("course route request: one launch, claimed before reading, bounded expiry and seconds", () => WodenRallyEdge.CourseRouteChecks.Request(Check));
+Test("course route identity: exact build, raw track names, direction-aware folder, unusable routes refused whole", () => WodenRallyEdge.CourseRouteChecks.Identity(Check));
+Test("course route coordinates: Unity x, y, z stored unconverted and bit-exact in route and progress files", () => WodenRallyEdge.CourseRouteChecks.Coordinates(Check));
+Test("course route lifecycle: no rows before the route, seconds/rows/bytes caps, faults write nothing, written once, never overwritten", () => WodenRallyEdge.CourseRouteChecks.Lifecycle(Check));
 if (Environment.GetEnvironmentVariable("WODEN_GRIP_CAPTURE") is { Length: > 0 } gripCapture)
     Test("private native Grip5 capture: exact old replay and isolated Grip6 trial", () => GripV6Checks.NativeCapture(Check, gripCapture));
 Console.WriteLine($"{passed} suites passed; {failed} failed; {checks} assertions.");

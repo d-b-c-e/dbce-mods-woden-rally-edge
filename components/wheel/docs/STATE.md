@@ -1,3 +1,87 @@
+# October 16: Deadzone product qualified; candidate-forward tools prepared
+
+Productcf655d45 compiled Plugin1D9741CC with zero warnings/errors against retained
+actual8c84 Core7ADA. Exact calibration28, focused deadzone UI55, required UI6500
+plus95 managed shim checks passed. Build originalFDF29060 and independent66C9D375
+prove closure/owner pins/free lease; hub a8e475a6 retains evidence. No owner
+install or runtime acceptance followed. The isolated successor changes only
+explicit candidate-forward test tools/docs, not product code. Its schema11,
+one4s throttle window and EC81-derived BrakeDZ03 copy04EB80F8 need focused Probe
+compile/protocol qualification and copy-only packaging; do not repeat the product
+build or existing passed suites. OwnerEC81 remains unchanged.
+
+# October 16: Explicit pedal deadzone correction (source only)
+
+Native F6 adds an existing-binding Deadzone editor that preserves captured
+endpoints, identity and inversion. Only explicit Save changes the selected
+deadzone; new pedal captures visibly start at3%, steering and saved values
+stay unchanged. Existing calibration normalization supplies exact zero at rest
+and full-range rescaling. No owner file, physics, game DeadZone or force tuning
+changed. Source-linked preservation/default/save-failure/UI and recorded-noise
+checks are authored, UNRUN pending a build slot. Candidate/UAT should explicitly
+suggest Brake3% with notice; no new baseline diagnostic run is needed. See
+[the diagnosis, scope and checks](2026-10-16-pedal-deadzone.md).
+
+# October 16: Repeated action writes restore their original state (source only)
+
+InputLease could snapshot a value it had already changed when a bound shift
+button and an H-pattern pulse targeted the same action. It now retains the
+first snapshot until restoration. Existing source-linked tests add Native and
+Shim overlap, held/released buttons, idempotent restore and a failure on the
+second write. Tests are authored but unrun, queued with the combined affected
+build; no game, owner install or device work occurred. The current owner's
+Native/Automatic profile has no H-pattern gates, so this fix does not establish
+the cause of the reported brake/no-drive issue. Frozen Woden07 is unchanged.
+
+# October 16: Automatic H-pattern pedal eligibility (source only)
+
+Isolated successor off eed77ffc makes Native H-pattern pedal emulation obey the
+same Automatic flag as shift handling. Automatic keeps supplied throttle/brake
+unchanged; manual neutral/reverse behavior and the existing manual-mode hint
+remain. Existing H-pattern tests add automatic neutral/reverse/forward and manual
+regressions, AUTHORED/UNRUN. No build, install, game or device run under hold175205.
+This is not the owner no-drive cause: currentEC81/97BBB is Native/Automatic with
+only Gear up/down and no H-pattern gates. Frozen Woden06 remains unchanged.
+See [the focused source handoff](2026-10-16-automatic-hpattern-pedals.md).
+
+**Current owner install - October 15, 17:08 CT:** private UX/status candidate `0.2.16+d45e2ce2b92fe0335c43e28ae57b93dfc101a76f`, revision-5 receipt `A93D0E5661E4826F7F5CBDF0C2410769AF81F5B7E72BCE41CE228B606777315E`. Exact ZIP `147DA6551672FF660AFEDC496735014C025B1C2FACD3E3F023BBB19EA3BD91FE` / manifest `BAF90F90EF886D7C56BEF99B43E425BEA666AB55FA94E3EB52C4463A1D5C640E`. Closed-game update verified all23 payloads twice; only Plugin533D217E and Core0F99A847 changed, other21 remain exact. All five configs including A9D5, Native backend/native bindings, force tune,305 protected nonowned/save/loader files,10 directory entries and raw typed preferences stayed byte-exact. Automatic rollback of old422F/23payloads/configs remains at `WodenWheelBackups/before-install-20261015-170817-df15496a`. The original functionalPASS retained its lease because its own console host was still alive; authorized post-host cleanup separately released that exact lease, and independent22:10:15Z readback confirmed both original identities absent, scope0, lease absent and small installed pins exact. Evidence: hub `artifacts/woden-fov-ux-status-20261015/owner-ux-update-01` (original2FABCDE6, cleanupDE3865D3, independentC3665E3F), closure161523. No game/helper Apply/native/device/force run or public push accompanied installation. **Genuine focused F6/button/FOV validation and owner preferred FOV/weak-force acceptance remain pending.** Keep installed Physical config and existing tune; no new input helper or idle game launch. Older installed-state headers below are historical.
+
+**Current owner install - October 15, 07:37 CT:** private `0.2.16+fe5828d68e17dce02e8641c2dee5825cabd38b20`, revision-5 receipt `422F8E52578FD2B81B404398D0DE068FADB4D76228B9BC71A5FCFD4BC62F46CE`. Exact ZIP `0DDECAC4A0AD9AFA45E3CCE306B8FBB45AE4F1F637D39809C767ADBB54B9789A` / manifest `995B1D1E55ED8F18F2FA7AA6F2EE672876A844ECDBD8001D205D998EEFD773CC`; packaging source `2fb68a2`, compiled source `fe5828d` (UI source qualified at `92794b8`). Closed-game update passed all 23 payloads twice, exact automatic backup of the prior 857F receipt/23 payloads/five configs, and byte-exact preservation of all five configs, native bindings, force tune, raw typed preferences and 305 protected nonowned/save/loader files plus 10 directory entries. Only Plugin/Core/case finalizer and the already-qualified request-ID runner DF140 changed; other 19 payloads including normal F836 force native and 4AF shim remain unchanged. The one bff4ce86 setup helper is package-only, never installed or applied to owner. No game/native/device/force test or public push accompanied installation. Evidence: hub `artifacts/woden-ui-0.2.16-20261015`, owner result `4AA681E0E793D4C7EF0A72BD9770DE9EB54F77E3A041C560EC073D98FDA45108`; backup `WodenWheelBackups/before-install-20261015-073749-8603e4cc`. Dine owns the separate volume-trigger/seam source candidate; it is not installed and seam improvement remains unproven. Earlier checkpoints below are historical.
+
+# Private F6 workflow and delivery checkpoint - 2026-10-15
+
+Runtime source `09ea11e` passed the affected offline batch: actual plugin/probe Release build zero warnings/errors, source-linked UI 5,250 assertions, 31 workflow/evidence checks, 11 saved-profile witness checks and the schema-9 protocol/config gates. Its existing restored admission route retains exact extension-3 input/load-muted native pins and actual foreground/focus/menu/Editable gates. The one launch attempt stopped before process admission because Steam waited at `SynchronizingCloud` with `syncfailed`; no binding/view/Save command ran. The supervisor restored owner state, independently confirmed against 83 file hashes and eight directory memberships, then released the lease. Steam's prompt/settings remain untouched; no same-condition retry.
+
+Separate private package producer `1248371` emitted `WodenRallyEdgeWheel-0.2.14-shared-f6-1248371-20261015-private-shim-dev.zip`, SHA256 `9BF0AC5BB0FF60EB22467836126FBCCFE37F9D9173AFAB82748483579190AE51`, with exact matching helper `44f7adb`. Test-only fixture successor `27708b3` passed 40 disposable installer checks and 15 helper-extras checks against the unchanged actual ZIP. Prior missing-loader and historical-installer fixture failures remain retained. No package rebuild or common/native suite was repeated for those continuations. Current owner install remains `24d7203`/receipt `D50B71A2`; no owner install, publication, real installed shared-profile Preview/Apply or F6/mounted-FOV runtime acceptance follows. Force tuning and physical normalization remain unchanged. Evidence: hub `artifacts/woden-f6-runtime-prep-20261015`, final delivery result SHA256 `DDB09D0ECAF67BF977F4C0937AE6D9E688BD58D009679147692AD0D76934AEC3`. See [the exact runtime recipe and outcome](F6-BINDING-WORKFLOW-RECIPE.md).
+
+# Shared F6 adoption in progress — 2026-10-15
+
+Isolated branch `dine/woden-shared-f6-20261015` starts from the committed camera fix `641914e841531072932eb3950f60994d3e853a8f`. Source adopts shared style `9b3a022` (including rectangle number geometry), binding contract `3427ab1` and qualified capture flow `bcfb852` (same flow blob as canonical toolkit `785e8b4`). Source vendors retain exact file hashes in `src/WodenRallyEdge.Core/Vendor/PROVENANCE.json`.
+
+The Woden host keeps active startup, draft and saved-next-start values separate. Checked Save is explicit; unsaved drafts have explicit discard/keep-editing close choices. Missing accepted reader observations stay read-only. Native `wheel-bindings.json` behavior and source default, owner backend choice, camera semantics, rig geometry and force tune are retained. No DeviceHub edit or additional reader is part of shared capture. Snapshot observation is restricted to the existing ordinary ShimInput tick while the focused main-menu Controls editor is shown. Qualified decoder `9b188ab` and frozen shared feed/frame guard `c32daa5` are vendored byte-exact. Shared code owns row conversion, explicit invalid/stale removal, deduplication and the ending-frame guard. Woden retains only transport, identity matching, menu policy and conservative source-age rejection; known aged reads remove immediately. Snapshot transport refusal disables capture until a new reader lifetime.
+
+**Offline qualification passed; nothing is installed and runtime is unexecuted.** R3 actual plugin Release `-warnaserror` passed with zero warnings/errors. R8 dependency verification and the complete source-linked UI executable passed 5,249 assertions under handoff `129124`; result SHA-256 `72AE70ACA024A111E0EC72F30B0B656E5E610800393B9D24414396BD40A7D438`, lease released. The count includes repeated full-button bounds checks, not 5,249 independent scenarios. Fixtures cover checked saves/external mutation, exact startup/draft/next-start separation, unsupported actions, accepted snapshot warmup/identity/age, explicit stale removal, ending-frame suppression on completion/refusal/error/timeout, missing-read expiry and actual cross-page close intent. UI checks preserve initial 720p Setup/Native/calibration fit, 720p/4K/150% scale fixed controls, scrolling, keyboard/wheel activation and camera regressions.
+
+Evidence is in hub `artifacts/woden-shared-f6-source-20261015`: R2 stopped at shared style CS8602 (fixed canonically at `9b3a022`); R3 compiled but stopped at an obsolete binary-rejection fixture string; R4/R5 stopped at initial-viewport assumptions after stacked rows; R7 stopped at a new tab assertion using post-event state before repaint; R8 passed. These failed logs/results remain intact. R6 was frozen but not executed. `fixture-layout-audit-r7.md` records the batched review; no production change was made to satisfy old coordinates. Shared qualified suites were reused, not repeated.
+
+Mounted FOV runtime acceptance remains pending: Lola's bounded inventory found eleven admitted packages, all Stock-only, so no existing tape qualifies the changed mounted lens. See hub `docs/reviews/2026-10-15-woden-fov-recipe-lola.md`; do not repeat a Stock-only replay as mounted evidence. Real rendered text, game focus/input delivery, shared native runtime capture and physical wheel/triple-screen acceptance remain outside these offline results.
+
+# Mounted-camera FOV correction in source — 2026-10-15
+
+The owner's unchanged installed `0.2.14+24d7203e684e45b1a69ba6a6db3ba2b1d0b28179` was read under receipt `D50B71A24BDD1ACD7654026DF3FC35BC8013B1096A4736408118D032CE3AA50D`. Plugin/core hashes matched the receipt. Config SHA-256 `A9D5CEB9C996212D4DDAEE79E9AC74E3C03614CAEAD4B0BE969FF8AA04E9FAF9` has bonnet FOV 30, `Triple.MatchGameFov=false`, eye 660 mm and panel height 398.5 mm: physical center vertical FOV is 33.6 degrees regardless of the unused saved lens. Existing logs report the same angle. The installed camera/projection source matches base `5d68f8538fe7db0ddcea697b4a6d4e42cb53ac90`. The screenshot alone does not prove shortcut delivery or optical correctness. Read-only evidence: hub `artifacts/woden-fov-source-20261015/diagnosis.json`.
+
+In the isolated FOV branch, Cameras exposes the existing setting as **Physical rig / Adjustable FOV**. Physical mounted views show the actual cached center projection angles, label the inactive lens control, and explain blocked FOV shortcuts without changing poses or fit. Adjustable mounted views use the active pose's FOV, including Fit to car, to recalculate all three existing off-axis frusta with one virtual eye distance. Stock chase and handoff behavior are retained. No automatic mode switch, default migration, rig-dimension change or force change is included.
+
+FOV lock clarity (toto, sana 158403; source only, not yet built or run):
+- The first locked bonnet or bumper view of a session says, once, that the rig sets the FOV and names the actual angle
+  and **F6 › Cameras › Triple FOV › Adjustable**. The player learns this before trying a key.
+- A blocked FOV key shows the same angle and path for 6 s.
+- The Advanced row that replaces the FOV slider offers one explicit **Use Adjustable FOV** button, which sets the same
+  Triple FOV choice. Simple keeps the single selector.
+- The texts come from Core `FovLockText`. Nothing changes the saved mode, a default or a pose on its own.
+
+Focused fixtures cover unchanged physical frusta, both mounts, all three adjusted projections, adjoining seam rays, chase/fallback policy, no-input preservation, inactive keys, independent mount adjustment and persistence through `MatchGameFov`. Under handoff `124477`, pinned dependencies and the actual plugin compile passed with zero warnings/errors; the focused FOV suite passed 95 assertions. The UI harness initially stopped before the new FOV checks because its helper clicked below a visible row label while the Bind control itself was clipped. The helper now scrolls until the actual Bind control is drawn. Under fresh handoff `124711`, manifest `AEE3B7AA5B87B6D42030A5ADCC89F92AB6F21A12AC8FE009AEE4EEB36D8E34E6` passed dependency verification, plugin rebuild (zero warnings/errors) and the complete source-linked UI harness (965 assertions, simulated Unity events/devices). Original and retry results are preserved in hub `artifacts/woden-fov-source-20261015/offline-r1` and `offline-r3`; retry result SHA-256 `F88474039B10A291D4169902E99EA6976DDA5BDDB4806A1598ED2666F637EDA7`. Both leases were released. **This source is uninstalled.** A later authorized muted runtime check must establish visible +/- changes in adjustable mode and unchanged physical mode; new runtime or physical qualification is not claimed.
+
 # Save-guard and gearbox candidate installed — 2026-10-14
 
 **Current private owner install, 15:21 CT October 14:** The archived private package from source `24d7203` (ZIP `4FFB64F2…`, manifest `242843BA…`; [qualification](../../../docs/2026-10-14-native-gearbox-qualification.md)) was installed closed-game through its packaged `Manage-Install.ps1` under the shared lease. Version `0.2.14+24d7203e684e45b1a69ba6a6db3ba2b1d0b28179`, revision-5 receipt `D50B71A24BDD1ACD7654026DF3FC35BC8013B1096A4736408118D032CE3AA50D` with `nativeGearboxPreference=true`; 23/23 payloads, shim `9B8A036F…`, production `WheelFfb.dll` `F8361A08…`. Backup `WodenWheelBackups/before-install-20261014-152117-cd7626c5` holds the `f252deb` receipt `3041965C…`, payloads and config. Config `20C0BC9A…` (Native default, Gearbox at start Keep), 305 non-owned files and raw preferences `A9BB495D…` were unchanged. Wheelkit 0.6.42 now offers Gearbox at start. Displays were recorded, not gated (Surround before and after; the layout was changing during the slot). No launch, opt-in, device open or force. [Install evidence](../../../../../dbce-project-mgmt/artifacts/woden-private-owner-install-24d7203-20261014/README.md). Attended checks remain in [READY-TO-TEST](../../../docs/READY-TO-TEST.md).

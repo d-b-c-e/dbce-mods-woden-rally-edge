@@ -9,7 +9,10 @@ namespace UnityEngine
     public static class Object { public static T? FindObjectOfType<T>() where T:class => WodenRallyEdge.MenuCameraScript.Available ? new WodenRallyEdge.MenuCameraScript() as T : null; }
     public sealed class GameObject { public bool activeInHierarchy=true; public GameObject? Left,Right; }
     public record struct Color(float r,float g,float b,float a=1) { public static Color white => new(1,1,1); }
-    public record struct Rect(float x,float y,float width,float height);
+    public record struct Rect(float x,float y,float width,float height)
+    {
+        public float yMax => y + height;
+    }
     public record struct Vector2(float x,float y);
     public enum EventType { Repaint, MouseDown, MouseDrag, MouseUp, Used, KeyDown, KeyUp, ScrollWheel }
     public enum KeyCode { None, Tab, Return, Space, LeftArrow, RightArrow, PageDown, PageUp, F6, Escape }
@@ -175,8 +178,17 @@ internal static class NativeGearboxApply {internal static string Status=>"Keep: 
     internal static class TripleView
     {
         private static BepInEx.Configuration.ConfigEntry<TripleMode> _mode=null!;
-        internal static void Bind(BepInEx.Configuration.ConfigFile cfg)=>_mode=cfg.Bind("Triple","Mode",TripleMode.Auto);
+        private static BepInEx.Configuration.ConfigEntry<bool> _match=null!;
+        internal static void Bind(BepInEx.Configuration.ConfigFile cfg){_mode=cfg.Bind("Triple","Mode",TripleMode.Auto);_match=cfg.Bind("Triple","MatchGameFov",false);}
         internal static TripleMode Mode {get=>_mode?.Value??TripleMode.Auto;set{if(_mode!=null&&_mode.Value!=value)_mode.Value=value;}}
+        internal static bool MatchGameFov {get=>_match?.Value??false;set{if(_match!=null&&_match.Value!=value)_match.Value=value;}}
+        internal static bool Active;
+        internal static bool MountedFovLocked=>Active&&!MatchGameFov;
+        // Renderer state is mocked; the lock texts are the real Core FovLockText at the fixture's center angle.
+        internal static double? CenterVerticalFov=>Active?33.6:null;
+        internal static string FovLockMessage=>WodenRallyEdge.Core.FovLockText.KeyMessage(CenterVerticalFov);
+        internal static string FovLockHint(bool bumper)=>WodenRallyEdge.Core.FovLockText.ViewHint(bumper,CenterVerticalFov);
+        internal static string CenterFovStatus=>Active?"Current center view: 33.6° vertical, 56.4° horizontal.":"Center projection angles appear when three views are active.";
         internal static string Status=>"Fixture: window is not three screens wide";
     }
     internal static class SpanWindow

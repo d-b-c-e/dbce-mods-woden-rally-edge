@@ -1,4 +1,143 @@
+# October 17: Private fail-closed session adoption (source/offline only)
+
+STD-038 is adopted in this private successor from frozen499f265 using toolkit
+**e4f3c098397da856edcc422664938ad0a29a3df8**, alongside the unchanged
+BE132A68 process-identity comparison. The exact six helper hashes and route are
+recorded in [WODEN-FAILCLOSED-SESSION](docs/WODEN-FAILCLOSED-SESSION.md).
+Existing lease, Steam launch, render selector, recorder Stop and owner restore
+routes remain the owners of their actions; Woden supplies callbacks and its
+nonce/sequence protocol. Cold admission does not enable workload; renderer,
+native/game focus and matching arm acknowledgment precede all menu transitions
+and raw pulses. Abort terminally revokes before stop/neutral and complete census.
+No idle wait, PowerShell activation substitute, runtime or canonical adoption.
+
+The prior37 ledger entries retain their existing states; this adds private
+STD-038 source qualification only. It does not close pending physical, force,
+camera, FOV or no-drive acceptance. See the handoff for the focused checks and
+fresh-build/runtime boundary. No global testing skill is changed.
+
+# October19: Existing opt-in course capture reconciled
+
+Kobe286136 integrates existing Woden c575200 onto4b6b900 without changing the
+qualified extractor/compiler inputs, activity-drained lifecycle or close/focus
+recovery tools. Existing toolkit course90f14a0 reader/comparison and protocol are
+reused; no shared file, native binary, telemetry transport or default is changed.
+Retained Plugin/Core0warning/error and94suite/51700assertion evidence is preserved;
+116 dependency hashes match, so no identical build/tests are repeated. See
+components/wheel/docs/COURSE-ROUTE-CAPTURE.md for exact integration and runtime limits.
+All37 ledger IDs remain present; STD-016/017/020 stay unchecked and031/037 pending.
+No installed, captured, mapped, normalized-progress or physical acceptance claim.
+
+# October 19: Current-main fail-closed drive-response integration
+
+Kobe283748 consumer release work integrates the private schema-12 drive-response
+and fail-closed session successors onto main7d3e908. Renderer discovery is a
+separate session callback after process adoption; each query rechecks the exact
+lease, original process birth/image and exit state before window enumeration.
+The 69-check consumer fixture retains current-main custody cases and verifies
+that adoption cannot activate or admit input. Focus/arm/revoke semantics and
+qualified product/probe binaries are preserved. See
+docs/2026-10-19-release-session-handoff-mubi.md for targeted results and gates.
+All37 ledger IDs remain represented. STD-016/017/020 stay unchecked;
+STD-031/037 stay pending. No product, tune, installed-state or physical claim.
+
+# October 16: Explicit candidate-forward test tools (source only)
+
+Reuse the existing sealed Native observation, original recorder, resident raw
+client and actual per-binding calibration normalization. Explicit schema11
+admits only the reviewed EC81 BrakeDZ03 private derivative, one4s throttle-only
+window and normal expiry. No new reader/backend, shared API or product change.
+Focused protocol cases are authored/unrun; productcf655d45 already passed its
+actual affected build. OwnerEC81 is untouched; runtime requires a fresh handoff.
+All37 ledger IDs remain present; unchecked016/017/020 and pending031/037 retain
+their existing status. See tools/controls/README.md for limits and exact checks.
+
+# October 16: Explicit saved deadzone editing (source only)
+
+Reuse the existing per-binding calibration/deadzone normalization and the Native
+F6 row/slider/atomic binding writer. Saved endpoints and inversion survive a
+deadzone-only draft; Save is explicit and Cancel/timeout/failure retain the old
+binding. New pedal capture UI starts visibly at3%; steering and existing saved
+values are unchanged. Focused checks are authored, UNRUN; owner/UAT remains
+pending. No shared transport, physics or force-model change. All37 ledger IDs
+remain represented; STD-016/017/020 remain unchecked and STD-031/037 pending.
+See components/wheel/docs/2026-10-16-pedal-deadzone.md.
+
+# October 16: Preserve original action values across repeated writes
+
+The Native and Shim action-table lease now snapshots each action only on its
+first write. Bound shift buttons and synthetic H-pattern pulses can target the
+same action; both normal and interrupted cleanup must restore its pre-lease
+value. The existing source-linked fixture covers both backends, held/released
+buttons, repeated Restore and interruption of the second write. Authored, not
+yet executed; include in the next affected Woden build. No installed files,
+settings, runtime packets, force behavior or standards status changed.
+Ledger review: all 37 IDs present; STD-016/017/020 remain unchecked and
+STD-031/037 pending. This is not evidence of the reported Native/Automatic
+no-drive cause, whose current profile has no H-pattern gates.
+
+# October 16 source-only H-pattern eligibility correction
+
+STD-033/034 input-consumption semantics: Native Automatic now passes supplied
+pedals through while retaining the existing manual neutral/reverse emulator and
+manual-mode hint. No binding/config/native/shared ABI changes or new input path.
+Regression coverage is authored, UNRUN under hold175205; no runtime or physical
+acceptance is promoted. All 37 ledger IDs remain present; STD-016/017/020 remain
+unchecked, STD-031/037 pending and other partial statuses retain their limits.
+See components/wheel/docs/2026-10-16-automatic-hpattern-pedals.md.
+
+October 15 shared Steam consumer successor (source only): reuse the qualified
+`SteamLaunchContext.ps1` af22ae3/8CE6326E directly; its46 pure checks and native
+declaration compile remain qualified under168570, without rerun. The Woden
+supervisor owns exact early game/shell identity and retained handles before
+recorder readiness; the companion's explicit ExternalLaunch mode owns only
+request/capture/finalization. Canonical E58A/BE13 process custody and exact
+snapshot restoration remain required. Unknown shell outcome retains the lease
+and owner state. Baseline is now installed3eb/A751, not the historical d45/A93.
+Only new Woden consumer cases are authored; runtime Steam/focus/pedal/F6 proof
+is still queued. See components/wheel/docs/2026-10-15-shared-steam-launch-consumer.md.
+STD-016/017/020 remain unchecked; STD-031/037 remain pending. No status promotion.
+
+**Current owner install - October 15, 07:37 CT:** private `0.2.16+fe5828d68e17dce02e8641c2dee5825cabd38b20`, revision-5 receipt `422F8E52578FD2B81B404398D0DE068FADB4D76228B9BC71A5FCFD4BC62F46CE`. Exact ZIP `0DDECAC4A0AD9AFA45E3CCE306B8FBB45AE4F1F637D39809C767ADBB54B9789A` / manifest `995B1D1E55ED8F18F2FA7AA6F2EE672876A844ECDBD8001D205D998EEFD773CC`; packaging source `2fb68a2`, compiled source `fe5828d` (UI source qualified at `92794b8`). Closed-game update passed all 23 payloads twice, exact automatic backup of the prior 857F receipt/23 payloads/five configs, and byte-exact preservation of all five configs, native bindings, force tune, raw typed preferences and 305 protected nonowned/save/loader files plus 10 directory entries. Only Plugin/Core/case finalizer and the already-qualified request-ID runner DF140 changed; other 19 payloads including normal F836 force native and 4AF shim remain unchanged. The one bff4ce86 setup helper is package-only, never installed or applied to owner. No game/native/device/force test or public push accompanied installation. Evidence: hub `artifacts/woden-ui-0.2.16-20261015`, owner result `4AA681E0E793D4C7EF0A72BD9770DE9EB54F77E3A041C560EC073D98FDA45108`; backup `WodenWheelBackups/before-install-20261015-073749-8603e4cc`. Dine owns the separate volume-trigger/seam source candidate; it is not installed and seam improvement remains unproven. Earlier checkpoints below are historical.
+
 # Toolkit standards adoption
+
+October 15 shared Controls readability continuation (qualified offline):
+`SharedBindingPage` reduces excess ordinary header space using the existing
+shared row gap/toolbar height, keeping the first binding and Active value in the
+initial 720p fixture viewport. Setup/opened-device guidance remains above the
+list; read-only/capture warning blocks and binding policy are retained. The
+source-linked fixture adds 720p/triple-width initial-view and capture checks.
+Source `92794b8` passed production dependency verification, affected Plugin Release
+warnaserror (zero warnings/errors), UI 5,370 assertions and required core 88 suites /
+51,501 assertions. Hub result `6364A24E` retains both initial draw snapshots and
+verified process/lease closure. See `components/wheel/docs/F6-READABILITY-2026-10-15.md`.
+No game, installation or runtime readability evidence is claimed. STD-004 gains
+only offline presentation evidence; no ledger status is promoted and STD-017
+remains unchecked.
+
+October 15 UAT diagnosis: an explicit one-run ordinary Native observation request
+reuses the current reader and GameSampler, plus bounded sealed StageStartup menu
+entry. It preserves saved transmission/bindings and never configures a shared
+car trial or submits raw input. This is diagnostic source only: no capability,
+physical normalization or runtime acceptance is promoted. See
+`components/wheel/docs/2026-10-15-uat-native-observation-entry.md`.
+
+October 15 requested replay identity correction (source only): Run-StageSession
+now carries an explicitly supplied RequestId into the actual cold stage request
+before launch, retaining every other prepared field and checking the real ID
+before supervision. The original generated ID remains available for cleanup if
+staging fails. A focused production-linked PowerShell fixture covers identity,
+ordinary/refusal paths and atomic staging. This closes a source-level identity
+gap in the STD-032 portfolio/runner boundary; no installed helper, capability,
+private DLL, owner config or runtime gate changes. Ledger comparison has no
+missing IDs; STD-016/017/020 remain unchecked and STD-031/037 pending.
+
+October 15 closure: runtime source `09ea11e` passed affected offline checks (plugin/probe zero warnings/errors, UI 5,250, workflow 31, saved-profile 11). Its one restored launch attempt stopped before any game process at Steam Cloud `SynchronizingCloud/syncfailed`; no F6 or mounted-camera runtime observation followed. Separate package producer `1248371` emitted exact private ZIP `9BF0AC5BB0FF60EB22467836126FBCCFE37F9D9173AFAB82748483579190AE51` with qualified matching helper `44f7adb`. Test-only successor `27708b3` passed 40 disposable installer and 15 helper-extras checks against that unchanged ZIP. This qualifies private package delivery, not an owner install, installed-profile Apply or in-game/physical acceptance. Evidence: hub `artifacts/woden-f6-runtime-prep-20261015`, final delivery result `DDB09D0ECAF67BF977F4C0937AE6D9E688BD58D009679147692AD0D76934AEC3`. See `components/wheel/docs/F6-BINDING-WORKFLOW-RECIPE.md`. Current owner receipt remains `24d7203`/`D50B71A2`; force tune and FFB normalization acceptance remain unchanged. Ledger review: all 37 IDs present; STD-016/017/020 remain unchecked, STD-031/037 pending, and partial statuses below retain their stated gaps.
+
+October 15 shared F6 adoption is **qualified offline; runtime unexecuted** on isolated branch `dine/woden-shared-f6-20261015`, based on camera fix `641914e`. Woden keeps its rectangle renderer while adopting exact shared palette/row/number geometry and the common binding contract/profile draft/capture flow. Native JSON bindings, backend choice, camera mode semantics, persisted names and force tune are retained. Shared snapshots must come from the ordinary ShimInput handle's accepted tick cache; DeviceHub has not been changed or activated for capture. Qualified decoder `9b188ab` and frozen feed/frame guard `c32daa5` are now vendored byte-exact; the provisional local conversion and frame deduplication have been removed. Woden supplies only ordinary-handle transport, exact report identity matching and a conservative source-age gate that removes rejected observations immediately. Shared style is exact `9b3a022` (qualified nullability correction). The actual plugin Release build passed with zero warnings/errors in R3; R8 passed the complete source-linked UI executable with 5,249 assertions, including the managed shim checks, common-flow consumer lifecycle, source-age/ending-frame guard and cross-page close intent. Earlier failed attempts and the batched fixture audit are preserved in hub `artifacts/woden-shared-f6-source-20261015`; R8 result SHA-256 `72AE70ACA024A111E0EC72F30B0B656E5E610800393B9D24414396BD40A7D438`. No standard status below is promoted to runtime acceptance, and schema-2 end-to-end capability remains pending. Nothing is installed.
+
+October 15 FOV correction: the existing `Triple.MatchGameFov` key is exposed as **Physical rig / Adjustable FOV** in Cameras. Physical mounted views retain measured geometry and report their effective center angles; inactive FOV shortcuts do not save unused values or disable bonnet fit. Adjustable mounted views derive all three existing off-axis projections from the active pose, including Fit to car, avoiding feedback from the game camera's FOV. Stock chase behavior, rig dimensions, defaults, poses and custom keys are preserved. Pinned offline plugin compile passed with zero warnings/errors; the focused geometry/seam suite passed 95 assertions. After correcting the fixture helper to target the visible Bind control, the full source-linked UI harness passed 965 assertions. Evidence: hub `artifacts/woden-fov-source-20261015/offline-r1` and `offline-r3`. No install or runtime qualification is claimed. STD-005/006 remain adopted from the earlier evidence below; this correction has not yet earned runtime evidence.
 
 October 14 15:21 CT current install: the private `24d7203` save-guard/gearbox candidate is installed under revision-5 receipt `D50B71A2` with 23/23 payloads, `nativeGearboxPreference=true`, saved Native default, Gearbox at start Keep and the tune unchanged. Wheelkit 0.6.42 now offers Gearbox at start for it. Hub `artifacts/woden-private-owner-install-24d7203-20261014/README.md`.
 
@@ -86,8 +225,8 @@ Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 | STD-002 | Recording and playback from launch | n/a | Superseded by STD-012. |
 | STD-003 | Normalized FFB strength | partial | Original analysis model and offline strength/cap trials validated; 25% cap occupied 46.46% of valid intervals. Physical normalization and defaults remain pending. See docs/FFB-COMPARISON.md. |
 | STD-004 | Consistent settings UX | adopted | F6 Simple/Advanced |
-| STD-005 | Camera numpad layout 8/2 9/3 4/6 7/1 +/- 5 | adopted | 580a907, retained in merged source 83b72d9 |
-| STD-006 | Camera step sizes are settings | adopted | 2e32e46, retained in merged source 83b72d9 |
+| STD-005 | Camera numpad layout 8/2 9/3 4/6 7/1 +/- 5 | adopted | 580a907, retained in merged source 83b72d9; October 15 FOV mode correction preserves saved keys, UI harness 965 assertions passed; new runtime pending |
+| STD-006 | Camera step sizes are settings | adopted | 2e32e46, retained in merged source 83b72d9; October 15 physical mode labels inactive FOV, adjustable mode retains saved steps; geometry 95/UI 965 assertions passed; new runtime pending |
 | STD-007 | Triple screens in one wide window | adopted | Owner drove the earlier triple build under Surround 2026-10-04; October 6 combined Kenya playback passed all 3,601 poses at 7680x1440 on separate monitors, frames 01/03 inspected by Claude and Codex with bonnet across three views and centre HUD. |
 | STD-008 | Display changes: game applies once | adopted | 0b0f844 DesktopResolution and feb875b index repair, retained in 83b72d9 |
 | STD-009 | Dashboard telemetry matches the HUD | adopted | 0b0f844 retained in 83b72d9; owner dashboard RPM/gear confirmation remains separate |
@@ -205,3 +344,40 @@ reviewed the code and recovered that completed checkpoint from hcom transcript
 734; planned mutation checks were not completed. The four-display runtime is
 not yet qualified or installed. Existing pending/unchecked standards and
 physical FFB acceptance are unchanged by this display-only source change.
+
+### Shared binding Save warnings - October15 source candidate
+
+STD-004/STD-030 adopts toolkit d342370 BindingSaveStatus for independent binding
+Save warnings. Scoped host/footer wiring preserves readers/writers/capture gates,
+ActiveSaved distinctions, native settings and FFB. Focused source-linked checks
+are prepared, not run. This candidate is not the accepted installed artifact.
+
+
+October16 Help link presentation (request176441), source-only successor:
+Shared toolkit d06aee8a supplies LinkHeight/LinkUnderline metrics and the small
+F6Widgets.Link renderer. Mod on GitHub and Wheelkit on GitHub now appear as
+underlined help-size text below the separate unchanged issue/report action.
+Art/DRIVE consume the exact shared widgets; stripped IL2CPP hosts retain their
+existing focus/input/render primitives with the same shared metrics/palette.
+URLs, report preparation/review/submission, persistence and tuning are unchanged.
+Affected compile and rendered qualification remain unrun; no styling suite added.
+All37 ledger IDs remain represented; STD-016/017/020 remain unchecked,
+STD-031/037 remain pending and existing partial status is unchanged.
+This isolated Help branch starts at product3eb6bbad per root176874; separate
+3986 automatic/H-pattern source is intentionally not combined by this commit.
+
+
+October16 positive-pedal diagnostic (sana181873), source only: explicit test-probe schema10 reuses the resident STD-033 native injection client and existing raw/native-car observer; no second reader/backend/force. EC81 binding identity is pinned and no production Apply runs. New22s cold mode starts after contiguous eligibleRACE; passive behavior is preserved. All37 existing standard IDs remain represented; STD-016/017/020 unchecked and STD-031/037 pending remain unchanged. No install, runtime or physical qualification is claimed by this test source.
+
+October16 Native deadzone persistence correction (188509): saved camera keys remain
+explicit choices even when equal to older defaults (STD-005); the existing atomic
+binding writer updates only the edited deadzone in the saved document, preserving
+other values and optional button-field presence (STD-004/030). Focused legacy-shape
+WheelInput persistence regression passed in the existing61-check --deadzone-only
+fixture; affectedCore/Plugin Release build passed with0warnings/errors from dd8aa4f.
+Useful logs: artifacts/native-f6-persistence/run-01/{plugin-build,deadzone-checks}.stdout.log.
+The combined UI attempt stopped before F6 on supported desktop activation failure;
+normal close restored owner state and released the lease. Newproduct runtime
+Save/restart and driving acceptance remain pending; earlier positives remain valid.
+All37 ledger IDs remain represented; STD-016/017/020 unchecked and STD-031/037
+pending remain unchanged. No runtime, owner-profile migration or physical claim.

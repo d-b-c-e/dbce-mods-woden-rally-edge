@@ -19,7 +19,7 @@ internal static class MenuBorders
     private static bool _failed;
 
     internal static void Bind(ConfigFile cfg) =>
-        _enabled = cfg.Bind("Triple", "HideMenuBorders", true, "On a three-screen window, hide the black bars the menus draw beside their centred layout.");
+        _enabled = cfg.Bind("Triple", "HideMenuBorders", true, "On a three-screen window, hide the black bars the menus draw beside their centered layout.");
 
     internal static void FrameTick(double now)
     {

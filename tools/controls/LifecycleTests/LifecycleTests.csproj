@@ -1,6 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../../components/wheel/src/WodenRallyEdge.Plugin/Toolkit/Input/BindingEditorContract.cs" Link="Production/BindingEditorContract.cs" />
+    <Compile Include="../Probe/BindingWorkflowCommand.cs" Link="Production/BindingWorkflowCommand.cs" />
+    <Compile Include="../Probe/F6Workflow.cs" Link="Production/F6Workflow.cs" />
     <Compile Include="../Probe/ControlsProbe.cs" Link="Production/ControlsProbe.cs" />
     <Compile Include="../Probe/ShimAdmission.cs" Link="Production/ShimAdmission.cs" />
     <Compile Include="../Probe/MenuTrial.cs" Link="Production/MenuTrial.cs" />
