@@ -195,3 +195,89 @@ physical pedal and owner driving acceptance remain additional gates.
 Validation performed here: read-only source/report/ledger survey and document diff
 review. No builds/tests, dependency installation, network access, installs,
 game/device/display/input operations, resource leases or public publication.
+
+## Audit result: bounded private native trace, 2026-10-22
+
+**Conclusion: no consumer found on the traced paths.** No native analog clutch
+action/field read, pedal units or pedal-controlled engine/transmission coupling
+law was identified. This is a bounded negative result, not proof that every
+method in the game lacks clutch behavior. The A/B/C owner question above stands
+**unchanged**; neither accelerator-cut emulation nor a shift interlock is selected
+or implemented by this audit.
+
+This follow-up used the same isolated feature checkout, initially at
+`8a7d37e8ab30279be748c95844291620b346d23e`. A fresh read-only hash of the local
+GameAssembly matched the supported pin exactly:
+`f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c`.
+Its paired `global-metadata.dat` SHA-256 is
+`3b5d7167aea83febdc625f1635fc7cb414ff13ca609d78cc32158133c3877815`.
+This verifies those analysis inputs, not the installed mod, settings or receipt.
+
+Method labels and field layouts were cross-referenced with the existing private
+metadata map (SHA-256
+`72a8602cb4ea077bb51126d02d4a085061f7ae66e23f87961b2df026442d30f5`)
+and generated interop Assembly-CSharp (SHA-256
+`1aeedb12826c39307c053e5e4e434cf69416603a01e38fc04f21dd83215622c0`).
+Interop establishes identities, not consumer behavior. Native reads, branches
+and direct calls were inspected from the freshly hashed binary in memory using
+existing Python 3.14, pefile 2024.8.26 and Capstone 5.0.7. The seven existing
+private instruction listings for producer, Controls, car FixedUpdate, dispatcher,
+Accelerate, Brake and Shift matched the fresh instruction decoding at every
+listed address. No proprietary listing, assembly, decompiled source or recording
+was added to this checkout or Git.
+
+### Traced paths and findings
+
+VAs below use preferred image base `0x180000000`, not a live process address.
+Tokens are original game metadata method tokens, meaningful only for these pins.
+An obfuscated method is identified by token and VA rather than a guessed name.
+
+| Path / native method identity | Finding and boundary |
+| --- | --- |
+| `GamePadSystem.ReadInputs(Game_Pad)`, token `0x06008B52`, VA `0x180BFD6F0` | Reads cached controller state, populates raw values, projects configured raw indices into action values/pressed flags, then applies the keyboard overlay at `0x180BFE498`. No dedicated clutch read or coupling law found. The generic action projection can represent values without assigning drivetrain semantics; this producer alone cannot establish clutch support. The indirect call at `0x180BFE2AC` was not resolved. |
+| `Controls.FixedUpdate`, token `0x060066C5`, VA `0x1809A41F0` | Traced selected-pad action reads: throttle 7, brake 6, steering 16/17, handbrake 0, shifts 1/3, plus existing restore/lights/pause/song/horn/records/camera actions. Throttle and brake reach `MainCar.Pedal_Acc_Value` / `Pedal_Brake_Value` at `0x1809A4558` / `0x1809A4571`; steering reaches its car field at `0x1809A4628`. Handbrake and shift calls reach `0x1804FF900` / `0x1804FFBE0`. No third pedal read, clutch action delivery or coupling law found. |
+| `MainCar.FixedUpdate`, token `0x06000401`, VA `0x1804FD330` | Followed car input fields through context/lock resets, engine power computation, gear/RPM calculations and the input dispatcher call at `0x1804FF73C` to `0x180502C70`. No clutch pedal read or pedal-controlled coupling law found. Decoded the complete contiguous method range and followed these paths, including continuations beyond its first PE unwind entry. |
+| `MainCar`, token `0x060003EB`, VA `0x180502C70` (obfuscated input dispatcher) | Reads steering, throttle and brake; calls Steer at `0x180502CC8`, Brake at `0x180502EF0` / `0x180502F15`, and Accelerate at `0x180502F1F`. Its zero-pedal and locked/status branches clear drive or apply brakes. No clutch input or coupling law found. A zero-throttle branch is not evidence of clutch disengagement. |
+| Engine/transmission readers inside `MainCar.FixedUpdate` | `EngineSystem.ActualPower` is written at `0x1804FE0B3` and subsequently modified from native curves/state; the Manual branch reads `TransmissionSystem.Diff` at `0x1804FE0D3`. Gear momentum and gear-table calculations occur around `0x1804FE708` and `0x1804FEFCC`; the RPM branch reads `TransmissionSystem.Changing` at `0x1804FE953`, and throttle at `0x1804FE9D2` / `0x1804FEA41`. These are stock gear/change/RPM state readers, with no traced pedal clutch input or clutch coupling law. `Changing` is a boolean gear-change state, not an analog clutch value. |
+| `MainCar.Accelerate`, token `0x06000410`, VA `0x1804FC6C0` | Forward drive reads throttle and `EngineSystem.ActualPower` at `0x1804FC839` / `0x1804FC841`, then applies native drive force subject to existing conditions. No clutch input multiplier, read or coupling law found. This does not establish free-revving or physical torque units. |
+| `MainCar.Brake`, token `0x060003F4`, VA `0x1804FCA00` | Confirmed the existing bounded reverse finding: the eligible low-speed branch reads throttle at `0x1804FCD74` and negative `ActualPower` reaches the wheel motor-torque call at `0x1804FCE07`. No clutch input read or coupling law found. The unnamed native mode gate and unobserved branch execution remain limitations; a throttle-only cut cannot promise reverse disengagement. |
+| `MainCar.Shift(int)`, token `0x06000406`, VA `0x1804FFBE0` | Reads ShiftOk, car status, `TransmissionSystem.Changing` and gear bounds, updates the gear and schedules the existing change coroutine through factory token `0x06000404` at `0x180501070`. No clutch input read, clutch threshold or pedal coupling law found in Shift or that factory. The coroutine body remains untraced. |
+
+### Reproducible native byte-range identities
+
+Each SHA-256 covers the original file-backed bytes at the half-open preferred-VA
+range, including alignment bytes where present. These are explicit audit ranges,
+not claims that one PE unwind record contains the whole logical method. In
+particular, the first unwind entries for ReadInputs and car FixedUpdate end
+before their continuations; stopping there would miss the keyboard and torque
+paths. No binary bytes or instruction text are reproduced here.
+
+| Method / audit range [start, end) | SHA-256 |
+| --- | --- |
+| ReadInputs `0x180BFD6F0`..`0x180BFE570` | `459445bca1e9b327f25940ece6bf804dce991a1a27ff25029eeffbc4334c6896` |
+| Controls.FixedUpdate `0x1809A41F0`..`0x1809A4AB0` | `36f8e5842e54a7a844fd487f25fffb94c7698a6a44c0103b12d4b7226c5cbc3c` |
+| MainCar.FixedUpdate `0x1804FD330`..`0x1804FF880` | `77c4d4c330937a4d6f030d10df0c4eb9b9242b33df6a26005e278b0b02d5cd54` |
+| MainCar input dispatcher `0x180502C70`..`0x180503060` | `4966385f84e59829f1399ebbd7f281b8cdaeafa22575b305dff0f53e95272eb5` |
+| MainCar.Accelerate `0x1804FC6C0`..`0x1804FC9A0` | `113d4f483b138550065b840ebc53685b5d95f268e26214e02eaa93daee674ae3` |
+| MainCar.Brake `0x1804FCA00`..`0x1804FCF10` | `a8e9660d27179f248c7dde353ddf4061acbac458c2da5709f2562bca805aacbe` |
+| MainCar.Shift `0x1804FFBE0`..`0x1804FFD00` | `c59a901386ac100d896bd618399959ee20d2232a8c3b09369f3dec3481fccb65` |
+| Change-coroutine factory `0x180501070`..`0x1805010E0` | `3d44caa0439fac3967c976784de96bf3a1eb8517575e4108a43700f3b9d17fe2` |
+
+### Untraced remainder and scope limits
+
+The remainder includes the scheduled change coroutine's MoveNext body,
+ReadInputs' indirect dispatch target, other obfuscated helpers/coroutines not
+expanded above, other car/AI/replay input producers, alternate control backends,
+and Unity/native physics internals. There was no whole-binary field-reference
+closure or exhaustive call-graph proof. Their behavior and any undiscovered
+consumer remain unknown. No clutch action, normalized pedal scale, bite law,
+disengagement behavior or native-routed candidate can therefore be specified.
+
+The ledger comparison still finds all 37 toolkit IDs represented; STD-016/017/020
+remain unchecked and STD-031/037 pending. No adoption is promoted. Only this
+document is changed. No build, test, install, game launch, input/device/display
+operation or owner-recording read was performed. Existing ilspycmd 11.0.0.9375
+was used only to read interop identities: its first inventory command emitted an
+automatic update notice, so network-free execution of that invocation cannot be
+asserted. Subsequent decompiler use explicitly set `--disable-updatecheck`;
+no package installation or deliberate network query was performed.
