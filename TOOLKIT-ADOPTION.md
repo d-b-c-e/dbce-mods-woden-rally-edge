@@ -1,3 +1,14 @@
+# October 22: STD-020 native prompt investigation remains incomplete
+
+The GLY investigation preserved the merged safety/camera baseline and passed
+Verify-Source offline, but did not establish a rendered Text/Image consumer.
+EnhancedButton's selector reaches native menu activation; its display-named
+array is not a demonstrated prompt writer. No speculative hook was added.
+See [the bounded trace, checks and next task](components/wheel/docs/WHEEL-PROMPTS.md).
+STD-020 remains unchecked: no implemented glyph support, rendered acceptance
+or owner acceptance is claimed. Ledger IDs are represented; STD-016/017 remain
+unchecked and STD-031/037 pending, with their existing scope unchanged.
+
 # October 17: Private fail-closed session adoption (source/offline only)
 
 STD-038 is adopted in this private successor from frozen499f265 using toolkit
