@@ -88,6 +88,46 @@ internal static class CustomMenuChecks
         Stage(stage);check(stage.Starts==1,"held presentation Confirm does not start twice");
         Reset();var results=new StagePresentation{field_Private_Boolean_1=true};Stage(results);Runtime.Clock.Advance(.11);Stage(results);Down("Confirm");Stage(results);
         check(results.Results==0,"result/leaderboard screen has no synthetic Confirm route");
+
+        // Photo mode: Pause.Update reads MainControl A (take the photo) and B (leave). A field is lent only while photo
+        // mode is up, after a fresh neutral, once per press, and restored even when the original throws.
+        void Photo(Pause pause) {
+            Time.frameCount++;
+            bool run=PhotoModeWheelMenuHook.Prefix(pause,out var state);
+            try { if(run)pause.Update(); PhotoModeWheelMenuHook.Postfix(state); }
+            finally { PhotoModeWheelMenuHook.Finalizer(state); }
+        }
+        void PhotoNeutral(Pause pause) {hub.Pressed.Clear();Photo(pause);Runtime.Clock.Advance(.11);Photo(pause);}
+        Reset();Pause.Paused=true;var photo=new Pause{PhotomodeActive=true};Down("Confirm");Photo(photo);
+        check(photo.Photos==0,"the Confirm that opened photo mode cannot carry in as a photo");
+        PhotoNeutral(photo);Down("Confirm");Photo(photo);
+        check(photo.Photos==1&&!photo.MainControl!.ButtonA,"photo mode Confirm takes one photo through native A and restores it");
+        photo.B_Pressed=false;Photo(photo);check(photo.Photos==1,"a held Confirm takes no second photo");
+        EventSystem.current=new(){currentSelectedGameObject=new()};delivered=MenuNavigation.Delivered;
+        hub.Pressed.Clear();MenuNavigation.Update();Down("Back");MenuNavigation.Update();
+        check(MenuNavigation.Delivered==delivered,"photo mode's Back is not also dispatched to the hidden pause menu");
+        PhotoNeutral(photo);Down("Back");Photo(photo);
+        check(photo.Exits==1&&!photo.PhotomodeActive&&!photo.MainControl!.ButtonB,"photo mode Back leaves through native B and restores it");
+        photo.B_Pressed=false;PhotoNeutral(photo);Down("Confirm");Photo(photo);
+        check(photo.Photos==1&&!photo.MainControl.ButtonA,"outside photo mode no field is lent");
+        foreach(string failure in new[]{"latched","multiplayer","demo","panel","focus","nativeHeld","escape","notPaused"}) {
+            Reset();Pause.Paused=true;var gated=new Pause{PhotomodeActive=true};PhotoNeutral(gated);
+            switch(failure) {
+                case "latched":gated.B_Pressed=true;break;case "multiplayer":GameMaster.NrOfPlayers=2;break;
+                case "demo":GameMaster.Demo=true;break;case "panel":Panel.Toggle();break;case "focus":Runtime.Focused=false;break;
+                case "nativeHeld":gated.MainControl!.LSLeft=true;break;case "escape":Input.Keys.Add(KeyCode.Escape);break;
+                case "notPaused":Pause.Paused=false;break;
+            }
+            Down("Confirm");Time.frameCount++;
+            PhotoModeWheelMenuHook.Prefix(gated,out var lease);
+            check(lease==null,"photo mode field refused for "+failure);
+            PhotoModeWheelMenuHook.Postfix(lease);PhotoModeWheelMenuHook.Finalizer(lease);
+        }
+        Reset();Pause.Paused=true;var failing=new Pause{PhotomodeActive=true};PhotoNeutral(failing);failing.ThrowOriginal=true;Down("Confirm");
+        threw=false;try{Photo(failing);}catch(InvalidOperationException){threw=true;}
+        check(threw&&failing.Photos==1&&!failing.MainControl!.ButtonA,"photo mode original exception preserved while the finalizer restores A");
+        Pause.Paused=false;
+
         Reset();wheel.Bindings.Buttons.Clear();foreach(var b in saved)wheel.Bindings.Buttons[b.Key]=b.Value;
     }
 }

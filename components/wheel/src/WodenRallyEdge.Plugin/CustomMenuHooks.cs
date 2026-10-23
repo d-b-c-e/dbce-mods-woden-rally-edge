@@ -35,6 +35,22 @@ internal static class PresentationWheelMenuHook
     internal static void Finalizer(CustomMenuLease? __state) => __state?.Restore();
 }
 
+// Photo mode's take and exit are Pause.Update reading Pause.MainControl's A and B (docs/WHEEL-PROMPTS.md). That method
+// also runs the pause screen every frame, so it always runs (a failed earlier restore still holds it back, as above);
+// a field is lent only while photo mode is up.
+[HarmonyPatch(typeof(Pause), nameof(Pause.Update))]
+internal static class PhotoModeWheelMenuHook
+{
+    internal static bool Prefix(Pause __instance, out CustomMenuLease? __state)
+    {
+        __state = null;
+        if (!CustomMenuLease.Recover()) return false;
+        __state = CustomWheelMenu.PhotoMode(__instance); return true;
+    }
+    internal static void Postfix(CustomMenuLease? __state) => __state?.Restore();
+    internal static void Finalizer(CustomMenuLease? __state) => __state?.Restore();
+}
+
 internal sealed class CustomMenuLease
 {
     private static CustomMenuLease? _pending;
@@ -84,16 +100,22 @@ internal static class CustomWheelMenu
     private static readonly string[] Actions = MenuNavigation.Actions.Concat(new[]{"Pause"}).ToArray();
     private static int _instance;
     private static ArcadeCarSelect? _arcade;
+    private static Pause? _pause;
+    private static int _photo;
     private static double _nextError;
     internal static void Reset() { Release.Reset(); _instance=0; }
-    // Car choice uses native fields; transmission choice uses real Unity buttons.
+    // Car choice uses native fields; transmission choice uses real Unity buttons. In photo mode A and B belong to
+    // Pause.Update, never to the hidden pause menu's selection.
     internal static bool OwnsUnityDispatch {
         get {
             try { return _arcade != null && _arcade.isActiveAndEnabled && _arcade.PlayerIndex==0 &&
-                _arcade.field_Private_Boolean_0 && GameMaster.NrOfPlayers==1 && !GameMaster.Demo && Runtime.Local==null; }
+                _arcade.field_Private_Boolean_0 && GameMaster.NrOfPlayers==1 && !GameMaster.Demo && Runtime.Local==null ||
+                _pause != null && PhotoRoute && Pause.Paused && _pause.PhotomodeActive; }
             catch { return false; }
         }
     }
+    // Where photo mode's wheel route can serve at all; its prompts are relabelled only then.
+    internal static bool PhotoRoute => GameMaster.NrOfPlayers==1 && !GameMaster.Demo;
     private static bool NativeHeld(MenuControls c) => c.ButtonA || c.ButtonB || c.ButtonStart || c.ButtonBack ||
         c.DPadLeft || c.DPadRight || c.DPadUp || c.DpadDown || c.LSLeft || c.LSRight || c.LSUp || c.LSDown;
     private static string? Press(int instance, bool eligible, MenuControls? controls)
@@ -148,6 +170,23 @@ internal static class CustomWheelMenu
                 !MenuCameraScript.Exiting && !GameMaster.Demo && GameMaster.NrOfPlayers==1 && Runtime.Local==null;
             string? action=Press(stage.GetInstanceID(),eligible,stage.MyControls);
             return action=="Confirm" && stage.MyControls!=null ? Begin(stage.MyControls,action,"stage presentation") : null;
+        } catch(Exception ex) { Failed(ex); return null; }
+    }
+    // Pause.Update takes the photo on MainControl.ButtonA and leaves photo mode on ButtonB, each once until its own
+    // B_Pressed latch clears. Leaving photo mode resets the release gate, so the next entry needs a fresh neutral.
+    internal static CustomMenuLease? PhotoMode(Pause pause)
+    {
+        try {
+            if (!Pause.Paused || !pause.PhotomodeActive) {   // every race frame: no further native calls
+                if (_photo!=0 && _photo==pause.GetInstanceID()) { _photo=0; _pause=null; Reset(); }
+                return null;
+            }
+            int id=pause.GetInstanceID();
+            _photo=id; _pause=pause;
+            if (!StartupMenuGuard.AllowNativeMenu()) { Reset(); return null; }
+            var controls=pause.MainControl;
+            string? action=Press(id,PhotoRoute && !pause.B_Pressed,controls);
+            return action is "Confirm" or "Back" && controls!=null ? Begin(controls,action,"photo mode") : null;
         } catch(Exception ex) { Failed(ex); return null; }
     }
     private static void Failed(Exception ex)

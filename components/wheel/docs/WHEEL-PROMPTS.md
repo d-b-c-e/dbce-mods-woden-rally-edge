@@ -23,11 +23,23 @@ GameAssembly F422894D). No product code changed.
   StagePresentation's `MenuControls`. `MenuNavigation` dispatches to the EventSystem selection, and wheel Pause calls
   `SetPause`/`UnsetPause` (`Panel.cs`). Nothing writes `Pause.MainControl`, so a wheel label on ①/② would name a
   button that does nothing. Photo mode's prompts stay stock.
-- **Missing bridge** (an input change, not a prompt one): a third `CustomMenuLease` hook around `Pause.Update`,
-  eligible only in photo mode (`Paused`, `PhotomodeActive`, not `B_Pressed`, one local player). It would lease
-  Confirm → `MainControl.ButtonA` (TakePhoto) and Back → `ButtonB` (Exit) with the existing release gate. Only then
-  would a `PhotoMode.Update` postfix rewrite the TakePhoto/Exit Texts with `WheelPromptText`. Watermark (X) has no
-  wheel action and would stay stock.
+- **Bridge, now in source** (miho 357085; not yet built or run).
+  - `PhotoModeWheelMenuHook` is a third `CustomMenuLease` Prefix/Postfix/Finalizer, around `Pause.Update`.
+    - `Pause.Update` always runs, except while an earlier lease restore is still unrecovered, as with the other two.
+    - `CustomWheelMenu.PhotoMode` lends a field only while `Pause.Paused` and `PhotomodeActive` hold, and
+      `B_Pressed` is clear, for one non-demo player.
+    - It uses the existing focus, panel, native-held, Escape, startup-guard and fresh-neutral release gates.
+      Confirm → `MainControl.ButtonA` (TakePhoto), Back → `ButtonB` (Exit).
+    - Leaving photo mode resets the release gate, so the Confirm that opened it cannot carry in.
+    - While photo mode is up, `OwnsUnityDispatch` keeps `MenuNavigation` from also submitting to the hidden pause
+      menu.
+  - `PhotoModePromptHook`, an optional `PhotoMode.Update` postfix patched in `WheelPrompts.Apply`, then relabels only
+    the TakePhoto and Exit Texts. It acts only when the wheel gave the last menu press and the route can serve.
+    `[Enter]`/`[Esc]` join the token map for the keyboard wording. Watermark (X), tilt, zoom and the sliders stay
+    stock.
+  - Fixtures: `CustomMenuChecks` (photo-mode gate, once per press, no double dispatch, exit, refusals and finalizer
+    restore) and `WheelPromptChecks` (pad and keyboard relabel, Watermark stock, two players and unapplied stock).
+  - Runtime still open: wheel Pause in photo mode calls `UnsetPause`, not `UnsetPhotoMode`.
 
 ## October 23: one stock prompt chain decoded (selu)
 

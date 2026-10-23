@@ -35,6 +35,27 @@ internal static class InfotextPromptHook
     }
 }
 
+// Photo mode rewrites its prompt Texts every frame (PhotoMode.Update, 180AD2070): TakePhoto is "① " or "[Enter] " and
+// Exit "② " or "[Esc] " before the label. After that stock write, relabel only those two, and only while the wheel gave
+// the last menu press and photo mode's wheel route (CustomWheelMenu.PhotoMode) can serve it. Watermark (X), tilt, zoom
+// and the sliders keep their stock glyphs.
+internal static class PhotoModePromptHook
+{
+    private static bool _failed;
+    internal static void Postfix(PhotoMode __instance)
+    {
+        if (!WheelPrompts.Applied || !WheelPrompts.Active || !CustomWheelMenu.PhotoRoute) return;
+        try { Relabel(__instance.TakePhoto); Relabel(__instance.Exit); }
+        catch (Exception ex) { if (!_failed) Runtime.Log.LogWarning("Photo mode kept stock prompts: " + ex.Message); _failed = true; }
+    }
+    private static void Relabel(UnityEngine.UI.Text? text)
+    {
+        if (text == null) return;
+        string stock = text.text, wheel = WheelPrompts.Rewrite(stock);
+        if (!ReferenceEquals(wheel, stock)) text.text = wheel;
+    }
+}
+
 internal static class WheelPrompts
 {
     internal static readonly MenuInputSource Source = new();
@@ -58,6 +79,10 @@ internal static class WheelPrompts
             var rewrite = AccessTools.Method(typeof(InfotextPromptHook), nameof(InfotextPromptHook.Prefix));
             patched.Add((info, rewrite));
             harmony.Patch(info, prefix: new HarmonyMethod(rewrite));
+            var photo = AccessTools.Method(typeof(PhotoMode), nameof(PhotoMode.Update)) ?? throw new MissingMethodException("PhotoMode.Update");
+            var relabel = AccessTools.Method(typeof(PhotoModePromptHook), nameof(PhotoModePromptHook.Postfix));
+            patched.Add((photo, relabel));
+            harmony.Patch(photo, postfix: new HarmonyMethod(relabel));
             Applied = true;
         }
         catch (Exception ex)

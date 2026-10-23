@@ -46,6 +46,15 @@ internal static class WheelPromptChecks
         var owns=typeof(ShimInput).GetProperty(nameof(ShimInput.Owns),BindingFlags.Static|BindingFlags.NonPublic)!;
         Reset();Wheel();owns.SetValue(null,true);try{check(Refresh()==pad,"shared-profile (Shim) input keeps stock glyphs");}finally{owns.SetValue(null,false);}
 
+        // Photo mode (PhotoMode.Update relabel): TakePhoto and Exit only, after a wheel press, for pad or keyboard wording.
+        string PhotoTexts(bool keyboard) { GamePadSystem.LastInput=keyboard?1:0;var p=new PhotoMode();p.Update();return p.TakePhoto!.text+"|"+p.Exit!.text+"|"+p.Watermark!.text; }
+        const string photoPad="① Take photo|② Exit|③ Watermark";
+        Reset();check(PhotoTexts(false)==photoPad,"photo mode keeps stock pad prompts without a wheel press");
+        Reset();Wheel();check(PhotoTexts(false)==L(10)+" Take photo|"+L(11)+" Exit|③ Watermark","a wheel press relabels TakePhoto and Exit only");
+        Reset();Wheel();check(PhotoTexts(true)==L(10)+" Take photo|"+L(11)+" Exit|[X] Watermark","keyboard [Enter]/[Esc] are relabelled too; [X] stays");
+        Reset();Wheel();GameMaster.NrOfPlayers=2;try{check(PhotoTexts(false)==photoPad,"no photo-mode wheel route (two players): stock prompts");}finally{GameMaster.NrOfPlayers=1;}
+        Reset();WheelPrompts.Applied=false;Wheel();check(PhotoTexts(false)==photoPad,"unapplied prompts leave photo mode stock");
+
         Reset();var startup=new StartupButtonLease(new MenuControls());startup.Restore();check(WheelPrompts.Source.WheelLast,"bound startup Start counts as a wheel menu press");
         Reset();EventSystem.current=new(){currentSelectedGameObject=new()};MenuNavigation.Update();hub.Pressed.Add(wheel.Bindings.Buttons["Confirm"]);
         long delivered=MenuNavigation.Delivered;MenuNavigation.Update();

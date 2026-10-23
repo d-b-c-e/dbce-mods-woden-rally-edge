@@ -72,6 +72,10 @@ namespace UnityEngine.InputSystem
     { public static Keyboard? current=new();public bool FailF8;private readonly Dictionary<Key,KeyControl> keys=new();public KeyControl anyKey=>new(){isPressed=keys.Values.Any(k=>k.isPressed)};public KeyControl this[Key key] {get{if(key==Key.F8&&FailF8)throw new InvalidOperationException("fixture F8 read failed");if(!keys.ContainsKey(key))keys[key]=new();return keys[key];}}public void Clear(){foreach(var k in keys.Values){k.wasPressedThisFrame=false;k.isPressed=false;}} }
     public sealed class Mouse {public static Mouse? current; public KeyControl leftButton=new(),rightButton=new(),middleButton=new();}
 }
+namespace UnityEngine.UI
+{
+    public sealed class Text { public string text=""; }
+}
 namespace WodenRallyEdge
 {
     internal static class Plugin {internal const string Version="0.2.12";}
@@ -184,8 +188,34 @@ namespace WodenRallyEdge
     }
     internal static class UiNative
     {internal static bool CursorVisible=>UnityEngine.Cursor.visible;internal static void CursorLock(UnityEngine.CursorLockMode mode)=>UnityEngine.Cursor.lockState=mode;internal static void Style(UnityEngine.GUIStyle s,int size,bool wrap){s.fontSize=size;s.wordWrap=wrap;}}
+    // Pause.Update's photo-mode branch (180A23D80) as decoded: B or Escape leaves photo mode, A takes the photo, each
+    // once until B_Pressed clears. No copied game code.
     internal sealed class Pause
-    {internal static bool Paused;internal bool PhotomodeActive;internal void SetPause()=>Paused=true;internal void UnsetPause()=>Paused=false;}
+    {
+        private static int Next=4000;private readonly int _id=++Next;internal int GetInstanceID()=>_id;
+        internal static bool Paused;internal bool PhotomodeActive,B_Pressed,ThrowOriginal;internal int Photos,Exits;
+        internal MenuControls? MainControl=new();
+        internal void SetPause()=>Paused=true;internal void UnsetPause()=>Paused=false;
+        public void Update() {
+            if(Paused&&PhotomodeActive&&!B_Pressed) {
+                if(MainControl!.ButtonB||UnityEngine.Input.GetKey(UnityEngine.KeyCode.Escape)) {Exits++;PhotomodeActive=false;B_Pressed=true;}
+                else if(MainControl.ButtonA) {Photos++;B_Pressed=true;}
+            }
+            if(ThrowOriginal)throw new InvalidOperationException("fixture original pause failure");
+        }
+    }
+    // Patched PhotoMode.Update (180AD2070) as decoded: pad glyphs, or keyboard keys when LastInput is Keyboard, each frame.
+    internal sealed class PhotoMode
+    {
+        internal UnityEngine.UI.Text? Watermark=new(),TakePhoto=new(),Exit=new();
+        public void Update() {
+            bool keyboard=GamePadSystem.LastInput==1;
+            Watermark!.text=(keyboard?"[X] ":"③ ")+"Watermark";
+            TakePhoto!.text=(keyboard?"[Enter] ":"① ")+"Take photo";
+            Exit!.text=(keyboard?"[Esc] ":"② ")+"Exit";
+            PhotoModePromptHook.Postfix(this);
+        }
+    }
     internal sealed class MainCar
     {internal enum CarStatus {WARMING,RACE,END,DESTROYED} internal CarStatus Status=CarStatus.RACE;internal Controls? MyControls;internal int GetInstanceID()=>1;internal int MyGear=1,Gears=5;internal DriveAssists? Aids=new();internal TransmissionSys? TransmissionSystem=new();}
 internal sealed class DriveAssists {internal bool Automatic;}
