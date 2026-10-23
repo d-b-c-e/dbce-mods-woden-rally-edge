@@ -109,7 +109,7 @@ internal static class CustomMenuChecks
         PhotoNeutral(photo);Down("Back");Photo(photo);
         check(photo.Exits==1&&!photo.PhotomodeActive&&!photo.MainControl!.ButtonB,"photo mode Back leaves through native B and restores it");
         photo.B_Pressed=false;PhotoNeutral(photo);Down("Confirm");Photo(photo);
-        check(photo.Photos==1&&!photo.MainControl.ButtonA,"outside photo mode no field is lent");
+        check(photo.Photos==1&&!photo.MainControl!.ButtonA,"outside photo mode no field is lent");
         foreach(string failure in new[]{"latched","multiplayer","demo","panel","focus","nativeHeld","escape","notPaused"}) {
             Reset();Pause.Paused=true;var gated=new Pause{PhotomodeActive=true};PhotoNeutral(gated);
             switch(failure) {
