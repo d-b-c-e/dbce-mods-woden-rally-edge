@@ -193,6 +193,9 @@ internal static partial class Panel
     internal static void SettingsChanged() => Dirty();
     private static void Dirty() { _dirty = true; _saveStatus = "Saving…"; _changedAt = Runtime.Clock.Elapsed.TotalSeconds; }
     private static void Save() { try { Runtime.Settings.Save(); _dirty = false; _saveStatus = "Saved"; } catch (Exception ex) { _saveStatus = "Save failed"; Message = "Could not save settings: " + ex.Message; _changedAt = Runtime.Clock.Elapsed.TotalSeconds; } }
+    // A preference that must reach disk now (FFB Off from F8 or the FFB page, or On): saved at once. A failure stays
+    // pending, shows "Save failed" and is retried like any other change, instead of escaping to the caller and being lost.
+    internal static void SaveSettingsNow() { _dirty = true; Save(); }
 
     private static void Fill(Rect r, Color color)
     {

@@ -282,6 +282,20 @@ Runtime.Settings.SetCameraPose(false,physicalBonnet);Runtime.Settings.SetCameraP
 Click("Setup");
 File.Move(cfgPath,cfgPath+".previous");Directory.CreateDirectory(cfgPath);
 Panel.SettingsChanged();typeof(Panel).GetMethod("Save",BindingFlags.Static|BindingFlags.NonPublic)!.Invoke(null,null);Draw();Check(GUI.Commands.Any(c=>c.Text.Contains("Save failed")),"write failure stays visible in Simple/Advanced footer");Directory.Delete(cfgPath);File.Move(cfgPath+".previous",cfgPath);
+// F8 / FFB Off with an unwritable config (ForceController saves through Panel.SaveSettingsNow): Off holds, the failure is
+// shown instead of escaping to the hotkey, and the next retry writes it. Before, nothing retried and the next launch had On.
+{
+    Runtime.Settings.FfbEnabled=true;typeof(Panel).GetMethod("Save",BindingFlags.Static|BindingFlags.NonPublic)!.Invoke(null,null);
+    bool SavedOn()=>new ConfigFile(cfgPath,false).Bind("ForceFeedback","Enabled",false).Value;
+    Check(SavedOn(),"FFB On saved before the failing Off");
+    File.Move(cfgPath,cfgPath+".previous");Directory.CreateDirectory(cfgPath);
+    Runtime.Settings.FfbEnabled=false;Exception? thrown=null;try{Panel.SaveSettingsNow();}catch(Exception ex){thrown=ex;}Draw();
+    Check(thrown==null&&!Runtime.Settings.FfbEnabled&&GUI.Commands.Any(c=>c.Text.Contains("Save failed")),"an FFB preference save failure stays pending and visible, not thrown");
+    Directory.Delete(cfgPath);File.Move(cfgPath+".previous",cfgPath);
+    Check(SavedOn(),"the failed Off is not on disk yet");
+    typeof(Panel).GetField("_changedAt",BindingFlags.Static|BindingFlags.NonPublic)!.SetValue(null,-10.0);Keyboard.current!.Clear();Panel.Update();
+    Check(!SavedOn(),"the pending FFB Off is retried and saved once the config is writable");
+}
 File.WriteAllText(Path.Combine(dir,"broken-bindings.json"),"broken");var broken=new WheelInput(Path.Combine(dir,"broken-bindings.json"));Check(broken.SaveError?.Contains("could not load")==true,"binding load failure remains visible instead of disappearing into a readiness bar");
 // Binding persistence failures must preserve both live mapping and provisional edit.
 string bindingPath=Path.Combine(dir,"bindings.json");var originalHandbrake=Runtime.Wheel!.Bindings.Handbrake;

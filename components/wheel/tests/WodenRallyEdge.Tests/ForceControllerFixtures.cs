@@ -45,7 +45,7 @@ internal sealed class TestDevices
     internal void Refresh() => Refreshes++;
     internal void CloseReaders() => Closes++;
 }
-internal static class Panel { internal static bool Open; }
+internal static class Panel { internal static bool Open; internal static void SaveSettingsNow() => Runtime.Settings.Save(); }
 internal static class StockWheelOwner { internal static bool Ready = true; internal static string Status => "Stock ownership unresolved"; }
 internal static class MountedCamera { internal static bool PlayerOwned = true; internal static string Status => "Camera takeover"; }
 

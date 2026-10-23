@@ -71,7 +71,7 @@ internal sealed class ForceController
         _faulted = false;
         if (!enabled) Release("FFB off");
         else { ResetSignal(); Status = "Ready — feedback starts while driving"; }
-        Runtime.Settings.Save();
+        Panel.SaveSettingsNow();   // the force is already released; a failed save is retried, not dropped
     }
     internal void Disarm(string reason = "FFB unavailable")
     {
