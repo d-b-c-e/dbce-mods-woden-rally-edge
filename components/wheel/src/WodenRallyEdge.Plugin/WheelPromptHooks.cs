@@ -1,3 +1,4 @@
+using System.Reflection;
 using HarmonyLib;
 using WodenRallyEdge.Core;
 
@@ -7,14 +8,13 @@ namespace WodenRallyEdge;
 // MenuCameraScript.Infotext writes it to the bottom-bar Text and to that Text's TypeWriter, which
 // retypes it. Rewrite that string only during the header refresh and only when the wheel gave the
 // last menu press. Nothing global changes; a stock refresh restores pad/keyboard wording.
-[HarmonyPatch(typeof(ArcadeHeaderText), nameof(ArcadeHeaderText.OnEnable))]
+// Optional: WheelPrompts.Apply patches these after the required fail-closed PatchAll, never inside it.
 internal static class ArcadeHeaderPromptHook
 {
     internal static void Prefix(ArcadeHeaderText __instance) { WheelPrompts.Scoped = WheelPrompts.Active; WheelPrompts.Shown(__instance); }
     internal static void Finalizer() => WheelPrompts.Scoped = false;
 }
 
-[HarmonyPatch(typeof(MenuCameraScript), nameof(MenuCameraScript.Infotext))]
 internal static class InfotextPromptHook
 {
     private static bool _reentered;
@@ -34,12 +34,37 @@ internal static class InfotextPromptHook
 internal static class WheelPrompts
 {
     internal static readonly MenuInputSource Source = new();
-    internal static bool Scoped;
+    internal static bool Scoped, Applied;
+
+    // Optional presentation, patched apart from the required PatchAll: a failure removes any half-applied hook,
+    // logs once and leaves stock prompts, never stopping controls, force or F6.
+    internal static void Apply(Harmony harmony)
+    {
+        var patched = new List<(MethodBase Original, MethodInfo Patch)>();
+        try
+        {
+            var header = AccessTools.Method(typeof(ArcadeHeaderText), nameof(ArcadeHeaderText.OnEnable)) ?? throw new MissingMethodException("ArcadeHeaderText.OnEnable");
+            var prefix = AccessTools.Method(typeof(ArcadeHeaderPromptHook), nameof(ArcadeHeaderPromptHook.Prefix));
+            var finalizer = AccessTools.Method(typeof(ArcadeHeaderPromptHook), nameof(ArcadeHeaderPromptHook.Finalizer));
+            harmony.Patch(header, prefix: new HarmonyMethod(prefix), finalizer: new HarmonyMethod(finalizer));
+            patched.Add((header, prefix)); patched.Add((header, finalizer));
+            var info = AccessTools.Method(typeof(MenuCameraScript), nameof(MenuCameraScript.Infotext)) ?? throw new MissingMethodException("MenuCameraScript.Infotext");
+            var rewrite = AccessTools.Method(typeof(InfotextPromptHook), nameof(InfotextPromptHook.Prefix));
+            harmony.Patch(info, prefix: new HarmonyMethod(rewrite));
+            Applied = true;
+        }
+        catch (Exception ex)
+        {
+            foreach (var (original, patch) in patched) try { harmony.Unpatch(original, patch); } catch { }
+            Runtime.Log.LogWarning("Wheel prompts unavailable; stock prompts kept: " + ex.Message);
+        }
+    }
     private static ArcadeHeaderText? _header;
     private static string? _shown;
     internal static void Shown(ArcadeHeaderText header) { _header = header; _shown = Key; }
-    // What the header would show now; "" is stock wording.
-    private static string Key => Active ? string.Join("|", WheelPromptText.Tokens.Select(t => t.Action).Distinct().Select(Label)) : "";
+    // What the header would show now: the wheel labels, or the stock pad (0) / keyboard (1) branch.
+    private static string Key => Active ? string.Join("|", WheelPromptText.Tokens.Select(t => t.Action).Distinct().Select(Label))
+        : "stock " + (int)GamePadSystem.LastInput;
     // The stock header only redraws on enable. While it stays on screen, re-run that same stock writer
     // when the wheel/native choice or a bound label changes, so a device switch restores stock text.
     internal static void Update()
@@ -58,7 +83,7 @@ internal static class WheelPrompts
     // GamePadSystem never reports Wheel itself; any held stock pad/keyboard state counts as native.
     internal static void AfterPadRead(GamePadSystem.Game_Pad pad)
     {
-        if (Runtime.Local != null && !Pause.Paused) return; // menus only; skip the per-frame scan while driving
+        if (!Applied || (Runtime.Local != null && !Pause.Paused)) return; // menus only; skip the per-frame scan while driving
         try { if (MenuOwnership.Held(pad)) Source.Native(); }
         catch (Exception ex) { Runtime.Log.LogWarning("Wheel prompt input check failed: " + ex.Message); }
     }

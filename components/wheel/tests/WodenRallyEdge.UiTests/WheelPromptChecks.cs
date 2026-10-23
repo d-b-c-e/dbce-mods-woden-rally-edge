@@ -15,7 +15,7 @@ internal static class WheelPromptChecks
         string L(int button)=>"「"+Dbce.Wheel.Ffb.DigitalInput.Label(button)+"」";
         string pad="■①Confirm - ②Back",keys="■「Enter」Confirm - 「Esc」Back",wheelText="■"+L(10)+"Confirm - "+L(11)+"Back";
         void Reset() {
-            WheelPrompts.Source.Reset();WheelPrompts.Scoped=false;GamePadSystem.LastInput=0;Runtime.Local=null;Pause.Paused=false;
+            WheelPrompts.Source.Reset();WheelPrompts.Scoped=false;WheelPrompts.Applied=true;GamePadSystem.LastInput=0;Runtime.Local=null;Pause.Paused=false;
             MenuCameraScript.InfoTexts.Clear();MenuCameraScript.TypeWriterInput=null;MenuCameraScript.FailInfotext=false;
             foreach(var d in hub.Devices)d.Ok=true;hub.Pressed.Clear();Runtime.Focused=true;
             wheel.Bindings.Buttons.Clear();wheel.Bindings.Buttons["Confirm"]=new(id,10);wheel.Bindings.Buttons["Back"]=new(id,11);wheel.Bindings.Buttons["Pause"]=new(id,16);
@@ -67,6 +67,14 @@ internal static class WheelPromptChecks
         WheelPrompts.Update();check(header.Enables==10&&MenuCameraScript.InfoTexts[^1]==wheelText,"wheel labels return when the choice returns");
         header.isActiveAndEnabled=false;Native(p=>p.A=true);WheelPrompts.Update();Wheel();WheelPrompts.Update();
         check(header.Enables==10,"a hidden header is forgotten and never refreshed");
+        // Direct native switches with no wheel press in between follow the stock LastInput branch (lufa 339197).
+        Reset();header=new ArcadeHeaderText();header.OnEnable();check(MenuCameraScript.InfoTexts[^1]==pad,"pad header");
+        GamePadSystem.LastInput=1;Native(p=>p.AnyKey=true);WheelPrompts.Update();check(header.Enables==2&&MenuCameraScript.InfoTexts[^1]==keys,"pad to keyboard on screen redraws stock keyboard text");
+        WheelPrompts.Update();check(header.Enables==2,"steady keyboard is not redrawn");
+        GamePadSystem.LastInput=0;Native(p=>p.A=true);WheelPrompts.Update();check(header.Enables==3&&MenuCameraScript.InfoTexts[^1]==pad,"keyboard to pad on screen redraws stock pad text");
+        WheelPrompts.Update();check(header.Enables==3,"steady pad is not redrawn");
+        Reset();WheelPrompts.Applied=false;Wheel();Native(p=>p.A=true);check(WheelPrompts.Source.WheelLast,"unapplied prompts do not scan native pad reads");
+
         Reset();header=new ArcadeHeaderText();header.OnEnable();Wheel();MenuCameraScript.FailInfotext=true;int warnings=Runtime.Log.Warnings.Count;
         WheelPrompts.Update();MenuCameraScript.FailInfotext=false;Native(p=>p.A=true);WheelPrompts.Update();
         check(header.Enables==2&&Runtime.Log.Warnings.Count==warnings+1&&!WheelPrompts.Scoped,"a failing refresh is logged once and stops further refreshes");

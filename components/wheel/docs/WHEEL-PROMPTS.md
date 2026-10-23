@@ -49,6 +49,20 @@ whether `TypeWriter` re-sets the text after `Infotext`, whether the mod's wheel
 reader ever makes `LastInput` report Wheel, and the rendered result. These
 need source design plus fixtures, then a separately authorized muted run.
 
+## October 23: review corrections (lufa 339197)
+
+- **Stock pad ↔ keyboard switches.** The on-screen refresh identity is now the wheel labels,
+  or `"stock " + GamePadSystem.LastInput`. A direct pad↔keyboard switch on screen, with no
+  wheel press in between, therefore redraws the stock text for the new branch; before, both
+  stock branches shared one identity and the pad text stayed. Each arcade screen has its own
+  `ArcadeHeaderText` with a fixed serialized `Mode`. Moving between screens enables another
+  header, which runs its own stock `OnEnable` and becomes the tracked one.
+- **Fail-closed blast radius.** The `ArcadeHeaderText.OnEnable` and `MenuCameraScript.Infotext`
+  hooks no longer carry `[HarmonyPatch]`. `WheelPrompts.Apply` patches them after the
+  required `PatchAll`, next to `SpanWindow.Apply`. If either hook fails, the half-applied one
+  is unpatched, one warning is logged and stock prompts stay. Controls, force and F6 keep
+  their required fail-closed path. Native pad reads are scanned only once the pair is applied.
+
 ## October 23: remaining BUTTON* writers audited; header refresh on device switch (selu)
 
 Static audit (hub `artifacts/woden-prompt-chain-selu-20261023/out/remaining-writers.asm`).

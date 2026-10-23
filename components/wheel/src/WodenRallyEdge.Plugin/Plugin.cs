@@ -41,6 +41,7 @@ public sealed class Plugin : BasePlugin
             _harmony.PatchAll(typeof(Plugin).Assembly);
             TestSaveGuard.Confirm(_harmony.Id);
         SpanWindow.Apply(_harmony);
+            WheelPrompts.Apply(_harmony);
             AddComponent<Lifecycle>();
             Log.LogInfo("F6 opens settings and bindings; F8 saves FFB Off. Saved FFB On resumes through driving gates. Waiting for local MainCar.FixedUpdate.");
         }
