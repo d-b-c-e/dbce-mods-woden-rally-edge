@@ -6,10 +6,11 @@ was found and corrected. Behavior is unchanged.
 
 - While F6 is closing, `MenuOwnership.Aggregate` keeps ownership, and an open or pending panel suppresses driving,
   until 100 ms of neutral input. That includes legacy `Input.anyKey`, which mirrors the stock `DailyMessage` consumer.
-  In Unity, legacy AnyKey also covers joystick buttons (KeyCode 330-509), but the blocker said "Legacy input AnyKey
-  (key or mouse button)". A wheel button, a latched switch or an H-shifter left in gear would therefore keep the close
-  pending while telling the owner to release a key or the mouse. The owner's bindings use two DirectInput devices
-  (steering base `d71b8350`, shifter `d9b1d890`).
+  The legacy key state also has joystick-button KeyCodes (330-509), but the blocker always said "Legacy input AnyKey
+  (key or mouse button)". If a joystick button sets legacy AnyKey in this build (Unity's anyKey reference describes
+  only keys and the mouse; this is the runtime check), a wheel button, a latched switch or an H-shifter left in gear
+  would keep the close pending while telling the owner to release a key or the mouse. The owner's bindings use two
+  DirectInput devices (steering base `d71b8350`, shifter `d9b1d890`).
 - Now: when legacy AnyKey is held, the blocker scans `Joystick1Button0`..`Joystick8Button19` with `Input.GetKey` and
   names the first held one, for example "Legacy joystick 2 button 9 (a wheel, shifter or pad button)". Otherwise it
   keeps the key label. The release rule, thresholds, cancellation and F6 save behavior are unchanged. The scan runs
@@ -18,10 +19,12 @@ was found and corrected. Behavior is unchanged.
 - Fixture: `CloseReleaseChecks` holds `Joystick2Button9`: the close stays pending and is named as that button. A held
   legacy key keeps the key label, and Back then cancels. Unbuilt.
 
-Runtime discriminator for the pending-close/no-drive report: the F6 waiting message (and its periodic status) on
-this build. "Legacy joystick N button M" identifies a held wheel/shifter button. "Stock pad ... PadActions[i]=v",
-"Bound ... button", "Stock input read is stale" or "Game is unfocused" each point to a different source. Weak force
-stays with the attended Art comparison (Tile 346749 found no persisted-setting gap).
+Runtime discriminator for the pending-close/no-drive report: the F6 waiting message on this build (`ReleaseBlocker`
+→ `Panel.Message`; the periodic `MenuOwnership.Status` log covers only the stock pads). "Legacy joystick N button M"
+identifies a held legacy joystick index and button: a wheel, shifter or pad. It names neither the product nor the
+cause of the no-drive report, and which device it is remains a rendered/runtime check. "Stock pad ...
+PadActions[i]=v", "Bound ... button", "Stock input read is stale" or "Game is unfocused" each point to a different
+source. Weak force stays with the attended Art comparison (Tile 346749 found no persisted-setting gap).
 
 # October 22: Native prompt investigation, no product change
 
