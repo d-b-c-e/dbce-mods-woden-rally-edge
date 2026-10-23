@@ -15,7 +15,8 @@ public static class ForzaProjection
         frame.IsRaceOn = true;
         // Dashboards should agree with the HUD. The HUD shows TrueSpeed, an arcade number about
         // 3x the physics m/s (2026-10-04 capture), read as km/h; physics speed is the fallback.
-        frame.Speed = sample.Channels.ContainsKey("game.trueSpeed") ? F("game.trueSpeed") / 3.6f : F("motion.speed");
+        // HUD.FixedUpdate prints abs(TrueSpeed), which is negative in reverse; Forza Speed is a magnitude.
+        frame.Speed = sample.Channels.ContainsKey("game.trueSpeed") ? Math.Abs(F("game.trueSpeed")) / 3.6f : F("motion.speed");
         frame.PositionX = F("motion.position.world.x"); frame.PositionY = F("motion.position.world.y"); frame.PositionZ = F("motion.position.world.z");
         frame.VelocityX = F("motion.velocity.local.x"); frame.VelocityY = F("motion.velocity.local.y"); frame.VelocityZ = F("motion.velocity.local.z");
         frame.AccelerationX = F("motion.acceleration.local.x"); frame.AccelerationY = F("motion.acceleration.local.y"); frame.AccelerationZ = F("motion.acceleration.local.z");
