@@ -70,7 +70,7 @@ internal static class MenuOwnership
             bool middle = mouse != null ? mouse.middleButton.isPressed : Input.GetMouseButton(2);
             held |= left || right || middle;
             if (left || right || middle) blocker ??= left ? "Mouse left button" : right ? "Mouse right button" : "Mouse middle button";
-            if (keyboardHeld) blocker ??= legacyHeld ? "Legacy input AnyKey (key or mouse button)" : "InputSystem keyboard key";
+            if (keyboardHeld) blocker ??= legacyHeld ? LegacyHeld() : "InputSystem keyboard key";
             foreach (string action in MenuControls)
                 if (Runtime.Wheel?.Button(action, false) == true) { held = true; blocker ??= "Bound " + action + " button"; }
             ReleaseBlocker = !Runtime.Focused ? "Game is unfocused" : !_stockKnown ? "Stock input read unavailable" :
@@ -78,6 +78,16 @@ internal static class MenuOwnership
             return (known, held);
         }
         catch (Exception ex) { ReleaseBlocker = "Input release read failed"; Failed("Input release read", ex); return (false, true); }
+    }
+    // Legacy AnyKey also covers joystick buttons (a wheel, shifter or pad), not only keys and the mouse. Name a held one
+    // so a latched switch or a shifter left in gear is not reported as a key. GetJoystickNames is stripped in this build.
+    private static string LegacyHeld()
+    {
+        for (int stick = 0; stick < 8; stick++)
+            for (int button = 0; button < 20; button++)
+                if (Input.GetKey((KeyCode)((int)KeyCode.Joystick1Button0 + 20 * stick + button)))
+                    return "Legacy joystick " + (stick + 1) + " button " + button + " (a wheel, shifter or pad button)";
+        return "Legacy input AnyKey (key or mouse button)";
     }
     internal static void Tick()
     {

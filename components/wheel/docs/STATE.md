@@ -1,3 +1,28 @@
+# October 23: Pending close names a held legacy joystick button (source only)
+
+Source audit of main `b66c096` against the owner's retained Oct 15 UAT log (0.2.14, before `f61da7b` named
+blockers) and the Oct 16 reconciliation. No new no-drive or weak-force cause was proven. One concrete label defect
+was found and corrected. Behavior is unchanged.
+
+- While F6 is closing, `MenuOwnership.Aggregate` keeps ownership, and an open or pending panel suppresses driving,
+  until 100 ms of neutral input. That includes legacy `Input.anyKey`, which mirrors the stock `DailyMessage` consumer.
+  In Unity, legacy AnyKey also covers joystick buttons (KeyCode 330-509), but the blocker said "Legacy input AnyKey
+  (key or mouse button)". A wheel button, a latched switch or an H-shifter left in gear would therefore keep the close
+  pending while telling the owner to release a key or the mouse. The owner's bindings use two DirectInput devices
+  (steering base `d71b8350`, shifter `d9b1d890`).
+- Now: when legacy AnyKey is held, the blocker scans `Joystick1Button0`..`Joystick8Button19` with `Input.GetKey` and
+  names the first held one, for example "Legacy joystick 2 button 9 (a wheel, shifter or pad button)". Otherwise it
+  keeps the key label. The release rule, thresholds, cancellation and F6 save behavior are unchanged. The scan runs
+  only while a close or capture is waiting on legacy input. `Input.GetJoystickNames` is stripped in this build, so the
+  device is named by legacy joystick number.
+- Fixture: `CloseReleaseChecks` holds `Joystick2Button9`: the close stays pending and is named as that button. A held
+  legacy key keeps the key label, and Back then cancels. Unbuilt.
+
+Runtime discriminator for the pending-close/no-drive report: the F6 waiting message (and its periodic status) on
+this build. "Legacy joystick N button M" identifies a held wheel/shifter button. "Stock pad ... PadActions[i]=v",
+"Bound ... button", "Stock input read is stale" or "Game is unfocused" each point to a different source. Weak force
+stays with the attended Art comparison (Tile 346749 found no persisted-setting gap).
+
 # October 22: Native prompt investigation, no product change
 
 Continuation lale preserved clean 8a7d37e and reconfirmed safety/camera ancestry.

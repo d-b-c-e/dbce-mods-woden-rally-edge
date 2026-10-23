@@ -76,6 +76,15 @@ internal static class CloseReleaseChecks
         Draw(new(){type=EventType.MouseDown,button=0,mousePosition=new(simple.Rect.x+10,simple.Rect.y+10)});
         check(Runtime.Settings.UiView=="Simple" && !MenuOwnership.Closing,"Advanced to Simple does not request closing");
 
+        // Legacy AnyKey held by a joystick button (a shifter left in gear) is named as that button and still blocks.
+        Pending(); Stock(false); Input.Keys.Add((KeyCode)((int)KeyCode.Joystick1Button0 + 20 + 9)); MenuOwnership.Tick();
+        check(Panel.Open && MenuOwnership.Closing && Panel.Message.Contains("Legacy joystick 2 button 9 (a wheel, shifter or pad button)"),
+            "a held legacy joystick button blocks close and is named as a joystick button, not a key");
+        Input.Keys.Clear(); Input.Keys.Add(KeyCode.Space); Stock(false); MenuOwnership.Tick();
+        check(MenuOwnership.Closing && Panel.Message.Contains("Legacy input AnyKey (key or mouse button)"),
+            "a held legacy key keeps the key label");
+        Input.Keys.Clear(); Panel.MenuAction("Back"); Canceled("Back after the legacy blocker checks");
+
         Pending(); Runtime.Clock.Advance(.2); Stock(true); MenuOwnership.Tick();
         check(Panel.Open && MenuOwnership.Closing && !events.enabled,"held input never bypasses close protection");
         Stock(false); MenuOwnership.Tick(); Runtime.Clock.Advance(.05); Stock(false); MenuOwnership.Tick();
