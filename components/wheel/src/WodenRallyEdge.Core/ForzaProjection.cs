@@ -39,7 +39,9 @@ public static class ForzaProjection
             frame.CurrentEngineRpm = Math.Clamp(F("game.rpm"), 0, 1) * NominalRedline;
         }
         float gear = F("game.gear");
-        frame.Gear = gear >= 1 && gear <= 10 ? (byte)gear : (byte)0;
+        // Woden reverses in first gear; HUD.FixedUpdate shows "R" while TrueSpeed < -10 km/h, and Forza's 0 is R.
+        bool reversing = sample.Channels.ContainsKey("game.trueSpeed") && F("game.trueSpeed") < -10;
+        frame.Gear = !reversing && gear >= 1 && gear <= 10 ? (byte)gear : (byte)0;
         // No fabricated tyre heat, fuel %, surface rumble, power, drivetrain identity or
         // slip-angle conversions. Rich stream retains raw data.
         return frame;

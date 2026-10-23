@@ -111,6 +111,12 @@ Test("rev fraction maps to a nominal rpm scale; fuel and tyre slip stay unguesse
     var bytes = ForzaPacket.CreateBuffer(); ForzaPacket.Write(f, bytes);
     Check(bytes.Length == 324, "exact FH5 packet length"); Check(BitConverter.ToInt32(bytes, 0) == 1, "race active"); Near(BitConverter.ToSingle(bytes, 256), 10, "speed byte offset");
 });
+Test("Forza gear shows R exactly when the HUD does: TrueSpeed below -10 km/h", () => {
+    foreach (var (hud, expected) in new[] { (-36.0, 0), (-11.0, 0), (-10.0, 1), (36.0, 1) }) {
+        var s = Sample(1); new MotionProcessor().Process(s, Quaternion.Identity); s.Add("game.gear", 1); s.Add("game.trueSpeed", hud);
+        Check(ForzaProjection.Map(s).Gear == expected, $"TrueSpeed {hud} gear {expected}");
+    }
+});
 Test("Forza speed is the HUD's abs(TrueSpeed) in m/s, reverse included", () => {
     foreach (var hud in new[] { 36.0, -36.0 }) {
         var s = Sample(1); new MotionProcessor().Process(s, Quaternion.Identity); s.Add("game.trueSpeed", hud);
