@@ -1,5 +1,54 @@
 # Native wheel prompts: incomplete source investigation, October 22
 
+## October 23: one stock prompt chain decoded (selu)
+
+**The missing scene/widget prerequisite is resolved for one prompt.** Stock
+prompts are not separate widgets or sprites: they are font characters inside
+ordinary UI Text strings. Offline only: no game, device, input, display or
+owner-file access beyond read-only reads of the supported install
+(GameAssembly F422894D, metadata 3B5D7167 as recorded below). No product code
+changed; GLY/STD-020 remains unimplemented.
+
+| Link | Evidence |
+| --- | --- |
+| Glyph | `Language` statics `BUTTONA..BUTTONSTART` are set once by `Language..cctor` (18073DA10) to "①".."⑩" (A, B, X, Y, LB, LT, RB, RT, Select, Start); `TEMPBUTTON` = "④". The Nougat font (sharedassets0 pathID 1105) and SuperWodenFontCommon both map U+2460..2469; rasterizing Nougat draws them as the pad A/B/X/Y, LB/LT/RB/RT, View and Menu buttons. |
+| Device choice | `GamePadSystem.LastInput` (static, enum Gamepad=0, Keyboard=1, Wheel=2). The writer swaps in "「Enter」/「Esc」/「Space」" only for Keyboard, so **Wheel shows the gamepad glyphs**. |
+| Scene object | level3 `Menus/MenuTree/ARC_RoundInfo`, `ArcadeHeaderText` pathID 51577, serialized `Header` → `ARC_RoundInfo/Arc_HeaderUp/text`, `Mode` = 0. Siblings: `ARC_ROUTE SELECT` (Mode 1), `ARC_CarSelect` (Mode 2). |
+| Writer | `ArcadeHeaderText.OnEnable` (180A9B300), Mode 0: `BUTTONA + Language.Confirm + " - " + BUTTONB + Language.Back` → `SpecialFunctions.SetText(s, 3, 0)` (word casing only) → static `MenuCameraScript.Infotext` (180476E50) → `GameObject.Find("Infotext")`, `GetComponent<Text>`, then `Text.set_text("■" + s)` through vtable +0x5E8 (slot 75 = `set_text`, class vtable base 0x138). |
+| Widget | `Menu Camera/CANVAS/InferiorInfo/tx/Infotext` (level3 GameObject 6117, active; serialized text "■INFO:"; also carries `TypeWriter`, `Outline_Plus`, `Animator`). The same path exists in level0–level9 (four inactive). |
+| Refresh | Once per `OnEnable` of the header object; there is no per-frame re-read of `LastInput` in this writer. |
+
+The rendered English result is "■ⒶConfirm - ⒷBack" in the bottom info bar.
+Other `Language.BUTTON*` readers found by the same scan, not traced further:
+`ArcadeMode.OnEnable` (BUTTONX with "[Space]"), `PhotoMode.Update`
+(X, B, LT, RT, LB, RB, A with "[Esc]/[Enter]/[X]/[Mouse]"), and eight
+`Rally_Edge_Event_Info_Screen` methods (BUTTONY via TEMPBUTTON). The vtable
+base also resolves the earlier unresolved `EnhancedButton.Update` slot 2A8 to
+`Graphic.set_color` (slot 23), consistent with its selection-color reading.
+
+All 47 serialized `EnhancedButton`s decode byte-exactly from their 14 public
+fields. None references a prompt Text, `ControllerButtons` is empty and
+`MyControls` is null in every instance, and only two have `SelectWithButton`
+(event `InfoButton` key A, `StageInfo Button` key Y). EnhancedButton is
+therefore not the prompt producer. The `Name Input/BUTTONCONTAINER` A/B/X/Y
+Texts are on-screen keyboard letters, not prompts.
+
+Method: type trees are stripped and TypeTreeGeneratorAPI 0.0.10 cannot load
+metadata v39, so MonoBehaviours were parsed by hand (UnityPy 1.25.4 in a
+scratch venv; a layout is accepted only when it consumes every byte). Code
+references come from LibCpp2IL + Iced global resolution. Scripts, outputs,
+the glyph raster and SHA-256 sums are retained privately in the hub at
+`artifacts/woden-prompt-chain-selu-20261023`; no game data is committed here.
+
+Implication for GLY: a wheel prompt needs no scene hook. Either rewrite the
+"①".."⑩" characters in the string that reaches `MenuCameraScript.Infotext`
+while the wheel is the active input, or temporarily set the `Language.BUTTON*`
+statics before the stock writer runs and restore "①".."⑩" afterwards. The next
+stock `OnEnable` write is the natural restoration point. Not yet established:
+whether `TypeWriter` re-sets the text after `Infotext`, whether the mod's wheel
+reader ever makes `LastInput` report Wheel, and the rendered result. These
+need source design plus fixtures, then a separately authorized muted run.
+
 ## Finite offline prerequisite 01M5JTFN6N750578VKCN0RTMS0 (lido)
 
 **Negative result; prerequisite complete, parent still blocked.** This attempt
