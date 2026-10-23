@@ -49,6 +49,45 @@ whether `TypeWriter` re-sets the text after `Infotext`, whether the mod's wheel
 reader ever makes `LastInput` report Wheel, and the rendered result. These
 need source design plus fixtures, then a separately authorized muted run.
 
+## October 23: arcade header source implementation (selu)
+
+Source and fixtures only; not installed, run, rendered or owner-accepted.
+
+- **Hook.** `WheelPromptHooks.cs`: an `ArcadeHeaderText.OnEnable` prefix/finalizer opens a
+  scope for that one refresh. The `MenuCameraScript.Infotext` prefix rewrites the string
+  inside that scope, then re-invokes the stock writer once (re-entry guarded) instead of
+  relying on by-ref string marshaling. The stock writer still sets both the Text and its
+  `TypeWriter.Inputstring`, which retypes the Text, so the typewriter shows the same text.
+  No `Language` static or widget is changed. The next stock refresh restores pad/keyboard
+  wording, and nothing needs restoring at disable/teardown.
+- **Rewrite.** `WheelPromptText` (Core) replaces ①/「Enter」 → Confirm, ②/「Esc」 → Back and
+  ⑩ → Pause with 「Button N」/「HAT N …」 from the shared `DigitalInput.Label`. A
+  replacement needs a valid Native binding on a device that `IsReading`. Unbound or
+  unreadable actions, and every other glyph (X/Y/shoulders/triggers/Select), stay stock.
+- **Wheel-active state.** `GamePadSystem.LastInput` cannot provide it: the game writes only
+  Gamepad=0 or Keyboard=1 (nine writers) and never Wheel=2, and its readers compare against
+  those values. The mod therefore records its own `MenuInputSource`:
+  - wheel when `MenuNavigation` delivers, or a `CustomMenuLease` or `StartupButtonLease`
+    is taken;
+  - native when the existing `ReadInputs` postfix sees `MenuOwnership.Held(pad)`. That
+    check is scanned only in menus or pause, not while driving.
+- **Shim.** Shared-profile (Shim) ownership keeps stock glyphs, because Shim wheel input
+  arrives through the game's pads.
+- **Checks.** Release build `-warnaserror` 0/0. UiTests: 6,856 assertions plus 95 Shim
+  checks, including 19 new `WheelPromptChecks` assertions. These cover wheel vs pad vs
+  keyboard, a later native press, refresh replacement, unbound or unreadable bindings,
+  driving vs pause scans, scope, native failure cleanup, Shim, and all three wheel delivery
+  points. With `Active` forced false, the suite fails at the wheel assertion. Core Tests:
+  94 suites / 51,700 assertions.
+- **Open boundaries.**
+  - Whether a Harmony detour on the static `Infotext` sees this native-to-native call, and
+    whether the re-invocation reaches the original once.
+  - Whether the owner's wheel ever appears as a Unity gamepad or in `Game_Pads`. If it
+    does, its own presses would count as native.
+  - The rendered 「Button N」 width in the bottom bar at triple layouts.
+  - The other `Language.BUTTON*` writers (PhotoMode, ArcadeMode, event info), which stay
+    stock.
+
 ## Finite offline prerequisite 01M5JTFN6N750578VKCN0RTMS0 (lido)
 
 **Negative result; prerequisite complete, parent still blocked.** This attempt

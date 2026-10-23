@@ -43,7 +43,7 @@ internal static class MenuNavigation
                     var vector = direction switch { MoveDirection.Up => new Vector2(0,1), MoveDirection.Down => new Vector2(0,-1), MoveDirection.Left => new Vector2(-1,0), _ => new Vector2(1,0) };
                     handled = ExecuteEvents.ExecuteHierarchy<IMoveHandler>(selected, new AxisEventData(events) { moveDir = direction, moveVector = vector }, ExecuteEvents.moveHandler);
                 }
-                if (handled != null) { Delivered++; Status = "Menu input delivered: " + action; }
+                if (handled != null) { Delivered++; WheelPrompts.WheelDelivered(); Status = "Menu input delivered: " + action; }
                 else Status = "This menu item has no " + action + " handler. Use the game's keyboard/controller for this screen.";
             }
             catch (Exception ex) { Status = "Menu input unavailable: " + ex.Message; }

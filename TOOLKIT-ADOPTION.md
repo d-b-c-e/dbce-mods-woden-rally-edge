@@ -1,3 +1,12 @@
+## October 23: STD-020 GLY source for the arcade header prompt
+
+The decoded stock prompt (ArcadeHeaderText → MenuCameraScript.Infotext, font glyphs
+①/②) shows the bound Native wheel buttons as 「Button N」 when the wheel gave the last menu
+press; pad/keyboard wording otherwise. Source and focused UiTests only (6,856 + 95 Shim
+checks; 19 new). GLY stays unchecked: one writer, no install, runtime, rendered or owner
+acceptance. Details and open boundaries are in
+[WHEEL-PROMPTS](components/wheel/docs/WHEEL-PROMPTS.md).
+
 ## October 22: focused Help host qualification
 
 STD-004/030 Help clarification gains bounded host evidence on clean candidate

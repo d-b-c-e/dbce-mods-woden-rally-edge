@@ -12,6 +12,7 @@
     <Compile Include="../../src/WodenRallyEdge.Plugin/ControlActions.cs" Link="Consumer/ControlActions.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/StartupMenuHooks.cs" Link="Consumer/StartupMenuHooks.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CustomMenuHooks.cs" Link="Consumer/CustomMenuHooks.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/WheelPromptHooks.cs" Link="Consumer/WheelPromptHooks.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/StageRunLifecycle.cs" Link="Consumer/StageRunLifecycle.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/StageReplayPolicy.cs" Link="Consumer/StageReplayPolicy.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/MenuOwnership.cs" Link="Consumer/MenuOwnership.cs" />

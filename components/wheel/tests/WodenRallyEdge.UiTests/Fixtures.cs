@@ -147,9 +147,25 @@ namespace WodenRallyEdge
             if(FailLoad) {Exiting=ExitBeforeFailure;throw new InvalidOperationException("fixture native load failure");}
             Loads.Add((scene,loading,third));
         }
+        // Patched native writer (180476E50): prefix, then "■"+text to the Infotext Text and its TypeWriter.
+        internal static readonly List<string> InfoTexts=new();internal static string? TypeWriterInput;internal static bool FailInfotext;
+        internal static void Infotext(string text,bool longer,bool align,float delay) {
+            if(!InfotextPromptHook.Prefix(text,longer,align,delay))return;
+            if(FailInfotext)throw new InvalidOperationException("fixture native Infotext failure");
+            InfoTexts.Add("■"+text);TypeWriterInput="■"+text;
+        }
+    }
+    // ArcadeHeaderText.OnEnable (180A9B300) Mode 0 as decoded: pad glyphs unless LastInput is Keyboard.
+    internal sealed class ArcadeHeaderText
+    {
+        public void OnEnable() {
+            bool keyboard=GamePadSystem.LastInput==1;
+            MenuCameraScript.Infotext((keyboard?"「Enter」":"①")+"Confirm - "+(keyboard?"「Esc」":"②")+"Back",true,false,0);
+        }
     }
     internal sealed class GamePadSystem
     {
+        internal static int LastInput; // Gamepad=0, Keyboard=1; the game never writes Wheel=2
         internal readonly List<Game_Pad> Game_Pads=new();
         internal sealed class Game_Pad
         {
@@ -220,6 +236,7 @@ internal static class NativeGearboxApply {internal static string Status=>"Keep: 
         internal bool TryAxis(AxisBinding? b,out float value){value=0;var d=Devices.FirstOrDefault(d=>d.Info.InstanceGuid==b?.DeviceGuid);if(b==null||d?.Ok!=true)return false;value=(float)b.Normalize(d.Axes[b.Axis]);return true;}
         internal IEnumerable<ButtonBinding> PressedButtons()=>Pressed;
           internal bool Button(ButtonBinding b,bool edge,string action="default")=>Pressed.Contains(b);
+        internal bool IsReading(Guid guid)=>Devices.Any(d=>d.Info.InstanceGuid==guid&&d.Ok);
         // As production DeviceHub: the caller passes the pending or empty shared-profile reason.
         internal ForceTarget ResolveForceTarget(bool f,string id,Guid? s,string? reason)=>ForceSelection.Resolve(f,id,s,Devices.Select(d=>new ForceCandidate(d.Info.InstanceGuid!.Value,d.Info.Name,d.Info.ForceFeedback)),reason);
     }

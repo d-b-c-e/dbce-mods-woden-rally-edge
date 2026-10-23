@@ -62,7 +62,7 @@ internal sealed class CustomMenuLease
     internal CustomMenuLease(MenuControls controls, string action)
     {
         _action=action; _previous=Read(controls); _controls=controls;
-        try { Write(controls,true); if(!Read(controls)) throw new InvalidOperationException("Native menu input readback differs"); }
+        try { Write(controls,true); if(!Read(controls)) throw new InvalidOperationException("Native menu input readback differs"); WheelPrompts.WheelDelivered(); }
         catch { Restore(); throw; }
     }
     internal void Restore()

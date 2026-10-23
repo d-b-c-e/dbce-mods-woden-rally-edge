@@ -41,7 +41,7 @@ internal sealed class StartupButtonLease
     internal StartupButtonLease(MenuControls controls)
     {
         _previous = controls.ButtonStart; _controls = controls;
-        try { controls.ButtonStart = true; }
+        try { controls.ButtonStart = true; WheelPrompts.WheelDelivered(); }
         catch { Restore(); throw; }
     }
     internal void Restore()
