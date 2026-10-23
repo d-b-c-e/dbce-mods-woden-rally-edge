@@ -49,6 +49,32 @@ whether `TypeWriter` re-sets the text after `Infotext`, whether the mod's wheel
 reader ever makes `LastInput` report Wheel, and the rendered result. These
 need source design plus fixtures, then a separately authorized muted run.
 
+## October 23: closure check (miho 343945)
+
+No mismatch was found, so no code changed. The prompt source is `7dfd8a1`; local main is `cc00e45`, whose
+only later change is pani's `ForzaProjection`.
+
+- **Token map against the game and the dispatchers.**
+  - `WheelPromptText.Tokens` maps ① (BUTTONA) and 「Enter」 to Confirm, ② (BUTTONB) and 「Esc」 to Back,
+    and ⑩ (BUTTONSTART) to Pause.
+  - Confirm and Back are what `CustomMenuLease` writes to native ButtonA and ButtonB, and what
+    `MenuNavigation` binds as `Actions`. The startup screens' Start comes from bound Confirm or Pause.
+  - The binding keys "Confirm", "Back" and "Pause" are the ones in `WheelInput.Bindings.Buttons`.
+  - Labels use the same `DigitalInput.Label` that the F6 Controls rows already use, so there is no new
+    toolkit pin.
+  - The arcade header shows only A, B and Y (Y stays stock); ⑩ is mapped but unused there.
+- **Casing before the hook.** `ArcadeHeaderText` passes its string through `SpecialFunctions.SetText(s, 3, 0)`
+  (180D051D0) before `Infotext`. Mode 3 splits on spaces, lowercases each word and uppercases its first
+  letter. The pad text stays `①Confirm - ②Back`, but the keyboard text reaches `Infotext` as
+  `「Enter」confirm - 「Esc」back`. The `「Enter」`/`「Esc」` tokens keep their capital first letter, so the
+  case-sensitive match still holds. The fixture's fake writer keeps the keyboard words capitalized; that
+  does not change what the rewrite replaces.
+- **Offline check**, from `components/wheel` with `lib/` present:
+  - `dotnet build WodenRallyEdgeWheel.sln -c Release -warnaserror -p:UseSharedCompilation=false`
+  - then `dotnet run --project tests/WodenRallyEdge.UiTests -c Release --no-build`
+  - Expect `UI fixture: 6876 assertions passed` plus `PASS 95` shim checks. `WheelPromptChecks` runs inside
+    the full baseline; there is no separate flag.
+
 ## October 23: review corrections (lufa 339197)
 
 - **Stock pad ↔ keyboard switches.** The on-screen refresh identity is now the wheel labels,
