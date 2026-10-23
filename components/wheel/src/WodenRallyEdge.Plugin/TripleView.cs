@@ -68,6 +68,10 @@ internal static class TripleView
         catch (Exception ex) { Runtime.Log.LogWarning("Adjustable FOV start: " + ex.Message); }
     }
     internal static bool MountedFovLocked => Active && !MatchGameFov;
+    /// <summary>The [Triple] geometry Physical mode uses, and whether it is still the shipped defaults.</summary>
+    internal static string RigSettingsText => _panelWidth == null ? "" : WodenRallyEdge.Core.FovLockText.RigSettings(_panelWidth.Value, _panelHeight.Value,
+        _eye.Value, _sideAngle.Value, _bezel.Value,
+        new ConfigEntryBase[] { _panelWidth, _panelHeight, _eye, _sideAngle, _bezel }.All(e => Equals(e.BoxedValue, e.DefaultValue)));
     // Lock texts name the actual center angle (Core FovLockText); nothing here changes MatchGameFov.
     internal static string FovLockMessage => WodenRallyEdge.Core.FovLockText.KeyMessage(CenterVerticalFov);
     internal static string FovLockHint(bool bumper) => WodenRallyEdge.Core.FovLockText.ViewHint(bumper, CenterVerticalFov);
@@ -109,7 +113,7 @@ internal static class TripleView
         _mode = cfg.Bind("Triple", "Mode", TripleMode.Auto, "Auto turns the three views on when the window is three screens wide (Surround or a borderless span); On forces them; Off keeps the stock single view.");
         _toggleKey = cfg.Bind("Triple", "ToggleKey", "F11", "Keyboard key that switches the three views on and off in game (Input System key name; None to disable).");
         _centerHud = cfg.Bind("Triple", "CenterHud", true, "Draw the game's HUD and menus on the center screen.");
-        _matchGameFov = cfg.Bind("Triple", "MatchGameFov", false, "Adjustable FOV: derive all three projections from the active bonnet/bumper lens or stock game lens, using a virtual eye distance. False keeps the measured rig geometry for mounted views.");
+        _matchGameFov = cfg.Bind("Triple", "MatchGameFov", false, "Adjustable FOV: derive all three projections from the active bonnet/bumper lens or stock game lens, using a virtual eye distance. False keeps the [Triple] rig geometry for mounted views.");
         _chaseGameFov = cfg.Bind("Triple", "ChaseUsesGameFov", true, "Use the game's field of view in stock chase cameras even in Physical rig mode; mounted views follow MatchGameFov.");
         _panelWidth = cfg.Bind("Triple", "PanelWidthMm", 708.4f, "Visible width of one screen, millimetres (32\" 16:9 is about 708).");
         _panelHeight = cfg.Bind("Triple", "PanelHeightMm", 398.5f, "Visible height of one screen, millimetres.");

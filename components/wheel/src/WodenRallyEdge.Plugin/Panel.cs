@@ -708,7 +708,8 @@ internal static partial class Panel
         if(layout!=priorLayout){var picked=TripleLayoutChoice.Apply(layout);TripleView.Mode=picked.Off?TripleMode.Off:TripleView.Mode==TripleMode.On?TripleMode.On:TripleMode.Auto;SpanWindow.Enabled=picked.Span;}
         Label(250,y,690,layout==0?"Single view. Window size changes at the next game start. Status: "+TripleView.Status:layout==1?"Three views on Surround. Window layout applies at the next game start. Status: "+TripleView.Status:"One borderless window across three side-by-side monitors, applied at the next game start. Span: "+SpanWindow.Status+"; views: "+TripleView.Status,true,46);y+=56;
         int fovMode=TripleView.MatchGameFov?1:0;y=Choice(y,"Triple FOV",new[]{"Physical rig","Adjustable FOV"},ref fovMode);TripleView.MatchGameFov=fovMode==1;
-        Label(250,y,690,TripleView.MatchGameFov?"Bonnet and bumper use the active view lens, including Fit to car. All three views are recalculated together using a virtual eye distance; your measured rig is kept.":"Bonnet and bumper use the measured rig geometry. Their FOV keys and slider are inactive while triples are on; stock chase keeps its saved FOV behavior.",true,64);y+=72;
+        Label(250,y,690,TripleView.MatchGameFov?"Bonnet and bumper use the active view lens, including Fit to car. All three views are recalculated together using a virtual eye distance; your rig settings are kept.":"Bonnet and bumper use the rig geometry. Their FOV keys and slider are inactive while triples are on; stock chase keeps its saved FOV behavior.",true,64);y+=72;
+        if(!TripleView.MatchGameFov){Label(250,y,690,"Rig: "+TripleView.RigSettingsText,true,88);y+=96;}
         Label(250,y,690,TripleView.CenterFovStatus,true,46);y+=54;
         y=ToggleRow(y,"Bonnet camera",ref cfg.Bonnet);y=ToggleRow(y,"Bumper camera",ref cfg.Bumper);
         BindingRow(y,"Camera");y+=100;

@@ -402,9 +402,15 @@ Test("camera fit, manual tuning, bounds and key bindings survive legacy and new 
     Near(CameraTuning.Adjust(pose, "Camera wider", fine).Fov, pose.Fov + .5, "fine FOV step"); Near(new CameraSteps(0, float.NaN, 99).Bounded().Move, .005, "step bounds");
     Near(CameraTuning.Adjust(pose, "Camera pitch up").Pitch, pose.Pitch - 1, "pitch up");
     Near(CameraTuning.Adjust(pose with { Fov = 110 }, "Camera wider").Fov, 110, "FOV clamp");
-    Check(FovLockText.Angle(33.6) == "33.6° vertical" && FovLockText.Angle(null) == "the measured rig" && FovLockText.Angle(double.NaN) == "the measured rig" &&
-          FovLockText.KeyMessage(33.6).Contains(FovLockText.SwitchPath) && FovLockText.ViewHint(true, null).StartsWith("Bumper FOV is set by your rig (the measured rig"),
+    Check(FovLockText.Angle(33.6) == "33.6° vertical" && FovLockText.Angle(null) == "the rig settings" && FovLockText.Angle(double.NaN) == "the rig settings" &&
+          FovLockText.KeyMessage(33.6).Contains(FovLockText.SwitchPath) && FovLockText.ViewHint(true, null).StartsWith("Bumper FOV is set by the rig settings (the rig settings"),
           "FOV lock texts name the actual angle, fall back without one, and give the one switch");
+    string shipped = FovLockText.RigSettings(708.4, 398.5, 660, 70, 8, true), mine = FovLockText.RigSettings(597, 336, 620, 55, 6, false);
+    Check(shipped.StartsWith("708.4 × 398.5 mm screens, eyes 660 mm from the center screen, sides turned 70°, bezel 8 mm") && shipped.Contains("shipped defaults, not your measurements") &&
+          new[] { "PanelWidthMm", "PanelHeightMm", "EyeDistanceMm", "SideAngle", "BezelMm", FovLockText.ConfigFile, "Adjustable FOV" }.All(s => shipped.Contains(s)) &&
+          mine.StartsWith("597 × 336 mm screens, eyes 620 mm") && !mine.Contains("default") && mine.Contains(FovLockText.ConfigFile) &&
+          !FovLockText.KeyMessage(33.6).Contains("your monitors") && !FovLockText.ViewHint(false, 33.6).Contains("your rig"),
+          "Physical rig text shows the geometry in use and names untouched values as shipped defaults, never as the player's measurements");
     Check(FovModeSwitch.AdjustableStart(33.62, true, true) == 33.6f && FovModeSwitch.AdjustableStart(33.6, false, true) == null &&
           FovModeSwitch.AdjustableStart(33.6, true, false) == null && FovModeSwitch.AdjustableStart(null, true, true) == null &&
           FovModeSwitch.AdjustableStart(double.NaN, true, true) == null && FovModeSwitch.AdjustableStart(20, true, true) == 30f &&
