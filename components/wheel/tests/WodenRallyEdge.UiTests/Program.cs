@@ -16,6 +16,12 @@ int checks=0;void Check(bool ok,string message)
     File.WriteAllText(failure,JsonSerializer.Serialize(new{message,width=Screen.width,height=Screen.height,commands=GUI.Commands},new JsonSerializerOptions{IncludeFields=true,WriteIndented=true}));
     throw new Exception(message+"; trace: "+failure);
 }
+PanelShutdownChecks.Run(dir, Check);
+if(args.SequenceEqual(new[]{"--panel-shutdown-only"}))
+{
+    Console.WriteLine($"Panel shutdown fixture: {checks} assertions passed; no game or force output.");
+    return;
+}
 if(args.SequenceEqual(new[]{"--binding-save-status-only"}))
 {
     SharedBindingChecks.SaveStatusChecks(dir,Check);
@@ -41,6 +47,7 @@ if(args.SequenceEqual(new[]{"--deadzone-only"}))
     return;
 }
 if(args.Length>0)throw new ArgumentException("Unknown fixture mode; refusing the full baseline.");
+
 Screen.width=7680;Screen.height=1440;GUI.Commands.Clear();Event.current.type=EventType.Repaint;
 var hudColor=GUI.color;var hudEnabled=GUI.enabled;var hudMatrix=GUI.matrix;
 new StrippedSessionStatusHud(UiNative.Style).Draw(RecordingHudLine.Describe("Recording",65,new(),null,true,true)!,true,112);

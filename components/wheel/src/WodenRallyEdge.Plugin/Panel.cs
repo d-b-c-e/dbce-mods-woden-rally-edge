@@ -171,7 +171,8 @@ internal static partial class Panel
     }
     internal static void CompleteClose(bool resume)
     {
-        if (!Open) return;
+        // Camera shortcuts can leave a pending save while F6 is already closed.
+        if (!Open) { if (_dirty) Save(); return; }
         // The pending-close text is rewritten every tick while closing; it must not greet the next open as a false
         // "Waiting to close" footer (joint-01 frames 24-40). A Save failure below still replaces it.
         Message = IdleMessage;

@@ -80,6 +80,22 @@ Current reference docs were inspected on 2026-09-12. Their own verification limi
 
 ## Wheel button prompts (GLY, STD-020) — where they come from (2026-10-07, Claude)
 
+October 22 continuation (lale): metadata distinguishes generic selection tint,
+rebinding and layout helpers. The direct Text-setter scan leaves virtual calls
+and serialized associations unresolved. Implementation remains waiting for an
+identified supported-build prompt widget and its actual producer; do not infer
+a target from field names. See WHEEL-PROMPTS continuation evidence.
+
+October 22 continuation: the selector is an input consumer, but the proposed
+ControllerButtons/ButtonNames text-draw connection remains unestablished.
+No prompt feature is implemented. The bounded next task is static scene/widget
+inspection to identify the actual label object and its producer; if that cannot
+establish the connection, request a separately scoped runtime survey. Preserve
+the passing offline baseline evidence and avoid guessed driving-key mappings.
+See [WHEEL-PROMPTS](WHEEL-PROMPTS.md) for addresses, dispatch scope and the
+active-profile/restoration fixture and runtime checklist. The following survey
+is historical context, not a qualified implementation route.
+
 Interop survey only; not yet seen in game. Woden's menu buttons are `EnhancedButton`s that carry the gamepad
 button that selects them (`ControllerButtonStr`, a `Gamepadkeys` value, and `ControllerButtons`, its display
 strings), and `GamePadSystem` holds the pad's `ButtonNames`. So the prompts show gamepad letters even when the

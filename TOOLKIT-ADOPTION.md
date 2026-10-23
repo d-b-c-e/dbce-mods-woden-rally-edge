@@ -35,6 +35,23 @@ run01 and unique fixture snapshots are retained. STD-016/020 remain unchecked,
 STD-031/037 pending. No install/package/game/input/display/device/force run,
 physical acceptance, full settings parity or owner tune change is claimed.
 Older dated audit/status notes below remain historical.
+# October 22: STD-020 native prompt investigation remains incomplete
+
+Continuation lale: additional metadata and direct-call inspection distinguishes
+selection-color arrays, rebinding text and layout helpers, but still does not
+establish a rendered per-key prompt. STD-020/GLY remains unimplemented and
+unchecked; production-linked feature fixtures remain outstanding. All ledger
+IDs remain represented. STD-016/017 unchecked and STD-031/037 pending are unchanged.
+See WHEEL-PROMPTS for the exact missing scene/widget prerequisite.
+
+The GLY investigation preserved the merged safety/camera baseline and passed
+Verify-Source offline, but did not establish a rendered Text/Image consumer.
+EnhancedButton's selector reaches native menu activation; its display-named
+array is not a demonstrated prompt writer. No speculative hook was added.
+See [the bounded trace, checks and next task](components/wheel/docs/WHEEL-PROMPTS.md).
+STD-020 remains unchecked: no implemented glyph support, rendered acceptance
+or owner acceptance is claimed. Ledger IDs are represented; STD-016/017 remain
+unchecked and STD-031/037 pending, with their existing scope unchanged.
 
 # October 17: Private fail-closed session adoption (source/offline only)
 

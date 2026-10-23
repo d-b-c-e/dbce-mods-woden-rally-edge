@@ -1,3 +1,28 @@
+# October 22: Partial native prompt source handoff
+
+Continuation lale: source implementation is still incomplete. Additional
+metadata/direct-call evidence is recorded in WHEEL-PROMPTS; unresolved virtual
+calls and scene references prevent a supported prompt target from being named.
+Source coordination must supply that association or scope a separate bounded
+runtime survey before another implementation offer. Preserve the existing
+menu/layout/input-switching runtime checklist and all unqualified gates.
+
+No GLY implementation or new feature fixture is ready. Existing source passed
+Verify-Source; the successful log hash, prerequisite failure and interrupted
+unleased attempt are preserved in [WHEEL-PROMPTS](WHEEL-PROMPTS.md). The corrected
+run released its exact lease. Native selector/menu dispatch evidence does not
+establish which Text/Image draws the label, so no guessed mutation was added.
+
+Next bounded task: inspect existing static scene/widget assets to identify that
+object and its update consumer; if insufficient, explicitly scope a runtime
+survey separately. Then implement the real hook and source-linked fixtures for
+active Native/Shim identity, switching, fallback and exact restoration. Preserve
+the merged 15bc663 safety baseline, 2d1c8cf/7b6808d camera commits and 11a4534
+clutch contract. Candidate evidence is the ordinary commit carrying this note,
+reported by full hash to Fleet; source support is incomplete, with no install,
+publication, rendered or owner acceptance. The precise future runtime checklist
+is in the linked trace. Do not repeat unrelated runtime suites.
+
 # October 16: Candidate forward source handoff
 
 Deadzone productcf655d45 is qualified offline: Plugin1D9741CC/retained8c84Core7ADA,

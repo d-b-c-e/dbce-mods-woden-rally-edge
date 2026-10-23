@@ -1,0 +1,45 @@
+{
+  "task": "Validate Woden F6 close/FOV and launch-state recovery",
+  "date": "2026-10-22",
+  "source": { "head": "5d68f8538fe7db0ddcea697b4a6d4e42cb53ac90", "baseline": "15bc663389564d8ab8c22cb5054e473ba47f5eca", "baselineIsAncestor": true, "treeClean": true },
+  "scope": "Source inspection plus device-free managed fixtures. No game launch, Computer Use, focus/display change, device open or force output. No implementation edited.",
+  "setup": "Fresh worktree had no components/wheel/lib; copied gitignored core, interop and local-dependencies.json from games/dbce-mods-woden-rally-edge (local copy, no network, no game access). Not committed.",
+  "checks": [
+    { "cmd": "dotnet build WodenRallyEdgeWheel.sln -c Release -warnaserror", "result": "pass, 0 warnings, 0 errors" },
+    { "cmd": "dotnet run --project tests/WodenRallyEdge.Tests -c Release", "result": "pass: 87 suites, 0 failed, 51406 assertions" },
+    { "cmd": "dotnet run --project tests/WodenRallyEdge.UiTests -c Release", "result": "pass: 912 UI assertions plus 95 shim/lease checks (native ABI NOT RUN)" },
+    { "cmd": "temporary probe inserted in UiTests Program.cs, run, then reverted (not committed)", "result": "confirmed finding 1; see below" }
+  ],
+  "inspected": {
+    "close": "Panel.Close/CompleteClose, MenuOwnership.RequestClose/CancelClose/Tick/End, Plugin.FinishStop. Close waits for a fresh neutral input read; unfocused or unreadable input keeps the panel open (Aggregate known=false, or held=true on a read exception) and it completes after refocus. Escape/F6 during Closing are no-ops. Back out via Keep settings open. Behaviour is consistent and covered by existing fixtures.",
+    "abort_foreground": "Panel.Update returns early when unfocused (also skips the autosave flush); Force is suspended when unfocused or panel open; MountedCamera restores lens/pose on handoff, foreign writer or Plugin stop with preserved foreign FOV; shortcuts require focus and release after refocus (fixture-covered).",
+    "device_loss": "WheelInput calibration reports a disconnected device and keeps the saved binding; Cancel is idempotent. No separate device-loss path touches panel close.",
+    "fov_persistence": "Camera FOV is clamped 30..110 by CameraPose.Bounded in SetCameraPose/Validate and written under [Camera] Fov/BumperFov by Settings.Save. Panel edits and F6-closed shortcut edits mark Panel dirty; autosave flushes 0.7 s later from Panel.Update, and Panel.CompleteClose saves."
+  },
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "medium",
+      "status": "confirmed by fixture probe",
+      "summary": "A camera FOV (or any camera pose) change made by the shortcut keys while F6 is closed is not saved if the game quits or the window is unfocused before the next focused Panel.Update after the 0.7 s settle.",
+      "evidence": "Plugin.FinishStop calls Panel.Close(false); CompleteClose returns immediately when !Open, so its Save() never runs. Panel.Update (the only other flush) returns early when unfocused. Probe: SavePose(+2 deg FOV) then SettingsChanged then Panel.Close(false): disk Fov=70 while memory Fov=72; Panel.Update unfocused after 1 s: disk still 70; focused: disk 72.",
+      "fix_suggestion": "In Plugin.FinishStop (or Panel.Close/CompleteClose when !Open && _dirty) call Panel.Save()/Settings.Save() for a pending dirty flag before Output/Devices dispose. Add a UiTests check for quit-with-dirty-shortcut. Not applied: this task diagnoses only."
+    },
+    {
+      "id": "F2",
+      "severity": "low",
+      "status": "source-observed",
+      "summary": "Panel._dirty autosave is skipped while unfocused, so a settle that elapses during alt-tab is delayed until refocus (same cause as F1; no data loss unless the process ends first).",
+      "evidence": "Panel.Update: if (!Runtime.Focused) { MenuOwnership.BeginCapture(); return; } precedes the _dirty flush."
+    }
+  ],
+  "unproven": [
+    "Rendered F6/UI appearance and scanout on the owner triple display",
+    "Actual driving, FOV feel and mounted-camera behaviour in game",
+    "Physical FFB and device-loss behaviour with real hardware",
+    "Owner acceptance of close/FOV behaviour",
+    "Native ABI check for the private shim (reported NOT RUN by the fixture)",
+    "That F1 reproduces in the real Unity player; the probe uses the fake Unity fixture with actual Panel/Settings source"
+  ],
+  "preserved": "Owner tune, installed 24d7203 package, saved config and existing passing evidence untouched."
+}
