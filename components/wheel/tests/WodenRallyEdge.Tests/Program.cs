@@ -117,6 +117,12 @@ Test("Forza gear shows R exactly when the HUD does: TrueSpeed below -10 km/h", (
         Check(ForzaProjection.Map(s).Gear == expected, $"TrueSpeed {hud} gear {expected}");
     }
 });
+Test("Forza gear shows the emulated H-pattern selection: out of gear is N (11), the R gate R (0)", () => {
+    foreach (var (gate, gear, hud, expected) in new[] { (0, 3, 40.0, 11), (HPatternShifter.Reverse, 1, 0.0, 0), (HPatternShifter.Reverse, 1, -36.0, 0), (3, 2, 40.0, 2) }) {
+        var s = Sample(1); new MotionProcessor().Process(s, Quaternion.Identity); s.Add("game.gear", gear); s.Add("game.trueSpeed", hud); s.Add("wheelInput.gate", gate);
+        Check(ForzaProjection.Map(s).Gear == expected, $"gate {gate} gear {gear} shows {expected}");
+    }
+});
 Test("Forza speed is the HUD's abs(TrueSpeed) in m/s, reverse included", () => {
     foreach (var hud in new[] { 36.0, -36.0 }) {
         var s = Sample(1); new MotionProcessor().Process(s, Quaternion.Identity); s.Add("game.trueSpeed", hud);

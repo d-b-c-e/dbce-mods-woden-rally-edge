@@ -40,6 +40,7 @@ internal static class GameSampler
             s.Add("game.handbrake", c.B_HandBrake ? 1 : 0);
             if (c.PauseScript != null) s.Add("game.photoMode", c.PauseScript.PhotomodeActive ? 1 : 0);
             if (input != null) { s.Add("wheelInput.steer", input.Steer); s.Add("wheelInput.throttle", input.Throttle); s.Add("wheelInput.brake", input.Brake); s.Add("wheelInput.handbrake", input.Handbrake); }
+            if (input?.Gate is int gate) s.Add("wheelInput.gate", gate);
         });
         Group("timerAssist", () => CountdownTimerAssist.Record(s));
         Group("camera", () => {

@@ -186,15 +186,17 @@ internal sealed class WheelInput
         var actions = ControlActions.For(controls);
         if (actions == null || actions.Length < 18) { Status = "Waiting for Woden action table"; return null; }
         bool shiftUp = false, shiftDown = false;
+        int? emulated = null;
         if (HPatternBound)
         {
             int gate = HeldGate();
             bool automatic = car.Aids?.Automatic == true;
+            if (!automatic) emulated = gate;
             (throttle, brake) = HPatternShifter.Pedals(gate, throttle, brake, automatic);
             (shiftUp, shiftDown) = Shifter.Step(gate, car.MyGear, car.Gears, automatic, car.TransmissionSystem?.Changing == true, Runtime.Clock.Elapsed.TotalSeconds);
         }
         var lease = new InputLease(actions, steer, throttle, brake, this, car, shiftUp, shiftDown);
-        _last = new(car.GetInstanceID(), Runtime.Clock.Elapsed.TotalSeconds, steer, throttle, brake, lease.Handbrake);
+        _last = new(car.GetInstanceID(), Runtime.Clock.Elapsed.TotalSeconds, steer, throttle, brake, lease.Handbrake, emulated);
         if (++AppliedTicks == 1) Runtime.Log.LogInfo("Wheel action-table route active: " + string.Join(", ", new[] { 6, 7, 16, 17 }.Select(i => i + "=" + actions[i].name)));
         if (car.Status == MainCar.CarStatus.WARMING && ++PreRaceTicks == 1)
             Runtime.Log.LogInfo("Countdown wheel route active: throttle, steering and bound controls reach native input; game start-line lock retained, FFB remains gated");
@@ -212,8 +214,10 @@ internal sealed class WheelInput
         float wheelThrottle = ShimInput.Axis("throttle"), wheelBrake = ShimInput.Axis("brake");
         bool shiftUp = false, shiftDown = false;
         int gate = HeldGate(car);
+        int? emulated = null;
         if (ShimInput.HPatternReady(car) && ShimInput.AxesLive)
         {
+            emulated = gate;
             (wheelThrottle, wheelBrake) = HPatternShifter.Pedals(gate, wheelThrottle, wheelBrake);
             (shiftUp, shiftDown) = Shifter.Step(gate, car.MyGear, car.Gears, false, car.TransmissionSystem?.Changing == true,
                 Runtime.Clock.Elapsed.TotalSeconds);
@@ -224,10 +228,11 @@ internal sealed class WheelInput
         var (steer, throttle, brake) = ShimActionMap.Compose(ShimInput.Axis("steer"), wheelThrottle, wheelBrake,
             actions[16].value - actions[17].value, actions[7].value, actions[6].value);
         var lease = new InputLease(actions, steer, throttle, brake, this, car, shiftUp, shiftDown, shim: true);
-        if (ShimInput.AxesLive) _last = new(car.GetInstanceID(), Runtime.Clock.Elapsed.TotalSeconds, steer, throttle, brake, lease.Handbrake);
+        if (ShimInput.AxesLive) _last = new(car.GetInstanceID(), Runtime.Clock.Elapsed.TotalSeconds, steer, throttle, brake, lease.Handbrake, emulated);
         AppliedTicks++; Status = ShimInput.Status;
         return lease;
     }
 }
 
-internal sealed record AppliedInput(int Car, double At, float Steer, float Throttle, float Brake, float Handbrake);
+/// <param name="Gate">The H-pattern gate while the mod emulates the manual gearbox (<see cref="HPatternShifter"/>); null otherwise.</param>
+internal sealed record AppliedInput(int Car, double At, float Steer, float Throttle, float Brake, float Handbrake, int? Gate = null);
