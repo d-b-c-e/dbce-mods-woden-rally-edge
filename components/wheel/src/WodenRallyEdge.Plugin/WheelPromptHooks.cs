@@ -11,7 +11,11 @@ namespace WodenRallyEdge;
 // Optional: WheelPrompts.Apply patches these after the required fail-closed PatchAll, never inside it.
 internal static class ArcadeHeaderPromptHook
 {
-    internal static void Prefix(ArcadeHeaderText __instance) { WheelPrompts.Scoped = WheelPrompts.Active; WheelPrompts.Shown(__instance); }
+    internal static void Prefix(ArcadeHeaderText __instance)
+    {
+        WheelPrompts.Scoped = WheelPrompts.Applied && WheelPrompts.Active;
+        if (WheelPrompts.Applied) WheelPrompts.Shown(__instance); // a hook left behind by a failed rollback stays inert
+    }
     internal static void Finalizer() => WheelPrompts.Scoped = false;
 }
 
@@ -21,7 +25,7 @@ internal static class InfotextPromptHook
     // Re-invoke the stock writer with the new text instead of relying on by-ref string marshaling.
     internal static bool Prefix(string __0, bool __1, bool __2, float __3)
     {
-        if (_reentered || !WheelPrompts.Scoped) return true;
+        if (_reentered || !WheelPrompts.Applied || !WheelPrompts.Scoped) return true;
         string text = WheelPrompts.Rewrite(__0);
         if (ReferenceEquals(text, __0)) return true;
         _reentered = true;
@@ -40,21 +44,26 @@ internal static class WheelPrompts
     // logs once and leaves stock prompts, never stopping controls, force or F6.
     internal static void Apply(Harmony harmony)
     {
+        Applied = false; Scoped = false;
         var patched = new List<(MethodBase Original, MethodInfo Patch)>();
         try
         {
             var header = AccessTools.Method(typeof(ArcadeHeaderText), nameof(ArcadeHeaderText.OnEnable)) ?? throw new MissingMethodException("ArcadeHeaderText.OnEnable");
             var prefix = AccessTools.Method(typeof(ArcadeHeaderPromptHook), nameof(ArcadeHeaderPromptHook.Prefix));
             var finalizer = AccessTools.Method(typeof(ArcadeHeaderPromptHook), nameof(ArcadeHeaderPromptHook.Finalizer));
-            harmony.Patch(header, prefix: new HarmonyMethod(prefix), finalizer: new HarmonyMethod(finalizer));
+            // Record each target before patching, so a Patch that throws after installing is still rolled back.
             patched.Add((header, prefix)); patched.Add((header, finalizer));
+            harmony.Patch(header, prefix: new HarmonyMethod(prefix), finalizer: new HarmonyMethod(finalizer));
             var info = AccessTools.Method(typeof(MenuCameraScript), nameof(MenuCameraScript.Infotext)) ?? throw new MissingMethodException("MenuCameraScript.Infotext");
             var rewrite = AccessTools.Method(typeof(InfotextPromptHook), nameof(InfotextPromptHook.Prefix));
+            patched.Add((info, rewrite));
             harmony.Patch(info, prefix: new HarmonyMethod(rewrite));
             Applied = true;
         }
         catch (Exception ex)
         {
+            Applied = false; Scoped = false;
+            // Best effort; any hook that survives this rollback is inert while Applied is false.
             foreach (var (original, patch) in patched) try { harmony.Unpatch(original, patch); } catch { }
             Runtime.Log.LogWarning("Wheel prompts unavailable; stock prompts kept: " + ex.Message);
         }
@@ -70,6 +79,7 @@ internal static class WheelPrompts
     internal static void Update()
     {
         if (_header == null) return;
+        if (!Applied) { _header = null; Scoped = false; return; }
         try
         {
             if (!_header.isActiveAndEnabled) { _header = null; return; }

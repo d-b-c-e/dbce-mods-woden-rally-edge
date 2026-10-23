@@ -74,6 +74,12 @@ internal static class WheelPromptChecks
         GamePadSystem.LastInput=0;Native(p=>p.A=true);WheelPrompts.Update();check(header.Enables==3&&MenuCameraScript.InfoTexts[^1]==pad,"keyboard to pad on screen redraws stock pad text");
         WheelPrompts.Update();check(header.Enables==3,"steady pad is not redrawn");
         Reset();WheelPrompts.Applied=false;Wheel();Native(p=>p.A=true);check(WheelPrompts.Source.WheelLast,"unapplied prompts do not scan native pad reads");
+        // A hook left behind by a failed rollback (lufa 340745) must stay inert: stock text, no tracking, no refresh.
+        header=new ArcadeHeaderText();header.OnEnable();
+        check(MenuCameraScript.InfoTexts[^1]==pad&&!WheelPrompts.Scoped,"surviving header and rewrite hooks keep stock text while unapplied");
+        WheelPrompts.Applied=true;WheelPrompts.Update();check(header.Enables==1,"a header seen while unapplied is never tracked or refreshed");
+        Reset();header=new ArcadeHeaderText();header.OnEnable();WheelPrompts.Applied=false;Wheel();WheelPrompts.Update();
+        WheelPrompts.Applied=true;WheelPrompts.Update();check(header.Enables==1,"becoming unapplied drops a tracked header without refreshing it");
 
         Reset();header=new ArcadeHeaderText();header.OnEnable();Wheel();MenuCameraScript.FailInfotext=true;int warnings=Runtime.Log.Warnings.Count;
         WheelPrompts.Update();MenuCameraScript.FailInfotext=false;Native(p=>p.A=true);WheelPrompts.Update();

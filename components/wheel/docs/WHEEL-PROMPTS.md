@@ -62,6 +62,11 @@ need source design plus fixtures, then a separately authorized muted run.
   required `PatchAll`, next to `SpanWindow.Apply`. If either hook fails, the half-applied one
   is unpatched, one warning is logged and stock prompts stay. Controls, force and F6 keep
   their required fail-closed path. Native pad reads are scanned only once the pair is applied.
+- **Inert fallback (lufa 340745).** `Apply` clears `Applied` and `Scoped` before registering and
+  again on failure. It records each target before calling `Patch`, so a `Patch` that throws after
+  installing is still rolled back. While `Applied` is false, a hook that survives that best-effort
+  rollback does nothing: the header prefix neither scopes nor tracks, the `Infotext` prefix runs
+  stock, and `Update` drops any tracked header without refreshing it.
 
 ## October 23: remaining BUTTON* writers audited; header refresh on device switch (selu)
 
