@@ -41,7 +41,10 @@ public static class ForzaProjection
         float gear = F("game.gear");
         // Woden reverses in first gear; HUD.FixedUpdate shows "R" while TrueSpeed < -10 km/h, and Forza's 0 is R.
         bool reversing = sample.Channels.ContainsKey("game.trueSpeed") && F("game.trueSpeed") < -10;
-        frame.Gear = !reversing && gear >= 1 && gear <= 10 ? (byte)gear : (byte)0;
+        // The mod's H-pattern emulates neutral (gate 0, drive cut) and reverse (R gate) on a gearbox with neither, so the
+        // dash shows that selection: Forza's 11 is N, 0 is R. Without the emulation the HUD rule above stands.
+        float? gate = sample.Channels.ContainsKey("wheelInput.gate") ? F("wheelInput.gate") : null;
+        frame.Gear = gate == 0 ? (byte)11 : !reversing && gate != HPatternShifter.Reverse && gear >= 1 && gear <= 10 ? (byte)gear : (byte)0;
         // No fabricated tyre heat, fuel %, surface rumble, power, drivetrain identity or
         // slip-angle conversions. Rich stream retains raw data.
         return frame;

@@ -120,6 +120,7 @@ public static class TelemetrySchema
             Add("controls." + field, "game input units (unvalidated)", "raw", "Controls object as observed in MainCar.FixedUpdate postfix");
         foreach (var field in new[] { "steer", "throttle", "brake", "handbrake" })
             Add("wheelInput." + field, "normalized", "derived", "Calibrated applied input; handbrake includes full stock/button override");
+        Add("wheelInput.gate", "gate", "derived", "H-pattern gate while the mod emulates the manual gearbox: 1..6, -1 R (first gear, pedals swapped), 0 out of gear (drive cut); absent otherwise");
         foreach (var corner in Corners)
         {
             string p = "wheel." + corner + ".";
