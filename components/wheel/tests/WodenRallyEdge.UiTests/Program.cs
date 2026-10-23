@@ -383,16 +383,22 @@ Check(MenuNavigation.Delivered==beforeMenu,"Confirm/Back cannot dispatch to nati
 Check(Runtime.Wheel.Button("Camera",false),"same physical assignment remains available to gameplay reader");
 Runtime.Devices.Pressed.Clear();Runtime.Local=null;
  var gates=Runtime.Wheel.Bindings.Buttons;
- bool hadFirst=gates.TryGetValue("Gear 1",out var firstBefore),hadReverse=gates.TryGetValue("Gear R",out var reverseBefore);
+ var previousGates=gates.ToArray();
  try {
-     gates["Gear 1"]=new(id,90);gates["Gear R"]=new(id,91);
-     Runtime.Devices.Pressed.Add(new(id,90));Check(Runtime.Wheel.HeldGate()==1,"native first gate selects first gear");
-     Runtime.Devices.Pressed.Add(new(id,91));Check(Runtime.Wheel.HeldGate()==0,"native conflicting forward/reverse gates cut drive");
-     Runtime.Devices.Pressed.Clear();Runtime.Devices.Pressed.Add(new(id,91));Check(Runtime.Wheel.HeldGate()==HPatternShifter.Reverse,"native reverse alone remains selectable");
+     for(int gate=1;gate<=6;gate++)gates[$"Gear {gate}"]=new(id,89+gate);
+     gates["Gear R"]=new(id,96);
+     for(int gate=1;gate<=6;gate++) {
+         Runtime.Devices.Pressed.Clear();Runtime.Devices.Pressed.Add(new(id,89+gate));
+         Check(Runtime.Wheel.HeldGate()==gate,$"native held gate {gate} selects gear {gate}");
+     }
+     Runtime.Devices.Pressed.Clear();Runtime.Devices.Pressed.Add(new(id,90));Runtime.Devices.Pressed.Add(new(id,96));
+     Check(Runtime.Wheel.HeldGate()==0,"native conflicting forward/reverse gates cut drive");
+     Runtime.Devices.Pressed.Clear();Runtime.Devices.Pressed.Add(new(id,96));
+     Check(Runtime.Wheel.HeldGate()==HPatternShifter.Reverse,"native reverse alone remains selectable");
+     Runtime.Devices.Pressed.Clear();Check(Runtime.Wheel.HeldGate()==0,"native no held gate cuts drive");
  } finally {
      Runtime.Devices.Pressed.Clear();
-     if(hadFirst)gates["Gear 1"]=firstBefore!;else gates.Remove("Gear 1");
-     if(hadReverse)gates["Gear R"]=reverseBefore!;else gates.Remove("Gear R");
+     gates.Clear();foreach(var binding in previousGates)gates.Add(binding.Key,binding.Value);
  }
 Panel.Toggle(); // Capture is a settings-panel workflow; producer observation is scoped to it.
 foreach(var neutralPad in stock.Game_Pads)MenuOwnership.Mask(neutralPad);
