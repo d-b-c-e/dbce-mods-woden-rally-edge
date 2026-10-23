@@ -281,3 +281,26 @@ was used only to read interop identities: its first inventory command emitted an
 automatic update notice, so network-free execution of that invocation cannot be
 asserted. Subsequent decompiler use explicitly set `--disable-updatecheck`;
 no package installation or deliberate network query was performed.
+
+## Name and string closure, 2026-10-23
+
+A read-only follow-up tightened the static limit without disassembly. Inputs matched the pins above:
+GameAssembly `f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c` and
+`global-metadata.dat` `3b5d7167aea83febdc625f1635fc7cb414ff13ca609d78cc32158133c3877815`,
+hashed in place in the installed folder (nothing written).
+
+- **IL2CPP metadata:** a case-insensitive search of the whole `global-metadata.dat` (identifiers and
+  code string literals) finds "clutch" exactly once, as the bare identifier `Clutch`.
+- **Interop:** of the 73 generated interop assemblies in `components/wheel/lib/interop`, only
+  `Unity.InputSystem.dll` contains a clutch-named identifier (Unity's generic HID usage name). Game code
+  (`Assembly-CSharp`, `Assembly-CSharp-firstpass`) declares no type, field, method or property named clutch.
+- **Assets:** no `*.assets` or `level*` file (2.8 GB, texture `.resS` streams excluded) contains "clutch".
+  StreamingAssets holds only car skins and thumbnails. The stock action sets (`GamePadSystem.LoadActionSets`)
+  therefore name no clutch action.
+
+**Exact static limit:** the pinned build has no named clutch action, identifier, code literal or
+asset string. The traced producer, Controls, car, dispatcher, Accelerate/Brake/Shift and engine/
+transmission readers above have no clutch read. What a name search cannot exclude is an unnamed
+(obfuscated) member implementing clutch-like coupling with no string at all. Only whole-binary dataflow
+could rule that out, and there is no action source that could feed it a pedal value. The A/B/C owner
+decision stands unchanged; clutch stays unsupported. No build, test, install, game, device or lease.
