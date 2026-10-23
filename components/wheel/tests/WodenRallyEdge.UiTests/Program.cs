@@ -380,6 +380,18 @@ long beforeMenu=MenuNavigation.Delivered;MenuNavigation.Update();
 Check(MenuNavigation.Delivered==beforeMenu,"Confirm/Back cannot dispatch to native menu during racing");
 Check(Runtime.Wheel.Button("Camera",false),"same physical assignment remains available to gameplay reader");
 Runtime.Devices.Pressed.Clear();Runtime.Local=null;
+ var gates=Runtime.Wheel.Bindings.Buttons;
+ bool hadFirst=gates.TryGetValue("Gear 1",out var firstBefore),hadReverse=gates.TryGetValue("Gear R",out var reverseBefore);
+ try {
+     gates["Gear 1"]=new(id,90);gates["Gear R"]=new(id,91);
+     Runtime.Devices.Pressed.Add(new(id,90));Check(Runtime.Wheel.HeldGate()==1,"native first gate selects first gear");
+     Runtime.Devices.Pressed.Add(new(id,91));Check(Runtime.Wheel.HeldGate()==0,"native conflicting forward/reverse gates cut drive");
+     Runtime.Devices.Pressed.Clear();Runtime.Devices.Pressed.Add(new(id,91));Check(Runtime.Wheel.HeldGate()==HPatternShifter.Reverse,"native reverse alone remains selectable");
+ } finally {
+     Runtime.Devices.Pressed.Clear();
+     if(hadFirst)gates["Gear 1"]=firstBefore!;else gates.Remove("Gear 1");
+     if(hadReverse)gates["Gear R"]=reverseBefore!;else gates.Remove("Gear R");
+ }
 Panel.Toggle(); // Capture is a settings-panel workflow; producer observation is scoped to it.
 foreach(var neutralPad in stock.Game_Pads)MenuOwnership.Mask(neutralPad);
 Input.Held=false;Input.Keys.Clear();Input.Down.Clear();Keyboard.current.Clear();

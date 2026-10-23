@@ -24,19 +24,12 @@ internal sealed class WheelInput
     /// <summary>The held gate: 1..6, <see cref="HPatternShifter.Reverse"/>, or 0 out of gear.</summary>
     internal int HeldGate(MainCar? car = null)
     {
-        if (ShimInput.Owns)
-        {
-            // Gear gates are physical levels. The native Manual selection uses
-            // the current stick position, as the existing Native backend does.
-            bool neutral = Button("Neutral", false, car);
-            int selected = 0, count = 0;
-            for (int i = 0; i < GateActions.Length; i++)
-                if (Button(GateActions[i], false, car)) { selected = i == 6 ? HPatternShifter.Reverse : i + 1; count++; }
-            return neutral || count != 1 ? 0 : selected;
-        }
-        if (Button("Gear R", false)) return HPatternShifter.Reverse;
-        for (int i = 0; i < HPatternShifter.MaxGates; i++) if (Button(GateActions[i], false)) return i + 1;
-        return 0;
+        // Both backends read physical levels; conflicting gates must cut drive rather than give reverse priority.
+        bool neutral = ShimInput.Owns && Button("Neutral", false, car);
+        int selected = 0, count = 0;
+        for (int i = 0; i < GateActions.Length; i++)
+            if (Button(GateActions[i], false, car)) { selected = i == 6 ? HPatternShifter.Reverse : i + 1; count++; }
+        return neutral || count != 1 ? 0 : selected;
     }
     private readonly string _path;
     internal Bindings Bindings { get; private set; } = new();
