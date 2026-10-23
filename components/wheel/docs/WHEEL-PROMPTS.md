@@ -1,5 +1,34 @@
 # Native wheel prompts: incomplete source investigation, October 22
 
+## October 23: photo mode's consumers decoded; its prompts stay stock (selu)
+
+Static only, from doli's read-only trace (hub `80384cfe`, `artifacts/woden-photomode-input-doli-20261023/trace-01`,
+GameAssembly F422894D). No product code changed.
+
+- **The consumer is `Pause.Update` (180A23D80), not `PhotoMode`.** `PhotoMode.Update` only writes the prompt Texts.
+  While `Pause.Paused`, `PhotomodeActive` (`+0x61`) and not `B_Pressed` (`+0x184`), it reads `MainControl`
+  (`+0x20`, a `MenuControls`):
+
+  | Action | Read | Effect |
+  | --- | --- | --- |
+  | Exit (prompt ②) | `MenuControls +0x44` or `Input.GetKey(27)` | `Pause.UnsetPhotoMode` (180A2412D), when `PhotoMode_ui[1]` is active |
+  | TakePhoto (prompt ①) | `+0x42` or `GetKey(27)` | starts a `Pause` iterator coroutine (180A241DF); its body is not in trace-01 |
+  | Watermark (prompt ③) | `+0x43` or `GetKey(120, 'x')` | toggles `PhotoMode_ui[0]` |
+
+  Each sets `B_Pressed`. Outside photo mode the same method pauses on `+0x46` or `GetKey(27)`.
+- **Field identity.** Instance fields start at `+0x20` here: Pause's declared order fits every offset its `Update`
+  uses. In `MenuControls`, `+0x42/+0x43/+0x44/+0x46` are `ButtonA`, `ButtonX`, `ButtonB` and `ButtonStart`: the key
+  `x` sits on `+0x43`, between A and B as declared, and Start pauses.
+- **No wheel route reaches them.** `CustomMenuLease` writes `ButtonA`/`ButtonB` only on ArcadeCarSelect's and
+  StagePresentation's `MenuControls`. `MenuNavigation` dispatches to the EventSystem selection, and wheel Pause calls
+  `SetPause`/`UnsetPause` (`Panel.cs`). Nothing writes `Pause.MainControl`, so a wheel label on ①/② would name a
+  button that does nothing. Photo mode's prompts stay stock.
+- **Missing bridge** (an input change, not a prompt one): a third `CustomMenuLease` hook around `Pause.Update`,
+  eligible only in photo mode (`Paused`, `PhotomodeActive`, not `B_Pressed`, one local player). It would lease
+  Confirm → `MainControl.ButtonA` (TakePhoto) and Back → `ButtonB` (Exit) with the existing release gate. Only then
+  would a `PhotoMode.Update` postfix rewrite the TakePhoto/Exit Texts with `WheelPromptText`. Watermark (X) has no
+  wheel action and would stay stock.
+
 ## October 23: one stock prompt chain decoded (selu)
 
 **The missing scene/widget prerequisite is resolved for one prompt.** Stock
