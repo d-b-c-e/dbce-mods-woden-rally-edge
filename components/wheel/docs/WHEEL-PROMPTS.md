@@ -49,6 +49,36 @@ whether `TypeWriter` re-sets the text after `Infotext`, whether the mod's wheel
 reader ever makes `LastInput` report Wheel, and the rendered result. These
 need source design plus fixtures, then a separately authorized muted run.
 
+## October 23: remaining BUTTON* writers audited; header refresh on device switch (selu)
+
+Static audit (hub `artifacts/woden-prompt-chain-selu-20261023/out/remaining-writers.asm`).
+None of the other stock writers has a proven wheel route for its glyphs, so all stay stock:
+
+| Writer | Prompt | Why no wheel label |
+| --- | --- | --- |
+| `ArcadeMode.OnEnable` (180813AB0) | `TEMPBUTTON` = `BUTTONX` ③ or "[Space]", then `Infotext(Language.PressYforInfo)` | X/Y are not dispatched by any wheel route |
+| `Rally_Edge_Event_Info_Screen` (OnEnable + 7 helpers) | `TEMPBUTTON` = `BUTTONY` ④ or 「Space」 | Y (`StageInfo Button` EnhancedButton key Y) has no wheel route |
+| `PhotoMode.Update` (180AD2070, every frame) | Watermark ③, Tilt LT/RT, Zoom LB/RB, TakePhoto ①, Exit ②; keyboard "[X]/[Esc]/Pg↑/↓/[Mouse]/[Enter]" | Only ①/② are dispatchable. In photo mode, wheel Confirm/Back go through `MenuNavigation`'s EventSystem dispatch (paused), which is not shown to reach photo mode's take/exit consumers. |
+
+The arcade header remains the one coherent consumer. Its three modes (route select, round
+info, car select) all go through `Infotext`. Wheel Confirm on all three was observed live on
+2026-10-10 (`docs/2026-10-10-profile-controls.md`). Wheel Back there is not runtime-evidenced.
+
+`ArcadeHeaderText.OnEnable` only builds and writes text: `SpecialFunctions.SetText`,
+`Infotext`, and the Header title. It has no `SetActive`, sound or state write. The stock
+header redraws only on enable, so a device switch on screen used to leave stale text.
+`WheelPrompts.Update`, called from `Panel.Update` right after `MenuNavigation`, now re-runs
+that stock `OnEnable` when the wanted text changes while the recorded header is still
+`isActiveAndEnabled`. The wanted text is "" for stock, or the wheel labels. It changes on a
+wheel/native switch, Shim ownership, or a binding or reading-device change. The refresh
+replays the stock Infotext animation. A hidden header is forgotten, and a failing refresh
+logs once and stops.
+
+Checks: Release build `-warnaserror` 0/0. UiTests 6,867 assertions plus 95 Shim, with 11
+new on-screen refresh cases: wheel press, pad press, keyboard press, device stops reading,
+Shim, return, hidden header, failure, and no refresh without a change. With the refresh
+disabled, the suite fails at the wheel on-screen assertion. Not installed, run or rendered.
+
 ## October 23: arcade header source implementation (selu)
 
 Source and fixtures only; not installed, run, rendered or owner-accepted.

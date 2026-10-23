@@ -6,6 +6,10 @@ press; pad/keyboard wording otherwise. Source and focused UiTests only (6,856 + 
 checks; 19 new). GLY stays unchecked: one writer, no install, runtime, rendered or owner
 acceptance. Details and open boundaries are in
 [WHEEL-PROMPTS](components/wheel/docs/WHEEL-PROMPTS.md).
+Follow-up: the header now re-runs its stock writer on an on-screen device switch, so pad or
+keyboard text returns without leaving the screen (UiTests 6,867, 11 new). The ArcadeMode,
+event-info and PhotoMode writers were audited: none has a proven wheel route for its glyphs,
+so they stay stock.
 
 ## October 22: focused Help host qualification
 

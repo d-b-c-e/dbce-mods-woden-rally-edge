@@ -20,11 +20,7 @@ internal static class WheelPromptChecks
             foreach(var d in hub.Devices)d.Ok=true;hub.Pressed.Clear();Runtime.Focused=true;
             wheel.Bindings.Buttons.Clear();wheel.Bindings.Buttons["Confirm"]=new(id,10);wheel.Bindings.Buttons["Back"]=new(id,11);wheel.Bindings.Buttons["Pause"]=new(id,16);
         }
-        string Refresh() {
-            ArcadeHeaderPromptHook.Prefix();
-            try { new ArcadeHeaderText().OnEnable(); } finally { ArcadeHeaderPromptHook.Finalizer(); }
-            return MenuCameraScript.InfoTexts[^1];
-        }
+        string Refresh() { new ArcadeHeaderText().OnEnable(); return MenuCameraScript.InfoTexts[^1]; }
         void Wheel() { var lease=new CustomMenuLease(new MenuControls(),"Confirm");lease.Restore(); }
         void Native(Action<GamePadSystem.Game_Pad> press) { var p=new GamePadSystem.Game_Pad();press(p);WheelPrompts.AfterPadRead(p); }
 
@@ -54,6 +50,26 @@ internal static class WheelPromptChecks
         Reset();EventSystem.current=new(){currentSelectedGameObject=new()};MenuNavigation.Update();hub.Pressed.Add(wheel.Bindings.Buttons["Confirm"]);
         long delivered=MenuNavigation.Delivered;MenuNavigation.Update();
         check(MenuNavigation.Delivered==delivered+1&&WheelPrompts.Source.WheelLast,"delivered wheel menu navigation counts as a wheel menu press");
+
+        // Device switch while the header stays on screen: re-run the stock writer only when the wanted text changes.
+        Reset();var header=new ArcadeHeaderText();header.OnEnable();check(MenuCameraScript.InfoTexts[^1]==pad,"header opened from the pad shows stock glyphs");
+        WheelPrompts.Update();check(header.Enables==1,"no input change, no refresh");
+        Wheel();WheelPrompts.Update();check(header.Enables==2&&MenuCameraScript.InfoTexts[^1]==wheelText&&MenuCameraScript.TypeWriterInput==wheelText,
+            "a wheel menu press on screen refreshes the header to wheel buttons");
+        WheelPrompts.Update();check(header.Enables==2,"steady wheel state does not refresh again");
+        Native(p=>p.Dpad_Down=true);WheelPrompts.Update();check(header.Enables==3&&MenuCameraScript.InfoTexts[^1]==pad,"a native pad press on screen restores stock pad text");
+        GamePadSystem.LastInput=1;Wheel();WheelPrompts.Update();Native(p=>p.AnyKey=true);WheelPrompts.Update();
+        check(header.Enables==5&&MenuCameraScript.InfoTexts[^1]==keys,"a native keyboard press on screen restores stock keyboard text");
+        GamePadSystem.LastInput=0;Wheel();WheelPrompts.Update();hub.Devices[0].Ok=false;WheelPrompts.Update();
+        check(header.Enables==7&&MenuCameraScript.InfoTexts[^1]==pad,"a bound device that stops reading restores stock glyphs");
+        hub.Devices[0].Ok=true;WheelPrompts.Update();owns.SetValue(null,true);try{WheelPrompts.Update();}finally{owns.SetValue(null,false);}
+        check(header.Enables==9&&MenuCameraScript.InfoTexts[^1]==pad,"shared-profile ownership on screen restores stock glyphs");
+        WheelPrompts.Update();check(header.Enables==10&&MenuCameraScript.InfoTexts[^1]==wheelText,"wheel labels return when the choice returns");
+        header.isActiveAndEnabled=false;Native(p=>p.A=true);WheelPrompts.Update();Wheel();WheelPrompts.Update();
+        check(header.Enables==10,"a hidden header is forgotten and never refreshed");
+        Reset();header=new ArcadeHeaderText();header.OnEnable();Wheel();MenuCameraScript.FailInfotext=true;int warnings=Runtime.Log.Warnings.Count;
+        WheelPrompts.Update();MenuCameraScript.FailInfotext=false;Native(p=>p.A=true);WheelPrompts.Update();
+        check(header.Enables==2&&Runtime.Log.Warnings.Count==warnings+1&&!WheelPrompts.Scoped,"a failing refresh is logged once and stops further refreshes");
 
         Reset();wheel.Bindings.Buttons.Clear();foreach(var x in saved)wheel.Bindings.Buttons[x.Key]=x.Value;
         WheelPrompts.Source.Reset();EventSystem.current=events;hub.Pressed.Clear();

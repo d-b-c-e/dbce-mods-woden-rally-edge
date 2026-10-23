@@ -155,12 +155,17 @@ namespace WodenRallyEdge
             InfoTexts.Add("■"+text);TypeWriterInput="■"+text;
         }
     }
-    // ArcadeHeaderText.OnEnable (180A9B300) Mode 0 as decoded: pad glyphs unless LastInput is Keyboard.
+    // Patched ArcadeHeaderText.OnEnable (180A9B300) Mode 0 as decoded: pad glyphs unless LastInput is Keyboard.
     internal sealed class ArcadeHeaderText
     {
+        internal bool isActiveAndEnabled=true;internal int Enables;
         public void OnEnable() {
-            bool keyboard=GamePadSystem.LastInput==1;
-            MenuCameraScript.Infotext((keyboard?"「Enter」":"①")+"Confirm - "+(keyboard?"「Esc」":"②")+"Back",true,false,0);
+            ArcadeHeaderPromptHook.Prefix(this);
+            try {
+                Enables++;bool keyboard=GamePadSystem.LastInput==1;
+                MenuCameraScript.Infotext((keyboard?"「Enter」":"①")+"Confirm - "+(keyboard?"「Esc」":"②")+"Back",true,false,0);
+            }
+            finally { ArcadeHeaderPromptHook.Finalizer(); }
         }
     }
     internal sealed class GamePadSystem

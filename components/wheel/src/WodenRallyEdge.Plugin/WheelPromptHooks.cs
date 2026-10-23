@@ -6,11 +6,11 @@ namespace WodenRallyEdge;
 // The arcade header's prompt is one string: ArcadeHeaderText.OnEnable builds it and the static
 // MenuCameraScript.Infotext writes it to the bottom-bar Text and to that Text's TypeWriter, which
 // retypes it. Rewrite that string only during the header refresh and only when the wheel gave the
-// last menu press. Nothing global changes, so the next stock refresh restores pad/keyboard wording.
+// last menu press. Nothing global changes; a stock refresh restores pad/keyboard wording.
 [HarmonyPatch(typeof(ArcadeHeaderText), nameof(ArcadeHeaderText.OnEnable))]
 internal static class ArcadeHeaderPromptHook
 {
-    internal static void Prefix() => WheelPrompts.Scoped = WheelPrompts.Active;
+    internal static void Prefix(ArcadeHeaderText __instance) { WheelPrompts.Scoped = WheelPrompts.Active; WheelPrompts.Shown(__instance); }
     internal static void Finalizer() => WheelPrompts.Scoped = false;
 }
 
@@ -35,6 +35,23 @@ internal static class WheelPrompts
 {
     internal static readonly MenuInputSource Source = new();
     internal static bool Scoped;
+    private static ArcadeHeaderText? _header;
+    private static string? _shown;
+    internal static void Shown(ArcadeHeaderText header) { _header = header; _shown = Key; }
+    // What the header would show now; "" is stock wording.
+    private static string Key => Active ? string.Join("|", WheelPromptText.Tokens.Select(t => t.Action).Distinct().Select(Label)) : "";
+    // The stock header only redraws on enable. While it stays on screen, re-run that same stock writer
+    // when the wheel/native choice or a bound label changes, so a device switch restores stock text.
+    internal static void Update()
+    {
+        if (_header == null) return;
+        try
+        {
+            if (!_header.isActiveAndEnabled) { _header = null; return; }
+            if (Key != _shown) _header.OnEnable();
+        }
+        catch (Exception ex) { _header = null; Runtime.Log.LogWarning("Wheel prompt refresh stopped: " + ex.Message); }
+    }
     // Native bindings only: shared-profile (Shim) wheel input arrives through the game's pads.
     internal static bool Active => !ShimInput.Owns && Source.WheelLast;
     internal static void WheelDelivered() => Source.Wheel();

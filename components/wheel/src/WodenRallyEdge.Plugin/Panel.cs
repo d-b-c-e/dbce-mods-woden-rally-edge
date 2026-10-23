@@ -62,6 +62,7 @@ internal static partial class Panel
         ObserveSettingsOpening();
         MenuOwnership.Tick();
         MenuNavigation.Update();
+        WheelPrompts.Update();
         if (!Runtime.Focused) { MenuOwnership.BeginCapture(); return; }
         Keyboard? kb = null;
         try { kb = Keyboard.current; }
