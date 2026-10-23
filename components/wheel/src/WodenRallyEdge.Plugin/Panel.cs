@@ -87,7 +87,10 @@ internal static partial class Panel
             if (!Open && Runtime.Wheel?.Button("Pause") == true && Runtime.Local != null)
             {
                 var pause = Runtime.Local.MyControls?.PauseScript;
-                if (pause != null) { Runtime.Force?.Suspend("paused"); if (Pause.Paused) pause.UnsetPause(); else pause.SetPause(); }
+                // In photo mode the native Start does nothing (B or Escape leaves it through UnsetPhotoMode); UnsetPause
+                // there would resume the race with the photo camera, UI and post-process still applied.
+                if (pause != null && !(Pause.Paused && pause.PhotomodeActive))
+                { Runtime.Force?.Suspend("paused"); if (Pause.Paused) pause.UnsetPause(); else pause.SetPause(); }
             }
         }
         catch (Exception ex) { HotkeyFailure("Settings / Escape / Pause", ex); }

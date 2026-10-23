@@ -128,6 +128,14 @@ internal static class CustomMenuChecks
         check(threw&&failing.Photos==1&&!failing.MainControl!.ButtonA,"photo mode original exception preserved while the finalizer restores A");
         Pause.Paused=false;
 
+        // Wheel Pause (Panel.Update): in photo mode it does nothing, as the native Start; outside it still resumes.
+        Reset();Pause.Paused=true;var inPhoto=new Pause{PhotomodeActive=true};Runtime.Local=new(){MyControls=new(){PauseScript=inPhoto}};
+        hub.Pressed.Clear();Panel.Update();Down("Pause");Panel.Update();
+        check(Pause.Paused&&inPhoto.PhotomodeActive,"wheel Pause in photo mode keeps the game paused in photo mode (no UnsetPause)");
+        inPhoto.PhotomodeActive=false;hub.Pressed.Clear();Panel.Update();Down("Pause");Panel.Update();
+        check(!Pause.Paused,"wheel Pause in the pause menu still resumes");
+        Runtime.Local=null;Pause.Paused=false;
+
         Reset();wheel.Bindings.Buttons.Clear();foreach(var b in saved)wheel.Bindings.Buttons[b.Key]=b.Value;
     }
 }
