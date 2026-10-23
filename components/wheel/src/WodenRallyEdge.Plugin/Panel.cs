@@ -450,7 +450,7 @@ internal static partial class Panel
             float y=258+row++*64; var binding=Runtime.Wheel!.Bindings.Axis(name);
             bool available=Runtime.Devices?.TryAxis(binding,out _) == true; float value=0; if(available)Runtime.Devices!.TryAxis(binding,out value);
             Label(250,y,160,ActionLabel(name));Bar(420,y+8,350,value,name=="Steer");Label(782,y,162,available?Value(value,name=="Steer"):"Not available",true);
-            if(next==null && (!available || binding?.Valid!=true))next=name;
+            if(next==null && (!available || !Runtime.Wheel!.Bindings.DrivingAxisReady(name)))next=name;
         }
         Label(250,465,690,!cfg.WheelEnabled?"Next: turn Wheel controls On.":next!=null?"Next: bind or reconnect "+ActionLabel(next)+".":"Ready to drive. Close settings and check the car responds.",false,44);
         if(next!=null && Button(250,520,340,"Bind "+ActionLabel(next))) { Navigate("Controls");Runtime.Wheel!.BeginAxis(next); }

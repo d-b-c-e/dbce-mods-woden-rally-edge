@@ -42,8 +42,10 @@ public sealed class Bindings
     }
     public Bindings Copy() => new() { Version = Version, Steer = Steer, Throttle = Throttle, Brake = Brake, Handbrake = Handbrake,
         HandbrakeUsesAxis = HandbrakeUsesAxis, Buttons = new(Buttons), CameraKeys = new(CameraKeys) };
-    public bool DrivingAxesReady => Steer?.Valid == true && Steer.Calibration.Centre.HasValue &&
-        Throttle?.Valid == true && !Throttle.Calibration.Centre.HasValue && Brake?.Valid == true && !Brake.Calibration.Centre.HasValue;
+    /// <summary>A driving axis as F6 captures it: valid, steering about a centre, pedals from rest. The guided setup
+    /// asks for the same thing, so it never reports Ready for bindings the wheel route refuses.</summary>
+    public bool DrivingAxisReady(string name) => Axis(name) is { Valid: true } b && b.Calibration.Centre.HasValue == (name == "Steer");
+    public bool DrivingAxesReady => DrivingAxisReady("Steer") && DrivingAxisReady("Throttle") && DrivingAxisReady("Brake");
     public AxisBinding? Axis(string name) => name switch { "Steer" => Steer, "Throttle" => Throttle, "Brake" => Brake, "Handbrake" => Handbrake, _ => null };
     public void SetAxis(string name, AxisBinding? binding)
     {

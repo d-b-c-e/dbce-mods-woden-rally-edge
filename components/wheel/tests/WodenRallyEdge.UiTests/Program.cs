@@ -58,6 +58,7 @@ Check(GUI.Commands.Count(c=>c.Kind=="rect")==2&&GUI.Commands.Where(c=>c.Kind=="r
 Check(GUI.color.Equals(hudColor)&&GUI.enabled==hudEnabled&&GUI.matrix.Equals(hudMatrix),
     "source-linked recording renderer restores IMGUI state");
 Screen.width=1280;Screen.height=720;GUI.Commands.Clear();
+ReadyGuideChecks.Run(dir, Check);
 StageLifecycleChecks.Run(dir, Check);
 StageReplayChecks.Run(Check);
 ShimChecks.Run(dir, Check);
