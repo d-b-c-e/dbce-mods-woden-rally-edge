@@ -82,8 +82,8 @@ internal static partial class Panel
             bool capturing = Runtime.Wheel?.Capturing == true || SharedBindingHost.Current.CapturingAction!=null;
             if (!capturing && (kb != null && kb[Key.F6].wasPressedThisFrame || Runtime.Wheel?.Button("Settings panel") == true))
             { SettingsKey("InputSystem / bound Settings"); }
-            if (Open && kb != null && kb[Key.Escape].wasPressedThisFrame) { if(MenuOwnership.Closing)CancelPendingClose();else if (capturing) {Runtime.Wheel?.Cancel();SharedBindingHost.Current.CancelCapture();} else if(_sharedClosePrompt)_sharedClosePrompt=false;else if (ConnectionDirty) ReadConnection(); else Toggle(); }
-            if (Open && MenuOwnership.Closing && Runtime.Wheel?.Button("Back") == true) CancelPendingClose();
+            if (Open && kb != null && kb[Key.Escape].wasPressedThisFrame) { if(MenuOwnership.Closing)Close(true);else if (capturing) {Runtime.Wheel?.Cancel();SharedBindingHost.Current.CancelCapture();} else if(_sharedClosePrompt)_sharedClosePrompt=false;else if (ConnectionDirty) ReadConnection(); else Toggle(); }
+            if (Open && MenuOwnership.Closing && Runtime.Wheel?.Button("Back") == true) Close(true);
             if (!Open && Runtime.Wheel?.Button("Pause") == true && Runtime.Local != null)
             {
                 var pause = Runtime.Local.MyControls?.PauseScript;
@@ -131,12 +131,12 @@ internal static partial class Panel
     {
         if (!Runtime.Focused || Runtime.Wheel?.Capturing == true || _settingsFrame == Time.frameCount) return;
         _settingsFrame = Time.frameCount; HotkeyStatus = "Settings input observed: " + source;
-        if (MenuOwnership.Closing) { CancelPendingClose(); return; }
+        if (MenuOwnership.Closing) return;
         Runtime.Log.LogInfo(HotkeyStatus); Toggle();
     }
     internal static void MenuAction(string action)
     {
-        if (action == "Back" && MenuOwnership.Closing) { CancelPendingClose(); return; }
+        if (action == "Back" && MenuOwnership.Closing) return;
         if (action == "Back") { if (Runtime.Wheel?.Capturing == true || SharedBindingHost.Current.CapturingAction!=null) {Runtime.Wheel?.Cancel();SharedBindingHost.Current.CancelCapture();} else if(_sharedClosePrompt)_sharedClosePrompt=false;else if (ConnectionDirty) ReadConnection(); else Close(true); return; }
         if (action == "Confirm") _menuConfirm = true;
         if (action == "Menu up") _menuMove--;
@@ -146,7 +146,7 @@ internal static partial class Panel
     }
     internal static void Toggle()
     {
-        if (Open && MenuOwnership.Closing) { CancelPendingClose(); return; }
+        if (Open && MenuOwnership.Closing) return;
         if (Open) { if (Editing) { Message = SettingsPresentation.EditLock; return; } Close(true); return; }
         Open = true; Runtime.Force?.Suspend("Settings open");
         MenuOwnership.Begin();
@@ -327,7 +327,7 @@ internal static partial class Panel
         // focus. Accept its F6 event too, deduplicating the InputSystem edge.
         var hotkey = Event.current;
         if (Open && MenuOwnership.Closing && hotkey.type == EventType.KeyDown && hotkey.keyCode == KeyCode.Escape)
-        { CancelPendingClose(); hotkey.Use(); }
+        hotkey.Use();
         if (hotkey.keyCode == KeyCode.F6)
         {
             if (hotkey.type == EventType.KeyUp) _imguiSettingsHeld = false;
@@ -365,18 +365,17 @@ internal static partial class Panel
             // Drawn in the earlier sidebar order, so keyboard focus order is unchanged: views, pages, Stop FFB, Close.
             if(Button(364,18,84,"Simple",!Advanced,!Editing))Navigate(Runtime.Settings.UiPage,"Simple");
             if(Button(454,18,104,"Advanced",Advanced,!Editing))Navigate(Runtime.Settings.UiPage,"Advanced");
-            Label(24,64,694,MenuOwnership.Closing?"Waiting to close · Escape / F6 / Back cancels":Editing?SettingsPresentation.EditLock:"F6 close · F8 stops FFB · Tab / Enter to navigate · "+_saveStatus,true);
-            float tabX=24; foreach(string page in SettingsPresentation.Pages(Runtime.Settings.UiView))
+            Label(24,64,694,MenuOwnership.Closing?"Closing after controls are released · Keep settings open cancels":Editing?SettingsPresentation.EditLock:"F6 close · F8 stops FFB · Tab / Enter to navigate · "+_saveStatus,true);
+            float tabX=22; foreach(string page in SettingsPresentation.Pages(Runtime.Settings.UiView))
             {
-                // The longest page set (Advanced, seven pages) measures 682 of the 694-unit row.
-                float tabWidth=page.Length*10f+2*F6Metrics.TabPadX;
+                // Give the short FFB tab enough room for its scaled text; Advanced still fits the row.
+                float tabWidth=page.Length*10f+2*F6Metrics.TabPadX+(page=="FFB"?14:0);
                 if(Tab(tabX,92,tabWidth,page,Runtime.Settings.UiPage==page,!Editing))Navigate(page);
                 tabX+=tabWidth;
             }
             Fill(R(0,136,Width,1),ColorOf(F6Palette.Divider));
             if(Button(598,_height-99,120,"Stop FFB")) { try { Runtime.Force?.Panic(); } catch(Exception ex) { Message="Save failed: "+ex.Message; } }
-            if(Button(574,18,144,MenuOwnership.Closing?"Cancel close":"Close",false,!Editing||MenuOwnership.Closing))
-            { if(MenuOwnership.Closing)CancelPendingClose();else Close(true); }
+            if(Button(574,18,144,MenuOwnership.Closing?"Closing…":"Close",false,!Editing))Close(true);
             if(_sharedClosePrompt)
             {
                 if(_focus<0)_focus=_ordinal+1; // Keep editing is the first close-intent default.
@@ -387,7 +386,6 @@ internal static partial class Panel
             }
             if(MenuOwnership.Closing)
             {
-                if(_focus<0)_focus=_ordinal;
                 Label(24,170,680,Message,true,110);
                 if(Button(24,300,280,"Keep settings open"))CancelPendingClose();
                 _count=_ordinal;_focus=Math.Clamp(_focus,0,Math.Max(0,_count-1));_menuStep=0;

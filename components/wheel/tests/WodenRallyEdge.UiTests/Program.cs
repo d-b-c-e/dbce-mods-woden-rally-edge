@@ -73,10 +73,10 @@ void Draw(Event? e=null)
     // still check every actually drawn tab's full bounds.
     var tabs=repaint&&viewBefore==Runtime.Settings.UiView?SettingsPresentation.Pages(Runtime.Settings.UiView):SettingsPresentation.CorePages
         .Concat(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text=="Driving")?new[]{"Driving"}:Array.Empty<string>());
-    var closeLabels=GUI.Commands.Where(c=>c.Kind=="text"&&c.Text is "Close" or "Cancel close").ToArray();
-    Check(closeLabels.Length==1,"exactly one complete Close/Cancel close footer is drawn");
+    var closeLabels=GUI.Commands.Where(c=>c.Kind=="text"&&c.Text is "Close" or "Closing…").ToArray();
+    Check(closeLabels.Length==1,"exactly one complete close-state label is drawn");
     if(repaint&&closingBefore==MenuOwnership.Closing)
-        Check(closeLabels[0].Text==(MenuOwnership.Closing?"Cancel close":"Close"),"stable repaint footer matches pending-close state");
+        Check(closeLabels[0].Text==(MenuOwnership.Closing?"Closing…":"Close"),"stable repaint footer matches pending-close state");
     foreach(string command in new[]{"Simple","Advanced",closeLabels[0].Text,"Stop FFB"}.Concat(tabs))
     {
         var label=GUI.Commands.FirstOrDefault(c=>c.Kind=="text"&&c.Text==command);
@@ -149,6 +149,7 @@ device.Axes[7]=0;Click("Controls");Click("Bind",3);device.Axes[7]=60000;Runtime.
 Check(Runtime.Wheel.CaptureDeadzone==3&&Math.Abs(Runtime.Wheel.PreviewBinding!.Normalize(30000)-.4845360825)<.001,"provisional half-pull preview reflects the visible 3% pedal deadzone");Click("Save calibration");
 Check(Runtime.Wheel.Bindings.Handbrake?.Axis==7&&Runtime.Wheel.Bindings.Buttons["Handbrake"].Button==18,"save retains additive axis and button");
 Click("FFB");Snapshot("ffb-720");
+Check(Find("FFB")!.Rect.width>=44*FixtureScale(),"FFB tab has enough text width to stay on one line");
 Reach(()=>Find("Crash effects:")!=null,"Crash effects label");
 Click("Advanced");Reach(()=>Find("Invert force direction:")!=null,"Invert force direction label");Click("Simple");Click("FFB");
 Reach(()=>Find("Custom FFB tuning active. Review in Advanced")!=null,"Simple custom-tune summary");

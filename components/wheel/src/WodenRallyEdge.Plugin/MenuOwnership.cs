@@ -86,7 +86,7 @@ internal static class MenuOwnership
         if (!Closing) return;
         double now = Runtime.Clock.Elapsed.TotalSeconds;
         var input = Aggregate(now);
-        Panel.Message = "Waiting to close: " + ReleaseBlocker + ". Release the input, or press Escape / F6 / Back to keep settings open.";
+        Panel.Message = "Waiting to close: " + ReleaseBlocker + ". Release the input, or choose Keep settings open.";
         if (CloseRelease.Observe(input.Known, input.Held, now)) Panel.CompleteClose(true);
     }
     internal static void BeforeStock(GamePadSystem system)

@@ -31,6 +31,7 @@
     <Compile Include="../../../../tools/controls/Probe/AppliedCarWorkload.cs" Link="Qualification/AppliedCarWorkload.cs" />
     <ProjectReference Include="../../src/WodenRallyEdge.Core/WodenRallyEdge.Core.csproj" />
     <Reference Include="BepInEx.Core" HintPath="../../lib/core/BepInEx.Core.dll" />
+    <Reference Include="SemanticVersioning" HintPath="../../lib/core/SemanticVersioning.dll" />
     <Reference Include="0Harmony" HintPath="../../lib/core/0Harmony.dll" />
   </ItemGroup>
   <Import Project="../../../../vendor/dbce-shim/PrivateShim.targets" />

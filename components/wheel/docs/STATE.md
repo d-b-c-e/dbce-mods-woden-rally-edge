@@ -570,3 +570,9 @@ registry values independently matched after normal exit; lease released before
 EXIT. Driving/DS-8X/ordinary keyboard/physical FFB remain unqualified. No
 permanent install, force/tune/triples changes or Wheelkit promotion. See
 ../../../docs/SHIM-MENU-TRIAL.md for exact scope, command, pins and limitations.
+
+## October 24 owner Woden check and panel source correction
+
+The owner reports weak force feel, especially return to center; the FFB tab title wraps; and the F6 panel could not be closed. Repeating F6 or clicking the header after a close request showed `Cancel close` and kept the panel open. The October 23 last-run log shows 1,250 FFB writes with zero reported failures before settings opened, then stock menu reads reported neutral. The saved owner profile has Grip, steering strength 50 and load ratio 2. Neither log records synchronized tire-force previews or the close gate's specific input blocker, so it does not establish a safe normalization value or the precise reason the close gate waited. No owner force setting was changed.
+
+Source now keeps F6, Back and Escape close attempts pending during the existing 100 ms neutral handoff; the header says `Closing…`, and `Keep settings open` is the distinct cancel action. The FFB tab gains text width. The Release plugin build passed with zero warnings/errors, focused source-linked close/release checks passed 64 assertions, and the full source-linked UI fixture passed 6,919 assertions (including 95 managed shim/lease checks), with no game/device/force output. These are offline checks: the rendered tab and owner close path still need one short live check on a packaged candidate. Force normalization remains a targeted measured A/B task; preserve the owner's saved 50/2 tune until then.
