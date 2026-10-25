@@ -10,7 +10,7 @@
     <Compile Include="../../src/WodenRallyEdge.Plugin/ToolkitForceDevice.cs" Link="Consumer/ToolkitForceDevice.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ToolkitForceApi.cs" Link="Consumer/ToolkitForceApi.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/GameWindow.cs" Link="Consumer/GameWindow.cs" />
-    <Compile Include="../../src/WodenRallyEdge.Plugin/WindowPlacement.cs" Link="Consumer/WindowPlacement.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/Toolkit/Display/RacingRowPlacement.cs" Link="Consumer/RacingRowPlacement.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/HandbrakeLease.cs" Link="Consumer/HandbrakeLease.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/InputLease.cs" Link="Consumer/InputLease.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CountdownTimerAssist.cs" Link="Consumer/CountdownTimerAssist.cs" />

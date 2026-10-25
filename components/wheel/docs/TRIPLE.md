@@ -102,7 +102,8 @@ single screen.
 
 Unity opens its window on the monitor saved in its own preferences (`UnitySelectMonitor`). On 2026-10-24 that index
 still named the 1920x1080 dashboard display from separate-monitor use, so under Surround the game opened there at
-1920x1080 and the mod did nothing. Without a span, `WindowPlacement` now decides from the same racing-row policy: a
+1920x1080 and the mod did nothing. Without a span, `RacingRowPlacement.Move` (`src/WodenRallyEdge.Plugin/Toolkit/Display/RacingRowPlacement.cs`,
+portable source for the shared display library) now decides from the same racing-row policy: a
 game window whose center is on a display other than the row's primary (the whole row under Surround, the center display
 for separate monitors) is moved to that primary. Inside `FirstResolutionSet` the game's own apply becomes one windowed
 apply at the primary's size, then the window is placed as a borderless popup over it and re-checked like the span. A
@@ -110,3 +111,11 @@ later `FirstResolutionSet` on the primary is left to the game, so its saved full
 change, two checks 2 s apart must agree before the window is moved; leaving fullscreen then takes at most one windowed
 apply per off-row episode. With no racing row (one display, or a layout the policy refuses) or a minimized window,
 nothing moves. The target is never any display but the primary. Log lines start `Window placement:`.
+
+After a completed move, Unity's own start monitor is saved so the next launch opens on the row from its first frame:
+`PlayerPrefs.SetInt("UnitySelectMonitor", index)` and `Save`, the value Unity stores as `UnitySelectMonitor_h17969598`
+(the checks verify the hashed name). `RacingRowPlacement.EngineIndex` maps the home display to Unity's index from
+`Display.displays` (Unity's order, not Windows'; sizes only). It writes only when exactly one Unity display has the home
+size, the lists have the same length, the saved index names a display of the size the game opened on (proving the saved
+index and the list share one order), and the value differs; the log shows old -> new. Three equal separate displays are
+ambiguous and are not saved. Nothing is written during a muted stage or a test-save-suppressed launch.

@@ -16,8 +16,10 @@ namespace WodenRallyEdge;
 /// row's span; the window is then made borderless and placed over the row, and Unity follows the window
 /// size, so Auto triples start.
 /// Without a span, a game window that Unity opened on a display outside the racing row (its saved monitor preference
-/// naming the dashboard display) is moved the same way onto the row's primary display (<see cref="WindowPlacement"/>):
-/// in the startup apply, and after a display change once two checks 2 s apart agree.
+/// naming the dashboard display) is moved the same way onto the row's primary display (<see cref="RacingRowPlacement"/>):
+/// in the startup apply, and after a display change once two checks 2 s apart agree. Once it is there, Unity's own
+/// monitor preference is saved through PlayerPrefs when the engine's display index is certain, so the next launch opens
+/// on the row from its first frame.
 /// </summary>
 /// <remarks>
 /// Only <c>Screen.SetResolution</c> calls made while <c>FirstResolutionSet</c> runs are changed, so it
@@ -46,11 +48,15 @@ internal static class SpanWindow
     private static Func<bool> _triplesAllowed = () => true;
     private static readonly SpanTarget _target = new(WindowsMonitors.SelectRacingRow);
     private static int _attempts, _depth, _offRowSeen;
-    private static bool _maintain, _startupDone, _rowApplied, _rowHeld;
+    private static bool _maintain, _startupDone, _rowApplied, _rowHeld, _startObserved, _persistTried;
     private static float _next, _nextCheck, _nextRowCheck;
     // Set while the window is kept on the row's primary display instead of a span.
     private static (int X, int Y, int W, int H)? _move;
     private static string? _placementReason;
+    // The Windows display the game opened on, from the first observation (before any move).
+    private static MonitorRect? _start;
+    // Unity's start-monitor PlayerPref; stored as UnitySelectMonitor_h17969598 (WindowPlacementChecks verifies the hash).
+    private const string MonitorPref = "UnitySelectMonitor";
     internal static string Status { get; private set; } = "not needed";
     /// <summary>The saved separate-monitor span setting (F6 Cameras selector, STD-022); applies at the next start.</summary>
     internal static bool Enabled { get => _enabled != null && _enabled.Value; set { if (_enabled != null && _enabled.Value != value) _enabled.Value = value; } }
@@ -80,9 +86,35 @@ internal static class SpanWindow
     {
         var hwnd = FindGameWindow();
         if (hwnd == IntPtr.Zero || !GetWindowRect(hwnd, out var r)) return null;
-        var target = WindowPlacement.Decide(WindowsMonitors.Read(), (r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top), out string reason);
+        var monitors = WindowsMonitors.Read();
+        int w = r.Right - r.Left, h = r.Bottom - r.Top;
+        if (!_startObserved) { _startObserved = true; _start = RacingRowPlacement.DisplayOf(monitors, r.Left, r.Top, w, h); }
+        var home = RacingRowPlacement.Move(monitors, r.Left, r.Top, w, h, out string reason);
         if (reason != _placementReason) { _placementReason = reason; Runtime.Log.LogInfo("Window placement: " + reason); }
-        return target;
+        return home == null ? null : (home.Value.X, home.Value.Y, home.Value.Width, home.Value.Height);
+    }
+
+    /// <summary>After a move has finished: save Unity's start monitor as the racing display when the mapping is certain
+    /// and the value differs. Not during a muted stage or a test launch, which must not change the owner's state.</summary>
+    private static void PersistMonitor()
+    {
+        try
+        {
+            if (StagePlayback.OutputMuted || TestSaveGuard.Active) { Runtime.Log.LogInfo("Window placement: Unity monitor preference left unchanged during a muted stage or test launch"); return; }
+            var monitors = WindowsMonitors.Read();
+            var home = RacingRowPlacement.Home(RacingRowPolicy.Select(monitors));
+            if (home == null || _start == null) { Runtime.Log.LogInfo("Window placement: Unity monitor preference not changed: " + (home == null ? "no racing row now" : "the start display is unknown")); return; }
+            var displays = UnityEngine.Display.displays;
+            var engine = new List<(int Width, int Height)>();
+            for (int i = 0; i < displays.Length; i++) engine.Add((displays[i].systemWidth, displays[i].systemHeight));
+            int? stored = PlayerPrefs.HasKey(MonitorPref) ? PlayerPrefs.GetInt(MonitorPref) : null;
+            var index = RacingRowPlacement.EngineIndex(monitors, home.Value, _start.Value, engine, stored, out string reason);
+            if (index == null) { Runtime.Log.LogInfo("Window placement: Unity monitor preference not changed: " + reason); return; }
+            PlayerPrefs.SetInt(MonitorPref, index.Value);
+            PlayerPrefs.Save();
+            Runtime.Log.LogInfo($"Window placement: Unity monitor preference {MonitorPref} {stored?.ToString() ?? "unset"} -> {index.Value}: {reason}");
+        }
+        catch (Exception ex) { Runtime.Log.LogWarning("Window placement: Unity monitor preference not saved: " + ex.Message); }
     }
 
     internal static void BeginApply() => _depth++;
@@ -101,6 +133,7 @@ internal static class SpanWindow
         else _move = null;
         if (target == null) return false;
         _rowApplied = _move != null; // this apply is the off-row episode's one windowed apply
+        _persistTried = false;
         var (sx, sy, sw, sh) = target.Value;
         Runtime.Log.LogInfo(_move != null
             ? $"Window placement: {sw}x{sh} borderless window on the racing row's primary display at ({sx},{sy}); windowed instead of {width}x{height} fullscreen {fullscreen}"
@@ -127,7 +160,11 @@ internal static class SpanWindow
             bool done = Screen.width == w && Screen.height == h;
             Status = done ? (_move != null ? "on the racing row" : "spanning") + $" {w}x{h} at ({x},{y})" : $"placing ({Screen.width}x{Screen.height} so far)";
             Runtime.Log.LogInfo($"{Label}: {Status}, attempt {6 - _attempts}");
-            if (done && _attempts < 4) { _attempts = 0; _maintain = true; _nextCheck = Time.unscaledTime + 2f; }
+            if (done && _attempts < 4)
+            {
+                _attempts = 0; _maintain = true; _nextCheck = Time.unscaledTime + 2f;
+                if (_move != null && !_persistTried) { _persistTried = true; PersistMonitor(); }
+            }
         }
         catch (Exception ex) { _attempts = 0; Status = "failed: " + ex.Message; Runtime.Log.LogWarning(Label + " " + Status); }
     }
@@ -172,7 +209,7 @@ internal static class SpanWindow
                 Runtime.Log.LogInfo($"Window placement: one windowed {w}x{h} apply to leave {Screen.fullScreenMode} on the wrong display");
                 Screen.SetResolution(w, h, FullScreenMode.Windowed);
             }
-            _attempts = 6; _next = Time.unscaledTime + 0.5f; Status = "placing";
+            _attempts = 6; _next = Time.unscaledTime + 0.5f; _persistTried = false; Status = "placing";
         }
         catch (Exception ex) { _offRowSeen = 0; _nextRowCheck = Time.unscaledTime + 30f; Runtime.Log.LogWarning("Window placement: " + ex.Message); }
     }
