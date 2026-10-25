@@ -584,6 +584,6 @@ After the Wheelkit "Moza KS Pro Triple Span Auto" profile enabled Surround (prim
 separate-monitor use, and the mod logged only that the Surround primary is used as one surface. The coordinator's
 registry stopgap (index 0) is not the fix. Source now moves a window that is outside the racing row onto the row's
 primary display at that display's size, at the game's startup apply and after display changes, then saves Unity's
-start monitor through PlayerPrefs when the Unity display index is certain (TRIPLE.md). Offline only: focused
-`RacingRowPlacement` checks (Surround with dashboard, separate rig, one display, minimized, never a non-primary target,
+start monitor through PlayerPrefs when the Unity display index is certain (TRIPLE.md), using the toolkit's new
+`shared/display/WindowLanding.cs` (vendored, DEPENDENCIES.md). Offline only: focused `WindowPlacementChecks` (Surround with dashboard, separate rig, one display, minimized, never a non-primary target,
 the PlayerPrefs value name, Unity index mapping in either order and its refusals); not yet seen in game.

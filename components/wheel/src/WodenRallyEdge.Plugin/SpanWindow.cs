@@ -16,7 +16,7 @@ namespace WodenRallyEdge;
 /// row's span; the window is then made borderless and placed over the row, and Unity follows the window
 /// size, so Auto triples start.
 /// Without a span, a game window that Unity opened on a display outside the racing row (its saved monitor preference
-/// naming the dashboard display) is moved the same way onto the row's primary display (<see cref="RacingRowPlacement"/>):
+/// naming the dashboard display) is moved the same way onto the row's primary display (toolkit <see cref="WindowLandingPolicy"/>):
 /// in the startup apply, and after a display change once two checks 2 s apart agree. Once it is there, Unity's own
 /// monitor preference is saved through PlayerPrefs when the engine's display index is certain, so the next launch opens
 /// on the row from its first frame.
@@ -81,17 +81,23 @@ internal static class SpanWindow
     private static (int X, int Y, int W, int H)? Goal() => Target() ?? _move;
     private static string Label => _move != null ? "Window placement" : "Span window";
 
-    /// <summary>The row's primary display when the game window is on a display outside the racing row (logged once per change).</summary>
-    private static (int X, int Y, int W, int H)? OffRow()
+    /// <summary>The toolkit landing decision for the game window now (no span; the span path places its own window).</summary>
+    private static WindowLanding? Landing(List<MonitorRect> monitors, IList<EngineDisplay>? engine, int? saved)
     {
         var hwnd = FindGameWindow();
         if (hwnd == IntPtr.Zero || !GetWindowRect(hwnd, out var r)) return null;
-        var monitors = WindowsMonitors.Read();
         int w = r.Right - r.Left, h = r.Bottom - r.Top;
-        if (!_startObserved) { _startObserved = true; _start = RacingRowPlacement.DisplayOf(monitors, r.Left, r.Top, w, h); }
-        var home = RacingRowPlacement.Move(monitors, r.Left, r.Top, w, h, out string reason);
-        if (reason != _placementReason) { _placementReason = reason; Runtime.Log.LogInfo("Window placement: " + reason); }
-        return home == null ? null : (home.Value.X, home.Value.Y, home.Value.Width, home.Value.Height);
+        if (!_startObserved) { _startObserved = true; _start = WindowLandingPolicy.DisplayOf(monitors, r.Left, r.Top, w, h); }
+        return WindowLandingPolicy.Decide(monitors, RacingRowPolicy.Select(monitors), false, r.Left, r.Top, w, h, _start, engine, saved);
+    }
+
+    /// <summary>The row's primary display when the game window is on a display outside the racing row (logged once per change).</summary>
+    private static (int X, int Y, int W, int H)? OffRow()
+    {
+        var landing = Landing(new List<MonitorRect>(WindowsMonitors.Read()), null, null);
+        if (landing == null) return null;
+        if (landing.Reason != _placementReason) { _placementReason = landing.Reason; Runtime.Log.LogInfo("Window placement: " + landing.Reason); }
+        return landing.Move ? (landing.X, landing.Y, landing.Width, landing.Height) : null;
     }
 
     /// <summary>After a move has finished: save Unity's start monitor as the racing display when the mapping is certain
@@ -101,18 +107,19 @@ internal static class SpanWindow
         try
         {
             if (StagePlayback.OutputMuted || TestSaveGuard.Active) { Runtime.Log.LogInfo("Window placement: Unity monitor preference left unchanged during a muted stage or test launch"); return; }
-            var monitors = WindowsMonitors.Read();
-            var home = RacingRowPlacement.Home(RacingRowPolicy.Select(monitors));
-            if (home == null || _start == null) { Runtime.Log.LogInfo("Window placement: Unity monitor preference not changed: " + (home == null ? "no racing row now" : "the start display is unknown")); return; }
             var displays = UnityEngine.Display.displays;
-            var engine = new List<(int Width, int Height)>();
-            for (int i = 0; i < displays.Length; i++) engine.Add((displays[i].systemWidth, displays[i].systemHeight));
+            var engine = new List<EngineDisplay>();
+            for (int i = 0; i < displays.Length; i++) engine.Add(new EngineDisplay(displays[i].systemWidth, displays[i].systemHeight));
             int? stored = PlayerPrefs.HasKey(MonitorPref) ? PlayerPrefs.GetInt(MonitorPref) : null;
-            var index = RacingRowPlacement.EngineIndex(monitors, home.Value, _start.Value, engine, stored, out string reason);
-            if (index == null) { Runtime.Log.LogInfo("Window placement: Unity monitor preference not changed: " + reason); return; }
-            PlayerPrefs.SetInt(MonitorPref, index.Value);
+            var landing = Landing(new List<MonitorRect>(WindowsMonitors.Read()), engine, stored);
+            if (landing == null || landing.Move || landing.Persist == null)
+            {
+                Runtime.Log.LogInfo("Window placement: Unity monitor preference not changed: " + (landing == null ? "the game window was not found" : landing.Move ? "the window has not landed yet" : landing.PersistReason));
+                return;
+            }
+            PlayerPrefs.SetInt(MonitorPref, landing.Persist.Value);
             PlayerPrefs.Save();
-            Runtime.Log.LogInfo($"Window placement: Unity monitor preference {MonitorPref} {stored?.ToString() ?? "unset"} -> {index.Value}: {reason}");
+            Runtime.Log.LogInfo($"Window placement: Unity monitor preference {MonitorPref} {stored?.ToString() ?? "unset"} -> {landing.Persist.Value}: {landing.PersistReason}");
         }
         catch (Exception ex) { Runtime.Log.LogWarning("Window placement: Unity monitor preference not saved: " + ex.Message); }
     }
