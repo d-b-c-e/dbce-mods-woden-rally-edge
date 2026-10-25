@@ -15,6 +15,9 @@ namespace WodenRallyEdge;
 /// game's own startup apply (<c>ResolutionManager.FirstResolutionSet</c>) becomes one windowed apply at that
 /// row's span; the window is then made borderless and placed over the row, and Unity follows the window
 /// size, so Auto triples start.
+/// Without a span, a game window that Unity opened on a display outside the racing row (its saved monitor preference
+/// naming the dashboard display) is moved the same way onto the row's primary display (<see cref="WindowPlacement"/>):
+/// in the startup apply, and after a display change once two checks 2 s apart agree.
 /// </summary>
 /// <remarks>
 /// Only <c>Screen.SetResolution</c> calls made while <c>FirstResolutionSet</c> runs are changed, so it
@@ -42,9 +45,12 @@ internal static class SpanWindow
     private static ConfigEntry<bool> _enabled = null!;
     private static Func<bool> _triplesAllowed = () => true;
     private static readonly SpanTarget _target = new(WindowsMonitors.SelectRacingRow);
-    private static int _attempts, _depth;
-    private static bool _maintain;
-    private static float _next, _nextCheck;
+    private static int _attempts, _depth, _offRowSeen;
+    private static bool _maintain, _startupDone, _rowApplied, _rowHeld;
+    private static float _next, _nextCheck, _nextRowCheck;
+    // Set while the window is kept on the row's primary display instead of a span.
+    private static (int X, int Y, int W, int H)? _move;
+    private static string? _placementReason;
     internal static string Status { get; private set; } = "not needed";
     /// <summary>The saved separate-monitor span setting (F6 Cameras selector, STD-022); applies at the next start.</summary>
     internal static bool Enabled { get => _enabled != null && _enabled.Value; set { if (_enabled != null && _enabled.Value != value) _enabled.Value = value; } }
@@ -65,6 +71,20 @@ internal static class SpanWindow
         return span;
     }
 
+    /// <summary>The span, else the primary display the window was moved onto.</summary>
+    private static (int X, int Y, int W, int H)? Goal() => Target() ?? _move;
+    private static string Label => _move != null ? "Window placement" : "Span window";
+
+    /// <summary>The row's primary display when the game window is on a display outside the racing row (logged once per change).</summary>
+    private static (int X, int Y, int W, int H)? OffRow()
+    {
+        var hwnd = FindGameWindow();
+        if (hwnd == IntPtr.Zero || !GetWindowRect(hwnd, out var r)) return null;
+        var target = WindowPlacement.Decide(WindowsMonitors.Read(), (r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top), out string reason);
+        if (reason != _placementReason) { _placementReason = reason; Runtime.Log.LogInfo("Window placement: " + reason); }
+        return target;
+    }
+
     internal static void BeginApply() => _depth++;
     internal static void EndApply() { if (_depth > 0) _depth--; }
 
@@ -73,9 +93,18 @@ internal static class SpanWindow
     {
         if (_depth == 0) return false;
         var target = Target();
+        if (target == null)
+        {
+            try { _move = OffRow(); } catch (Exception ex) { _move = null; Runtime.Log.LogWarning("Window placement: " + ex.Message); }
+            target = _move;
+        }
+        else _move = null;
         if (target == null) return false;
+        _rowApplied = _move != null; // this apply is the off-row episode's one windowed apply
         var (sx, sy, sw, sh) = target.Value;
-        Runtime.Log.LogInfo($"Span window: {sw}x{sh} span over separate monitors at ({sx},{sy}); windowed instead of {width}x{height} fullscreen {fullscreen}");
+        Runtime.Log.LogInfo(_move != null
+            ? $"Window placement: {sw}x{sh} borderless window on the racing row's primary display at ({sx},{sy}); windowed instead of {width}x{height} fullscreen {fullscreen}"
+            : $"Span window: {sw}x{sh} span over separate monitors at ({sx},{sy}); windowed instead of {width}x{height} fullscreen {fullscreen}");
         width = sw; height = sh; fullscreen = false;
         _attempts = 6; _next = Time.unscaledTime + 0.5f; _maintain = false; Status = "placing";
         return true;
@@ -84,23 +113,23 @@ internal static class SpanWindow
     /// <summary>Per frame from Runtime.Update.</summary>
     internal static void Tick()
     {
-        if (_attempts <= 0) { Maintain(); return; }
+        if (_attempts <= 0) { Maintain(); RowCheck(); return; }
         if (Time.unscaledTime < _next) return;
         _next = Time.unscaledTime + 1.5f; _attempts--;
         try
         {
-            var target = Target();
+            var target = Goal();
             if (target == null) { _attempts = 0; Status = "not needed"; return; }
             var (x, y, w, h) = target.Value;
             var hwnd = FindGameWindow();
             if (hwnd == IntPtr.Zero) { Status = "waiting for the game window"; return; }
             Place(hwnd, x, y, w, h);
             bool done = Screen.width == w && Screen.height == h;
-            Status = done ? $"spanning {w}x{h} at ({x},{y})" : $"placing ({Screen.width}x{Screen.height} so far)";
-            Runtime.Log.LogInfo($"Span window: {Status}, attempt {6 - _attempts}");
+            Status = done ? (_move != null ? "on the racing row" : "spanning") + $" {w}x{h} at ({x},{y})" : $"placing ({Screen.width}x{Screen.height} so far)";
+            Runtime.Log.LogInfo($"{Label}: {Status}, attempt {6 - _attempts}");
             if (done && _attempts < 4) { _attempts = 0; _maintain = true; _nextCheck = Time.unscaledTime + 2f; }
         }
-        catch (Exception ex) { _attempts = 0; Status = "failed: " + ex.Message; Runtime.Log.LogWarning("Span window " + Status); }
+        catch (Exception ex) { _attempts = 0; Status = "failed: " + ex.Message; Runtime.Log.LogWarning(Label + " " + Status); }
     }
 
     private static void Maintain()
@@ -109,15 +138,43 @@ internal static class SpanWindow
         _nextCheck = Time.unscaledTime + 2f;
         try
         {
-            var target = Target();
+            var target = Goal();
             if (target == null || Screen.fullScreen) { _maintain = false; return; }
             var (x, y, w, h) = target.Value;
             if (Math.Abs(Screen.width - w) > 100 || Math.Abs(Screen.height - h) > 100) { _maintain = false; Status = "left to the game (another size chosen)"; return; }
             var hwnd = FindGameWindow();
             if (hwnd == IntPtr.Zero) return;
-            if (Place(hwnd, x, y, w, h)) Runtime.Log.LogInfo("Span window: restored the span");
+            if (Place(hwnd, x, y, w, h)) Runtime.Log.LogInfo(_move != null ? "Window placement: restored the window on the racing row" : "Span window: restored the span");
         }
-        catch (Exception ex) { _maintain = false; Runtime.Log.LogWarning("Span window maintain: " + ex.Message); }
+        catch (Exception ex) { _maintain = false; Runtime.Log.LogWarning(Label + " maintain: " + ex.Message); }
+    }
+
+    /// <summary>After the game's first apply and without a span: every 2 s, move a window that a display change left
+    /// outside the racing row. Two agreeing checks first, so a topology still settling is not chased; leaving
+    /// fullscreen there takes one windowed apply, as the startup substitution does.</summary>
+    private static void RowCheck()
+    {
+        if (!_startupDone || _maintain || Time.unscaledTime < _nextRowCheck) return;
+        _nextRowCheck = Time.unscaledTime + 2f;
+        try
+        {
+            if (Target() != null) { _offRowSeen = 0; return; }
+            var target = OffRow();
+            if (target == null) { _offRowSeen = 0; _rowApplied = _rowHeld = false; return; }
+            if (_rowHeld || ++_offRowSeen < 2) return;
+            _offRowSeen = 0; _move = target;
+            var (_, _, w, h) = target.Value;
+            if (Screen.fullScreenMode != FullScreenMode.Windowed)
+            {
+                // At most one runtime apply per off-row episode: stacked changes at 7680 reset the GPU driver (STD-008).
+                if (_rowApplied) { _rowHeld = true; Status = "fullscreen on a display outside the racing row"; Runtime.Log.LogWarning("Window placement: still fullscreen outside the racing row after one windowed apply; left as is until it is back on the row"); return; }
+                _rowApplied = true;
+                Runtime.Log.LogInfo($"Window placement: one windowed {w}x{h} apply to leave {Screen.fullScreenMode} on the wrong display");
+                Screen.SetResolution(w, h, FullScreenMode.Windowed);
+            }
+            _attempts = 6; _next = Time.unscaledTime + 0.5f; Status = "placing";
+        }
+        catch (Exception ex) { _offRowSeen = 0; _nextRowCheck = Time.unscaledTime + 30f; Runtime.Log.LogWarning("Window placement: " + ex.Message); }
     }
 
     /// <summary>Borderless popup over the span; true when anything had to change.</summary>
@@ -150,7 +207,7 @@ internal static class SpanWindow
     }
 
     private static void ScopePrefix() => BeginApply();
-    private static Exception? ScopeFinalizer(Exception? __exception) { EndApply(); return __exception; }
+    private static Exception? ScopeFinalizer(Exception? __exception) { EndApply(); _startupDone = true; return __exception; }
     private static void BoolPrefix(ref int width, ref int height, ref bool fullscreen) { try { Substitute(ref width, ref height, ref fullscreen); } catch { } }
     private static void ModePrefix(ref int width, ref int height, ref FullScreenMode fullscreenMode)
     {

@@ -576,3 +576,13 @@ permanent install, force/tune/triples changes or Wheelkit promotion. See
 The owner reports weak force feel, especially return to center; the FFB tab title wraps; and the F6 panel could not be closed. Repeating F6 or clicking the header after a close request showed `Cancel close` and kept the panel open. The October 23 last-run log shows 1,250 FFB writes with zero reported failures before settings opened, then stock menu reads reported neutral. The saved owner profile has Grip, steering strength 50 and load ratio 2. Neither log records synchronized tire-force previews or the close gate's specific input blocker, so it does not establish a safe normalization value or the precise reason the close gate waited. No owner force setting was changed.
 
 Source now keeps F6, Back and Escape close attempts pending during the existing 100 ms neutral handoff; the header says `Closing…`, and `Keep settings open` is the distinct cancel action. The FFB tab gains text width. The Release plugin build passed with zero warnings/errors, focused source-linked close/release checks passed 64 assertions, and the full source-linked UI fixture passed 6,919 assertions (including 95 managed shim/lease checks), with no game/device/force output. These are offline checks: the rendered tab and owner close path still need one short live check on a packaged candidate. Force normalization remains a targeted measured A/B task; preserve the owner's saved 50/2 tune until then.
+
+## October 24 game window on the dashboard display under Surround
+
+After the Wheelkit "Moza KS Pro Triple Span Auto" profile enabled Surround (primary 7680x1440 at 0,0, dashboard
+1920x1080 at 2886,-1080), the game opened on the dashboard at 1920x1080: Unity's saved monitor index was 1 from
+separate-monitor use, and the mod logged only that the Surround primary is used as one surface. The coordinator's
+registry stopgap (index 0) is not the fix. Source now moves a window that is outside the racing row onto the row's
+primary display at that display's size, at the game's startup apply and after display changes (TRIPLE.md). Offline only:
+focused `WindowPlacement` checks (Surround with dashboard, separate rig, one display, minimized, never a non-primary
+target); not yet seen in game.

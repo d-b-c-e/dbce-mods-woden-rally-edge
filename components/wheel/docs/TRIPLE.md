@@ -97,3 +97,16 @@ passed 3,601 poses at 0.06 mm with `Span window: spanning 7680x1440 at (-2560,0)
 with triples on, the bonnet view continuous across both seams and the HUD centred; owner state restored. The game
 re-runs `FirstResolutionSet` on scene loads; each is substituted, so no apply is added. Set it false for the stock
 single screen.
+
+## Game window outside the racing row (2026-10-24, offline checks only)
+
+Unity opens its window on the monitor saved in its own preferences (`UnitySelectMonitor`). On 2026-10-24 that index
+still named the 1920x1080 dashboard display from separate-monitor use, so under Surround the game opened there at
+1920x1080 and the mod did nothing. Without a span, `WindowPlacement` now decides from the same racing-row policy: a
+game window whose center is on a display other than the row's primary (the whole row under Surround, the center display
+for separate monitors) is moved to that primary. Inside `FirstResolutionSet` the game's own apply becomes one windowed
+apply at the primary's size, then the window is placed as a borderless popup over it and re-checked like the span. A
+later `FirstResolutionSet` on the primary is left to the game, so its saved fullscreen applies there. After a display
+change, two checks 2 s apart must agree before the window is moved; leaving fullscreen then takes at most one windowed
+apply per off-row episode. With no racing row (one display, or a layout the policy refuses) or a minimized window,
+nothing moves. The target is never any display but the primary. Log lines start `Window placement:`.

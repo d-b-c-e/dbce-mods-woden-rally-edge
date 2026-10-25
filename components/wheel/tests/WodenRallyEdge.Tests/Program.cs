@@ -1212,6 +1212,7 @@ Test("the packaging lock: a live commit is refused, an interrupted one marked; a
 Test("ordinary recording holds its full 20 minutes: the largest row at the budgeted 70 Hz fits the cap (real recorder)", () => WodenRallyEdge.RecordingCapacityChecks.Capacity(Check));
 Test("the capacity budget is the real recorder's arithmetic: header, rows and footer reserve stop it exactly there", () => WodenRallyEdge.RecordingCapacityChecks.Boundary(Check));
 Test("the separate-monitor span takes the toolkit racing row: the four-display rig spans only the racing displays", () => WodenRallyEdge.SpanTargetChecks.Run(Check));
+Test("a game window outside the racing row moves to its primary display; never to a dashboard display, never without a row", () => WodenRallyEdge.WindowPlacementChecks.Run(Check));
 if (Environment.GetEnvironmentVariable("WODEN_LONG_SESSION_SECONDS") is { Length: > 0 } longSeconds)
     Test("measurement only: a long ordinary full session's stage seal, package and case reprocess", () => WodenRallyEdge.FullSessionChecks.LongSession(Check,
         double.Parse(longSeconds, System.Globalization.CultureInfo.InvariantCulture), Environment.GetEnvironmentVariable("WODEN_LONG_SESSION_TEXT") == "longest",
