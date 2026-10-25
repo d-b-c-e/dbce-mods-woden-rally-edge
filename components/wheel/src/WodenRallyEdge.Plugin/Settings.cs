@@ -16,10 +16,11 @@ public sealed class Settings
     public float CameraMoveStep = CameraSteps.Default.Move, CameraTiltStep = CameraSteps.Default.Tilt, CameraFovStep = CameraSteps.Default.Fov;
     public CameraSteps CameraSteps => new CameraSteps(CameraMoveStep, CameraTiltStep, CameraFovStep).Bounded();
     private int _cameraDefaultsVersion;
-    public float FfbStrength = 50, FfbPeak = 25, FfbLoadReference = 6000, FfbSlipScale = .35f, FfbSmoothing = 35, FfbDamping = .05f;
+    // Damping .02 and GripLoadRatio 3 since grip v7 (2026-10-24): with the centering term these give art of rally's force at 50.
+    public float FfbStrength = 50, FfbPeak = 25, FfbLoadReference = 6000, FfbSlipScale = .35f, FfbSmoothing = 35, FfbDamping = .02f;
     public bool CrashEnabled = true;
     public string FfbModel = "Grip";
-    public float FfbLoadRatio = 2, FfbGripSmoothing = .2f;
+    public float FfbLoadRatio = 3, FfbGripSmoothing = .2f;
     public float CrashStrength = 50;
     public string FfbGuid = "";
     public bool FfbFollowSteering = true, TelemetryEnabled = true;
@@ -28,7 +29,7 @@ public sealed class Settings
     public string InputBackend = "Native";
     public string NativeGearbox = NativeGearboxPreference.Default;
     public float UiScale = 100;
-    public bool CustomFfb => FfbModel != "Grip" || FfbLoadRatio != 2 || FfbGripSmoothing != .2f || FfbPeak != 25 || FfbLoadReference != 6000 || FfbSlipScale != .35f || FfbSmoothing != 35 || FfbDamping != .05f || FfbInvert;
+    public bool CustomFfb => FfbModel != "Grip" || FfbLoadRatio != 3 || FfbGripSmoothing != .2f || FfbPeak != 25 || FfbLoadReference != 6000 || FfbSlipScale != .35f || FfbSmoothing != 35 || FfbDamping != .02f || FfbInvert;
     public void SetPresentation(string view, string page)
     {
         UiView = SettingsPresentation.View(view); UiPage = SettingsPresentation.Page(page, UiView);
@@ -94,8 +95,8 @@ public sealed class Settings
         SetCameraPose(false, GetCameraPose(false)); SetCameraPose(true, GetCameraPose(true));
         FfbStrength = Bound(FfbStrength, 0, 100, 50); FfbPeak = Bound(FfbPeak, 0, 50, 25); CrashStrength = Bound(CrashStrength, 0, 100, 50);
         FfbLoadReference = Bound(FfbLoadReference, 100, 50000, 6000); FfbSlipScale = Bound(FfbSlipScale, .02f, 3, .35f);
-        FfbSmoothing = Bound(FfbSmoothing, 0, 200, 35); FfbDamping = Bound(FfbDamping, 0, .5f, .05f);
-        FfbModel = FfbModel == "Classic" ? "Classic" : "Grip"; FfbLoadRatio = Bound(FfbLoadRatio, .2f, 10, 2); FfbGripSmoothing = Bound(FfbGripSmoothing, 0, .95f, .2f);
+        FfbSmoothing = Bound(FfbSmoothing, 0, 200, 35); FfbDamping = Bound(FfbDamping, 0, .5f, .02f);
+        FfbModel = FfbModel == "Classic" ? "Classic" : "Grip"; FfbLoadRatio = Bound(FfbLoadRatio, .2f, 10, 3); FfbGripSmoothing = Bound(FfbGripSmoothing, 0, .95f, .2f);
         BumperAhead = Bound(BumperAhead, -1, 2, CameraPose.BumperAheadDefault);
         CountdownSpeed = Bound(CountdownSpeed, 25, 100, 75);
         var steps = CameraSteps; CameraMoveStep = steps.Move; CameraTiltStep = steps.Tilt; CameraFovStep = steps.Fov;
@@ -139,17 +140,17 @@ public sealed class Settings
         Item("Display", "ShowFrameRate", ref ShowFrameRate, "Draw the frame rate (current fps and the 1% low of the last 10 s) at the top right of the center screen (STD-023). Default Off.");
         Item("ForceFeedback", "Enabled", ref FfbEnabled, "Saved FFB On/Off preference. Feedback starts only during valid player driving. F8 saves Off.");
         Item("ForceFeedback", "DeviceGuid", ref FfbGuid, "Exact FFB wheel GUID selected in F6; no fallback.");
-        Item("ForceFeedback", "StrengthPercent", ref FfbStrength, "Steering strength, 0..100%, default 50: cornering resistance and return to center from the front tires. Crash strength and steering damping are separate (the earlier Classic model also scales its damping).");
+        Item("ForceFeedback", "StrengthPercent", ref FfbStrength, "Steering strength, 0..100%, default 50: cornering resistance from the front tires and return to center from the wheel position. Crash strength and steering damping are separate (the earlier Classic model also scales its damping).");
         Item("ForceFeedback", "CrashEnabled", ref CrashEnabled, "Crash kick: a short push plus a 25 Hz rattle when the car hits something. Default On.");
         Item("ForceFeedback", "CrashStrengthPercent", ref CrashStrength, "Crash kick strength, percent of full force for the hardest hit; independent of Steering strength and the peak cap. Default 50.");
         Item("ForceFeedback", "Model", ref FfbModel, "Grip (default): the front tires' force rebuilt from the game's tire friction; the wheel lightens as the front slides, and Steering strength scales the tire force only. Classic: the earlier contact-weighted slip estimate with its peak cap, kept for comparisons and not offered in F6. A saved Classic choice is kept until Grip is tuned for this game.");
-        Item("ForceFeedback", "GripLoadRatio", ref FfbLoadRatio, "Grip: full force at Steering strength 50 as a multiple of the mean driving front load, 0.2..10; higher is lighter. Default 2; calibration pending.");
+        Item("ForceFeedback", "GripLoadRatio", ref FfbLoadRatio, "Grip: tire force at Steering strength 50 as a multiple of the mean driving front load, 0.2..10; higher is lighter. Default 3, which with the centering matches art of rally at 50.");
         Item("ForceFeedback", "GripSmoothing", ref FfbGripSmoothing, "Grip: smoothing per update, 0..0.95; default 0.2.");
         Item("ForceFeedback", "PeakPercent", ref FfbPeak, "Classic only: hard peak cap, 0..50% of the device nominal range.");
         Item("ForceFeedback", "LoadReference", ref FfbLoadReference, "Estimated tire-signal normalization reference in Unity force units; uncalibrated.");
         Item("ForceFeedback", "SlipScale", ref FfbSlipScale, "Unity sideways-slip scale for the provisional aligning estimate.");
         Item("ForceFeedback", "SmoothingMs", ref FfbSmoothing, "Shared toolkit output smoothing time constant.");
-        Item("ForceFeedback", "Damping", ref FfbDamping, "Steering damping from calibrated steering movement, 0..0.5; with Grip it has its own gain, independent of Steering strength. No input binding means no damping component.");
+        Item("ForceFeedback", "Damping", ref FfbDamping, "Steering damping from calibrated steering movement, 0..0.5, default 0.02; it resists quick wheel movement. With Grip it has its own gain, independent of Steering strength. No input binding means no damping component.");
         Item("ForceFeedback", "Invert", ref FfbInvert, "Reverse output sign; stop the car before changing.");
     }
 }

@@ -61,6 +61,14 @@ public sealed class FrontLoadReference
 /// Version 6 also admits coincident positive slip knots with exactly equal nonnegative values, as observed in Woden's
 /// native friction curve. The same estimate rises to that value and then stays flat. Versions 4 and 5 retain their
 /// strictly ordered knot requirement so their recordings replay exactly.
+/// Version 7 (2026-10-24) adds centering from the wheel position and turns the damping around. On the owner's drives,
+/// Woden's arcade front slip near center was small and uncorrelated with the wheel: at 60+ km/h and |steer| under 0.1 the
+/// tyre force had the restoring sign only about half the time. art of rally's force has it 95% of the time and builds
+/// about 1.6 per unit steer. The centering term <see cref="CenteringPeak"/> x tanh(steer / <see cref="CenteringSteer"/>)
+/// supplies that build-up; it scales with (speed / <see cref="CenteringFullKmh"/>)^2 (full from there), the low-speed fade,
+/// the front load against the reference, and Strength / 50 like the tyre force. The damping term had the opposite sign to
+/// the tyre force's restoring direction, so it pushed the wheel along its own motion; from version 7 it resists it.
+/// Versions 4 to 6 keep their damping sign and have no centering, so their recordings replay exactly.
 /// </summary>
 /// <remarks>
 /// The friction curve is estimated through (0,0), the extremum and the asymptote (<see cref="Curve"/>); Unity's
@@ -69,13 +77,18 @@ public sealed class FrontLoadReference
 public sealed class GripSignal
 {
     private const double ReverseValidityLimit = -.5;
-    /// <summary>The latest grip model: also accepts equal positive slip knots with exactly equal nonnegative values.</summary>
-    public const int ModelVersion = 6;
+    /// <summary>The latest grip model: version 6 plus centering from the wheel position and damping that resists its motion.</summary>
+    public const int ModelVersion = 7;
+    /// <summary>Accepts equal positive slip knots with exactly equal nonnegative values. Kept for exact replay.</summary>
+    public const int EqualKnotsVersion = 6;
+    /// <summary>Version 7 centering at Strength 50: its plateau, the steering input where it reaches tanh(1) of it, and the speed
+    /// (km/h) from which it is full. Fitted to the owner's art of rally recording (2026-10-13, 60+ km/h) by |steer| band.</summary>
+    public const float CenteringPeak = .12f, CenteringSteer = .05f, CenteringFullKmh = 60;
     /// <summary>Strength scales only the tyre force (STD-027); strictly ordered knots. Kept for exact replay.</summary>
     public const int IndependentDampingVersion = 5;
     /// <summary>The first grip model: Strength also scaled the damping term. Kept for exact replay of its recordings.</summary>
     public const int CoupledDampingVersion = 4;
-    public static bool IsGripModel(int model) => model is CoupledDampingVersion or IndependentDampingVersion or ModelVersion;
+    public static bool IsGripModel(int model) => model is CoupledDampingVersion or IndependentDampingVersion or EqualKnotsVersion or ModelVersion;
     private const float PeakSlipDeg = 8f;
     public readonly FrontLoadReference Reference = new();
     /// <summary>Force ramps in over this long after a reset (unpause, stage start), as the classic shaper does.</summary>
@@ -90,6 +103,8 @@ public sealed class GripSignal
     /// strength gain, and the damping term at its own gain. Recorded so normalization can compare tyre force alone.</summary>
     public float LastSteering { get; private set; }
     public float LastDamping { get; private set; }
+    /// <summary>Version 7: the centering term of the last preview, ramp included (zero for older versions).</summary>
+    public float LastCentering { get; private set; }
 
     // Woden's Stop() resets the model on every non-driving tick; the reference is kept for the car.
     public void Reset() { _time = null; _steer = null; _rampStart = null; _output = 0; ResetCount++; }
@@ -117,7 +132,7 @@ public sealed class GripSignal
     public ForceResult Evaluate(TelemetrySample s, ForceOptions options, FrontLoadReference? shared = null)
     {
         var reference = shared ?? Reference;
-        PreviousOutput = _output; ReferenceUsed = reference.Load; LastSteering = LastDamping = 0;
+        PreviousOutput = _output; ReferenceUsed = reference.Load; LastSteering = LastDamping = LastCentering = 0;
         ForceResult Stop(string why) { Reset(); return new(false, why, 0, 0, 0, 0); }
         double time = s.SimulationSeconds;
         bool motion = s.Channels.TryGetValue("motion.speed", out double speed) && double.IsFinite(speed) && speed >= 0 &&
@@ -157,7 +172,7 @@ public sealed class GripSignal
             if (!s.Channels.TryGetValue(p + "sideFriction.extremumSlip", out double es) || !s.Channels.TryGetValue(p + "sideFriction.extremumValue", out double ev) ||
                 !s.Channels.TryGetValue(p + "sideFriction.asymptoteSlip", out double asl) || !s.Channels.TryGetValue(p + "sideFriction.asymptoteValue", out double av) ||
                 !s.Channels.TryGetValue(p + "sideFriction.stiffness", out double st) || !double.IsFinite(es) || !double.IsFinite(asl) || !(es > 0) ||
-                !(asl > es || options.Model == ModelVersion && asl == es && av == ev) ||
+                !(asl > es || options.Model >= EqualKnotsVersion && asl == es && av == ev) ||
                 !double.IsFinite(ev) || !double.IsFinite(av) || ev < 0 || av < 0 || !double.IsFinite(st) || st < 0)
                 return Stop("friction curve unavailable");
             load += force;
@@ -171,6 +186,8 @@ public sealed class GripSignal
         if (s.Channels.TryGetValue("wheelInput.steer", out double steering) && double.IsFinite(steering))
         {
             if (_steer.HasValue) damping = (float)Math.Clamp(-(steering - _steer.Value) / dt * Math.Clamp(options.Damping, 0, .5f), -.5, .5);
+            // Version 7: the tyre force's restoring sign is the steer's own sign, so resisting the motion has the rate's sign.
+            if (options.Model >= ModelVersion) damping = -damping;
             _steer = steering;
         }
         else _steer = null;
@@ -186,11 +203,18 @@ public sealed class GripSignal
         // of 82f2812: a stationary steering motion wrote -0.5).
         float fade = AxleForceCurve.SmoothStep01((float)((speed * 3.6 - AxleForceCurve.FadeStartKmh) / (AxleForceCurve.FadeFullKmh - AxleForceCurve.FadeStartKmh)));
         float d = (options.Invert ? -damping : damping) * fade;
+        float centre = 0;
+        if (options.Model >= ModelVersion && _steer.HasValue)
+        {
+            double scale = Math.Min(1, speed * 3.6 / CenteringFullKmh);
+            centre = (float)(CenteringPeak * Math.Tanh(_steer.Value / CenteringSteer) * scale * scale * Math.Min(1.5, load / reference.Load)) * gain * fade;
+            if (options.Invert) centre = -centre;
+        }
         // Version 4 scaled the damping with Strength; from version 5 Strength is the steering (tyre) strength only, and a
         // Classic-selected shadow evaluation (model 3) keeps independent damping and strictly ordered knots.
         float dampingGain = options.Model == CoupledDampingVersion ? gain : 1f;
-        LastSteering = _output * ramp; LastDamping = d * dampingGain * ramp;
-        float preview = Math.Clamp((_output + d * dampingGain) * ramp, -1f, 1f);
+        LastSteering = _output * ramp; LastDamping = d * dampingGain * ramp; LastCentering = centre * ramp;
+        float preview = Math.Clamp((_output + centre + d * dampingGain) * ramp, -1f, 1f);
         return new(true, speed * 3.6 < 3 ? "low-speed fade" : "grip model", (float)load, target, damping, preview);
     }
 }

@@ -22,3 +22,26 @@ The first contact sampling crash exposed an unrelated generated wrapper defect: 
 ## 0.2.7 owner force-feel investigation
 
 The owner now feels force and reports improvement; 6,723 writes completed with zero failures. [Command-log and synthetic-response analysis](FFB-FEEL-ANALYSIS.md) finds substantial peak clipping and a 200–217 ms synthetic release tail. Synchronized slip/steering capture is still needed to attribute the lingering sensation. No tune change accompanies this analysis.
+
+## Grip v7: centering from the wheel position (2026-10-24)
+
+The owner reported Grip v6 as "loose towards the center, like centering is only kicking in towards the extremes", even
+at Strength 75 and GripLoadRatio 1.50. His recorded drive (`ffb.grip.*` per tick) was compared with his art of rally
+recording (2026-10-13, Strength 50) by steering input. The comparison is software requests, not torque:
+
+- At 60+ km/h with |steer| under 0.1, Woden's front slip was small and uncorrelated with the wheel. The tyre force had
+  the restoring sign only 41-54% of the time, while Art's has it 95-97% of the time. Rescaled to 50 / 2, Woden's signed
+  restoring force there was +0.005 to +0.011, against Art's +0.071 to +0.127. Art builds about 1.6 per unit steer from
+  center and levels off near 0.17. Woden reached its force only at large angles.
+- The damping term had the opposite sign to the tyre force's restoring direction. It pushed the wheel along its own
+  motion, which loosens the center further, rather than resisting that motion.
+- Smoothing is about 10 ms and the 3-12 km/h fade is by design; neither explains the complaint.
+
+Version 7 adds `0.12 x tanh(steer / 0.05)`. It scales with (speed / 60 km/h)^2, full from 60 km/h, and with the 3-12 km/h
+fade, the front load against its reference (at most 1.5x), Strength / 50 and Invert. The damping now resists the
+wheel's motion. The defaults are GripLoadRatio 3 and Damping 0.02. On the owner's recording at Strength 50, the
+rebuilt force by |steer| band at 60+ km/h is 0.88-1.03 of Art up to 0.4, and 1.29 at full lock, where Art's fronts slide.
+It now has the restoring sign throughout. Versions 4-6 keep their arithmetic and replay exactly. Saved values are kept;
+F6 Advanced -> FFB -> Reset FFB tuning applies the new defaults. Analysis: hub
+`artifacts/woden-centering-claude-20261024`.
+

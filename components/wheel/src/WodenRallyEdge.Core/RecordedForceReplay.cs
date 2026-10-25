@@ -240,7 +240,7 @@ public static class RecordedForceReplay
                 CompareValue(result.Preview, Required(c, "ffb.preview"), "preview", row.Sequence);
                 // The grip model's two pre-clamp terms: required on v5/v6 rows, checked on older rows that carry them (Codex
                 // review of 2d5ab07: otherwise a tampered term would pass while the composed preview still matched).
-                if (useGrip && sameModel && (runOptions.Model is GripSignal.IndependentDampingVersion or GripSignal.ModelVersion || c.ContainsKey("ffb.grip.steering")))
+                if (useGrip && sameModel && (runOptions.Model >= GripSignal.IndependentDampingVersion || c.ContainsKey("ffb.grip.steering")))
                 {
                     CompareValue(grip.LastSteering, Required(c, "ffb.grip.steering"), "grip steering term", row.Sequence);
                     CompareValue(grip.LastDamping, Required(c, "ffb.grip.dampingTerm"), "grip damping term", row.Sequence);
@@ -345,7 +345,7 @@ public static class RecordedForceReplay
     private static ForceOptions Options(IReadOnlyDictionary<string, double> c)
     {
         double version = Required(c, "ffb.tuning.modelVersion");
-        if (version is not (3 or GripSignal.CoupledDampingVersion or GripSignal.IndependentDampingVersion or GripSignal.ModelVersion)) throw new IOException("Unsupported force model version");
+        if (version is not (3 or GripSignal.CoupledDampingVersion or GripSignal.IndependentDampingVersion or GripSignal.EqualKnotsVersion or GripSignal.ModelVersion)) throw new IOException("Unsupported force model version");
         var options = new ForceOptions((float)Required(c, "ffb.tuning.strengthPercent"), (float)Required(c, "ffb.tuning.peakPercent"),
             (float)Required(c, "ffb.tuning.loadReference"), (float)Required(c, "ffb.tuning.slipScale"),
             (float)Required(c, "ffb.tuning.smoothingMs"), (float)Required(c, "ffb.tuning.damping"), Required(c, "ffb.tuning.invert") == 1);
@@ -358,7 +358,7 @@ public static class RecordedForceReplay
         using var doc = JsonDocument.Parse(File.ReadAllText(path)); var root = doc.RootElement;
         int version = root.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : 0;
         string[] common = { "schema", "version", "model", "strengthPercent", "peakPercent", "loadReference", "slipScale", "smoothingMs", "damping", "invert" };
-        if (version is not (1 or 2 or 3 or 4)) throw new IOException("Unsupported force config artifact");
+        if (version is not (1 or 2 or 3 or 4 or 5)) throw new IOException("Unsupported force config artifact");
         int model = ForceObservationSemantics.ModelForConfigVersion(version);
         if (version >= 2) Strict(root, common.Concat(GripTuning).ToArray()); else Strict(root, common);
         if (root.GetProperty("schema").GetString() != "woden.force-config" || root.GetProperty("model").GetString() != ForceObservationSemantics.ModelId(model))

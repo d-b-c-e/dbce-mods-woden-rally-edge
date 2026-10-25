@@ -9,21 +9,23 @@ public static class ForceObservationSemantics
     public const string GripModelV5 = "woden-grip-signal@5";
     /// <summary>Force model version 6: also admits coincident positive slip knots with exactly equal nonnegative values.</summary>
     public const string GripModelV6 = "woden-grip-signal@6";
+    /// <summary>Force model version 7: version 6 plus centering from the wheel position and damping that resists its motion.</summary>
+    public const string GripModelV7 = "woden-grip-signal@7";
     public static string ModelId(int model) => model switch
     {
         3 => Model, GripSignal.CoupledDampingVersion => GripModel,
-        GripSignal.IndependentDampingVersion => GripModelV5, GripSignal.ModelVersion => GripModelV6,
+        GripSignal.IndependentDampingVersion => GripModelV5, GripSignal.EqualKnotsVersion => GripModelV6, GripSignal.ModelVersion => GripModelV7,
         _ => throw new IOException("Unsupported force model version " + model)
     };
-    /// <summary>The force-config artifact version that declares a model: 1 classic, 2 grip v4, 3 grip v5, 4 grip v6.</summary>
+    /// <summary>The force-config artifact version that declares a model: 1 classic, 2 grip v4, 3 grip v5, 4 grip v6, 5 grip v7.</summary>
     public static int ConfigVersion(int model) => model switch
     {
-        3 => 1, GripSignal.CoupledDampingVersion => 2, GripSignal.IndependentDampingVersion => 3, GripSignal.ModelVersion => 4,
+        3 => 1, GripSignal.CoupledDampingVersion => 2, GripSignal.IndependentDampingVersion => 3, GripSignal.EqualKnotsVersion => 4, GripSignal.ModelVersion => 5,
         _ => throw new IOException("Unsupported force model version " + model)
     };
     public static int ModelForConfigVersion(int version) => version switch
     {
-        1 => 3, 2 => GripSignal.CoupledDampingVersion, 3 => GripSignal.IndependentDampingVersion, 4 => GripSignal.ModelVersion,
+        1 => 3, 2 => GripSignal.CoupledDampingVersion, 3 => GripSignal.IndependentDampingVersion, 4 => GripSignal.EqualKnotsVersion, 5 => GripSignal.ModelVersion,
         _ => throw new IOException("Unsupported force config version " + version)
     };
     public const long TicksPerSecond = 10_000_000;

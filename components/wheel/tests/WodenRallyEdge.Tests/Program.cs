@@ -287,7 +287,7 @@ Test("grip model v4: reference rules, measuring, missing friction curve and mode
     Check(!missing.Valid && missing.Reason == "friction curve unavailable" && ForceObservationSemantics.ModelReason(missing.Reason) == 19, "missing friction curve stops the grip model");
     Check(new ForceOptions().Model == 3 && !new ForceOptions().Grip && options.Grip, "ForceOptions defaults to the classic v3 record; Model 4 is grip");
     var settings = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(Path.Combine(Path.GetTempPath(), "woden-grip-" + Guid.NewGuid().ToString("N") + ".cfg"), false));
-    Check(settings.ForceOptions.Grip && settings.FfbModel == "Grip" && settings.ForceOptions.LoadRatio == 2 && settings.ForceOptions.GripSmoothing == .2f, "the mod defaults to the grip model");
+    Check(settings.ForceOptions.Grip && settings.FfbModel == "Grip" && settings.ForceOptions.LoadRatio == 3 && settings.ForceOptions.GripSmoothing == .2f && settings.ForceOptions.Damping == .02f, "the mod defaults to the grip model at the Art-matched tune");
     settings.FfbModel = "Classic"; Check(settings.ForceOptions.Model == 3, "Classic selects the unchanged v3 model");
     settings.FfbModel = "anything"; settings.Validate(); Check(settings.FfbModel == "Grip", "unknown model names fall back to Grip");
     string old = Path.Combine(Path.GetTempPath(), "woden-old-" + Guid.NewGuid().ToString("N") + ".cfg"); File.WriteAllText(old, "[ForceFeedback]\nStrengthPercent = 49.583332\nPeakPercent = 25\n");
@@ -296,11 +296,11 @@ Test("grip model v4: reference rules, measuring, missing friction curve and mode
     Check(new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(chosen, false)).FfbModel == "Grip", "a saved Grip choice is kept");
 });
 Test("grip model v5: Steering strength scales the tyre force only; v4 keeps its coupled damping for replay", () => {
-    Check(GripSignal.ModelVersion == 6 && GripSignal.IsGripModel(4) && GripSignal.IsGripModel(5) && GripSignal.IsGripModel(6) && !GripSignal.IsGripModel(3), "grip models are 4, 5 and 6; 6 is the latest");
+    Check(GripSignal.ModelVersion == 7 && GripSignal.IsGripModel(4) && GripSignal.IsGripModel(5) && GripSignal.IsGripModel(6) && GripSignal.IsGripModel(7) && !GripSignal.IsGripModel(3), "grip models are 4 to 7; 7 is the latest");
     Check(new ForceOptions(Model: 5).Grip && new ForceOptions(Model: 4).Grip && !new ForceOptions(Model: 3).Grip, "ForceOptions.Grip covers v4 and v5");
     Check(ForceObservationSemantics.ModelId(5) == "woden-grip-signal@5" && ForceObservationSemantics.ModelId(4) == "woden-grip-signal@4" &&
         ForceObservationSemantics.ConfigVersion(5) == 3 && ForceObservationSemantics.ModelForConfigVersion(2) == 4 && ForceObservationSemantics.ModelForConfigVersion(3) == 5, "v5 has its own identity and force-config version");
-    bool refused = false; try { ForceObservationSemantics.ModelId(7); } catch (IOException) { refused = true; } Check(refused, "an unknown model version is refused");
+    bool refused = false; try { ForceObservationSemantics.ModelId(8); } catch (IOException) { refused = true; } Check(refused, "an unknown model version is refused");
     // The same tyre inputs with the wheel moving every tick: at 50 the versions agree; at 100 only v4 doubles the damping.
     (float Preview, float Steering, float Damping) Run(int model, float strength)
     {
@@ -317,7 +317,7 @@ Test("grip model v5: Steering strength scales the tyre force only; v4 keeps its 
     Near(v4at100.Damping, 2 * v4at50.Damping, "v4: Strength still scales the damping (exact replay of v4 recordings)", 1e-6);
     Near(v5at100.Preview, Math.Clamp(v5at100.Steering + v5at100.Damping, -1, 1), "the preview is the clamped sum of the two recorded terms", 1e-5);
     var fresh = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(Path.Combine(Path.GetTempPath(), "woden-v5-" + Guid.NewGuid().ToString("N") + ".cfg"), false));
-    Check(fresh.ForceOptions.Model == 6 && fresh.FfbModel == "Grip", "a fresh config runs grip v6");
+    Check(fresh.ForceOptions.Model == 7 && fresh.FfbModel == "Grip" && fresh.FfbLoadRatio == 3 && fresh.FfbDamping == .02f, "a fresh config runs grip v7 at the Art-matched defaults");
 });
 Test("H-pattern: a gate steps the game's own shift actions, one press at a time, never during a change", () => {
     var h = new HPatternShifter(); double now = 0; int gear = 1, presses = 0; bool held = false;
@@ -1103,7 +1103,7 @@ Test("force model v4 replays through RecordedForceReplay; v4 trials need frictio
         }
         return s;
     }
-    foreach (int model in new[] { 4, 5, 6 })
+    foreach (int model in new[] { 4, 5, 6, 7 })
     {
         var o = v5Options with { Model = model };
         string captured = Capture("flat-v" + model, o, NativeFlat);
@@ -1112,14 +1112,22 @@ Test("force model v4 replays through RecordedForceReplay; v4 trials need frictio
             var rows = SessionReader.Read(Path.Combine(captured, "source.jsonl")).Where(r => r.Kind == SessionRecordKind.Sample).Select(r => r.Sample).ToArray();
             Check(rows.All(r => r.Channels["ffb.tuning.modelVersion"] == model), "actual controller records explicit model identity");
             var driving = rows.Where(r => r.Channels["sample.driving"] == 1).ToArray();
-            Check(driving.All(r => r.Channels["ffb.modelValid"] == (model == 6 ? 1 : 0)), "only model6 admits native flat curve in the production controller");
-            Check(model == 6 ? driving.Any(r => Math.Abs(r.Channels["ffb.preview"]) > .05) : driving.All(r => r.Channels["ffb.modelReason"] == 19),
-                "actual producer exercises nonzero v6 output and retained legacy refusals (fake device only)");
+            Check(driving.All(r => r.Channels["ffb.modelValid"] == (model >= 6 ? 1 : 0)), "only models 6 and 7 admit native flat curve in the production controller");
+            Check(model >= 6 ? driving.Any(r => Math.Abs(r.Channels["ffb.preview"]) > .05) : driving.All(r => r.Channels["ffb.modelReason"] == 19),
+                "actual producer exercises nonzero v6/v7 output and retained legacy refusals (fake device only)");
             Check(StageCaptureReview.ReadOptions(captured) == o, "stage reader retains model/config identity and exact tune");
             Check(RecordedForceReplay.Reprocess(captured).ModelSamples == rows.Length, "actual controller capture replays exactly for flat-curve model " + model);
             var exported = RecordedForceReplay.ExportTrial(captured, o.Strength, o.PeakPercent, o.LoadRatio);
             Check(exported.All(r => r.ModelVersion == model), "ordinary exporter never upgrades a recorded legacy model");
             for (int i = 0; i < rows.Length; i++) Near(exported[i].Request, rows[i].Channels["ffb.preview"], "flat-curve export retains exact recorded preview", .000002);
+            if (model == 7)
+            {
+                using var config = JsonDocument.Parse(File.ReadAllText(Path.Combine(captured, "force-config.json")));
+                Check(config.RootElement.GetProperty("version").GetInt32() == 5 && config.RootElement.GetProperty("model").GetString() == "woden-grip-signal@7", "config5 declares only model7");
+                string candidate = Path.Combine(captured, "candidate-v6.json"); RecordingArtifacts.WriteForceConfig(candidate, o with { Model = 6 });
+                var older = RecordedForceReplay.Trial(captured, candidate, Path.Combine(captured, "trial-v6.jsonl"));
+                Check(!older.Comparison.Equal && older.Comparison.CandidateModel == "woden-grip-signal@6", "a v6 trial of a v7 capture differs: centering and damping direction are v7's own");
+            }
             if (model == 6)
             {
                 using var config = JsonDocument.Parse(File.ReadAllText(Path.Combine(captured, "force-config.json")));
@@ -1194,6 +1202,8 @@ Test("independent analysis history ignores hardware gates and owns capture/car/t
 Test("muted production controller keeps actual zero while independent history records and replays nonzero", () => ForceAnalysisChecks.ProducerReplay(Check));
 Test("grip v6 admits only finite continuous equal-knot curves; legacy arithmetic and admission stay exact", () => GripV6Checks.Curves(Check));
 Test("grip v6 learns front load only from forward-valid rows; recorded replay reference stays exact", () => GripV6Checks.ReferenceDirection(Check));
+Test("grip v7 centering: restoring from the first degrees, monotonic, Art-matched near center, none at standstill; damping resists", () => CenteringChecks.Run(Check));
+Test("grip v7 through the controller: On reaches the device; saved Off and diagnostic mute write nothing", () => CenteringChecks.Gates(Check));
 Test("ordinary HUD depth preserves ideal pixels and bounds isolated-world float precision", () => WodenRallyEdge.HudDepthChecks.Run(Check));
 Test("replay HUD speed uses the recorded game.trueSpeed per aligned row, derived only for captures without it", () => WodenRallyEdge.HudSpeedChecks.Run(Check));
 Test("native gearbox preference sets only the selected player's saved choice, once, never for tooling or malformed records", () => WodenRallyEdge.NativeGearboxChecks.Run(Check));

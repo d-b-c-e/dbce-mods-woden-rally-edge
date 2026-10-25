@@ -587,3 +587,13 @@ primary display at that display's size, at the game's startup apply and after di
 start monitor through PlayerPrefs when the Unity display index is certain (TRIPLE.md), using the toolkit's new
 `shared/display/WindowLanding.cs` (vendored, DEPENDENCIES.md). Offline only: focused `WindowPlacementChecks` (Surround with dashboard, separate rig, one display, minimized, never a non-primary target,
 the PlayerPrefs value name, Unity index mapping in either order and its refusals); not yet seen in game.
+
+## October 24 grip v7 centering
+
+Owner check of e1b834e: F6 close works. Force was still loose near center even at Strength 75 / GripLoadRatio 1.50.
+Grip v7 adds Art-matched centering from the wheel position and corrects the damping direction; the defaults are now
+GripLoadRatio 3 and Damping 0.02 (see FFB-MODEL.md). Saved owner values are kept, and Reset FFB tuning applies the new
+defaults. Offline only: `CenteringChecks` covers the near-center slope, monotonic build-up, Art parity near center, no
+force at standstill, the damping direction, unchanged v6, and the controller Off/mute gates. Controller capture and
+replay are exact for v7. The feel still needs the owner's drive.
+
