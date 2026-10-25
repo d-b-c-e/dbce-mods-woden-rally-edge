@@ -11,21 +11,23 @@ public static class ForceObservationSemantics
     public const string GripModelV6 = "woden-grip-signal@6";
     /// <summary>Force model version 7: version 6 plus centering from the wheel position and damping that resists its motion.</summary>
     public const string GripModelV7 = "woden-grip-signal@7";
+    /// <summary>Force model version 8: version 7 with the owner-accepted base gain (v7 Strength 74.745544 is v8 Strength 50).</summary>
+    public const string GripModelV8 = "woden-grip-signal@8";
     public static string ModelId(int model) => model switch
     {
         3 => Model, GripSignal.CoupledDampingVersion => GripModel,
-        GripSignal.IndependentDampingVersion => GripModelV5, GripSignal.EqualKnotsVersion => GripModelV6, GripSignal.ModelVersion => GripModelV7,
+        GripSignal.IndependentDampingVersion => GripModelV5, GripSignal.EqualKnotsVersion => GripModelV6, GripSignal.CenteringVersion => GripModelV7, GripSignal.ModelVersion => GripModelV8,
         _ => throw new IOException("Unsupported force model version " + model)
     };
-    /// <summary>The force-config artifact version that declares a model: 1 classic, 2 grip v4, 3 grip v5, 4 grip v6, 5 grip v7.</summary>
+    /// <summary>The force-config artifact version that declares a model: 1 classic, 2 grip v4, 3 grip v5, 4 grip v6, 5 grip v7, 6 grip v8.</summary>
     public static int ConfigVersion(int model) => model switch
     {
-        3 => 1, GripSignal.CoupledDampingVersion => 2, GripSignal.IndependentDampingVersion => 3, GripSignal.EqualKnotsVersion => 4, GripSignal.ModelVersion => 5,
+        3 => 1, GripSignal.CoupledDampingVersion => 2, GripSignal.IndependentDampingVersion => 3, GripSignal.EqualKnotsVersion => 4, GripSignal.CenteringVersion => 5, GripSignal.ModelVersion => 6,
         _ => throw new IOException("Unsupported force model version " + model)
     };
     public static int ModelForConfigVersion(int version) => version switch
     {
-        1 => 3, 2 => GripSignal.CoupledDampingVersion, 3 => GripSignal.IndependentDampingVersion, 4 => GripSignal.EqualKnotsVersion, 5 => GripSignal.ModelVersion,
+        1 => 3, 2 => GripSignal.CoupledDampingVersion, 3 => GripSignal.IndependentDampingVersion, 4 => GripSignal.EqualKnotsVersion, 5 => GripSignal.CenteringVersion, 6 => GripSignal.ModelVersion,
         _ => throw new IOException("Unsupported force config version " + version)
     };
     public const long TicksPerSecond = 10_000_000;

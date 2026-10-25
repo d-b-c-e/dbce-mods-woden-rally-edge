@@ -22,6 +22,7 @@ public sealed class Plugin : BasePlugin
     {
         Runtime.Log = Log;
         Runtime.Settings = new(Config);
+        if (Runtime.Settings.FfbMigration != null) Log.LogInfo(Runtime.Settings.FfbMigration);
         string path = Path.Combine(Paths.GameRootPath, "GameAssembly.dll");
         using var stream = File.OpenRead(path);
         using var sha = SHA256.Create();

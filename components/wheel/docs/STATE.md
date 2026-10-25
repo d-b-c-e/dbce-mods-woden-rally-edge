@@ -597,3 +597,10 @@ defaults. Offline only: `CenteringChecks` covers the near-center slope, monotoni
 force at standstill, the damping direction, unchanged v6, and the controller Off/mute gates. Controller capture and
 replay are exact for v7. The feel still needs the owner's drive.
 
+## October 25 owner acceptance: grip v8 defaults
+
+Owner verdict on c1b126f (v7) at his saved Strength 74.745544 / GripLoadRatio 1.5029 / Damping 0.05: "feels great just
+as it is now". Grip v8 makes that the output at Strength 50, with GripLoadRatio 1.5 and Damping 0.05 as the defaults.
+A one-time migration (FFB-MODEL.md) turns his saved 74.745544 into 50 with an identical feel and logs it. Offline checks
+prove v8 at 50 equals his v7 tune bit for bit. Accepted feel: owner drive, 2026-10-24/25.
+

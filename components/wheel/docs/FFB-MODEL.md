@@ -45,3 +45,20 @@ It now has the restoring sign throughout. Versions 4-6 keep their arithmetic and
 F6 Advanced -> FFB -> Reset FFB tuning applies the new defaults. Analysis: hub
 `artifacts/woden-centering-claude-20261024`.
 
+## Grip v8: the owner-accepted v7 feel is Strength 50 (2026-10-25)
+
+The owner drove v7 (c1b126f) without resetting his tune: Strength 74.745544, GripLoadRatio 1.5029 and Damping 0.05.
+His verdict was that it "feels great just as it is now", and he asked for that to become the default normal at 50%.
+Version 8 is version 7 with `BaseGain = 74.745544 / 50` on the tyre force and the centering, the two terms Steering
+strength scales. Damping keeps its own gain. The defaults are now GripLoadRatio 1.5 and Damping 0.05 (resisting, as in
+v7), and Reset FFB tuning applies them.
+
+v8 at Strength 50 equals v7 at 74.745544 bit for bit (`CenteringChecks`, "owner-accepted v7 at 50%"). The art of rally
+comparison behind v7 is superseded as the target by this acceptance; the v7 section above keeps it as history.
+
+A one-time, logged migration runs on load (`[ForceFeedback] DefaultsVersion = 1` marks it) for Grip configs saved
+before v8:
+- Values still at an earlier default (Strength 50, GripLoadRatio 2 or 3, Damping 0.05 or 0.02) take the v8 defaults.
+- Any other Strength is divided by the base gain, so its feel is unchanged. The owner's 74.745544 becomes 50.
+- Other values, and Classic configs, are kept.
+

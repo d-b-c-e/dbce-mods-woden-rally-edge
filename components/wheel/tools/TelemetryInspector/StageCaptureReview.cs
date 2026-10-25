@@ -19,11 +19,11 @@ internal static class StageCaptureReview
         var c = config.RootElement;
         int version = c.GetProperty("version").GetInt32();
         var keys = new HashSet<string>(new[] { "schema", "version", "model", "strengthPercent", "peakPercent", "loadReference", "slipScale", "smoothingMs", "damping", "invert" });
-        if (version is 2 or 3 or 4 or 5) { keys.Add("loadRatio"); keys.Add("gripSmoothing"); }
+        if (version is 2 or 3 or 4 or 5 or 6) { keys.Add("loadRatio"); keys.Add("gripSmoothing"); }
         foreach (var property in c.EnumerateObject())
             if (!keys.Remove(property.Name)) throw new IOException("Unknown/duplicate force config key: " + property.Name);
         if (keys.Count != 0) throw new IOException("Missing force config keys");
-        if (c.GetProperty("schema").GetString() != "woden.force-config" || version is not (1 or 2 or 3 or 4 or 5) ||
+        if (c.GetProperty("schema").GetString() != "woden.force-config" || version is not (1 or 2 or 3 or 4 or 5 or 6) ||
             c.GetProperty("model").GetString() != ForceObservationSemantics.ModelId(ForceObservationSemantics.ModelForConfigVersion(version)))
             throw new IOException("Unsupported force model");
         var options = new ForceOptions(c.GetProperty("strengthPercent").GetSingle(), c.GetProperty("peakPercent").GetSingle(),

@@ -69,6 +69,9 @@ public sealed class FrontLoadReference
 /// the front load against the reference, and Strength / 50 like the tyre force. The damping term had the opposite sign to
 /// the tyre force's restoring direction, so it pushed the wheel along its own motion; from version 7 it resists it.
 /// Versions 4 to 6 keep their damping sign and have no centering, so their recordings replay exactly.
+/// Version 8 (2026-10-25) is version 7 with <see cref="BaseGain"/> on the tyre force and the centering. The owner drove
+/// version 7 at Strength 74.745544, GripLoadRatio 1.5029 and Damping 0.05 and asked for exactly that feel to be Strength
+/// 50. Damping keeps its own gain, so version 8 at Strength 50 is version 7 at 74.745544, bit for bit.
 /// </summary>
 /// <remarks>
 /// The friction curve is estimated through (0,0), the extremum and the asymptote (<see cref="Curve"/>); Unity's
@@ -77,8 +80,12 @@ public sealed class FrontLoadReference
 public sealed class GripSignal
 {
     private const double ReverseValidityLimit = -.5;
-    /// <summary>The latest grip model: version 6 plus centering from the wheel position and damping that resists its motion.</summary>
-    public const int ModelVersion = 7;
+    /// <summary>The latest grip model: version 7 with the owner-accepted <see cref="BaseGain"/>.</summary>
+    public const int ModelVersion = 8;
+    /// <summary>Version 6 plus centering from the wheel position and damping that resists its motion. Kept for exact replay.</summary>
+    public const int CenteringVersion = 7;
+    /// <summary>Version 8: the gain on the tyre force and the centering at Strength 50, the owner's accepted v7 Strength 74.745544 / 50.</summary>
+    public const float BaseGain = 74.745544f / 50f;
     /// <summary>Accepts equal positive slip knots with exactly equal nonnegative values. Kept for exact replay.</summary>
     public const int EqualKnotsVersion = 6;
     /// <summary>Version 7 centering at Strength 50: its plateau, the steering input where it reaches tanh(1) of it, and the speed
@@ -88,7 +95,7 @@ public sealed class GripSignal
     public const int IndependentDampingVersion = 5;
     /// <summary>The first grip model: Strength also scaled the damping term. Kept for exact replay of its recordings.</summary>
     public const int CoupledDampingVersion = 4;
-    public static bool IsGripModel(int model) => model is CoupledDampingVersion or IndependentDampingVersion or EqualKnotsVersion or ModelVersion;
+    public static bool IsGripModel(int model) => model is CoupledDampingVersion or IndependentDampingVersion or EqualKnotsVersion or CenteringVersion or ModelVersion;
     private const float PeakSlipDeg = 8f;
     public readonly FrontLoadReference Reference = new();
     /// <summary>Force ramps in over this long after a reset (unpause, stage start), as the classic shaper does.</summary>
@@ -187,12 +194,12 @@ public sealed class GripSignal
         {
             if (_steer.HasValue) damping = (float)Math.Clamp(-(steering - _steer.Value) / dt * Math.Clamp(options.Damping, 0, .5f), -.5, .5);
             // Version 7: the tyre force's restoring sign is the steer's own sign, so resisting the motion has the rate's sign.
-            if (options.Model >= ModelVersion) damping = -damping;
+            if (options.Model >= CenteringVersion) damping = -damping;
             _steer = steering;
         }
         else _steer = null;
         _time = time; _rampStart ??= time;
-        float gain = Math.Clamp(options.Strength, 0, 100) / 50f;
+        float gain = Math.Clamp(options.Strength, 0, 100) / 50f * (options.Model >= ModelVersion ? BaseGain : 1f);
         float ramp = (float)Math.Clamp((time - _rampStart.Value) / RampSeconds, 0, 1);
         if (reference.Kind == FrontLoadReferenceKind.None) { _output = 0; return new(true, "measuring front load", (float)load, 0, damping, 0); }
         // The friction curve's peak stands in for art's ideal slip angle: the trail is 0.8 there and 0.6 at twice it.
@@ -204,7 +211,7 @@ public sealed class GripSignal
         float fade = AxleForceCurve.SmoothStep01((float)((speed * 3.6 - AxleForceCurve.FadeStartKmh) / (AxleForceCurve.FadeFullKmh - AxleForceCurve.FadeStartKmh)));
         float d = (options.Invert ? -damping : damping) * fade;
         float centre = 0;
-        if (options.Model >= ModelVersion && _steer.HasValue)
+        if (options.Model >= CenteringVersion && _steer.HasValue)
         {
             double scale = Math.Min(1, speed * 3.6 / CenteringFullKmh);
             centre = (float)(CenteringPeak * Math.Tanh(_steer.Value / CenteringSteer) * scale * scale * Math.Min(1.5, load / reference.Load)) * gain * fade;
