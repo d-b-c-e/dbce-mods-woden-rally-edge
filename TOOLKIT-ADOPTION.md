@@ -1,3 +1,11 @@
+## October 27: focused TripleView FOV successor
+
+Compared current STD-001..040. Reused eaea8fb/d6488dd on53af231 without changing
+force/input/defaults or adding settings. Eleven actual-handler fake-camera checks
+pass; old-source negative witness fails seven. STD-007/015/019/022 rendering and
+owner acceptance do not advance from this fixture. Full product build/install
+remain unqualified; see components/wheel/docs/2026-10-27-triple-fov-check.md.
+
 ## October 23: STD-020 GLY source for the arcade header prompt
 
 The decoded stock prompt (ArcadeHeaderText → MenuCameraScript.Infotext, font glyphs

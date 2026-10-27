@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+  <ItemGroup><Compile Include="$(TripleMethods)" Link="ActualTripleMethods.cs" /></ItemGroup>
+  <Target Name="RequireActualMethods" BeforeTargets="CoreCompile">
+    <Error Condition="'$(TripleMethods)' == ''" Text="Prepare and pass the actual TripleView methods with -p:TripleMethods=..." />
+  </Target>
+</Project>

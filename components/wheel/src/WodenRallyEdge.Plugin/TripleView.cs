@@ -190,13 +190,16 @@ internal static class TripleView
             if (!_loggedScene) { _loggedScene = true; LogCameras(source); }
         }
 
-        var views = Views(source.fieldOfView, ownedMountedFov);
+        // PostProcessLayer.OnPreCull resets a non-physical camera's projection; a custom
+        // matrix stays authoritative when physical properties are on. Switching them on re-derives fieldOfView from a
+        // focal length nothing synced while the camera was non-physical (UnityPlayer set_usePhysicalProperties; owner
+        // log 2026-10-15: 37 before, 45 after), so write the game's angle back: the physical-mode setter syncs the focal
+        // length, and views whose camera mode does not rewrite the FOV every frame (Photo) keep it.
+        float gameFov = source.fieldOfView;
+        if (!source.usePhysicalProperties) { source.usePhysicalProperties = true; source.fieldOfView = gameFov; }
+        var views = Views(gameFov, ownedMountedFov);
         float near = source.nearClipPlane, far = source.farClipPlane;
         var t = source.transform;
-
-        // PostProcessLayer.OnPreCull resets a non-physical camera's projection; a custom
-        // matrix stays authoritative when physical properties are on.
-        source.usePhysicalProperties = true;
         source.rect = new Rect(1f / 3f, 0f, 1f / 3f, 1f);
         source.projectionMatrix = Frustum(views[1], near, far);
         Side(_left!, views[0], 0, source, t, near, far);
@@ -215,7 +218,7 @@ internal static class TripleView
         {
             _nextLog = now + 30;
             Runtime.Log.LogInfo($"Triple: {Screen.width}x{Screen.height}, '{source.name}', near {near:0.###} far {far:0}, side yaw {views[2].YawDegrees:0.0}, " +
-                                $"game vfov {source.fieldOfView:0.0}, center vfov {2 * Math.Atan(views[1].Top) * 180 / Math.PI:0.0}, hud canvases {MovedCanvases.Count}");
+                                $"game vfov {gameFov:0.0}, center vfov {2 * Math.Atan(views[1].Top) * 180 / Math.PI:0.0}, hud canvases {MovedCanvases.Count}");
         }
     }
 

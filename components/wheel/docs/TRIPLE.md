@@ -21,7 +21,11 @@ foreground. Retry with nothing else in front.
   projection from `TripleGeometry`; two side cameras copy its pose and settings, yawed by
   the panel angle, each with its own PostProcessLayer (`Init(m_Resources)`;
   `usePhysicalProperties` keeps PPv2 from resetting the projection). HUD canvases move to
-  a HUD camera on the centre third.
+  a HUD camera on the centre third. Switching physical properties on makes Unity re-derive `fieldOfView` from a focal
+  length that the game never synced, so the owner log of 2026-10-15 read 37 before the switch and 45 after it. Apply
+  therefore writes the game's angle back right after enabling. That keeps it in modes that do not rewrite the FOV
+  every frame (Photo) and after triples turn off. (Selu's UnityPlayer icall trace: the getter always returns the stored
+  angle; the physical-mode setter syncs the focal length.)
 - **Stripped engine** (`TripleNative.cs`): this build lacks many Camera/Canvas setters, so
   they are resolved as `il2cpp_resolve_icall("UnityEngine.Camera::set_depth_Injected")` etc.
   If a required binding is missing, triple stays off and says why.
