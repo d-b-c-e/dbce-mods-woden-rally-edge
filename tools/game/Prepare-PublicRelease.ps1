@@ -15,7 +15,8 @@ $stage = Join-Path $wheel "dist/player-$identity"
 foreach ($path in @($zip,$zip+'.sha256',$zip+'.json',$stage)) {
     if (Test-Path -LiteralPath $path) { throw "Immutable output already exists: $path" }
 }
-& (Join-Path $wheel 'tools/Package.ps1') -ArtifactLabel $ArtifactLabel
+$label = if ($ArtifactLabel) { @{ArtifactLabel=$ArtifactLabel} } else { @{} }
+& (Join-Path $wheel 'tools/Package.ps1') @label
 Expand-Archive -LiteralPath (Join-Path $wheel "dist/WodenRallyEdgeWheel-$identity-dev.zip") -DestinationPath $stage
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'player/QUICK-START.md') -Destination (Join-Path $stage 'README.md') -Force
 @'
