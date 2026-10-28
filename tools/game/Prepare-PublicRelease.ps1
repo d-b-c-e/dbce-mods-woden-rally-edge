@@ -1,6 +1,6 @@
 # Build a local player candidate. Never installs, launches, tags or publishes.
 [CmdletBinding()]
-param([Parameter(Mandatory)][ValidatePattern('^[a-z0-9][a-z0-9.-]*$')][string]$ArtifactLabel)
+param([ValidatePattern('^[a-z0-9][a-z0-9.-]*$')][string]$ArtifactLabel)
 $ErrorActionPreference='Stop'
 $root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $wheel = Join-Path $root 'components/wheel'
@@ -9,7 +9,7 @@ if ($LASTEXITCODE) { throw 'Cannot identify source.' }
 $dirty = @(& git -C $root status --porcelain)
 if ($LASTEXITCODE -or $dirty.Count) { throw 'Commit reviewed changes before freezing a candidate.' }
 $version = ([xml](Get-Content (Join-Path $wheel 'Directory.Build.props') -Raw)).Project.PropertyGroup.Version
-$identity = "$version-$ArtifactLabel"
+$identity = if ($ArtifactLabel) { "$version-$ArtifactLabel" } else { $version }
 $zip = Join-Path $wheel "dist/WodenRallyEdge-$identity.zip"
 $stage = Join-Path $wheel "dist/player-$identity"
 foreach ($path in @($zip,$zip+'.sha256',$zip+'.json',$stage)) {

@@ -1,21 +1,35 @@
 # Changelog
 
-## [Unreleased]
+## 0.2.16 — 2026-10-27
 
-### Changed
-
-- Force model **Grip version 5** is the default (STD-027, 2026-10-08): **Steering strength** scales only the tyre force, cornering resistance and return to centre. The steering damping keeps its own gain; in version 4 it also scaled with Strength. At Steering strength 50 the two versions are identical. Recordings declare `woden-grip-signal@5` (force config version 3), and version 4 recordings still replay exactly with version 4 arithmetic. New recorded channels `ffb.grip.steering` and `ffb.grip.dampingTerm` hold the two terms before the final clamp, so normalization can compare the tyre force on its own.
-- Native WheelFfb (x64) is now **0.9.1**, 48 exports (toolkit c8ec2ee, built and qualified by Astra, reviewed by Claude, 2026-10-08; SHA-256 `F8361A08…`). It replaces 0.5.1 `A5ED124D…`. It keeps the 0.5.1 input contract the mod uses: `GetInputCapabilities` = 1, and hats as buttons 128..159 on the legacy `ReadDeviceState`. It adds the reviewed shutdown and lock fixes, and strict device selection on a retained wheel: switching wheels releases the old one and opens the new one on the next try, never silently. The managed `Dbce.Wheel.Ffb` wrapper is unchanged (9ad1f64); `lib\toolkit\INPUT-OVERRIDE.json` records the managed and native sources separately. Seen at the rig: muted Kenya replay passed, 3,601 poses, max error 6.1e-5 m. Physical force with the new native is not yet tried.
-- F6 Cameras starts with one triple-screen selector, **Off / Surround / Separate monitors** (STD-022, the same three choices as the other mods), with the current status under it. Separate monitors applies at the next game start. It drives the existing `[Triple] Mode` (Off, or Auto/On kept) and `SpanSeparateMonitors` settings, so saved configs keep their meaning: the default (Auto + span on) shows as Separate monitors, and on a Surround desktop the span step does nothing. A selector change is saved by the panel's normal timed save while F6 stays open (4645318, Astra; before it, the choice was saved only when another control changed or the panel closed). Installed as 0.2.14-triplesel.2 on 2026-10-08 (plugin `06599AF3…`).
-- F6 FFB shows one force model with no selector, and its text no longer names other mods (STD-026). Steering strength and the crash kick (toggle and Crash strength) are both on the Simple page (STD-027). A saved Classic choice is kept and F6 says so; Reset FFB tuning in Advanced switches to the current model. Classic's own sliders (peak cap, smoothing in ms, reference front load, slip scale) appear only while Classic is active.
+First non-beta release. Everything since beta.2; developed on one rig (MOZA R12, three 2560x1440 screens). Full detail is in the commit history.
 
 ### Added
 
-- Gearbox at start (`[Input] NativeGearbox` = Keep / Manual / Automatic, default Keep; F6 Controls; sana 94134/94537). Manual or Automatic sets the game's own transmission choice once per launch, on the first main menu after the game's record has loaded: `StatsData.Auto_Transmission[player]`, plus `Arcade_Auto_Transmission[0]` for player zero, the same elements the game's AT/MT buttons and transmission switch set. Nothing else in the record changes, the game saves it as usual, and the car-select menu can still change it. Keep never touches it. Stage tooling and replay are skipped. A record that is not loaded yet is waited for during that first menu visit; one too short for the player is refused, never resized. An F6 change applies at the next start. Source and offline checks only; not yet tried in game.
-- H-pattern shifting (owner work stream; F6 Controls > Shifter bindings: Gear 1-6 and Gear R, any device). Hold a gate and the mod steps the game's own Shift up / Shift down, one press at a time and never during a gear change, until the gear matches; a gate above the car's gears selects its top gear. Woden has no neutral or reverse gear, so out of gear cuts the drive, and R selects first gear and swaps the pedals (Woden reverses on the brake at a standstill). Needs the game's manual transmission; with automatic the shifter does nothing and says so. The sequential Shift up/down buttons keep working. Clutch is not routed. Not yet tried on the rig.
-- Force model "Grip" (model version 4, the new default; F6 FFB "Force model: Grip / Classic"): art of rally's force model from the shared toolkit (`AxleForceCurve`, STD-025) on the front tyres' lateral force, rebuilt per wheel from the game's own tyre friction (contact load x the sideways friction curve x its stiffness, read live). The wheel lightens as the front slides past peak grip, as in art of rally. Full scale is `GripLoadRatio` (default 2) x the mean front load while driving (Woden loads the fronts differently on the grid and at a stop); Strength is `/ 50` as in every mod (art of rally's scale, STD-021; matching art's level is still being calibrated), and there is no 25% cap. Classic (version 3, the earlier slip estimate with its peak cap) is unchanged and selectable. Recordings declare the model (`woden-grip-signal@4`, force config version 2) and carry the grip reference, state and car epoch; the offline replay and stage review tools refuse Grip captures until they replay version 4, instead of checking them against the classic model.
-- Crash kick: when the car hits a wall, barrier or another car the wheel gets art of rally's crash cue, a 120 ms push plus a 25 Hz rattle at half its strength fading out over 250 ms (toolkit `CrashCue`, the shape the owner picked on the wheel). On by default at 50 % (`[ForceFeedback] CrashEnabled`, `CrashStrengthPercent`; F6 FFB Advanced). It sits on top of the steering force and is not limited by the peak cap. Body contacts with a mostly horizontal normal at more than 3 m/s count; ground contacts, colliders tagged or named as road, slow touches, contacts older than 50 ms, and contacts in the first 0.1 s after the car appears or is reset (teleport, gap or duplicate physics tick) do not, as in art of rally. The cue starts with the push alone, its rattle is averaged over each update so the frame rate cannot turn it into a constant push, and it is recorded with the contact, its classification and whether it was delivered. Until the native library can play art's two effects separately, this is a labelled constant-force fallback (`crash-constant-fallback@2`).
-- Frame rate readout (STD-023/024, toolkit `FrameRateMonitor`): F6 Cameras shows the average, 1% low and worst frame of the last 10 s, the log repeats it every 30 s, and `Show frame rate on screen` (`[Display] ShowFrameRate`, default Off) draws the current fps and 1% low at the top right of the centre screen.
+- **Grip** force model: the wheel builds and lightens with the front tyres' real grip, on the same Strength scale as art of rally (Strength 50 = art's 50). Return-to-centre and steering damping match art (v7/v8, owner-accepted 2026-10-25). An older saved Strength is moved once to the new scale (`[ForceFeedback] DefaultsVersion = 1`).
+- Crash kick (art of rally's crash cue) on wall, barrier and car contacts, F6 FFB.
+- **H-pattern shifting** on any USB device (F6 Controls > Shifter): out of gear is neutral, R reverses; needs the game's manual transmission. Forza dashboards show N and R.
+- Gearbox at start (`[Input] NativeGearbox` Keep / Manual / Automatic).
+- Wheel button names in the game's own A/B/Start prompts (arcade header, photo mode); wheel Confirm/Back work in photo mode.
+- Pedal deadzone editor (F6 Controls) without recapturing endpoints.
+- One triple-screen selector Off / Surround / Separate monitors (F6 Cameras); F6 shows the rig geometry in use.
+- Frame-rate readout (F6 Cameras, optional on-screen counter).
+- Help page: a support report with personal paths, e-mail and tokens redacted.
+- Forza telemetry: lap number, race position and current / last / best / race times from the game clock.
+
+### Fixed
+
+- **Car would not drive**: a brake or handbrake resting a few counts above its calibrated rest held the car (Woden accelerates only with the brake at exactly zero). Pedals now always have at least a 3% rest deadzone.
+- F6 says "Ready to drive" only when the wheel route will really drive; a held wheel or shifter button that blocks closing is named.
+- F6 closing reliably (Closing... with Keep settings open to cancel); camera shortcut changes saved on quit.
+- The game window lands on the triple-screen row even after it was last on another display.
+- Triple screens keep the game's field of view when the camera switches to physical projection, and the side screens share the centre camera's post-processing, so grading matches across the seams.
+- Forza speed and gear match the HUD (reverse included); `DistanceTraveled` is 0 (the old value restarted at every pause).
+
+### Known limits
+
+- No clutch. The wheel cannot press the game's X/Y-only menu actions (extra info, delete save slot), so those prompts keep the pad glyph.
+- Lap number and position checked on solo rally stages; circuit and rival modes are assumed.
 
 ## 0.2.14-beta.2 — 2026-10-06
 

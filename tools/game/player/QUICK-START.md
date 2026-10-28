@@ -1,6 +1,6 @@
 # Super Woden Rally Edge setup
 
-Early-tester build. Please report problems at https://github.com/d-b-c-e/dbce-mods-woden-rally-edge/issues with your wheel, screen layout and what happened. Known limits: force feedback strength is not yet matched to our other mods, and there is no H-pattern shifter or clutch yet.
+Please report problems at https://github.com/d-b-c-e/dbce-mods-woden-rally-edge/issues with your wheel, screen layout and what happened. Known limits: no clutch, and the wheel cannot press the game's X/Y-only menu actions (extra info, deleting a save slot), so those prompts keep the pad glyph.
 
 1. Close the game and extract the entire player ZIP into a new folder.
 2. Run **Install.bat**. It finds Steam libraries or asks for the game folder. A first install downloads the pinned BepInEx loader; updates reuse the supported loader. Players need Windows PowerShell 5.1 and no SDK or compiler.
@@ -14,4 +14,4 @@ Change camera cycles enabled stock, Bonnet and Bumper views. Mounted-camera defa
 
 To update, close the game and run Install.bat from the newly extracted package. Backups are in `WodenWheelBackups` inside the game folder; the ownership receipt is `BepInEx/WodenWheel-install.json`. **Uninstall.bat** removes only verified owned files and keeps settings, recordings, other mods and the shared loader. Keep recovery.json and the backup if an external change prevents rollback. Do not overwrite an unknown changed file.
 
-Supported target: Steam app 3218630 / build 21802346, Unity 6000.3.6f1, GameAssembly SHA-256 `f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c`. Unknown builds are refused. Cross-game physical force normalization and the full device/track matrix remain separate from playback acceptance.
+Supported target: Steam app 3218630 / build 21802346, Unity 6000.3.6f1, GameAssembly SHA-256 `f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c`. Unknown builds are refused. Tested on one rig (MOZA R12, three 2560x1440 screens).
