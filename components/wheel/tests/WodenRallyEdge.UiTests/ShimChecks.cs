@@ -174,6 +174,7 @@ internal static partial class ShimChecks
         Check(lease!=null&&values[16].value==1&&values[17].value==0&&values[7].value==1&&values[6].value==.2f,"real WheelInput preserves native keyboard steering/throttle with shim brake");
         Check(values[11].Pressed&&lease!.Handbrake==.35f,"native keyboard horn and progressive shim handbrake retained");
         lease!.Restore();Check(values.SequenceEqual(saved),"production value-array lease restores native values byte-for-value");
+        Frame("brake",.02f);Frame("handbrake",.02f);Next();lease=Runtime.Wheel.Apply(controls);Check(values[6].value==0&&lease!.Handbrake==0,"shared-profile pedal rest noise is exact zero");lease!.Restore();Frame("brake",.2f);Frame("handbrake",0);
         car.Aids!.Automatic=true;Frame("shiftUp",1);Next();lease=Runtime.Wheel.Apply(controls);
         Check(values[3].value==0&&ShimInput.TransmissionStatus.Contains("native gearbox is Automatic"),"Sequential profile cannot shift native Automatic; mismatch is explicit");lease!.Restore();
         car.Aids.Automatic=false;Next();lease=Runtime.Wheel.Apply(controls);Check(values[3].value==0,"held shift cannot cross Automatic-to-Manual transition");lease!.Restore();

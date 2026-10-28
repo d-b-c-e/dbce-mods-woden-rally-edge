@@ -114,6 +114,8 @@ public static class TelemetrySchema
             Add("game." + field, "game integer", "raw", "MainCar; indexing/enum meanings retained without conversion");
         foreach (var field in new[] { "rpm", "trueSpeed", "speedMomentum", "steer", "throttle", "brake", "life", "fuel", "oil", "temperature", "gForce", "finalGrip", "enginePower", "idleSpeed", "actualPower", "motorTorqueScale", "steerAngleLimit", "steerValue", "gearMomentum", "lastLap", "bestLap", "penalty" })
             Add("game." + field, "game units (unvalidated)", "raw", "MainCar / nested engine, transmission, status, clock fields; see TELEMETRY.md");
+        Add("game.lapTime", "s", "raw", "CarClock.TimerControl: running time of the current lap, restarted each lap");
+        Add("game.raceTime", "s", "derived", "Sum of CarClock.Laps (finished laps) plus game.lapTime");
         foreach (var field in new[] { "grounded", "respawning", "replay", "locked", "paused", "photoMode", "automatic", "abs", "handbrake", "shifting" })
             Add("game." + field, "boolean 0/1", "measured", "Game field; no assist changes");
         foreach (var field in new[] { "steer", "throttle", "brake" })

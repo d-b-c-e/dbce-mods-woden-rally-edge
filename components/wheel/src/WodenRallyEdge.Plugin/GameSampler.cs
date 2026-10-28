@@ -60,7 +60,15 @@ internal static class GameSampler
             s.Add("game.gForce", a.G_Force); s.Add("game.finalGrip", a.FinalGrip);
             if (car.Aids != null) { s.Add("game.automatic", car.Aids.Automatic ? 1 : 0); s.Add("game.abs", car.Aids.Abs ? 1 : 0); }
             if (car.SteerSystem != null) { s.Add("game.steerAngleLimit", car.SteerSystem.MaxSteerAngle); s.Add("game.steerValue", car.SteerSystem.SteerValue); }
-            if (car.Clock != null) { s.Add("game.lastLap", car.Clock.LastLapValue); s.Add("game.bestLap", car.Clock.BestLapValue); s.Add("game.penalty", car.Clock.Penalty ? 1 : 0); }
+            var clock = car.Clock;
+            if (clock != null)
+            {
+                s.Add("game.lastLap", clock.LastLapValue); s.Add("game.bestLap", clock.BestLapValue); s.Add("game.penalty", clock.Penalty ? 1 : 0);
+                // CarClock.Update: TimerControl = rounded time since lap start; ResetClock appends each finished lap to Laps.
+                float race = clock.TimerControl; var laps = clock.Laps; if (laps != null) for (int i = 0; i < laps.Count; i++) race += laps[i];
+                s.Add("game.lapTime", clock.TimerControl); s.Add("game.raceTime", race);
+            }
+
         });
         var orientation = new NQuaternion();
         Group("motion", () => {

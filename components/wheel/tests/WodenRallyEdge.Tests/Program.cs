@@ -54,7 +54,8 @@ Test("calibration endpoints, asymmetric centre, inverted pedals and deadzone", (
     Near(steer.Normalize(0), -1, "left"); Near(steer.Normalize(30000), 0, "centre"); Near(steer.Normalize(65535), 1, "right");
     Near(steer.Normalize(30050), 0, "deadzone");
     var invert = new AxisCalibration(65535, 0, 30000); Near(invert.Normalize(0), 1, "inverted right"); Near(invert.Normalize(65535), -1, "inverted left");
-    var pedal = new AxisCalibration(60000, 1000); Near(pedal.Normalize(60000), 0, "rest"); Near(pedal.Normalize(1000), 1, "full"); Near(pedal.Normalize(30500), .5, "half");
+    var pedal = new AxisCalibration(60000, 1000); Near(pedal.Normalize(60000), 0, "rest"); Near(pedal.Normalize(1000), 1, "full"); Near(pedal.Normalize(30500), (.5 - .03) / .97, "half");
+    Check(new AxisCalibration(0, 65535).Normalize(1966) == 0 && new AxisCalibration(0, 65535).Normalize(1967) > 0, "zero-deadzone pedal gets the 3% rest floor");
     Check(!new AxisCalibration(1, 1).Valid, "zero span rejected"); Check(!new AxisCalibration(0, 100, 100).Valid, "centre endpoint rejected");
     Check(!new AxisCalibration(0, 100, null, double.NaN).Valid, "NaN deadzone rejected");
     var quietBrake = new AxisCalibration(0, 65535, Deadzone: .03);
@@ -128,6 +129,15 @@ Test("Forza speed is the HUD's abs(TrueSpeed) in m/s, reverse included", () => {
         var s = Sample(1); new MotionProcessor().Process(s, Quaternion.Identity); s.Add("game.trueSpeed", hud);
         Near(ForzaProjection.Map(s).Speed, 10, $"TrueSpeed {hud} shows 36 km/h");
     }
+});
+Test("Forza lap fields: 0-based lap, 1-based rank, seconds, no-lap sentinel and segment distance are 0", () => {
+    var s = Sample(1); new MotionProcessor().Process(s, Quaternion.Identity);
+    s.Add("motion.distance", 500); s.Add("game.laps", 2); s.Add("game.rank", 1);
+    s.Add("game.lastLap", 105.083); s.Add("game.bestLap", 5999.9990234375); s.Add("game.lapTime", 12.5); s.Add("game.raceTime", 117.583);
+    var f = ForzaProjection.Map(s);
+    Check(f.LapNumber == 1 && f.RacePosition == 1, "second lap is Forza lap 1; rank 1 is P1");
+    Near(f.LastLap, 105.083, "last lap s"); Near(f.BestLap, 0, "no lap yet is 0"); Near(f.CurrentLap, 12.5, "lap time"); Near(f.CurrentRaceTime, 117.583, "race time");
+    Near(f.DistanceTraveled, 0, "segment distance is not race distance");
 });
 Test("full detailed sample is finite JSON below UDP budget", () => {
     var s = Sample(1);

@@ -25,7 +25,17 @@ public static class ForzaProjection
         frame.NormalizedSuspensionTravel = Wheels("suspensionCompression");
         // Forza's travel is extension from full compression, in metres.
         frame.SuspensionTravelMeters = Wheels("suspensionExtension");
-        frame.DistanceTraveled = F("motion.distance");
+        // motion.distance restarts at every pause/respawn, so it is not Forza's race distance; no proven odometer yet.
+        // CarClock times are seconds (two finished Kenya stages: LastLapValue 105.083/116.339 vs 105.100/116.350 s RACE->END);
+        // 5999.999 (99:59.999) is the game's "no lap yet" value and Forza's is 0.
+        float Lap(string key) { float x = F(key); return x < 5999 ? x : 0; }
+        frame.LastLap = Lap("game.lastLap"); frame.BestLap = Lap("game.bestLap");
+        frame.CurrentLap = F("game.lapTime"); frame.CurrentRaceTime = F("game.raceTime");
+        // MainCar.Laps is the 1-based lap being driven (1 for the whole stage, 2 at END); Forza's LapNumber is 0-based.
+        frame.LapNumber = (ushort)Math.Max(0, F("game.laps") - 1);
+        // Rank is 1-based (0 only before the first racing tick), as is Forza's RacePosition.
+        frame.RacePosition = (byte)Math.Clamp(F("game.rank"), 0, 255);
+
         // These are normalized only when OUR calibrated input route supplies them.
         frame.Accel = TelemetryFrame.ToPedal(F("wheelInput.throttle"));
         frame.Brake = TelemetryFrame.ToPedal(F("wheelInput.brake"));

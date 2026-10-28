@@ -2,6 +2,8 @@ namespace WodenRallyEdge.Core;
 
 public sealed record AxisCalibration(int Rest, int End, int? Centre = null, double Deadzone = 0)
 {
+    // Pedal rest floor: a brake or handbrake resting a few counts above its capture blocks Woden's exact-zero drive tests.
+    public const double MinPedalDeadzone = .03;
     public bool Valid => Rest != End && Rest is >= 0 and <= 65535 && End is >= 0 and <= 65535 &&
         double.IsFinite(Deadzone) && Deadzone >= 0 && Deadzone <= .25 &&
         (!Centre.HasValue || Centre > Math.Min(Rest, End) && Centre < Math.Max(Rest, End));
@@ -18,6 +20,7 @@ public sealed record AxisCalibration(int Rest, int End, int? Centre = null, doub
             return Math.Abs(value) <= Deadzone ? 0 : Math.Sign(value) * (Math.Abs(value) - Deadzone) / (1 - Deadzone);
         }
         value = Math.Clamp((double)(raw - Rest) / (End - Rest), 0, 1);
-        return value <= Deadzone ? 0 : (value - Deadzone) / (1 - Deadzone);
+        double deadzone = Math.Max(Deadzone, MinPedalDeadzone);
+        return value <= deadzone ? 0 : (value - deadzone) / (1 - deadzone);
     }
 }

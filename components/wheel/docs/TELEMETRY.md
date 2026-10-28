@@ -52,7 +52,9 @@ WheelHit's force is a **magnitude**. Multiplying it by slip does not magically p
 
 ## Deliberate gaps in this build
 
-The generated Woden API has no WheelCollider centre/suspension-distance getters and no Rigidbody mass getter. Absolute suspension extension/compression and mass are reserved but absent. Do not substitute a constant 0.5 suspension signal. Surface roughness, curb/puddle flags, tyre temperature, engine redline, engine power/torque, fuel percentage and validated timing/gear mappings are also absent from Forza.
+The generated Woden API has no WheelCollider centre/suspension-distance getters and no Rigidbody mass getter. Absolute suspension extension/compression and mass are reserved but absent. Do not substitute a constant 0.5 suspension signal. Surface roughness, curb/puddle flags, tyre temperature, engine redline, engine power/torque, fuel percentage and a race odometer are also absent from Forza: `DistanceTraveled` is 0 because `motion.distance` restarts at every pause or respawn.
+
+Forza lap timing comes from the game clock (2026-10-27): `LastLap`, `BestLap`, `CurrentLap` and `CurrentRaceTime` are `CarClock` seconds (two finished Kenya stages matched the RACE-to-END game time within one tick), with the game's 5999.999 "no lap yet" sent as 0; `LapNumber` is `MainCar.Laps` - 1 and `RacePosition` is the 1-based rank. Checked on solo rally stages only; circuit and rival modes are assumed.
 
 Standard Forza has no per-field validity mask. Unsupported fields therefore encode zero, which a dashboard can mistake for real data. Treat the rich channel dictionary as authoritative; hide unsupported dashboard gauges until their mappings are validated. Stock pedal/RPM/gear gauges are not yet meaningful in the Forza output. The calibrated wheel route supplies normalized input only when explicitly enabled.
 

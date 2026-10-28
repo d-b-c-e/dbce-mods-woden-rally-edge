@@ -154,7 +154,9 @@ internal static partial class ShimInput
     internal static ShimAction Action(string id) => !Ready ? default :
         (id is "shiftUp" or "shiftDown" && _transmission != "Sequential") || (ShimActionMap.IsGate(id) && !HPattern) ?
         new(0, ShimStatus.Unsupported) : Actions[ShimActionMap.Index(id)];
-    internal static float Axis(string id) => Allowed && (!_carTrial || _carTrialDelivery) ? Action(id).Applied : 0;
+    internal static float Axis(string id) => Allowed && (!_carTrial || _carTrialDelivery) ? Rest(id, Action(id).Applied) : 0;
+    // The shared profile has no deadzone: zero pedal rest noise up to the same 3% floor (values above pass unchanged).
+    private static float Rest(string id, float value) => id is "throttle" or "brake" or "handbrake" && value <= AxisCalibration.MinPedalDeadzone ? 0 : value;
     internal static bool AxesLive => Allowed && (!_carTrial || _carTrialDelivery) && DrivingAxes.All(id => Action(id) is { Status: ShimStatus.Live } a && float.IsFinite(a.Value));
     private static void RefuseOrStop(string reason)
     {
