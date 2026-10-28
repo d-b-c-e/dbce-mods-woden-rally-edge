@@ -1,3 +1,25 @@
+# October 27: 0.2.16 released; side branches retired
+
+Public release [v0.2.16](https://github.com/d-b-c-e/dbce-mods-woden-rally-edge/releases/tag/v0.2.16)
+(not a pre-release) from main `9cb382e`: `WodenRallyEdge-0.2.16.zip`, SHA-256
+`7EA01BD3F32CCAA7FEFE38A1F6B47B0EAF85E92A66A29DB487EE8CDF1F34EDEC`, public download re-hashed and matched.
+Gates: Verify-Source 102 suites / 52,345 assertions, 7,033 UI, zero warnings; 163 PS 5.1 exact-package
+installer checks. Owner install is the same source as the private-shim variant (`-ArtifactLabel owner`,
+shim `9B8A036F…` kept, Backend Shim and all settings kept; backup `WodenWheelBackups/before-install-20261027-225704-c09bd943`).
+
+Merged for the release: TripleView FOV preservation (d6488dd + fixture), side cameras share the source
+post-process volume trigger (seam grading), Help-report token redaction, guided-setup Ready predicate, F6 rig
+geometry line, held-joystick close blocker, all-gates test. New: a 3% pedal rest floor on both input routes (the
+"no drive" cause: Shim had no pedal deadzone and Woden accelerates only at exactly zero brake) and Forza
+lap/position/lap and race times from CarClock (seconds proven on two finished Kenya stages; DistanceTraveled 0).
+Menu prompts: every A/B/Start prompt is already relabelled; remaining glyphs are X/Y-only actions with no wheel
+binding (listed as a known limit). All 106 side branches (local and origin) were deleted after a verified bundle at
+`E:\Source\_archive\2026-10-27\woden-side-branches.bundle` (includes the preserved cadence adapter work).
+
+Open, owner at the rig: first launch shows the grip v8 migration (Strength 74.75 -> 50, same feel); FOV on
+bumper/chase/photo with triples on and off; seams; H-pattern N/R on dashboards; photo-mode Pause. Earlier
+sections below are historical.
+
 # October 22: Partial native prompt source handoff
 
 Continuation lale: source implementation is still incomplete. Additional

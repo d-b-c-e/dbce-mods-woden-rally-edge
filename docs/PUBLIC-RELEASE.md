@@ -1,5 +1,7 @@
 # Public release preparation — 2026-10-05
 
+**0.2.16 published 2026-10-27** as the first non-beta release; see `components/wheel/docs/STATE.md` (October 27).
+
 ## Early-tester publication — 2026-10-06
 
 Owner, October 6 evening: "lets ship Woden" and "lets package it and make it public for now
