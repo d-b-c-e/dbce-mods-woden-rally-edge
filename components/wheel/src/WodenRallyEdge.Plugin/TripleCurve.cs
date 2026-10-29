@@ -18,7 +18,8 @@ internal static class TripleCurve
     internal const int Columns = 64, Rows = 36;
     private const string ShaderName = "Hidden/BlitCopy";
     private const int Quads = 7; // GL.QUADS (the constant is stripped from the interop)
-    private static string _key = "";   // rig key plus output size: a resize rebuilds the targets
+    private static string _key = "";       // output size and size bucket: only these rebuild targets and presenter
+    private static string _gridKey = "";   // the rig key: a change recomputes the UV grids only (a speed-varying game FOV changes it every frame)
     private static readonly CurveEvidence Evidence = new();
     private static float _depth;
     private static readonly RenderTexture?[] Targets = new RenderTexture?[3];
@@ -50,18 +51,22 @@ internal static class TripleCurve
     /// <summary>True when curved output is ready for <paramref name="key"/>. Builds once per key; a failure keeps flat output until the key changes.</summary>
     internal static bool Configure(CurvedPanelWarp[] warps, string key, Camera source, int thirdPx, int heightPx)
     {
-        string resourceKey = key + "|" + thirdPx + "x" + heightPx;
+        // Target size: the panel's pixels scaled by the source widening, rounded up to an eighth so small eye changes
+        // (a speed-varying game FOV) keep the same textures; the UV grids absorb the exact geometry.
+        var (scaleX, scaleY) = SizeBucket(warps);
+        string resourceKey = thirdPx + "x" + heightPx + "|" + scaleX + "|" + scaleY;
         if (resourceKey == _key)
         {
             if (_drawFailure != null && Failure == null) { Fail(_drawFailure); return false; }
             if (!Active) return false;
+            if (key != _gridKey) { Grids(warps); _gridKey = key; }
             float depth = source.depth + 5;
             if (depth != _depth) { _depth = depth; TripleNative.SetDepth(_presenter!, depth); }
             if (Evidence.SourceFrame() is { } stalled) { Fail(stalled); return false; }
             return true;
         }
         Release();
-        _key = resourceKey; Failure = null; _drawFailure = null; Evidence.Reset();
+        _key = resourceKey; _gridKey = ""; Failure = null; _drawFailure = null; Evidence.Reset();
         try
         {
             if (!TripleNative.TargetAvailable) throw new InvalidOperationException("engine binding Camera.set_targetTexture is missing");
@@ -69,25 +74,16 @@ internal static class TripleCurve
             var shader = Shader.Find(ShaderName);
             if (shader == null || !shader.isSupported) throw new InvalidOperationException("the copy shader is unavailable");
             _material ??= new Material(shader);
+            int width = Math.Clamp((int)Math.Round(thirdPx * scaleX), 1, thirdPx * 2), height = Math.Clamp((int)Math.Round(heightPx * scaleY), 1, heightPx * 2);
             for (var index = 0; index < 3; index++)
             {
-                var warp = warps[index];
-                // The source surface is the panel widened to cover the curve; keep its pixel density.
-                int width = Math.Clamp((int)Math.Round(thirdPx * warp.SourceSurface.Width / warp.Panel.Width), 1, thirdPx * 2);
-                int height = Math.Clamp((int)Math.Round(heightPx * warp.SourceSurface.Height / warp.Panel.Height), 1, heightPx * 2);
                 var target = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32);
                 target.name = "Woden.Triple.Curved" + index;
                 Targets[index] = target; // owned before Create, so a failed Create is released with the rest
                 if (!target.Create()) throw new InvalidOperationException("render target " + index + " could not be created");
-                var uv = new Vector2[(Columns + 1) * (Rows + 1)];
-                for (var row = 0; row <= Rows; row++)
-                for (var column = 0; column <= Columns; column++)
-                {
-                    warp.SourceUv((double)column / Columns, (double)row / Rows, out var u, out var v);
-                    uv[(row * (Columns + 1)) + column] = new Vector2((float)u, (float)v);
-                }
-                Source[index] = uv;
             }
+            Grids(warps);
+            _gridKey = key;
             if (!_registered) { ClassInjector.RegisterTypeInIl2Cpp<TriplePresenter>(); _registered = true; }
             _presenterGo = new GameObject("Woden.Triple.Presenter");
             Object.DontDestroyOnLoad(_presenterGo);
@@ -109,6 +105,34 @@ internal static class TripleCurve
         {
             Fail(ex.Message);
             return false;
+        }
+    }
+
+    /// <summary>The largest source-to-panel scale over the three panels, rounded up to an eighth (at least 1).</summary>
+    internal static (double X, double Y) SizeBucket(CurvedPanelWarp[] warps)
+    {
+        double x = 1d, y = 1d;
+        foreach (var warp in warps)
+        {
+            x = Math.Max(x, warp.SourceSurface.Width / warp.Panel.Width);
+            y = Math.Max(y, warp.SourceSurface.Height / warp.Panel.Height);
+        }
+        return (Math.Ceiling(x * 8d) / 8d, Math.Ceiling(y * 8d) / 8d);
+    }
+
+    private static void Grids(CurvedPanelWarp[] warps)
+    {
+        for (var index = 0; index < 3; index++)
+        {
+            var warp = warps[index];
+            var uv = Source[index] is { } existing && existing.Length == (Columns + 1) * (Rows + 1) ? existing : new Vector2[(Columns + 1) * (Rows + 1)];
+            for (var row = 0; row <= Rows; row++)
+            for (var column = 0; column <= Columns; column++)
+            {
+                warp.SourceUv((double)column / Columns, (double)row / Rows, out var u, out var v);
+                uv[(row * (Columns + 1)) + column] = new Vector2((float)u, (float)v);
+            }
+            Source[index] = uv;
         }
     }
 
@@ -137,7 +161,7 @@ internal static class TripleCurve
     internal static void Reset()
     {
         Release();
-        _key = ""; Failure = null; _drawFailure = null; Evidence.Reset();
+        _key = ""; _gridKey = ""; Failure = null; _drawFailure = null; Evidence.Reset();
     }
 
     /// <summary>From TriplePresenter.OnPostRender: the three panels over the window, left to right.</summary>

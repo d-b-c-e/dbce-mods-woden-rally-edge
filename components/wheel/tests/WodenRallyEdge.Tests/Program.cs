@@ -530,6 +530,19 @@ Test("curved rig: radius 0 reproduces TripleGeometry, curvature widens the sourc
     Near(WodenRallyEdge.TripleGeometry.EyeDistanceForView(398.5, 660, true, true, MountedView.Stock, 45, null, false), 660, "measured session overrides saved game FOV in chase", 1e-9);
     Near(WodenRallyEdge.TripleGeometry.EyeDistanceForView(398.5, 660, false, false, MountedView.Bonnet, 45, 60, true), WodenRallyEdge.TripleGeometry.EyeDistanceForVerticalFov(398.5, 60), "game session uses the mounted lens", 1e-9);
     Near(WodenRallyEdge.TripleGeometry.EyeDistanceForView(398.5, 660, false, true, MountedView.Bonnet, 45, 60, null), 660, "no session keeps the saved policy", 1e-9);
+    // Texture size bucket (TripleCurve.SizeBucket is Unity-bound; the same arithmetic): the owner rig at 1500R keeps one
+    // bucket while a game FOV sweep moves the derived eye between 500 and 900 mm, so no per-frame texture rebuild.
+    (double X, double Y) Bucket(double eye)
+    {
+        var w = WodenRallyEdge.CurvedRig.Compute(708.4, 398.5, eye, 70, 8, 1500).Warps!;
+        double x = 1, y = 1;
+        foreach (var warp in w) { x = Math.Max(x, warp.SourceSurface.Width / warp.Panel.Width); y = Math.Max(y, warp.SourceSurface.Height / warp.Panel.Height); }
+        return (Math.Ceiling(x * 8) / 8, Math.Ceiling(y * 8) / 8);
+    }
+    var buckets = new HashSet<(double, double)>();
+    for (double eye = 500; eye <= 900; eye += 25) buckets.Add(Bucket(eye));
+    Check(buckets.Count <= 2, "a 500-900 mm eye sweep at 1500R touches at most two texture size buckets: " + buckets.Count);
+    Check(Bucket(660).X >= 1 && Bucket(660).X <= 1.5 && Bucket(660).Y >= 1 && Bucket(660).Y <= 1.5, "owner rig bucket is modest: " + Bucket(660));
     // Presentation evidence in source frames: textures alone are not presented; a presenter that never draws or stops
     // drawing is reported after a bounded number of source frames; evidence resets per build.
     var evidence = new WodenRallyEdge.CurveEvidence();
