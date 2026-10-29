@@ -1,8 +1,14 @@
-# October 29: curved panels and FovKey session A/B (dome candidate, unreviewed, not packaged)
+# October 29: curved panels and FovKey session A/B (dome; reviewed by lulu; installed closed-game)
 
-Source-only candidate on branch dome/woden-curvature (worktree E:/Source/_work/dbce-mods-woden-rally-edge-curvature), for
-reciprocal review with lulu; no install, launch, device or force run. Owner request relayed through lulu: curvature for
-the Unity triples and a session-only measured/game A/B key.
+Branch dome/woden-curvature (worktree E:/Source/_work/dbce-mods-woden-rally-edge-curvature). Lulu reviewed a4a6b71 and the
+fixes (d9b33fc, 47bab9b: resource key with output size, target ownership, presenter order, source-frame presentation
+evidence with bounded fail-to-flat, shown views for the status, texture size bucket so a speed-varying FOV never rebuilds
+targets). Installed closed-game under the shared lease: 0.2.16+47bab9b (private shim package, receipt rev 5, 23 owned
+files hash-matched, configs and shim byte-exact, Package.ps1 gates + Test-PrivateShimInstall 38 checks), rollback
+`WodenWheelBackups/before-install-20261028-235615-6df7452d`. The receipt now also declares `curvedTriples: true` (b297f1d) so
+Wheelkit shows and writes `[Triple] CurveRadiusMm` only to this build. No launch, device or force run: GPU output, seams,
+HUD order and the resolved engine bindings still need a rig check. Owner request relayed through lulu: curvature for the
+Unity triples and a session-only measured/game A/B key.
 
 - `[Triple] CurveRadiusMm` (0 = flat, unchanged output). `CurvedRig` builds the three views through the vendored shared
   toolkit core (`src/WodenRallyEdge.Plugin/Toolkit/Triple`, toolkit b4b7120: eye distance is to the middle of the center
