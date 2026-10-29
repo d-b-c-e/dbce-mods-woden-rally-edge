@@ -10,7 +10,11 @@ Camera.onPostRender for the presenter camera (camera completion only; captures s
 session high-water scale, our callback removed on Reset. Installed closed-game as 0.2.16+7125a55 (gates: Package.ps1
 103 suites / UI 7033 / DeviceHub 3897, Test-PrivateShimInstall 38; rollback before-install-20261029-011736-4328e4fa).
 The follow-up replays on 7125a55 (01:17, 02:35) did not launch the game: Steam console_log shows LaunchApp waiting for a user response to KickingOtherSession (the owner account playing Star of Providence on another computer); the harness answered nothing, as required, and the later launch stayed behind that pending action;
-no further attempts tonight. The replacement presenter is therefore UNTESTED in game; the next muted replay needs the owner off Steam elsewhere (or that prompt dismissed by the owner). Evidence:
+the owner cleared it at 07:57. 08:38 muted replay on 7125a55: Curved triples on (2560x1440 x3, then the high-water 2880x1620 x3,
+no flapping), presenter camera rendered every frame (Camera.onPostRender), no curve-off for the whole stage, 3601 poses passed,
+normal exit, cfg restored byte-exact. Harness frames (hub artifacts run-01/visual) show the three warped panels drawn with
+correct orientation and the HUD unwarped on the centre third: first visual curved-output evidence. Open: seated acceptance
+(seams on the glass, F7 feel). Evidence:
 dbce-project-mgmt/artifacts/woden-curved-replay-dome-20261029 (run-01-gl-presenter, run-02-not-launched).
 
 # October 29: clean-install lifecycle on a pristine copy (dome; file level, no launch)
