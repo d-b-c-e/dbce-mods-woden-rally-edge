@@ -19,6 +19,7 @@ internal static class TripleNative
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate float GetFloat(IntPtr self);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void SetInt(IntPtr self, int value);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void SetPtr(IntPtr self, IntPtr value);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void Call();
 
     private static readonly List<string> Missing = new();
     private static readonly SetFloat? Depth = Resolve<SetFloat>("UnityEngine.Camera::set_depth_Injected");
@@ -33,6 +34,12 @@ internal static class TripleNative
     // The managed property is stripped in the pinned interop. Unity's scalar float
     // getter and exact registered name are retained by the pinned UnityPlayer.
     private static readonly GetFloat? ReadCanvasPlane = Resolve<GetFloat>("UnityEngine.Canvas::get_planeDistance_Injected");
+    // Curved panels only (TripleCurve): the views render to textures. Flat views never need it, so it is not required.
+    private static readonly SetPtr? TargetTexture = Resolve<SetPtr>("UnityEngine.Camera::set_targetTexture_Injected");
+    // The GL matrix calls the presenter draws with; their managed wrappers are stripped, the engine bindings remain.
+    private static readonly Call? GlPush = Resolve<Call>("UnityEngine.GL::PushMatrix");
+    private static readonly Call? GlPop = Resolve<Call>("UnityEngine.GL::PopMatrix");
+    private static readonly Call? GlOrtho = Resolve<Call>("UnityEngine.GL::LoadOrtho");
 
     private static T? Resolve<T>(string name) where T : Delegate
     {
@@ -47,6 +54,11 @@ internal static class TripleNative
         Depth == null || ClearFlags == null || CullingMask == null || Near == null || Far == null || CopyFromCamera == null
             ? "missing engine bindings: " + string.Join(", ", Missing) : null;
     internal static bool CanvasAvailable => CanvasMode != null && CanvasCamera != null && CanvasPlane != null && ReadCanvasPlane != null;
+    internal static bool TargetAvailable => TargetTexture != null;
+    internal static bool PresenterAvailable => GlPush != null && GlPop != null && GlOrtho != null;
+    internal static void GlPushMatrix() => GlPush!();
+    internal static void GlPopMatrix() => GlPop!();
+    internal static void GlLoadOrtho() => GlOrtho!();
     internal static string Report => Missing.Count == 0 ? "all triple engine bindings present" : "missing: " + string.Join(", ", Missing);
 
     private static IntPtr Ptr(UnityEngine.Object o) => o.m_CachedPtr;
@@ -61,4 +73,5 @@ internal static class TripleNative
     internal static void SetPlaneDistance(Canvas c, float v) => CanvasPlane?.Invoke(Ptr(c), v);
     internal static float GetPlaneDistance(Canvas c) => ReadCanvasPlane!(Ptr(c));
     internal static void SetWorldCamera(Canvas c, Camera? camera) => CanvasCamera!(Ptr(c), camera == null ? IntPtr.Zero : Ptr(camera));
+    internal static void SetTarget(Camera c, RenderTexture? target) => TargetTexture!(Ptr(c), target == null ? IntPtr.Zero : Ptr(target));
 }

@@ -48,13 +48,23 @@ internal static class TripleGeometry
     /// A mounted view uses its owned saved pose, not a Camera.fieldOfView value affected by physical/custom projections.
     /// A missing mounted pose (handoff/replay/foreign camera) retains the game camera's lens behavior.</summary>
     public static double EyeDistanceForView(double panelHeight, double physicalEyeDistance, bool matchGameFov,
-        bool chaseUsesGameFov, MountedView view, double gameFov, double? ownedMountedFov)
+        bool chaseUsesGameFov, MountedView view, double gameFov, double? ownedMountedFov, bool? sessionGameFov = null)
     {
-        if (!matchGameFov && !(chaseUsesGameFov && view == MountedView.Stock)) return physicalEyeDistance;
+        if (!ShowsGameFov(sessionGameFov, matchGameFov, chaseUsesGameFov, view)) return physicalEyeDistance;
         double fov = view != MountedView.Stock && ownedMountedFov.HasValue ? ownedMountedFov.Value : gameFov;
         return double.IsFinite(fov) && fov > 0 && fov < 180
             ? EyeDistanceForVerticalFov(panelHeight, fov) : physicalEyeDistance;
     }
+
+    /// <summary>Whether the view on screen follows a lens (game or saved mounted) rather than the measured eye. The
+    /// session A/B (FovKey, never saved) wins over the saved MatchGameFov/ChaseUsesGameFov choices: false is the
+    /// measured perspective for every view, chase included; true is the lens for every view.</summary>
+    public static bool ShowsGameFov(bool? sessionGameFov, bool matchGameFov, bool chaseUsesGameFov, MountedView view) =>
+        sessionGameFov ?? (matchGameFov || (chaseUsesGameFov && view == MountedView.Stock));
+
+    /// <summary>The next session state for one key press: the opposite of what the current view shows.</summary>
+    public static bool NextSessionGameFov(bool? sessionGameFov, bool matchGameFov, bool chaseUsesGameFov, MountedView view) =>
+        !ShowsGameFov(sessionGameFov, matchGameFov, chaseUsesGameFov, view);
 
     // pa lower-left, pb lower-right, pc upper-left, all relative to the eye.
     private static PanelFrustum Panel(V3 pa, V3 pb, V3 pc)

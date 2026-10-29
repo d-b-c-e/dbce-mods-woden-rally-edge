@@ -501,6 +501,36 @@ Test("triple FOV policy preserves physical geometry and coherently follows mount
     Near(Eye(true, true, MountedView.Bonnet, 45, null), gameEye, "unowned mount retains game fallback");
     Near(Eye(true, true, MountedView.Bumper, 45, double.NaN), physicalEye, "invalid lens safely keeps measured eye");
 });
+Test("curved rig: radius 0 reproduces TripleGeometry, curvature widens the source, the session key alternates", () => {
+    var reference = WodenRallyEdge.TripleGeometry.Compute(708.4, 398.5, 660, 70, 8);
+    var flat = WodenRallyEdge.CurvedRig.Compute(708.4, 398.5, 660, 70, 8, 0);
+    Check(flat.Warps == null, "radius 0 has no warps");
+    for (int i = 0; i < 3; i++)
+    {
+        Near(flat.Views[i].YawDegrees, reference[i].YawDegrees, "toolkit rig yaw " + i, 1e-9);
+        Near(flat.Views[i].Left, reference[i].Left, "toolkit rig left " + i, 1e-9); Near(flat.Views[i].Right, reference[i].Right, "toolkit rig right " + i, 1e-9);
+        Near(flat.Views[i].Bottom, reference[i].Bottom, "toolkit rig bottom " + i, 1e-9); Near(flat.Views[i].Top, reference[i].Top, "toolkit rig top " + i, 1e-9);
+    }
+    var curved = WodenRallyEdge.CurvedRig.Compute(708.4, 398.5, 660, 70, 8, 1500);
+    Check(curved.Warps is { Length: 3 } && curved.Warps.All(w => !w.IsFlat), "1500R gives three warps");
+    // Eye distance is to the glass middle: the chord plane is one sagitta closer and the source covers the curve, so the
+    // centre source is wider than the flat panel; its middle still maps to the middle.
+    Check(curved.Views[1].Top > reference[1].Top && curved.Views[1].Right > reference[1].Right, "curved centre source is wider than the flat panel");
+    Near(curved.Views[0].YawDegrees, -70, "curved left yaw", 1e-9); Near(curved.Views[2].YawDegrees, 70, "curved right yaw", 1e-9);
+    curved.Warps![1].SourceUv(0.5, 0.5, out double cu, out double cv);
+    Near(cu, 0.5, "centre column samples the source centre", 1e-9); Near(cv, 0.5, "centre row samples the source centre", 1e-9);
+    for (int i = 0; i < 3; i++) for (int gu = 0; gu <= 8; gu++) for (int gv = 0; gv <= 8; gv++)
+    { curved.Warps[i].SourceUv(gu / 8d, gv / 8d, out double su, out double sv); Check(su >= -1e-9 && su <= 1 + 1e-9 && sv >= -1e-9 && sv <= 1 + 1e-9, "every panel point samples inside its source " + i); }
+    bool refused = false; try { WodenRallyEdge.CurvedRig.Compute(708.4, 398.5, 660, 70, 8, 300); } catch (ArgumentOutOfRangeException) { refused = true; }
+    Check(refused, "a radius under half the panel width is refused");
+    // FovKey session A/B: the opposite of what is shown, independent of the saved choices, never changing them.
+    Check(WodenRallyEdge.TripleGeometry.NextSessionGameFov(null, false, true, MountedView.Bonnet) == true, "physical bonnet: first press shows the game lens");
+    Check(WodenRallyEdge.TripleGeometry.NextSessionGameFov(null, false, true, MountedView.Stock) == false, "chase on the game lens: first press shows measured");
+    Check(WodenRallyEdge.TripleGeometry.NextSessionGameFov(true, false, true, MountedView.Bonnet) == false && WodenRallyEdge.TripleGeometry.NextSessionGameFov(false, true, true, MountedView.Stock) == true, "presses alternate");
+    Near(WodenRallyEdge.TripleGeometry.EyeDistanceForView(398.5, 660, true, true, MountedView.Stock, 45, null, false), 660, "measured session overrides saved game FOV in chase", 1e-9);
+    Near(WodenRallyEdge.TripleGeometry.EyeDistanceForView(398.5, 660, false, false, MountedView.Bonnet, 45, 60, true), WodenRallyEdge.TripleGeometry.EyeDistanceForVerticalFov(398.5, 60), "game session uses the mounted lens", 1e-9);
+    Near(WodenRallyEdge.TripleGeometry.EyeDistanceForView(398.5, 660, false, true, MountedView.Bonnet, 45, 60, null), 660, "no session keeps the saved policy", 1e-9);
+});
 Test("real settings migrate untouched bonnet defaults and preserve custom camera/FFB choices", () => {
     string path = Path.Combine(Path.GetTempPath(), "woden-camera-config-" + Guid.NewGuid() + ".cfg");
     var fresh = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(path, false));

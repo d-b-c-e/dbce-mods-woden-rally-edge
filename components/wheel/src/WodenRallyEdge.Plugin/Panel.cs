@@ -711,6 +711,7 @@ internal static partial class Panel
         Label(250,y,690,TripleView.MatchGameFov?"Bonnet and bumper use the active view lens, including Fit to car. All three views are recalculated together using a virtual eye distance; your rig settings are kept.":"Bonnet and bumper use the rig geometry. Their FOV keys and slider are inactive while triples are on; stock chase keeps its saved FOV behavior.",true,64);y+=72;
         if(!TripleView.MatchGameFov){Label(250,y,690,"Rig: "+TripleView.RigSettingsText,true,88);y+=96;}
         Label(250,y,690,TripleView.CenterFovStatus,true,46);y+=54;
+        if(TripleView.SessionGameFov.HasValue){Label(250,y,690,TripleView.SessionFovText,true,46);y+=54;}
         y=ToggleRow(y,"Bonnet camera",ref cfg.Bonnet);y=ToggleRow(y,"Bumper camera",ref cfg.Bumper);
         BindingRow(y,"Camera");y+=100;
         Label(250,y,690,"Cycle to Bonnet or Bumper to adjust the active view. Open Adjustment bindings for your saved keys or to rebind them.",true,46);y+=60;

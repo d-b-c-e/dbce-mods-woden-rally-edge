@@ -1,3 +1,26 @@
+# October 29: curved panels and FovKey session A/B (dome candidate, unreviewed, not packaged)
+
+Source-only candidate on branch dome/woden-curvature (worktree E:/Source/_work/dbce-mods-woden-rally-edge-curvature), for
+reciprocal review with lulu; no install, launch, device or force run. Owner request relayed through lulu: curvature for
+the Unity triples and a session-only measured/game A/B key.
+
+- `[Triple] CurveRadiusMm` (0 = flat, unchanged output). `CurvedRig` builds the three views through the vendored shared
+  toolkit core (`src/WodenRallyEdge.Plugin/Toolkit/Triple`, toolkit b4b7120: eye distance is to the middle of the center
+  glass, a curved chord sits one sagitta closer, hinges at the chord ends). Radius 0 reproduces `TripleGeometry.Compute`
+  to 1e-9 (new suite in WodenRallyEdge.Tests), so flat rigs render exactly as before.
+- Curved output (`TripleCurve`): source and side cameras render full-rect into three textures sized for their widened
+  source surfaces (targetTexture through a newly resolved engine binding), and an injected presenter camera at depth
+  source+5 redraws the 64x36 warp grids over the window with the copy shader; the HUD camera at +10 stays unwarped.
+  GL PushMatrix/LoadOrtho/PopMatrix wrappers are stripped from the interop, so they are resolved like the camera setters.
+  Any failure (binding, shader, render target, pass, invalid radius) latches flat output with the original flat frusta
+  and the reason in Status/F6 until the rig changes; Stop releases everything.
+- `[Triple] FovKey` (F7; Input System name; None disables): this session only, never saved. Measured shows the
+  physical eye for every view, chase included; game shows the lens (saved mounted pose or game FOV) for every view; a
+  saved Physical/Adjustable choice in F6 ends the session state. F6 Cameras shows the active session text.
+- Not done here: GPU output, seams, HUD order and the stripped-binding resolution at runtime need a rig check; the
+  manual TripleFovTests harness (not a Verify-Source gate) does not model the new fields; Wheelkit catalog row for
+  Woden CurveRadiusMm is on the Wheelkit side. FFB, physics, inputs and chase policy untouched.
+
 # October 27: 0.2.16 released; side branches retired
 
 Public release [v0.2.16](https://github.com/d-b-c-e/dbce-mods-woden-rally-edge/releases/tag/v0.2.16)

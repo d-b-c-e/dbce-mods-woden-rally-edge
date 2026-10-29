@@ -1,0 +1,1 @@
+Vendored from dbce-triple-screen-toolkit src/Dbce.TripleScreen.Core at b4b7120 (eye distance to the glass middle; curved chord one sagitta closer), byte-identical files. Update by copying, never by editing here.

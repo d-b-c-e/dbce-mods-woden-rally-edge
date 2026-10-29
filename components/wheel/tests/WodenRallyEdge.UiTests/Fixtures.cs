@@ -241,6 +241,8 @@ internal static class NativeGearboxApply {internal static string Status=>"Keep: 
         internal static string FovLockHint(bool bumper)=>WodenRallyEdge.Core.FovLockText.ViewHint(bumper,CenterVerticalFov);
         internal static string RigSettingsText=>WodenRallyEdge.Core.FovLockText.RigSettings(708.4,398.5,660,70,8,true);
         internal static string CenterFovStatus=>Active?"Current center view: 33.6° vertical, 56.4° horizontal.":"Center projection angles appear when three views are active.";
+        internal static bool? SessionGameFov;
+        internal static string SessionFovText=>SessionGameFov is {} s?"F7 is showing the "+(s?"game field of view":"measured perspective")+" until the game restarts or you press it again; nothing is saved.":"";
         internal static string Status=>"Fixture: window is not three screens wide";
     }
     internal static class SpanWindow

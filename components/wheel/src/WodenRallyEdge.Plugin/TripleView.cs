@@ -1,4 +1,5 @@
 using BepInEx.Configuration;
+using Dbce.TripleScreen;
 using HarmonyLib;
 using Il2CppInterop.Runtime;
 using UnityEngine;
@@ -39,6 +40,7 @@ internal static class TripleView
         {
             if (_matchGameFov == null || _matchGameFov.Value == value) return;
             if (value) StartAdjustableAtShownAngle(); // before the switch, while the center angle is still the rig's
+            SessionGameFov = null; // an explicit saved choice ends the session A/B
             _matchGameFov.Value = value;
         }
     }
@@ -86,12 +88,25 @@ internal static class TripleView
             var center = _views[1];
             double vertical = (Math.Atan(center.Top) - Math.Atan(center.Bottom)) * 180 / Math.PI;
             double horizontal = (Math.Atan(center.Right) - Math.Atan(center.Left)) * 180 / Math.PI;
-            return FormattableString.Invariant($"Current center view: {vertical:0.0}° vertical, {horizontal:0.0}° horizontal.");
+            return FormattableString.Invariant($"Current center view: {vertical:0.0}° vertical, {horizontal:0.0}° horizontal.") +
+                   (TripleCurve.Active ? " Curved panels corrected." : TripleCurve.Failure != null ? " Curve correction off: " + TripleCurve.Failure : "");
         }
     }
-    private static ConfigEntry<string> _toggleKey = null!;
+    private static ConfigEntry<string> _toggleKey = null!, _fovKey = null!;
     private static ConfigEntry<bool> _centerHud = null!, _matchGameFov = null!, _chaseGameFov = null!;
-    private static ConfigEntry<float> _panelWidth = null!, _panelHeight = null!, _eye = null!, _sideAngle = null!, _bezel = null!;
+    private static ConfigEntry<float> _panelWidth = null!, _panelHeight = null!, _eye = null!, _sideAngle = null!, _bezel = null!, _curveRadius = null!;
+    /// <summary>FovKey A/B, this session only, never saved: null follows the saved choices; false shows the measured
+    /// perspective for every view (chase included); true shows the lens for every view (TripleGeometry.ShowsGameFov).</summary>
+    internal static bool? SessionGameFov { get; private set; }
+    internal static string FovKeyName => _fovKey?.Value ?? "F7";
+    internal static string SessionFovText => SessionGameFov is { } session
+        ? FovKeyName + " is showing the " + (session ? "game field of view" : "measured perspective") + " until the game restarts or you press it again; nothing is saved."
+        : "";
+    // Curved panels: the warps for the current views (null when flat), and the flat frusta kept for a curve that cannot run.
+    private static CurvedPanelWarp[]? _warps;
+    private static PanelFrustum[]? _flatViews;
+    private static string _flatKey = "";
+    private static bool _curvedApplied;
 
     private static bool _toggledOff, _failed, _loggedScene;
     private static Camera? _source, _left, _right, _hud;
@@ -120,6 +135,8 @@ internal static class TripleView
         _eye = cfg.Bind("Triple", "EyeDistanceMm", 660f, "Distance from your eyes to the center screen, millimetres.");
         _sideAngle = cfg.Bind("Triple", "SideAngle", 70f, "How far each side screen is turned toward you, degrees (0 = flat row).");
         _bezel = cfg.Bind("Triple", "BezelMm", 8f, "Gap between the visible areas at each seam, millimetres.");
+        _curveRadius = cfg.Bind("Triple", "CurveRadiusMm", 0f, "Monitor curve radius in millimetres (1500 for 1500R); 0 is flat. Eye distance is measured to the middle of the center screen glass; curved views are redrawn along your eye rays.");
+        _fovKey = cfg.Bind("Triple", "FovKey", "F7", "Keyboard key that switches, for this session only, between the measured perspective and the game field of view in all three views (Input System key name; None to disable). Nothing is saved.");
     }
 
     private static string? WhyNot()
@@ -143,12 +160,17 @@ internal static class TripleView
                 _toggledOff = !_toggledOff;
                 Runtime.Log.LogInfo("Triple screens " + (_toggledOff ? "toggled off" : "toggled on"));
             }
+            if (kb != null && Active && !Panel.Open && Enum.TryParse<Key>(_fovKey.Value, true, out var fovKey) && fovKey != Key.None && kb[fovKey].wasPressedThisFrame)
+            {
+                SessionGameFov = TripleGeometry.NextSessionGameFov(SessionGameFov, MatchGameFov, _chaseGameFov.Value, MountedCamera.Cycle.View);
+                Runtime.Log.LogInfo("Triple FOV (" + _fovKey.Value + ", this session): " + (SessionGameFov.Value ? "game field of view" : "measured perspective"));
+            }
         }
         catch { }
         string? why = WhyNot();
         if (why != null) { Stop(why); Status = "Off (" + why + ")"; return; }
         if (_source != null && !Alive(_source)) Stop("camera destroyed");
-        Status = Active ? "On" : "Waiting for the driving camera";
+        Status = Active ? "On" + TripleCurve.Note : "Waiting for the driving camera";
         if (Active && _centerHud.Value && now >= _nextCanvasScan) { _nextCanvasScan = now + 2; MoveCanvases(); }
     }
 
@@ -162,7 +184,7 @@ internal static class TripleView
             var car = carCam.Maincar_;
             if (car == null || (car.IsPlayer && !Runtime.Select(car))) return;
             var cam = carCam.field_Private_Camera_0;
-            if (cam == null || !cam.isActiveAndEnabled || cam.targetTexture != null || cam.orthographic)
+            if (cam == null || !cam.isActiveAndEnabled || (cam.targetTexture != null && !TripleCurve.Owns(cam.targetTexture)) || cam.orthographic)
             {
                 if (_source != null && (cam == null || cam.Pointer == _source.Pointer)) Stop(cam != null && cam.orthographic ? "orthographic camera" : "camera inactive");
                 return;
@@ -202,13 +224,27 @@ internal static class TripleView
         float gameFov = source.fieldOfView;
         if (!source.usePhysicalProperties) { source.usePhysicalProperties = true; source.fieldOfView = gameFov; }
         var views = Views(gameFov, ownedMountedFov);
+        // Curved panels: the views render full-rect into textures that TripleCurve redraws over the window. A curve that
+        // cannot run keeps the original flat frusta, never the widened curved-source ones.
+        bool curved = _warps != null && TripleCurve.Configure(_warps, _viewsKey, source, Screen.width / 3, Screen.height);
+        if (_warps != null && !curved) views = FlatViews();
+        if (!curved && _curvedApplied) { TripleNative.SetTarget(source, null); _curvedApplied = false; }
         float near = source.nearClipPlane, far = source.farClipPlane;
         var t = source.transform;
-        source.rect = new Rect(1f / 3f, 0f, 1f / 3f, 1f);
+        var center = new Rect(1f / 3f, 0f, 1f / 3f, 1f);
+        source.rect = curved ? new Rect(0f, 0f, 1f, 1f) : center;
         source.projectionMatrix = Frustum(views[1], near, far);
         Side(_left!, views[0], 0, source, t, near, far);
         Side(_right!, views[2], 2, source, t, near, far);
-        if (_hud != null) { _hud.rect = source.rect; TripleNative.SetDepth(_hud, source.depth + 10); }
+        if (curved)
+        {
+            // CopyFrom gave the sides the source target; each view gets its own, full rect.
+            TripleNative.SetTarget(source, TripleCurve.Target(1));
+            _left!.rect = new Rect(0f, 0f, 1f, 1f); TripleNative.SetTarget(_left, TripleCurve.Target(0));
+            _right!.rect = new Rect(0f, 0f, 1f, 1f); TripleNative.SetTarget(_right, TripleCurve.Target(2));
+            _curvedApplied = true;
+        }
+        if (_hud != null) { _hud.rect = center; TripleNative.SetDepth(_hud, source.depth + 10); }
 
         double now = Runtime.Clock.Elapsed.TotalSeconds;
 #if WODEN_HUD_STATE_TRACE
@@ -226,17 +262,49 @@ internal static class TripleView
         }
     }
 
+    private static double _viewEye;
     private static PanelFrustum[] Views(float gameFov, float? ownedMountedFov)
     {
         double eye = TripleGeometry.EyeDistanceForView(_panelHeight.Value, _eye.Value, MatchGameFov,
-            _chaseGameFov.Value, MountedCamera.Cycle.View, gameFov, ownedMountedFov);
-        string key = $"{_panelWidth.Value}|{_panelHeight.Value}|{eye:0.###}|{_sideAngle.Value}|{_bezel.Value}";
+            _chaseGameFov.Value, MountedCamera.Cycle.View, gameFov, ownedMountedFov, SessionGameFov);
+        float radius = _curveRadius.Value > 0f && float.IsFinite(_curveRadius.Value) ? _curveRadius.Value : 0f;
+        string key = $"{_panelWidth.Value}|{_panelHeight.Value}|{eye:0.###}|{_sideAngle.Value}|{_bezel.Value}|{radius}";
         if (_views == null || key != _viewsKey)
         {
-            _views = TripleGeometry.Compute(_panelWidth.Value, _panelHeight.Value, eye, _sideAngle.Value, _bezel.Value);
+            _viewEye = eye;
+            _warps = null;
+            if (radius > 0f)
+            {
+                try
+                {
+                    var rig = CurvedRig.Compute(_panelWidth.Value, _panelHeight.Value, eye, _sideAngle.Value, _bezel.Value, radius);
+                    _views = rig.Views; _warps = rig.Warps;
+                }
+                catch (ArgumentOutOfRangeException ex)
+                {
+                    TripleCurve.Fail($"CurveRadiusMm {radius}: {ex.Message}");
+                    _views = TripleGeometry.Compute(_panelWidth.Value, _panelHeight.Value, eye, _sideAngle.Value, _bezel.Value);
+                }
+            }
+            else
+            {
+                if (TripleCurve.Failure != null || TripleCurve.Active) TripleCurve.Reset();
+                _views = TripleGeometry.Compute(_panelWidth.Value, _panelHeight.Value, eye, _sideAngle.Value, _bezel.Value);
+            }
             _viewsKey = key;
         }
         return _views;
+    }
+
+    /// <summary>The flat frusta for the current eye, for a curve that cannot run (built once per key).</summary>
+    private static PanelFrustum[] FlatViews()
+    {
+        if (_flatViews == null || _flatKey != _viewsKey)
+        {
+            _flatViews = TripleGeometry.Compute(_panelWidth.Value, _panelHeight.Value, _viewEye, _sideAngle.Value, _bezel.Value);
+            _flatKey = _viewsKey;
+        }
+        return _flatViews;
     }
 
     private static Matrix4x4 Frustum(PanelFrustum v, float near, float far) =>
@@ -360,10 +428,12 @@ internal static class TripleView
         bool had = _source != null || _leftGo != null || _rightGo != null || _hudGo != null;
         if (!had) return;
         RestoreCanvases();
+        TripleCurve.Reset();
         try
         {
             if (_source != null && Alive(_source))
             {
+                if (_curvedApplied) TripleNative.SetTarget(_source, null);
                 _source.ResetProjectionMatrix();
                 _source.rect = _sourceRect;
                 _source.usePhysicalProperties = _sourcePhysical;
@@ -374,6 +444,7 @@ internal static class TripleView
             try { if (go != null && Alive(go)) Object.Destroy(go); } catch { }
         _source = _left = _right = _hud = null;
         _leftGo = _rightGo = _hudGo = null;
+        _curvedApplied = false;
 #if WODEN_HUD_STATE_TRACE
         _nextHudStateLog = 0;
 #endif
