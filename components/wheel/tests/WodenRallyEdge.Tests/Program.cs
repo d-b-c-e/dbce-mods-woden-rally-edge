@@ -530,6 +530,20 @@ Test("curved rig: radius 0 reproduces TripleGeometry, curvature widens the sourc
     Near(WodenRallyEdge.TripleGeometry.EyeDistanceForView(398.5, 660, true, true, MountedView.Stock, 45, null, false), 660, "measured session overrides saved game FOV in chase", 1e-9);
     Near(WodenRallyEdge.TripleGeometry.EyeDistanceForView(398.5, 660, false, false, MountedView.Bonnet, 45, 60, true), WodenRallyEdge.TripleGeometry.EyeDistanceForVerticalFov(398.5, 60), "game session uses the mounted lens", 1e-9);
     Near(WodenRallyEdge.TripleGeometry.EyeDistanceForView(398.5, 660, false, true, MountedView.Bonnet, 45, 60, null), 660, "no session keeps the saved policy", 1e-9);
+    // Presentation evidence in source frames: textures alone are not presented; a presenter that never draws or stops
+    // drawing is reported after a bounded number of source frames; evidence resets per build.
+    var evidence = new WodenRallyEdge.CurveEvidence();
+    Check(!evidence.Presented && evidence.SourceFrame() == null, "nothing is presented before the first draw");
+    evidence.Drew();
+    Check(evidence.Presented && evidence.Drawn == 1, "a draw in the current source frame is presented");
+    for (int f = 0; f < 2; f++) Check(evidence.SourceFrame() == null && evidence.Presented, "two source frames of grace " + f);
+    Check(evidence.SourceFrame() == null && !evidence.Presented, "a third source frame without a draw is no longer presented");
+    string? stall = null;
+    for (int f = 0; f <= WodenRallyEdge.CurveEvidence.MissingFrames && stall == null; f++) stall = evidence.SourceFrame();
+    Check(stall == "the presenter stopped drawing", "a stalled presenter is reported within the bounded source frames: " + stall);
+    evidence.Reset(); stall = null;
+    for (int f = 0; f <= WodenRallyEdge.CurveEvidence.MissingFrames && stall == null; f++) stall = evidence.SourceFrame();
+    Check(stall == "the presenter never drew a frame" && evidence.Drawn == 0 && !evidence.Presented, "a presenter that never draws is reported and the evidence reset per build");
 });
 Test("real settings migrate untouched bonnet defaults and preserve custom camera/FFB choices", () => {
     string path = Path.Combine(Path.GetTempPath(), "woden-camera-config-" + Guid.NewGuid() + ".cfg");

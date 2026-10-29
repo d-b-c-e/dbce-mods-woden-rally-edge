@@ -77,19 +77,21 @@ internal static class TripleView
     // Lock texts name the actual center angle (Core FovLockText); nothing here changes MatchGameFov.
     internal static string FovLockMessage => WodenRallyEdge.Core.FovLockText.KeyMessage(CenterVerticalFov);
     internal static string FovLockHint(bool bumper) => WodenRallyEdge.Core.FovLockText.ViewHint(bumper, CenterVerticalFov);
-    /// <summary>The center view's vertical angle in degrees, or null before three views are active.</summary>
+    /// <summary>The center view's vertical angle in degrees, or null before three views are active. Reads the views on
+    /// screen (flat frusta while a curve cannot run), not the computed curved-source ones.</summary>
     internal static double? CenterVerticalFov =>
-        Active && _views is { Length: 3 } ? (Math.Atan(_views[1].Top) - Math.Atan(_views[1].Bottom)) * 180 / Math.PI : null;
+        Active && _shownViews is { Length: 3 } ? (Math.Atan(_shownViews[1].Top) - Math.Atan(_shownViews[1].Bottom)) * 180 / Math.PI : null;
     internal static string CenterFovStatus
     {
         get
         {
-            if (!Active || _views is not { Length: 3 }) return "Center projection angles appear when three views are active.";
-            var center = _views[1];
+            if (!Active || _shownViews is not { Length: 3 }) return "Center projection angles appear when three views are active.";
+            var center = _shownViews[1];
             double vertical = (Math.Atan(center.Top) - Math.Atan(center.Bottom)) * 180 / Math.PI;
             double horizontal = (Math.Atan(center.Right) - Math.Atan(center.Left)) * 180 / Math.PI;
             return FormattableString.Invariant($"Current center view: {vertical:0.0}° vertical, {horizontal:0.0}° horizontal.") +
-                   (TripleCurve.Active ? " Curved panels corrected." : TripleCurve.Failure != null ? " Curve correction off: " + TripleCurve.Failure : "");
+                   (TripleCurve.Presented ? " Curved panels corrected." : TripleCurve.Active ? " Curved panels: waiting for the first presented frame."
+                    : TripleCurve.Failure != null ? " Curve correction off: " + TripleCurve.Failure : "");
         }
     }
     private static ConfigEntry<string> _toggleKey = null!, _fovKey = null!;
@@ -106,6 +108,8 @@ internal static class TripleView
     private static CurvedPanelWarp[]? _warps;
     private static PanelFrustum[]? _flatViews;
     private static string _flatKey = "";
+    // The views actually applied this frame (flat ones while a curve cannot run), for CenterVerticalFov and the status.
+    private static PanelFrustum[]? _shownViews;
     private static bool _curvedApplied;
 
     private static bool _toggledOff, _failed, _loggedScene;
@@ -228,6 +232,7 @@ internal static class TripleView
         // cannot run keeps the original flat frusta, never the widened curved-source ones.
         bool curved = _warps != null && TripleCurve.Configure(_warps, _viewsKey, source, Screen.width / 3, Screen.height);
         if (_warps != null && !curved) views = FlatViews();
+        _shownViews = views;
         if (!curved && _curvedApplied) { TripleNative.SetTarget(source, null); _curvedApplied = false; }
         float near = source.nearClipPlane, far = source.farClipPlane;
         var t = source.transform;
@@ -445,6 +450,7 @@ internal static class TripleView
         _source = _left = _right = _hud = null;
         _leftGo = _rightGo = _hudGo = null;
         _curvedApplied = false;
+        _shownViews = null;
 #if WODEN_HUD_STATE_TRACE
         _nextHudStateLog = 0;
 #endif

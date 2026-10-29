@@ -17,6 +17,7 @@
     <Compile Include="../../src/WodenRallyEdge.Plugin/TripleHudDepth.cs" Link="Consumer/TripleHudDepth.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/TripleGeometry.cs" Link="Consumer/TripleGeometry.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CurvedRig.cs" Link="Consumer/CurvedRig.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/CurveEvidence.cs" Link="Consumer/CurveEvidence.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Toolkit/Triple/*.cs" Link="Consumer/Toolkit/%(Filename)%(Extension)" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/OrdinaryFullSession.cs" Link="Consumer/OrdinaryFullSession.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/StageSignalFiles.cs" Link="Consumer/StageSignalFiles.cs" />

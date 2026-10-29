@@ -18,7 +18,9 @@ internal static class TripleCurve
     internal const int Columns = 64, Rows = 36;
     private const string ShaderName = "Hidden/BlitCopy";
     private const int Quads = 7; // GL.QUADS (the constant is stripped from the interop)
-    private static string _key = "";
+    private static string _key = "";   // rig key plus output size: a resize rebuilds the targets
+    private static readonly CurveEvidence Evidence = new();
+    private static float _depth;
     private static readonly RenderTexture?[] Targets = new RenderTexture?[3];
     private static readonly Vector2[]?[] Source = new Vector2[]?[3];
     private static GameObject? _presenterGo;
@@ -30,10 +32,12 @@ internal static class TripleCurve
 
     /// <summary>Why the curve is off for the current key, or null.</summary>
     internal static string? Failure { get; private set; }
-    /// <summary>Presenter frames drawn: the evidence that curved output reached the window, not only the textures.</summary>
-    internal static long Frames { get; private set; }
-    internal static bool Active => Failure == null && Targets[1] != null;
-    internal static string Note => Active ? ", curved" : Failure != null ? " (curve off: " + Failure + ")" : "";
+    /// <summary>Presenter frames drawn since the build: the evidence that curved output reached the window, not only the textures.</summary>
+    internal static long Frames => Evidence.Drawn;
+    internal static bool Active => Failure == null && _presenter != null && Targets[0] != null && Targets[1] != null && Targets[2] != null;
+    /// <summary>All three panels drawn by the presenter within the last two source frames.</summary>
+    internal static bool Presented => Active && Evidence.Presented;
+    internal static string Note => Presented ? ", curved" : Active ? ", curved: waiting for the first presented frame" : Failure != null ? " (curve off: " + Failure + ")" : "";
     internal static RenderTexture? Target(int index) => Targets[index];
 
     internal static bool Owns(Texture? texture)
@@ -46,13 +50,18 @@ internal static class TripleCurve
     /// <summary>True when curved output is ready for <paramref name="key"/>. Builds once per key; a failure keeps flat output until the key changes.</summary>
     internal static bool Configure(CurvedPanelWarp[] warps, string key, Camera source, int thirdPx, int heightPx)
     {
-        if (key == _key)
+        string resourceKey = key + "|" + thirdPx + "x" + heightPx;
+        if (resourceKey == _key)
         {
-            if (_drawFailure != null && Failure == null) Fail(_drawFailure);
-            return Active;
+            if (_drawFailure != null && Failure == null) { Fail(_drawFailure); return false; }
+            if (!Active) return false;
+            float depth = source.depth + 5;
+            if (depth != _depth) { _depth = depth; TripleNative.SetDepth(_presenter!, depth); }
+            if (Evidence.SourceFrame() is { } stalled) { Fail(stalled); return false; }
+            return true;
         }
         Release();
-        _key = key; Failure = null; _drawFailure = null;
+        _key = resourceKey; Failure = null; _drawFailure = null; Evidence.Reset();
         try
         {
             if (!TripleNative.TargetAvailable) throw new InvalidOperationException("engine binding Camera.set_targetTexture is missing");
@@ -68,8 +77,8 @@ internal static class TripleCurve
                 int height = Math.Clamp((int)Math.Round(heightPx * warp.SourceSurface.Height / warp.Panel.Height), 1, heightPx * 2);
                 var target = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32);
                 target.name = "Woden.Triple.Curved" + index;
+                Targets[index] = target; // owned before Create, so a failed Create is released with the rest
                 if (!target.Create()) throw new InvalidOperationException("render target " + index + " could not be created");
-                Targets[index] = target;
                 var uv = new Vector2[(Columns + 1) * (Rows + 1)];
                 for (var row = 0; row <= Rows; row++)
                 for (var column = 0; column <= Columns; column++)
@@ -87,10 +96,12 @@ internal static class TripleCurve
             TripleNative.SetCullingMask(_presenter, 0);
             // The three panels cover every pixel of the window, so a depth-only clear is enough (no background colour setter needed).
             TripleNative.SetClearFlags(_presenter, CameraClearFlags.Depth);
-            TripleNative.SetDepth(_presenter, source.depth + 5);
+            _depth = source.depth + 5;
+            TripleNative.SetDepth(_presenter, _depth);
             _presenter.rect = new Rect(0f, 0f, 1f, 1f);
             _presenterGo.AddComponent(Il2CppType.Of<TriplePresenter>());
             _presenter.enabled = true;
+            Evidence.SourceFrame();
             Runtime.Log.LogInfo($"Curved triples on: targets {Targets[0]!.width}x{Targets[0]!.height}, {Targets[1]!.width}x{Targets[1]!.height}, {Targets[2]!.width}x{Targets[2]!.height}; presenter depth {source.depth + 5}");
             return true;
         }
@@ -111,6 +122,8 @@ internal static class TripleCurve
     /// <summary>Drops targets and presenter; the key and failure stay so nothing is retried until the rig changes.</summary>
     internal static void Release()
     {
+        // Destroy is deferred: disable the old presenter now so it cannot draw beside a presenter rebuilt this frame.
+        try { if (_presenter != null) _presenter.enabled = false; } catch { }
         try { if (_presenterGo != null) Object.Destroy(_presenterGo); } catch { }
         _presenterGo = null; _presenter = null;
         for (var index = 0; index < 3; index++)
@@ -124,13 +137,15 @@ internal static class TripleCurve
     internal static void Reset()
     {
         Release();
-        _key = ""; Failure = null; _drawFailure = null;
+        _key = ""; Failure = null; _drawFailure = null; Evidence.Reset();
     }
 
     /// <summary>From TriplePresenter.OnPostRender: the three panels over the window, left to right.</summary>
     internal static void Draw()
     {
         if (Failure != null || _drawFailure != null || _material == null) return;
+        for (var index = 0; index < 3; index++)
+            if (Targets[index] == null || Source[index] == null) { _drawFailure = "panel " + index + " has no texture"; return; }
         try
         {
             TripleNative.GlPushMatrix();
@@ -139,23 +154,25 @@ internal static class TripleCurve
                 TripleNative.GlLoadOrtho();
                 for (var index = 0; index < 3; index++)
                 {
-                    var target = Targets[index]; var uv = Source[index];
-                    if (target == null || uv == null) continue;
+                    var target = Targets[index]!; var uv = Source[index]!;
                     _material.mainTexture = target;
                     if (!_material.SetPass(0)) { _drawFailure = "the copy shader pass was refused"; return; }
                     GL.Begin(Quads);
-                    float x0 = index / 3f, width = 1f / 3f;
-                    for (var row = 0; row < Rows; row++)
-                    for (var column = 0; column < Columns; column++)
+                    try
                     {
-                        Corner(uv, x0, width, column, row);
-                        Corner(uv, x0, width, column + 1, row);
-                        Corner(uv, x0, width, column + 1, row + 1);
-                        Corner(uv, x0, width, column, row + 1);
+                        float x0 = index / 3f, width = 1f / 3f;
+                        for (var row = 0; row < Rows; row++)
+                        for (var column = 0; column < Columns; column++)
+                        {
+                            Corner(uv, x0, width, column, row);
+                            Corner(uv, x0, width, column + 1, row);
+                            Corner(uv, x0, width, column + 1, row + 1);
+                            Corner(uv, x0, width, column, row + 1);
+                        }
                     }
-                    GL.End();
+                    finally { GL.End(); }
                 }
-                Frames++;
+                Evidence.Drew();
             }
             finally { TripleNative.GlPopMatrix(); }
         }
