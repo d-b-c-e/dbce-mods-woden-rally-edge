@@ -3,8 +3,9 @@ namespace WodenRallyEdge;
 /// <summary>
 /// Presentation evidence for the curved output, counted in source frames (one per TripleView.Apply), never wall time,
 /// so a paused game cannot time out. Allocated textures are not evidence: a build is presented only while the presenter
-/// has drawn all three panels within the last two source frames, and a presenter that never draws, or stops drawing,
-/// for <see cref="MissingFrames"/> source frames is reported so TripleView can latch flat instead of staying black.
+/// camera has completed a frame (Camera.onPostRender; visible success of its draws is shown by captures) within the last
+/// two source frames, and a presenter that never completes, or stops, for <see cref="MissingFrames"/> source frames is
+/// reported so TripleView can latch flat instead of staying black.
 /// </summary>
 internal sealed class CurveEvidence
 {

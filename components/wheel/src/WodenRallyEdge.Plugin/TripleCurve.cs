@@ -1,6 +1,5 @@
 using Dbce.TripleScreen;
 using Il2CppInterop.Runtime;
-using Il2CppInterop.Runtime.Injection;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -12,12 +11,12 @@ namespace WodenRallyEdge;
 /// Curved panels ([Triple] CurveRadiusMm): the three views render full-rect into textures (one session-wide size, see
 /// <see cref="SizeBucket"/>), and one presenter camera (depth source+5, under the HUD camera at +10) redraws each texture
 /// over its third of the window through a command buffer: three 64x36 grid meshes whose UVs follow the eye rays
-/// (<see cref="CurvedPanelWarp.SourceUv"/>) drawn with the always-included copy shader under a 0..1 orthographic
-/// projection. Presentation evidence is the engine's static Camera.onPostRender callback for the presenter camera (the
-/// camera completed a frame with its command buffer; it does not by itself prove the three draws were visible, captures
-/// do), counted in source frames; a build that never presents, or stops presenting, for 120 source frames latches flat
-/// with the reason until the rig changes. Textures are rebuilt only when the window size or the session high-water
-/// source scale grows; UV grids are rewritten when the rig changes. Same approach as art of rally.
+/// (<see cref="CurvedPanelWarp.SourceUv"/>) drawn with the always-included copy shader under an explicit full-window
+/// viewport and a 0..1 orthographic projection. Presentation evidence is the engine's static Camera.onPostRender callback
+/// for the presenter camera (the camera completed a frame with its command buffer; it does not by itself prove the three
+/// draws were visible, captures do), counted in source frames; a build that never presents, or stops presenting, for 120
+/// source frames latches flat with the reason until the rig changes. Textures are rebuilt only when the window size or
+/// the session high-water source scale grows; UV grids are rewritten when the rig changes. Same approach as art of rally.
 /// </summary>
 internal static class TripleCurve
 {
@@ -34,7 +33,8 @@ internal static class TripleCurve
     private static GameObject? _presenterGo;
     private static Camera? _presenter;
     private static CommandBuffer? _commands;
-    private static bool _callbackInstalled, _loggedCallback, _loggedMessage;
+    private static Camera.CameraCallback? _callback;   // our own delegate, kept so Reset removes exactly it
+    private static bool _loggedCallback;
 
     /// <summary>Why the curve is off for the current key, or null.</summary>
     internal static string? Failure { get; private set; }
@@ -62,9 +62,13 @@ internal static class TripleCurve
         if (resourceKey == _key)
         {
             if (!Active) return false;
-            if (key != _gridKey) { Grids(warps); _gridKey = key; }
-            float depth = source.depth + 5;
-            if (depth != _depth) { _depth = depth; TripleNative.SetDepth(_presenter!, depth); }
+            try
+            {
+                if (key != _gridKey) { Grids(warps); _gridKey = key; }
+                float depth = source.depth + 5;
+                if (depth != _depth) { _depth = depth; TripleNative.SetDepth(_presenter!, depth); }
+            }
+            catch (Exception ex) { Fail("rig update: " + ex.Message); return false; }
             if (Evidence.SourceFrame() is { } stalled) { Fail(stalled); return false; }
             return true;
         }
@@ -84,9 +88,10 @@ internal static class TripleCurve
                 Targets[index] = target; // owned before Create, so a failed Create is released with the rest
                 if (!target.Create()) throw new InvalidOperationException("render target " + index + " could not be created");
                 var material = new Material(shader);   // one material per target: deferred commands sample their own texture
-                material.mainTexture = target;
                 Materials[index] = material;
-                Meshes[index] = NewMesh(index);
+                material.mainTexture = target;
+                Meshes[index] = new Mesh();   // owned before its arrays are set, so a failed setter is released with the rest
+                FillMesh(Meshes[index]!, index);
             }
             Grids(warps);
             _gridKey = key;
@@ -102,13 +107,13 @@ internal static class TripleCurve
             _presenter.rect = new Rect(0f, 0f, 1f, 1f);
             _commands = new CommandBuffer();
             _commands.name = "Woden curved panels";
+            _commands.SetViewport(new Rect(0f, 0f, Screen.width, Screen.height));
             _commands.SetViewProjectionMatrices(Matrix4x4.identity, Matrix4x4.Ortho(0f, 1f, 0f, 1f, -1f, 1f));
             for (var index = 0; index < 3; index++) _commands.DrawMesh(Meshes[index]!, Matrix4x4.identity, Materials[index]!, 0, 0);
             _presenter.AddCommandBuffer(CameraEvent.AfterEverything, _commands);
-            _presenterGo.AddComponent(Il2CppType.Of<TriplePresenter>());   // diagnostic only: logs once if the injected message fires here
             _presenter.enabled = true;
             Evidence.SourceFrame();
-            Runtime.Log.LogInfo($"Curved triples on: targets {width}x{height} x3 (scale {_highX}x{_highY}), presenter depth {_depth}, evidence {(_callbackInstalled ? "Camera.onPostRender" : "none")}");
+            Runtime.Log.LogInfo($"Curved triples on: targets {width}x{height} x3 (scale {_highX}x{_highY}), presenter depth {_depth}, evidence Camera.onPostRender");
             return true;
         }
         catch (Exception ex)
@@ -118,14 +123,27 @@ internal static class TripleCurve
         }
     }
 
-    // The engine's static callback sees every camera; ours is the presenter (exact identity). Combined with any existing subscriber, once per process.
+    // The engine's static callback sees every camera; ours is the presenter (exact identity). Our delegate is combined with
+    // any existing subscriber once and removed again by Reset.
     private static void InstallCallback()
     {
-        if (_callbackInstalled) return;
+        if (_callback != null) return;
         Camera.CameraCallback mine = (Action<Camera>)OnCameraPostRender;
         var previous = Camera.onPostRender;
         Camera.onPostRender = previous == null ? mine : Il2CppSystem.Delegate.Combine(previous, mine).Cast<Camera.CameraCallback>();
-        _callbackInstalled = true;
+        _callback = mine;
+    }
+
+    private static void RemoveCallback()
+    {
+        if (_callback == null) return;
+        try
+        {
+            var current = Camera.onPostRender;
+            Camera.onPostRender = current == null ? null : Il2CppSystem.Delegate.Remove(current, _callback)?.TryCast<Camera.CameraCallback>();
+        }
+        catch { }
+        _callback = null;
     }
 
     private static void OnCameraPostRender(Camera camera)
@@ -137,13 +155,6 @@ internal static class TripleCurve
             if (!_loggedCallback) { _loggedCallback = true; Runtime.Log.LogInfo("Curved triples: presenter camera rendered (Camera.onPostRender)"); }
         }
         catch { }
-    }
-
-    internal static void MessageFired()
-    {
-        if (_loggedMessage) return;
-        _loggedMessage = true;
-        Runtime.Log.LogInfo("Curved triples: injected OnPostRender message fired on the presenter");
     }
 
     /// <summary>The largest source-to-panel scale over the three panels, rounded up to an eighth (at least 1).</summary>
@@ -159,9 +170,8 @@ internal static class TripleCurve
     }
 
     // One third of the window in the 0..1 orthographic space, (Columns+1)x(Rows+1) vertices; UVs come from Grids.
-    private static Mesh NewMesh(int index)
+    private static void FillMesh(Mesh mesh, int index)
     {
-        var mesh = new Mesh();
         mesh.name = "Woden.Triple.Warp" + index;
         var vertices = new Il2CppStructArray<Vector3>((Columns + 1) * (Rows + 1));
         float x0 = index / 3f, width = 1f / 3f;
@@ -180,7 +190,6 @@ internal static class TripleCurve
         mesh.vertices = vertices;
         mesh.uv = new Il2CppStructArray<Vector2>((Columns + 1) * (Rows + 1));
         mesh.triangles = triangles;
-        return mesh;
     }
 
     private static void Grids(CurvedPanelWarp[] warps)
@@ -227,18 +236,11 @@ internal static class TripleCurve
         }
     }
 
-    /// <summary>For Stop: everything released, the high-water size kept for the session, the next start allowed to try again.</summary>
+    /// <summary>For Stop: everything released, our callback removed, the high-water size kept for the session, the next start allowed to try again.</summary>
     internal static void Reset()
     {
         Release();
+        RemoveCallback();
         _key = ""; _gridKey = ""; Failure = null; Evidence.Reset();
     }
-}
-
-/// <summary>Diagnostic only: whether Unity delivers the OnPostRender message to an injected component here (the first
-/// in-game run suggested it does not). Presentation evidence does not depend on it.</summary>
-public sealed class TriplePresenter : MonoBehaviour
-{
-    public TriplePresenter(IntPtr pointer) : base(pointer) { }
-    private void OnPostRender() => TripleCurve.MessageFired();
 }
