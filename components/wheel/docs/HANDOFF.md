@@ -1,3 +1,20 @@
+# October 29: clean-install lifecycle on a pristine copy (dome; file level, no launch)
+
+Owner request (relayed by lulu): test the ordinary player install from a game copy with no mod files. Pristine copy of the
+installed game (E:/Source/temp/woden-clean/game: 744 files, 4.499 GB, no BepInEx/dotnet/doorstop/winhttp/backups,
+GameAssembly F422894D...), the exact public WodenRallyEdge-0.2.16.zip (7EA01BD3...) run through its own Manage-Install.ps1
+(Install.bat without the pause; the installer downloaded BepInEx be.788 against its pinned hash). PASS end to end: fresh
+install (22 owned files, rev 5), a plugin-shaped seeded config, update to the owner private candidate 941b78a (23 files,
+curvedTriples), rollback to the public package, uninstall with user data kept (shared loader retained, config kept),
+reinstall; receipts and payloads match the manifests and every pristine game file is byte-identical after every step.
+Evidence: dbce-project-mgmt/artifacts/woden-clean-install-dome-20261029 (result.json, README). Receipt capability added
+this night: `curvedTriples` (b297f1d), installed on the real rig as 0.2.16+941b78a.
+
+Runtime gates still open (need the real install through guna with muted outputs; a copied Steam exe relaunches the installed
+game): first launch writes dbce.wodenrallyedgewheel.cfg and wheel-bindings.json; F6 opens; [Input] Backend choice; forces
+(saved tune, never unattended); triples on the span; curved panels when CurveRadiusMm > 0 (presenter bindings, seams, HUD
+order); FovKey F7 session A/B. Fixture or upgrade success is not a clean-gameplay pass.
+
 # October 29: curved panels and FovKey session A/B (dome; reviewed by lulu; installed closed-game)
 
 Branch dome/woden-curvature (worktree E:/Source/_work/dbce-mods-woden-rally-edge-curvature). Lulu reviewed a4a6b71 and the
