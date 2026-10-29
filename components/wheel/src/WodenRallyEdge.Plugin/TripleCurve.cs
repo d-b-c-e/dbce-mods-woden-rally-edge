@@ -34,7 +34,7 @@ internal static class TripleCurve
     private static Camera? _presenter;
     private static CommandBuffer? _commands;
     private static Camera.CameraCallback? _callback;   // our own delegate, kept so Reset removes exactly it
-    private static bool _loggedCallback;
+    private static bool _loggedCallback, _loggedRemoveFailure;
 
     /// <summary>Why the curve is off for the current key, or null.</summary>
     internal static string? Failure { get; private set; }
@@ -141,9 +141,12 @@ internal static class TripleCurve
         {
             var current = Camera.onPostRender;
             Camera.onPostRender = current == null ? null : Il2CppSystem.Delegate.Remove(current, _callback)?.TryCast<Camera.CameraCallback>();
+            _callback = null;   // cleared only after a successful removal, so a failed removal is never duplicated by a later restart
         }
-        catch { }
-        _callback = null;
+        catch (Exception ex)
+        {
+            if (!_loggedRemoveFailure) { _loggedRemoveFailure = true; Runtime.Log.LogWarning("Curved triples: Camera.onPostRender removal failed, keeping the one subscription: " + ex.Message); }
+        }
     }
 
     private static void OnCameraPostRender(Camera camera)
