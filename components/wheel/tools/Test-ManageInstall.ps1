@@ -68,6 +68,7 @@ Remove-Item -LiteralPath $schemaOutput
 Check ($first.controlsProfileSchema -eq 1 -and $first.adapter -eq 'woden-bindings-1') 'Installed controls capability'
 Check ($first.controlsProfileHatNeighbours -eq $true) 'Installed circular profile hat capability'
 Check ($first.nativeGearboxPreference -eq $true) 'Installed native gearbox preference capability'
+Check ($first.curvedTriples -eq $true) 'Installed curved triples capability'
 Check ((Hash (Join-Path $plugin 'WodenRallyEdgeWheel.dll')) -eq (Hash (Join-Path $PackageRoot 'BepInEx\plugins\WodenRallyEdgeWheel\WodenRallyEdgeWheel.dll'))) 'Default-root selected wrong package'
 foreach ($entry in $first.files) { Check ((Hash (Join-Path $fixture $entry.path)) -eq $entry.sha256) ('Payload ' + $entry.path) }
 $playbackFiles = @('WodenFullSession.ps1','ReplayEnvironment.ps1','Stage-RigLease.ps1','rig-lease-provenance.json','Stage-RunnerLifecycle.ps1','session-capabilities.json')

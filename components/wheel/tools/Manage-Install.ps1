@@ -394,6 +394,8 @@ try {
         $nextReceipt.controlsProfileHatNeighbours = $true
         # [Input] NativeGearbox (Keep/Manual/Automatic) is read by this plugin; Wheelkit writes it only when this is true.
         $nextReceipt.nativeGearboxPreference = $true
+        # [Triple] CurveRadiusMm (curved panels) and FovKey are read by this plugin; Wheelkit shows and writes the curve row only when this is true.
+        $nextReceipt.curvedTriples = $true
         if ($private) { $nextReceipt.sharedInputCandidate = $privateMetadata }
         $nextReceipt.ordinarySession = Expected-OrdinarySession $owned $advertiseInputOrigin
     }
