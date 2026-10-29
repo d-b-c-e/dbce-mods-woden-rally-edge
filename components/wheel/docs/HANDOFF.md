@@ -1,3 +1,18 @@
+# October 29, 01:00-01:30: first curved runtime evidence; presenter replaced; installed 7125a55
+
+Muted Kenya replay (Run-StageSession, outputs muted, cfg CurveRadiusMm = 1500 for the run only, restored byte-exact) on
+941b78a: all 3601 poses passed; the curved path built its targets but the injected OnPostRender message never fired, so the
+presenter never drew and the mod latched flat after 120 source frames (flat views rendered normally, captures kept); the
+texture size bucket also flapped between two values every frame (229 rebuilds in 7 s, a speed-varying chase FOV).
+Fix (a66d15b, 7125a55, 208974c): the presenter draws through a CommandBuffer at AfterEverything (explicit full-window
+viewport, 0..1 ortho, three grid meshes with warp UVs, one material per target), presentation evidence from the static
+Camera.onPostRender for the presenter camera (camera completion only; captures show visible success), textures sized by a
+session high-water scale, our callback removed on Reset. Installed closed-game as 0.2.16+7125a55 (gates: Package.ps1
+103 suites / UI 7033 / DeviceHub 3897, Test-PrivateShimInstall 38; rollback before-install-20261029-011736-4328e4fa).
+The follow-up replay on 7125a55 did not launch the game (harness timed out, game log unchanged, cause unconfirmed);
+not retried within the hour per the owner note. The replacement presenter is therefore UNTESTED in game. Evidence:
+dbce-project-mgmt/artifacts/woden-curved-replay-dome-20261029 (run-01-gl-presenter, run-02-not-launched).
+
 # October 29: clean-install lifecycle on a pristine copy (dome; file level, no launch)
 
 Owner request (relayed by lulu): test the ordinary player install from a game copy with no mod files. Owner-derived, stock-shaped copy of the
