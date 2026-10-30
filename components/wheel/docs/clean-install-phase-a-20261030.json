@@ -1,0 +1,72 @@
+{
+  "pristine-has-no-loader": {
+    "ok": true,
+    "detail": "744 files"
+  },
+  "install-exit-0": {
+    "ok": true,
+    "detail": "exit 0"
+  },
+  "install-placed-loader": {
+    "ok": true,
+    "detail": ""
+  },
+  "install-payload-matches": {
+    "ok": true,
+    "detail": "23 payloads"
+  },
+  "receipt-curvedTriples": {
+    "ok": true,
+    "detail": "0.2.16+60be56cb3710f8ade4c7ed6fb1f410c879e9a389"
+  },
+  "install-touches-no-game-file": {
+    "ok": true,
+    "detail": "added 255"
+  },
+  "uninstall-exit-0": {
+    "ok": true,
+    "detail": "exit 0"
+  },
+  "uninstall-keeps-game-files": {
+    "ok": true,
+    "detail": "removed [] changed []"
+  },
+  "uninstall-removes-mod-payloads": {
+    "ok": true,
+    "detail": ""
+  },
+  "uninstall-leftovers-are-loader-backups-receipt": {
+    "ok": true,
+    "detail": "unexpected []"
+  },
+  "uninstallLeftoverCount": 258,
+  "reinstall-exit-0": {
+    "ok": true,
+    "detail": "exit 0"
+  },
+  "reinstall-payload-matches": {
+    "ok": true,
+    "detail": ""
+  },
+  "rollback-exit-0": {
+    "ok": true,
+    "detail": "exit 0"
+  },
+  "rollback-payload-is-previous": {
+    "ok": true,
+    "detail": ""
+  },
+  "forward-exit-0": {
+    "ok": true,
+    "detail": "exit 0"
+  },
+  "forward-payload-is-candidate": {
+    "ok": true,
+    "detail": ""
+  },
+  "game-files-unchanged-at-end": {
+    "ok": true,
+    "detail": ""
+  },
+  "failures": []
+}
