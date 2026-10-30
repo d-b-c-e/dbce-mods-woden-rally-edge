@@ -8,8 +8,8 @@ framing choice clears it. [Triple] MatchGameFov defaults to true for new setting
 now reads Game field of view / Measured perspective (Physical rig / Adjustable FOV retired; FovLockText follows). Gates: 103 suites /
 52,629 assertions, UI 7,033, Test-PrivateShimInstall 38. Packages (worktree dist, label f7-e305a76): private-shim ZIP
 8AE3D0D51BC27A80DDE52956A645C0A00DD8149362E2666F726349E8C502E602, native ZIP 1B780CA9..., plugin 14E23BACF64A5B3FD13CFBE31967F9CDDCC3BF4342FB1C46403B7DA328B4FBF4,
-shim 9B8A036F and native F8361A08 unchanged. Install: refused by the shared lease (OTH slot held) at 00:10, asked guna; installed build
-stays 0.2.16+b94ae14. Owner items ISS-0001 (bumper framing: pick Game field of view in F6 once; the owner cfg holds MatchGameFov=false from
+shim 9B8A036F and native F8361A08 unchanged. Installed closed-game 00:05 as 0.2.16+e305a76 (file-only, without the shared lease by guna's one-time exception while leso held the OTH slot; 23 payloads byte-exact, owner cfg/controls/bindings byte-exact, rollback WodenWheelBackups/before-install-20261030-000553-05d325a9). The owner cfg carries CurveRadiusMm=1500 and MatchGameFov=false from the owner's 22:47 session on October 29, preserved as is. Previously installed build
+was 0.2.16+b94ae14. Owner items ISS-0001 (bumper framing: pick Game field of view in F6 once; the owner cfg holds MatchGameFov=false from
 the old measured Apply, which the mod never resets) and ISS-0002 (F7 label) are source-complete, unobserved at runtime; rig check queued with guna.
 
 # October 29, 20:11: main b94ae14 deployed closed-game (dome; owner deploy order, curvature off)
