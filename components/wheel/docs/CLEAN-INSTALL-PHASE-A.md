@@ -14,5 +14,11 @@ reinstall, rollback to e305a76 and forward to 60be56c each exit 0 with byte-exac
 at the end. The first run's single failure was the script's leftover filter missing the loader's `changelog.txt`; fixed
 and re-run on a fresh copy.
 
-Not covered: per-user state isolation tooling for Woden (Art's `ArtUserState.ps1` is Art-specific) and **Phase B**
+Per-user state tooling: `tools/WodenUserState.ps1` (ported from Art's `ArtUserState.ps1`; key
+`HKCU\Software\ViJuDa\Super Woden Rally Edge`, folder `LocalLow\ViJuDa\Super Woden Rally Edge`, Steam userdata 3218630
+compare-only). `-SelfTest` on throwaway state: **15/15 PASS** (exact restore, tampered/foreign/edited backups refused with
+live state untouched, outside and junction targets refused). Read-only owner snapshot (`-Save` then `-Compare`, no
+restore): equal, 0.4 MB, `E:\Source	emp\woden-phaseB\owner-state-20261030-a`.
+
+Not covered: a Woden launch wrapper (Art's `Start-CleanInstallLaunch.ps1` shape) and **Phase B**
 (first launch of a clean copy), which stays blocked on the owner's Steam Cloud decision.
