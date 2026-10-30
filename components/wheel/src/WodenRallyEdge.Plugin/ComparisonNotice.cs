@@ -28,7 +28,7 @@ internal static class ComparisonNotice
         _style ??= new GUIStyle();
         UiNative.Style(_style, size, false);
         float width = text.Length * size * 0.55f;   // left-aligned text centred by its rectangle (alignment setters are stripped)
-        var rect = new Rect((Screen.width - width) / 2f, 40f, width, size * 2f);
+        var rect = new Rect((Screen.width - width) / 2f, (Screen.height - size * 2f) / 2f, width, size * 2f);   // centre of the centre screen, clear of top-edge HUD and dev banners
         var old = GUI.color;
         try
         {
