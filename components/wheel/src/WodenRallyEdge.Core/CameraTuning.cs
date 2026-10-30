@@ -78,12 +78,18 @@ public static class CameraTuning
     /// <summary>Moves an untouched earlier default set to the current layout; true when it did.</summary>
     public static bool MigratePreviousDefaults(Dictionary<string, string> keys)
     {
+        if (!IsPreviousDefaults(keys)) return false;
+        var current = DefaultKeys();
+        foreach (var action in Actions.Skip(2)) keys[action] = current[action];
+        return true;
+    }
+
+    /// <summary>The saved adjustment keys equal an earlier family default (F6 offers the current layout; saved keys are never rewritten on load).</summary>
+    public static bool IsPreviousDefaults(IReadOnlyDictionary<string, string> keys)
+    {
         var adjustments = Actions.Skip(2).ToArray();
         string Saved(string action) => keys.TryGetValue(action, out var key) ? key : "None";
-        if (!PreviousLayouts.Any(layout => adjustments.Select((a, i) => string.Equals(Saved(a), layout[i], StringComparison.OrdinalIgnoreCase)).All(x => x))) return false;
-        var current = DefaultKeys();
-        foreach (var action in adjustments) keys[action] = current[action];
-        return true;
+        return PreviousLayouts.Any(layout => adjustments.Select((a, i) => string.Equals(Saved(a), layout[i], StringComparison.OrdinalIgnoreCase)).All(x => x));
     }
     public static void RestoreAdjustmentKeys(Bindings bindings)
     {

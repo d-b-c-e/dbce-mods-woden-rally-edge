@@ -715,6 +715,17 @@ internal static partial class Panel
         y=ToggleRow(y,"Bonnet camera",ref cfg.Bonnet);y=ToggleRow(y,"Bumper camera",ref cfg.Bumper);
         BindingRow(y,"Camera");y+=100;
         Label(250,y,690,"Cycle to Bonnet or Bumper to adjust the active view. Open Adjustment bindings for your saved keys or to rebind them.",true,46);y+=60;
+        if(Runtime.Wheel?.Bindings is {} saved && CameraTuning.IsPreviousDefaults(saved.CameraKeys))
+        {
+            Label(250,y,690,"Your camera keys use an older layout. Standard: 8/2 forward/back, 9/3 up/down, 4/6 left/right, 7/1 tilt, +/− FOV, 5 reset.",true,46);y+=54;
+            if(Button(250,y,694,"Use the standard numpad layout"))
+            {
+                var conflict=CameraTuning.AdjustmentDefaultsConflict(saved);
+                if(conflict!=null)Message="A numpad default is assigned to "+conflict+". Rebind it first.";
+                else{Runtime.Wheel.TryCommit(CameraTuning.RestoreAdjustmentKeys);}
+            }
+            y+=48;
+        }
         if(Button(250,y,694,(_lookBehind?"− ":"+ ")+"Look behind binding",_lookBehind))_lookBehind=!_lookBehind;y+=44;
         if(_lookBehind){BindingRow(y,"Rear view");y+=96;}
         if(Button(250,y,694,(_cameraBindings?"− ":"+ ")+"Adjustment bindings",_cameraBindings))_cameraBindings=!_cameraBindings;y+=44;
