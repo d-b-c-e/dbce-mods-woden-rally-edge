@@ -1,3 +1,15 @@
+# October 29, 20:11: main b94ae14 deployed closed-game (dome; owner deploy order, curvature off)
+
+Branch dome/woden-curvature fast-forwarded onto main (ae100c9 -> b94ae14, pushed). Packaged from the clean worktree at b94ae14
+(Package.ps1 native + -PrivateShimPath with the installed reviewed shim pin 9B8A036F...; gates 103 suites / 52,626 assertions, UI and
+input fixtures; Test-PrivateShimInstall 38 PASS). Installed with the game closed through the package's Manage-Install.ps1:
+0.2.16+b94ae14 (private shim package, receipt rev 5, 23 owned files byte-exact to the manifest, curvedTriples), ZIP
+44EA39C5F602E132E30FE2F98B51637FD5F84534FEFB6F067836CFF2B4EC234D, plugin 4842F7A18EE79571..., native WheelFfb F8361A08... unchanged.
+Owner cfg, dbce-controls.ini and wheel-bindings.json(.bak) byte-exact; CurveRadiusMm absent (default 0, curvature off). Rollback
+WodenWheelBackups/before-install-20261029-201132-5472817b (7125a55). No launch, device, force or display change. 208974c (callback
+kept when removal fails) is now deployed but not observed at runtime; seated acceptance, seams and F7 feel stay open.
+Evidence: dbce-project-mgmt/artifacts/woden-deploy-dome-20261029.
+
 # October 29, 01:00-01:30: first curved runtime evidence; presenter replaced; installed 7125a55
 
 Muted Kenya replay (Run-StageSession, outputs muted, cfg CurveRadiusMm = 1500 for the run only, restored byte-exact) on
