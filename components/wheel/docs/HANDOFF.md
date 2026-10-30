@@ -1,3 +1,17 @@
+# October 29-30, 23:49-00:10: F7 comparison cycle, game field of view default (dome; main e305a76, pushed; package ready, install pending the shared lease)
+
+Toolkit camera-framing-and-comparison policy revision 2 (lulu 7319e71, owner-steered) implemented in e305a76: F7 cycles Original game view /
+Angle correction / Angle + curve correction from the shown step (curve step only with a positive radius and a working renderer), with a 2.5 s
+centre-screen label naming the mode, step/count, Game or Measured FOV and Not saved (ComparisonNotice.cs), and a log line with camera,
+framing source, effective eye and radius; outside driving the key reports "Comparison available while driving". Session only; a saved
+framing choice clears it. [Triple] MatchGameFov defaults to true for new settings; a saved false is never reset. F6 Cameras > Triple FOV
+now reads Game field of view / Measured perspective (Physical rig / Adjustable FOV retired; FovLockText follows). Gates: 103 suites /
+52,629 assertions, UI 7,033, Test-PrivateShimInstall 38. Packages (worktree dist, label f7-e305a76): private-shim ZIP
+8AE3D0D51BC27A80DDE52956A645C0A00DD8149362E2666F726349E8C502E602, native ZIP 1B780CA9..., plugin 14E23BACF64A5B3FD13CFBE31967F9CDDCC3BF4342FB1C46403B7DA328B4FBF4,
+shim 9B8A036F and native F8361A08 unchanged. Install: refused by the shared lease (OTH slot held) at 00:10, asked guna; installed build
+stays 0.2.16+b94ae14. Owner items ISS-0001 (bumper framing: pick Game field of view in F6 once; the owner cfg holds MatchGameFov=false from
+the old measured Apply, which the mod never resets) and ISS-0002 (F7 label) are source-complete, unobserved at runtime; rig check queued with guna.
+
 # October 29, 20:11: main b94ae14 deployed closed-game (dome; owner deploy order, curvature off)
 
 Branch dome/woden-curvature fast-forwarded onto main (ae100c9 -> b94ae14, pushed). Packaged from the clean worktree at b94ae14
