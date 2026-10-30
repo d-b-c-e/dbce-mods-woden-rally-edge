@@ -707,11 +707,11 @@ internal static partial class Panel
         int priorLayout=layout;y=Choice(y,"Triple screens",TripleLayoutChoice.Labels,ref layout);
         if(layout!=priorLayout){var picked=TripleLayoutChoice.Apply(layout);TripleView.Mode=picked.Off?TripleMode.Off:TripleView.Mode==TripleMode.On?TripleMode.On:TripleMode.Auto;SpanWindow.Enabled=picked.Span;}
         Label(250,y,690,layout==0?"Single view. Window size changes at the next game start. Status: "+TripleView.Status:layout==1?"Three views on Surround. Window layout applies at the next game start. Status: "+TripleView.Status:"One borderless window across three side-by-side monitors, applied at the next game start. Span: "+SpanWindow.Status+"; views: "+TripleView.Status,true,46);y+=56;
-        int fovMode=TripleView.MatchGameFov?1:0;y=Choice(y,"Triple FOV",new[]{"Physical rig","Adjustable FOV"},ref fovMode);TripleView.MatchGameFov=fovMode==1;
-        Label(250,y,690,TripleView.MatchGameFov?"Bonnet and bumper use the active view lens, including Fit to car. All three views are recalculated together using a virtual eye distance; your rig settings are kept.":"Bonnet and bumper use the rig geometry. Their FOV keys and slider are inactive while triples are on; stock chase keeps its saved FOV behavior.",true,64);y+=72;
+        int fovMode=TripleView.MatchGameFov?0:1;y=Choice(y,"Triple FOV",new[]{"Game field of view","Measured perspective"},ref fovMode);TripleView.MatchGameFov=fovMode==0;
+        Label(250,y,690,TripleView.MatchGameFov?"Default. Bonnet and bumper keep the game's own framing, including Fit to car; all three views are angled together from one virtual eye. Your rig measurements are kept.":"Advanced. Bonnet and bumper use your measured seat: true angles, but the view is narrower than the game's lens. Their FOV keys and slider are inactive while triples are on; stock chase keeps its saved FOV behavior.",true,64);y+=72;
         if(!TripleView.MatchGameFov){Label(250,y,690,"Rig: "+TripleView.RigSettingsText,true,88);y+=96;}
         Label(250,y,690,TripleView.CenterFovStatus,true,46);y+=54;
-        if(TripleView.SessionGameFov.HasValue){Label(250,y,690,TripleView.SessionFovText,true,46);y+=54;}
+        if(TripleView.ComparisonText.Length>0){Label(250,y,690,TripleView.ComparisonText,true,46);y+=54;}
         y=ToggleRow(y,"Bonnet camera",ref cfg.Bonnet);y=ToggleRow(y,"Bumper camera",ref cfg.Bumper);
         BindingRow(y,"Camera");y+=100;
         Label(250,y,690,"Cycle to Bonnet or Bumper to adjust the active view. Open Adjustment bindings for your saved keys or to rebind them.",true,46);y+=60;
@@ -740,9 +740,9 @@ internal static partial class Panel
             y=Slider(y,"Tilt down (degrees)",ref pitch,-30,30,"F1");
             if(TripleView.MountedFovLocked)
             {
-                Label(250,y,690,$"Field of view: physical rig ({FovLockText.Angle(TripleView.CenterVerticalFov)}). Lens FOV {fov:F0}° applies only to single or adjustable views.",true,42);y+=48;
+                Label(250,y,690,$"Field of view: measured perspective ({FovLockText.Angle(TripleView.CenterVerticalFov)}). Lens FOV {fov:F0}° applies only to single views or the game field of view.",true,42);y+=48;
                 // One explicit action where the slider would be: the same Triple FOV choice as above, never automatic.
-                if(Button(250,y,330,"Use Adjustable FOV"))TripleView.MatchGameFov=true;y+=46;
+                if(Button(250,y,330,"Use game field of view"))TripleView.MatchGameFov=true;y+=46;
             }
             else y=Slider(y,"Vertical field of view (degrees)",ref fov,30,110,"F0");
             var edited=new CameraPose(side,height,forward,pitch,fov);if(edited!=pose){MountedCamera.SavePose(_editBumper,edited);Dirty();}

@@ -264,20 +264,20 @@ var adjustedBumper=Runtime.Settings.GetCameraPose(true);
 Panel.Toggle();Click("Cameras");Draw();
 Check(TripleView.MatchGameFov&&TripleView.Mode==physicalMode&&Runtime.Settings.GetCameraPose(false)==adjustedBonnet&&Runtime.Settings.GetCameraPose(true)==adjustedBumper,
     "drawing Cameras preserves explicit mode and poses");
-Click("Physical rig");
+Click("Measured perspective");
 typeof(Panel).GetMethod("Save",BindingFlags.Static|BindingFlags.NonPublic)!.Invoke(null,null);
 string cfgPath=Path.Combine(dir,"settings.cfg");
-Check(!new ConfigFile(cfgPath,false).Bind("Triple","MatchGameFov",true).Value,"Physical rig persists through the existing key");
-Click("Adjustable FOV");typeof(Panel).GetMethod("Save",BindingFlags.Static|BindingFlags.NonPublic)!.Invoke(null,null);
+Check(!new ConfigFile(cfgPath,false).Bind("Triple","MatchGameFov",true).Value,"Measured perspective persists through the existing key");
+Click("Game field of view");typeof(Panel).GetMethod("Save",BindingFlags.Static|BindingFlags.NonPublic)!.Invoke(null,null);
 Check(new ConfigFile(cfgPath,false).Bind("Triple","MatchGameFov",false).Value&&TripleView.Mode==physicalMode&&Runtime.Settings.GetCameraPose(false)==adjustedBonnet&&Runtime.Settings.GetCameraPose(true)==adjustedBumper&&Runtime.Wheel.Bindings.CameraKeys.SequenceEqual(cameraKeys),
     "explicit FOV choice persists without changing poses, triple layout or saved keys");
-Click("Physical rig");Draw();
-Check(Find("Use Adjustable FOV")==null,"Simple view keeps the one Triple FOV selector, no duplicate switch");
-Click("Advanced");Reach(()=>Find("Use Adjustable FOV")!=null,"locked Advanced FOV row offers one explicit switch");
+Click("Measured perspective");Draw();
+Check(Find("Use game field of view")==null,"Simple view keeps the one Triple FOV selector, no duplicate switch");
+Click("Advanced");Reach(()=>Find("Use game field of view")!=null,"locked Advanced FOV row offers one explicit switch");
 Check(!TripleView.MatchGameFov,"the Advanced switch is offered, not applied");
-Click("Use Adjustable FOV");Draw();
-Check(TripleView.MatchGameFov&&Find("Use Adjustable FOV")==null&&TripleView.Mode==physicalMode&&Runtime.Settings.GetCameraPose(false)==adjustedBonnet&&Runtime.Settings.GetCameraPose(true)==adjustedBumper,
-    "Advanced switch selects Adjustable FOV without changing poses or triple layout");
+Click("Use game field of view");Draw();
+Check(TripleView.MatchGameFov&&Find("Use game field of view")==null&&TripleView.Mode==physicalMode&&Runtime.Settings.GetCameraPose(false)==adjustedBonnet&&Runtime.Settings.GetCameraPose(true)==adjustedBumper,
+    "Advanced switch selects the game field of view without changing poses or triple layout");
 Click("Simple");
 TripleView.Active=false;TripleView.MatchGameFov=false;
 Runtime.Settings.SetCameraPose(false,physicalBonnet);Runtime.Settings.SetCameraPose(true,physicalBumper);Runtime.Settings.CameraAutoFit=false;

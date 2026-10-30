@@ -76,6 +76,7 @@ public sealed class Lifecycle : MonoBehaviour
         phase = "stage-returned";
 #endif
         FrameRate.Draw(Runtime.Settings.ShowFrameRate);
+        ComparisonNotice.Draw();
 #if WODEN_HUD_GUI_DIAGNOSTIC
         phase = "frame-rate-returned";
 #endif

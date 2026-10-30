@@ -62,9 +62,29 @@ internal static class TripleGeometry
     public static bool ShowsGameFov(bool? sessionGameFov, bool matchGameFov, bool chaseUsesGameFov, MountedView view) =>
         sessionGameFov ?? (matchGameFov || (chaseUsesGameFov && view == MountedView.Stock));
 
-    /// <summary>The next session state for one key press: the opposite of what the current view shows.</summary>
-    public static bool NextSessionGameFov(bool? sessionGameFov, bool matchGameFov, bool chaseUsesGameFov, MountedView view) =>
-        !ShowsGameFov(sessionGameFov, matchGameFov, chaseUsesGameFov, view);
+    // F7 comparison cycle (toolkit camera-framing-and-comparison policy, revision 2): 1 original game view, 2 angle
+    // correction, 3 angle + curve correction. Session only; null follows the saved choices. Framing is not a step.
+    public const int OriginalStep = 1, AngleStep = 2, AngleCurveStep = 3;
+
+    /// <summary>The step on screen now: the saved choices show angle correction, with the curve when one is configured and working.</summary>
+    public static int CurrentStep(int? session, bool curveAvailable) => session ?? (curveAvailable ? AngleCurveStep : AngleStep);
+
+    /// <summary>How many steps the cycle has: three only while a positive valid radius and a working curved renderer exist.</summary>
+    public static int StepCount(bool curveAvailable) => curveAvailable ? AngleCurveStep : AngleStep;
+
+    /// <summary>The step after one key press, cycling from what is actually shown; a curve that went away shortens the cycle.</summary>
+    public static int NextStep(int? session, bool curveAvailable)
+    {
+        int count = StepCount(curveAvailable), current = Math.Min(CurrentStep(session, curveAvailable), count);
+        return current >= count ? OriginalStep : current + 1;
+    }
+
+    public static string StepName(int step) =>
+        step == OriginalStep ? "Original game view" : step == AngleStep ? "Angle correction" : "Angle + curve correction";
+
+    /// <summary>The on-screen label: actual mode, step of count, framing source, not saved.</summary>
+    public static string ComparisonLabel(int step, int count, bool gameFov) =>
+        StepName(step) + " (" + step + "/" + count + ") · " + (gameFov ? "Game FOV" : "Measured FOV") + " · Not saved";
 
     // pa lower-left, pb lower-right, pc upper-left, all relative to the eye.
     private static PanelFrustum Panel(V3 pa, V3 pb, V3 pc)

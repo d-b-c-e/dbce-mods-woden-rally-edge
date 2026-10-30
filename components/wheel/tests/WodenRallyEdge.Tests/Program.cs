@@ -417,10 +417,10 @@ Test("camera fit, manual tuning, bounds and key bindings survive legacy and new 
           "FOV lock texts name the actual angle, fall back without one, and give the one switch");
     string shipped = FovLockText.RigSettings(708.4, 398.5, 660, 70, 8, true), mine = FovLockText.RigSettings(597, 336, 620, 55, 6, false);
     Check(shipped.StartsWith("708.4 × 398.5 mm screens, eyes 660 mm from the center screen, sides turned 70°, bezel 8 mm") && shipped.Contains("shipped defaults, not your measurements") &&
-          new[] { "PanelWidthMm", "PanelHeightMm", "EyeDistanceMm", "SideAngle", "BezelMm", FovLockText.ConfigFile, "Adjustable FOV" }.All(s => shipped.Contains(s)) &&
+          new[] { "PanelWidthMm", "PanelHeightMm", "EyeDistanceMm", "SideAngle", "BezelMm", FovLockText.ConfigFile, "Game field of view" }.All(s => shipped.Contains(s)) &&
           mine.StartsWith("597 × 336 mm screens, eyes 620 mm") && !mine.Contains("default") && mine.Contains(FovLockText.ConfigFile) &&
           !FovLockText.KeyMessage(33.6).Contains("your monitors") && !FovLockText.ViewHint(false, 33.6).Contains("your rig"),
-          "Physical rig text shows the geometry in use and names untouched values as shipped defaults, never as the player's measurements");
+          "Measured-perspective text shows the geometry in use and names untouched values as shipped defaults, never as the player's measurements");
     Check(FovModeSwitch.AdjustableStart(33.62, true, true) == 33.6f && FovModeSwitch.AdjustableStart(33.6, false, true) == null &&
           FovModeSwitch.AdjustableStart(33.6, true, false) == null && FovModeSwitch.AdjustableStart(null, true, true) == null &&
           FovModeSwitch.AdjustableStart(double.NaN, true, true) == null && FovModeSwitch.AdjustableStart(20, true, true) == 30f &&
@@ -523,10 +523,19 @@ Test("curved rig: radius 0 reproduces TripleGeometry, curvature widens the sourc
     { curved.Warps[i].SourceUv(gu / 8d, gv / 8d, out double su, out double sv); Check(su >= -1e-9 && su <= 1 + 1e-9 && sv >= -1e-9 && sv <= 1 + 1e-9, "every panel point samples inside its source " + i); }
     bool refused = false; try { WodenRallyEdge.CurvedRig.Compute(708.4, 398.5, 660, 70, 8, 300); } catch (ArgumentOutOfRangeException) { refused = true; }
     Check(refused, "a radius under half the panel width is refused");
-    // FovKey session A/B: the opposite of what is shown, independent of the saved choices, never changing them.
-    Check(WodenRallyEdge.TripleGeometry.NextSessionGameFov(null, false, true, MountedView.Bonnet) == true, "physical bonnet: first press shows the game lens");
-    Check(WodenRallyEdge.TripleGeometry.NextSessionGameFov(null, false, true, MountedView.Stock) == false, "chase on the game lens: first press shows measured");
-    Check(WodenRallyEdge.TripleGeometry.NextSessionGameFov(true, false, true, MountedView.Bonnet) == false && WodenRallyEdge.TripleGeometry.NextSessionGameFov(false, true, true, MountedView.Stock) == true, "presses alternate");
+    // F7 comparison cycle (toolkit policy revision 2): from what is shown now, 1 original, 2 angle, 3 angle + curve when available.
+    {
+        var g = typeof(WodenRallyEdge.TripleGeometry);
+        Check(WodenRallyEdge.TripleGeometry.CurrentStep(null, false) == 2 && WodenRallyEdge.TripleGeometry.CurrentStep(null, true) == 3, "saved views show angle correction, with the curve when configured");
+        Check(WodenRallyEdge.TripleGeometry.NextStep(null, false) == 1 && WodenRallyEdge.TripleGeometry.NextStep(1, false) == 2 && WodenRallyEdge.TripleGeometry.NextStep(2, false) == 1, "flat rig: two steps, original then angle");
+        Check(WodenRallyEdge.TripleGeometry.NextStep(null, true) == 1 && WodenRallyEdge.TripleGeometry.NextStep(1, true) == 2 && WodenRallyEdge.TripleGeometry.NextStep(2, true) == 3 && WodenRallyEdge.TripleGeometry.NextStep(3, true) == 1, "curved rig: three steps");
+        Check(WodenRallyEdge.TripleGeometry.NextStep(3, false) == 1 && WodenRallyEdge.TripleGeometry.StepCount(false) == 2, "a curve that went away shortens the cycle from the last shown step");
+        Check(WodenRallyEdge.TripleGeometry.ComparisonLabel(3, 3, true) == "Angle + curve correction (3/3) · Game FOV · Not saved" &&
+              WodenRallyEdge.TripleGeometry.ComparisonLabel(1, 2, false) == "Original game view (1/2) · Measured FOV · Not saved" &&
+              WodenRallyEdge.TripleGeometry.ComparisonLabel(2, 3, true).StartsWith("Angle correction (2/3)"), "labels name the actual mode, step of count, framing source and Not saved");
+        Check(g.GetMethod("NextSessionGameFov") == null, "the measured/game framing A/B is no longer a comparison step");
+    }
+    // The saved framing policy still decides the eye; the game lens is the default for new settings (MatchGameFov true).
     Near(WodenRallyEdge.TripleGeometry.EyeDistanceForView(398.5, 660, true, true, MountedView.Stock, 45, null, false), 660, "measured session overrides saved game FOV in chase", 1e-9);
     Near(WodenRallyEdge.TripleGeometry.EyeDistanceForView(398.5, 660, false, false, MountedView.Bonnet, 45, 60, true), WodenRallyEdge.TripleGeometry.EyeDistanceForVerticalFov(398.5, 60), "game session uses the mounted lens", 1e-9);
     Near(WodenRallyEdge.TripleGeometry.EyeDistanceForView(398.5, 660, false, true, MountedView.Bonnet, 45, 60, null), 660, "no session keeps the saved policy", 1e-9);

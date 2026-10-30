@@ -40,7 +40,7 @@ internal static class TripleView
         {
             if (_matchGameFov == null || _matchGameFov.Value == value) return;
             if (value) StartAdjustableAtShownAngle(); // before the switch, while the center angle is still the rig's
-            SessionGameFov = null; // an explicit saved choice ends the session A/B
+            SessionStep = null; // an explicit saved framing choice clears the temporary comparison override
             _matchGameFov.Value = value;
         }
     }
@@ -97,13 +97,31 @@ internal static class TripleView
     private static ConfigEntry<string> _toggleKey = null!, _fovKey = null!;
     private static ConfigEntry<bool> _centerHud = null!, _matchGameFov = null!, _chaseGameFov = null!;
     private static ConfigEntry<float> _panelWidth = null!, _panelHeight = null!, _eye = null!, _sideAngle = null!, _bezel = null!, _curveRadius = null!;
-    /// <summary>FovKey A/B, this session only, never saved: null follows the saved choices; false shows the measured
-    /// perspective for every view (chase included); true shows the lens for every view (TripleGeometry.ShowsGameFov).</summary>
-    internal static bool? SessionGameFov { get; private set; }
+    /// <summary>The F7 comparison step for this session only, never saved: null follows the saved choices; 1 original game
+    /// view (three views off), 2 angle correction (curve off), 3 angle + curve correction (TripleGeometry.NextStep).</summary>
+    internal static int? SessionStep { get; private set; }
     internal static string FovKeyName => _fovKey?.Value ?? "F7";
-    internal static string SessionFovText => SessionGameFov is { } session
-        ? FovKeyName + " is showing the " + (session ? "game field of view" : "measured perspective") + " until the game restarts or you press it again; nothing is saved."
-        : "";
+    /// <summary>A curve the comparison can show: a positive valid radius with no latched renderer failure.</summary>
+    private static bool CurveAvailable => _curveRadius != null && _curveRadius.Value > 0f && float.IsFinite(_curveRadius.Value) && TripleCurve.Failure == null;
+    private static bool FramingIsGameFov => TripleGeometry.ShowsGameFov(null, MatchGameFov, _chaseGameFov?.Value ?? true, MountedCamera.Cycle.View);
+    internal static string ComparisonLabel => TripleGeometry.ComparisonLabel(TripleGeometry.CurrentStep(SessionStep, CurveAvailable), TripleGeometry.StepCount(CurveAvailable), FramingIsGameFov);
+    internal static string ComparisonText => SessionStep is null ? "" : FovKeyName + " comparison: " + ComparisonLabel + ". Press " + FovKeyName + " for the next step; restart or a saved choice returns to the saved views.";
+
+    private static void PressComparison()
+    {
+        if (Runtime.Local == null)
+        {
+            ComparisonNotice.Show("Comparison available while driving");
+            Runtime.Log.LogInfo("Triple comparison (" + FovKeyName + "): not driving, projection unchanged");
+            return;
+        }
+        bool curve = CurveAvailable;
+        SessionStep = TripleGeometry.NextStep(SessionStep, curve);
+        string label = ComparisonLabel;
+        ComparisonNotice.Show(label);
+        float radius = _curveRadius.Value;
+        Runtime.Log.LogInfo(FormattableString.Invariant($"Triple comparison ({FovKeyName}, this session): {label}; camera {MountedCamera.Cycle.View}, framing {(MatchGameFov ? "MatchGameFov" : "measured rig")}{(_chaseGameFov.Value ? "+ChaseUsesGameFov" : "")}, effective eye {_viewEye:0} mm, radius {radius:0} mm{(radius > 0f && !curve ? ", curve unavailable: " + (TripleCurve.Failure ?? "no renderer") : "")}"));
+    }
     // Curved panels: the warps for the current views (null when flat), and the flat frusta kept for a curve that cannot run.
     private static CurvedPanelWarp[]? _warps;
     private static PanelFrustum[]? _flatViews;
@@ -132,7 +150,7 @@ internal static class TripleView
         _mode = cfg.Bind("Triple", "Mode", TripleMode.Auto, "Auto turns the three views on when the window is three screens wide (Surround or a borderless span); On forces them; Off keeps the stock single view.");
         _toggleKey = cfg.Bind("Triple", "ToggleKey", "F11", "Keyboard key that switches the three views on and off in game (Input System key name; None to disable).");
         _centerHud = cfg.Bind("Triple", "CenterHud", true, "Draw the game's HUD and menus on the center screen.");
-        _matchGameFov = cfg.Bind("Triple", "MatchGameFov", false, "Adjustable FOV: derive all three projections from the active bonnet/bumper lens or stock game lens, using a virtual eye distance. False keeps the [Triple] rig geometry for mounted views.");
+        _matchGameFov = cfg.Bind("Triple", "MatchGameFov", true, "Game field of view (default): derive all three projections from the active bonnet/bumper lens or stock game lens, using a virtual eye distance. False is the measured perspective: the [Triple] rig geometry sets mounted views (an explicit choice, never reset by the mod).");
         _chaseGameFov = cfg.Bind("Triple", "ChaseUsesGameFov", true, "Use the game's field of view in stock chase cameras even in Physical rig mode; mounted views follow MatchGameFov.");
         _panelWidth = cfg.Bind("Triple", "PanelWidthMm", 708.4f, "Visible width of one screen, millimetres (32\" 16:9 is about 708).");
         _panelHeight = cfg.Bind("Triple", "PanelHeightMm", 398.5f, "Visible height of one screen, millimetres.");
@@ -140,7 +158,7 @@ internal static class TripleView
         _sideAngle = cfg.Bind("Triple", "SideAngle", 70f, "How far each side screen is turned toward you, degrees (0 = flat row).");
         _bezel = cfg.Bind("Triple", "BezelMm", 8f, "Gap between the visible areas at each seam, millimetres.");
         _curveRadius = cfg.Bind("Triple", "CurveRadiusMm", 0f, "Monitor curve radius in millimetres (1500 for 1500R); 0 is flat. Eye distance is measured to the middle of the center screen glass; curved views are redrawn along your eye rays.");
-        _fovKey = cfg.Bind("Triple", "FovKey", "F7", "Keyboard key that switches, for this session only, between the measured perspective and the game field of view in all three views (Input System key name; None to disable). Nothing is saved.");
+        _fovKey = cfg.Bind("Triple", "FovKey", "F7", "Comparison key, this session only: original game view, angle correction, angle + curve correction (when a curve radius is set), with an on-screen label (Input System key name; None to disable). Nothing is saved.");
     }
 
     private static string? WhyNot()
@@ -150,6 +168,7 @@ internal static class TripleView
         if (_mode.Value == TripleMode.Auto && Screen.width < Screen.height * 2.9f) return "window is not three screens wide";
         if (TripleNative.CameraUnavailable is { } missing) return missing;
         if (_toggledOff) return "toggle key";
+        if (SessionStep == TripleGeometry.OriginalStep) return "original game view (" + FovKeyName + " comparison)";
         return null;
     }
 
@@ -164,11 +183,9 @@ internal static class TripleView
                 _toggledOff = !_toggledOff;
                 Runtime.Log.LogInfo("Triple screens " + (_toggledOff ? "toggled off" : "toggled on"));
             }
-            if (kb != null && Active && !Panel.Open && Enum.TryParse<Key>(_fovKey.Value, true, out var fovKey) && fovKey != Key.None && kb[fovKey].wasPressedThisFrame)
-            {
-                SessionGameFov = TripleGeometry.NextSessionGameFov(SessionGameFov, MatchGameFov, _chaseGameFov.Value, MountedCamera.Cycle.View);
-                Runtime.Log.LogInfo("Triple FOV (" + _fovKey.Value + ", this session): " + (SessionGameFov.Value ? "game field of view" : "measured perspective"));
-            }
+            // The comparison key works whenever three views are enabled, including at step 1 while they are off.
+            if (kb != null && _mode.Value != TripleMode.Off && !Panel.Open && Enum.TryParse<Key>(_fovKey.Value, true, out var fovKey) && fovKey != Key.None && kb[fovKey].wasPressedThisFrame)
+                PressComparison();
         }
         catch { }
         string? why = WhyNot();
@@ -230,7 +247,10 @@ internal static class TripleView
         var views = Views(gameFov, ownedMountedFov);
         // Curved panels: the views render full-rect into textures that TripleCurve redraws over the window. A curve that
         // cannot run keeps the original flat frusta, never the widened curved-source ones.
-        bool curved = _warps != null && TripleCurve.Configure(_warps, _viewsKey, source, Screen.width / 3, Screen.height);
+        // Step 2 of the comparison shows the angled views without the curve: the presenter is released so nothing stale is drawn.
+        bool curveWanted = SessionStep != TripleGeometry.AngleStep;
+        if (!curveWanted && TripleCurve.Active) TripleCurve.Reset();
+        bool curved = _warps != null && curveWanted && TripleCurve.Configure(_warps, _viewsKey, source, Screen.width / 3, Screen.height);
         if (_warps != null && !curved) views = FlatViews();
         _shownViews = views;
         if (!curved && _curvedApplied) { TripleNative.SetTarget(source, null); _curvedApplied = false; }
@@ -271,7 +291,7 @@ internal static class TripleView
     private static PanelFrustum[] Views(float gameFov, float? ownedMountedFov)
     {
         double eye = TripleGeometry.EyeDistanceForView(_panelHeight.Value, _eye.Value, MatchGameFov,
-            _chaseGameFov.Value, MountedCamera.Cycle.View, gameFov, ownedMountedFov, SessionGameFov);
+            _chaseGameFov.Value, MountedCamera.Cycle.View, gameFov, ownedMountedFov);
         float radius = _curveRadius.Value > 0f && float.IsFinite(_curveRadius.Value) ? _curveRadius.Value : 0f;
         string key = $"{_panelWidth.Value}|{_panelHeight.Value}|{eye:0.###}|{_sideAngle.Value}|{_bezel.Value}|{radius}";
         if (_views == null || key != _viewsKey)
