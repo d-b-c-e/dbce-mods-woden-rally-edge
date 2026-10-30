@@ -1,3 +1,19 @@
+# October 30, 01:00-01:45: ISS-0013 camera keys, centred F7 label, installed 60be56c (vemi, taking over from dome)
+
+ISS-0013 (6e0fb7a): the owner's saved camera keys (8/2 up/down, 9/7 forward/back, 1/3 tilt, 0 reset) are an earlier family
+default that dd8aa4f deliberately stopped rewriting on load; the shipped defaults already match STD-005. F6 Cameras now says so
+and offers "Use the standard numpad layout" (adjustment keys only, conflict-checked; `CameraTuning.IsPreviousDefaults`).
+ISS-0002 (60be56c): the F7 label is vertically centred on the centre screen (it sat at y=40, over the top HUD and dev text);
+dome's runs in hub `artifacts/woden-f7-comparison-dome-20261030` show the cycle and labels. ISS-0001: the owner cfg keeps
+`MatchGameFov = false` (measured), saved before the game-FOV default; the owner picks Game field of view in F6 Cameras.
+Gates: 103 suites / 52,630 assertions, UI 7,033 (Package.ps1). Test-PrivateShimInstall not re-run (installer unchanged since e305a76).
+Package `WodenRallyEdgeWheel-0.2.16-f7-60be56c-private-shim-dev.zip` `8F47F49CEBE15921BF9B3A470793AEDC46B38063B6B2B362017603137ADBE11A`
+(reviewed shim 9B8A036F copied from the install), plugin `1932D5D35E0BBE9A856710C567D74A10AD7C95DF34E53A3BD2F2E3AC90B8CA93`.
+Installed closed-game 01:44 without the shared lease (guna one-time exception 479995; zene held it for ADRIFT): `Manage-Install.ps1
+-Mode Install -GameDir <game>` exit 0 (without -GameDir it opens a folder dialog when Steam discovery is ambiguous); receipt
+0.2.16+60be56c, 23 payloads byte-exact, curvedTriples true; owner cfg/controls/bindings byte-exact (the only Verify-Install
+FAIL is the owner's own CurveRadiusMm 1500). Rollback `WodenWheelBackups\before-install-20261030-014431-7983a2c0` (e305a76).
+
 # October 29-30, 23:49-00:10: F7 comparison cycle, game field of view default (dome; main e305a76, pushed; package ready, install pending the shared lease)
 
 Toolkit camera-framing-and-comparison policy revision 2 (lulu 7319e71, owner-steered) implemented in e305a76: F7 cycles Original game view /
