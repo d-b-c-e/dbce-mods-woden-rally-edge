@@ -112,7 +112,7 @@ internal static class TripleView
     {
         if (Runtime.Local == null)
         {
-            ComparisonNotice.Show("Comparison available while driving");
+            ComparisonNotice.Show("View switching available while driving");
             Runtime.Log.LogInfo("Triple comparison (" + FovKeyName + "): not driving, projection unchanged");
             return;
         }

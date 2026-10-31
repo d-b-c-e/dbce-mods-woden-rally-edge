@@ -5,7 +5,7 @@ namespace WodenRallyEdge;
 
 /// <summary>
 /// The F7 comparison label (toolkit camera-framing-and-comparison policy): on each press the actual mode, step/count and,
-/// only when the pick could not be saved, "Could not save", shown for about 2.5 seconds centred on the centre screen (the middle of a span), white over a black shadow
+/// only when the pick could not be saved, "Couldn't save view", shown for about 2.5 seconds centred on the centre screen (the middle of a span), white over a black shadow
 /// so it reads on any scene. An on-screen notification, never a tooltip; the same text goes to the log by the caller.
 /// </summary>
 internal static class ComparisonNotice

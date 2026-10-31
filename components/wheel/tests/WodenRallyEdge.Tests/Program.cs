@@ -532,7 +532,7 @@ Test("curved rig: radius 0 reproduces TripleGeometry, curvature widens the sourc
         Check(WodenRallyEdge.TripleGeometry.NextStep(3, false) == 1 && WodenRallyEdge.TripleGeometry.StepCount(false) == 2, "a curve that went away shortens the cycle from the last shown step");
         Check(WodenRallyEdge.TripleGeometry.ComparisonLabel(3, 3, true) == "Angle + curve correction (3/3) · Game FOV" &&
               WodenRallyEdge.TripleGeometry.ComparisonLabel(1, 2, false) == "Original game view (1/2) · Measured FOV" &&
-              WodenRallyEdge.TripleGeometry.ComparisonLabel(2, 3, true, saved: false) == "Angle correction (2/3) · Game FOV · Could not save", "labels name the actual mode, step of count and framing source; only a failed save is reported");
+              WodenRallyEdge.TripleGeometry.ComparisonLabel(2, 3, true, saved: false) == "Angle correction (2/3) · Game FOV · Couldn't save view", "labels name the actual mode, step of count and framing source; only a failed save is reported");
         Check(WodenRallyEdge.TripleGeometry.FromSaved(1) == 1 && WodenRallyEdge.TripleGeometry.FromSaved(2) == 2 && WodenRallyEdge.TripleGeometry.FromSaved(3) == 3 &&
               WodenRallyEdge.TripleGeometry.FromSaved(0) == null && WodenRallyEdge.TripleGeometry.FromSaved(4) == null && WodenRallyEdge.TripleGeometry.FromSaved(99) == null && WodenRallyEdge.TripleGeometry.FromSaved(-1) == null,
               "a saved pick restores; missing or invalid keeps the pre-update startup");

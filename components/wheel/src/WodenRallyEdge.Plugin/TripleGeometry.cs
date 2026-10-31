@@ -87,7 +87,7 @@ internal static class TripleGeometry
 
     /// <summary>The on-screen label: actual mode, step of count, framing source; only a failed save is reported.</summary>
     public static string ComparisonLabel(int step, int count, bool gameFov, bool saved = true) =>
-        StepName(step) + " (" + step + "/" + count + ") · " + (gameFov ? "Game FOV" : "Measured FOV") + (saved ? "" : " · Could not save");
+        StepName(step) + " (" + step + "/" + count + ") · " + (gameFov ? "Game FOV" : "Measured FOV") + (saved ? "" : " · Couldn't save view");
 
     // pa lower-left, pb lower-right, pc upper-left, all relative to the eye.
     private static PanelFrustum Panel(V3 pa, V3 pb, V3 pc)
