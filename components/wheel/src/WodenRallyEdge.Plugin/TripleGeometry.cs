@@ -63,7 +63,7 @@ internal static class TripleGeometry
         sessionGameFov ?? (matchGameFov || (chaseUsesGameFov && view == MountedView.Stock));
 
     // F7 comparison cycle (toolkit camera-framing-and-comparison policy, revision 2): 1 original game view, 2 angle
-    // correction, 3 angle + curve correction. Session only; null follows the saved choices. Framing is not a step.
+    // correction, 3 angle + curve correction. Saved as [Triple] CompareView; null (never pressed) follows the saved choices. Framing is not a step.
     public const int OriginalStep = 1, AngleStep = 2, AngleCurveStep = 3;
 
     /// <summary>The step on screen now: the saved choices show angle correction, with the curve when one is configured and working.</summary>
@@ -82,9 +82,12 @@ internal static class TripleGeometry
     public static string StepName(int step) =>
         step == OriginalStep ? "Original game view" : step == AngleStep ? "Angle correction" : "Angle + curve correction";
 
-    /// <summary>The on-screen label: actual mode, step of count, framing source, not saved.</summary>
-    public static string ComparisonLabel(int step, int count, bool gameFov) =>
-        StepName(step) + " (" + step + "/" + count + ") · " + (gameFov ? "Game FOV" : "Measured FOV") + " · Not saved";
+    /// <summary>The saved pick ([Triple] CompareView): 1..3 is a step; anything else (a missing key reads 0) means none.</summary>
+    public static int? FromSaved(int saved) => saved is >= OriginalStep and <= AngleCurveStep ? saved : null;
+
+    /// <summary>The on-screen label: actual mode, step of count, framing source; only a failed save is reported.</summary>
+    public static string ComparisonLabel(int step, int count, bool gameFov, bool saved = true) =>
+        StepName(step) + " (" + step + "/" + count + ") · " + (gameFov ? "Game FOV" : "Measured FOV") + (saved ? "" : " · Could not save");
 
     // pa lower-left, pb lower-right, pc upper-left, all relative to the eye.
     private static PanelFrustum Panel(V3 pa, V3 pb, V3 pc)

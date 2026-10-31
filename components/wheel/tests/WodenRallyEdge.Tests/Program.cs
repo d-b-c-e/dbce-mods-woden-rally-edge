@@ -530,9 +530,31 @@ Test("curved rig: radius 0 reproduces TripleGeometry, curvature widens the sourc
         Check(WodenRallyEdge.TripleGeometry.NextStep(null, false) == 1 && WodenRallyEdge.TripleGeometry.NextStep(1, false) == 2 && WodenRallyEdge.TripleGeometry.NextStep(2, false) == 1, "flat rig: two steps, original then angle");
         Check(WodenRallyEdge.TripleGeometry.NextStep(null, true) == 1 && WodenRallyEdge.TripleGeometry.NextStep(1, true) == 2 && WodenRallyEdge.TripleGeometry.NextStep(2, true) == 3 && WodenRallyEdge.TripleGeometry.NextStep(3, true) == 1, "curved rig: three steps");
         Check(WodenRallyEdge.TripleGeometry.NextStep(3, false) == 1 && WodenRallyEdge.TripleGeometry.StepCount(false) == 2, "a curve that went away shortens the cycle from the last shown step");
-        Check(WodenRallyEdge.TripleGeometry.ComparisonLabel(3, 3, true) == "Angle + curve correction (3/3) · Game FOV · Not saved" &&
-              WodenRallyEdge.TripleGeometry.ComparisonLabel(1, 2, false) == "Original game view (1/2) · Measured FOV · Not saved" &&
-              WodenRallyEdge.TripleGeometry.ComparisonLabel(2, 3, true).StartsWith("Angle correction (2/3)"), "labels name the actual mode, step of count, framing source and Not saved");
+        Check(WodenRallyEdge.TripleGeometry.ComparisonLabel(3, 3, true) == "Angle + curve correction (3/3) · Game FOV" &&
+              WodenRallyEdge.TripleGeometry.ComparisonLabel(1, 2, false) == "Original game view (1/2) · Measured FOV" &&
+              WodenRallyEdge.TripleGeometry.ComparisonLabel(2, 3, true, saved: false) == "Angle correction (2/3) · Game FOV · Could not save", "labels name the actual mode, step of count and framing source; only a failed save is reported");
+        Check(WodenRallyEdge.TripleGeometry.FromSaved(1) == 1 && WodenRallyEdge.TripleGeometry.FromSaved(2) == 2 && WodenRallyEdge.TripleGeometry.FromSaved(3) == 3 &&
+              WodenRallyEdge.TripleGeometry.FromSaved(0) == null && WodenRallyEdge.TripleGeometry.FromSaved(4) == null && WodenRallyEdge.TripleGeometry.FromSaved(99) == null && WodenRallyEdge.TripleGeometry.FromSaved(-1) == null,
+              "a saved pick restores; missing or invalid keeps the pre-update startup");
+        // The pick is written as one line (ConfigLine): comments, unknown keys and absent defaults stay; a failure keeps the file.
+        string dir = Path.Combine(Path.GetTempPath(), "woden-f7-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(dir);
+        try
+        {
+            string cfg = Path.Combine(dir, "test.cfg"), nl = Environment.NewLine;
+            string before = "## comment" + nl + "[Force]" + nl + "Unknown = 7" + nl + nl + "[Triple]" + nl + "MatchGameFov = false" + nl;
+            File.WriteAllText(cfg, before);
+            ConfigLine.Write(cfg, "Triple", "CompareView", "2");
+            Check(File.ReadAllText(cfg) == before + "CompareView = 2" + nl, "the pick adds one line; nothing else is written or materialised");
+            ConfigLine.Write(cfg, "Triple", "CompareView", "3");
+            Check(File.ReadAllText(cfg) == before + "CompareView = 3" + nl, "a new pick replaces its line in place");
+            ConfigLine.Write(Path.Combine(dir, "new.cfg"), "Triple", "CompareView", "1");
+            Check(File.ReadAllText(Path.Combine(dir, "new.cfg")) == nl + "[Triple]" + nl + "CompareView = 1" + nl, "a missing file gets the section and the pick");
+            string kept = File.ReadAllText(cfg); bool threw = false;
+            using (File.Open(cfg, FileMode.Open, FileAccess.Read, FileShare.None))
+                try { ConfigLine.Write(cfg, "Triple", "CompareView", "1"); } catch (IOException) { threw = true; }
+            Check(threw && File.ReadAllText(cfg) == kept && Directory.GetFiles(dir, "*.tmp-*").Length == 0, "a failed write throws, keeps the file and leaves no temp");
+        }
+        finally { Directory.Delete(dir, true); }
         Check(g.GetMethod("NextSessionGameFov") == null, "the measured/game framing A/B is no longer a comparison step");
     }
     // The saved framing policy still decides the eye; the game lens is the default for new settings (MatchGameFov true).

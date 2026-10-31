@@ -40,7 +40,7 @@ internal static class TripleView
         {
             if (_matchGameFov == null || _matchGameFov.Value == value) return;
             if (value) StartAdjustableAtShownAngle(); // before the switch, while the center angle is still the rig's
-            SessionStep = null; // an explicit saved framing choice clears the temporary comparison override
+            SessionStep = TripleGeometry.FromSaved(_compareView.Value); // an explicit saved framing choice returns to the saved pick (clearing a fallback)
             _matchGameFov.Value = value;
         }
     }
@@ -95,17 +95,18 @@ internal static class TripleView
         }
     }
     private static ConfigEntry<string> _toggleKey = null!, _fovKey = null!;
+    private static ConfigEntry<int> _compareView = null!;
     private static ConfigEntry<bool> _centerHud = null!, _matchGameFov = null!, _chaseGameFov = null!;
     private static ConfigEntry<float> _panelWidth = null!, _panelHeight = null!, _eye = null!, _sideAngle = null!, _bezel = null!, _curveRadius = null!;
-    /// <summary>The F7 comparison step for this session only, never saved: null follows the saved choices; 1 original game
-    /// view (three views off), 2 angle correction (curve off), 3 angle + curve correction (TripleGeometry.NextStep).</summary>
+    /// <summary>The F7 comparison step, saved as [Triple] CompareView and restored at start: null (never pressed) follows the
+    /// saved choices; 1 original game view (three views off), 2 angle correction (curve off), 3 angle + curve correction.</summary>
     internal static int? SessionStep { get; private set; }
     internal static string FovKeyName => _fovKey?.Value ?? "F7";
     /// <summary>A curve the comparison can show: a positive valid radius with no latched renderer failure.</summary>
     private static bool CurveAvailable => _curveRadius != null && _curveRadius.Value > 0f && float.IsFinite(_curveRadius.Value) && TripleCurve.Failure == null;
     private static bool FramingIsGameFov => TripleGeometry.ShowsGameFov(null, MatchGameFov, _chaseGameFov?.Value ?? true, MountedCamera.Cycle.View);
     internal static string ComparisonLabel => TripleGeometry.ComparisonLabel(TripleGeometry.CurrentStep(SessionStep, CurveAvailable), TripleGeometry.StepCount(CurveAvailable), FramingIsGameFov);
-    internal static string ComparisonText => SessionStep is null ? "" : FovKeyName + " comparison: " + ComparisonLabel + ". Press " + FovKeyName + " for the next step; restart or a saved choice returns to the saved views.";
+    internal static string ComparisonText => SessionStep is null ? "" : FovKeyName + " comparison: " + ComparisonLabel + ". Kept for next time; press " + FovKeyName + " while driving to change it.";
 
     private static void PressComparison()
     {
@@ -117,11 +118,25 @@ internal static class TripleView
         }
         bool curve = CurveAvailable;
         SessionStep = TripleGeometry.NextStep(SessionStep, curve);
-        string label = ComparisonLabel;
+        bool saved = SavePick(SessionStep.Value);
+        string label = TripleGeometry.ComparisonLabel(TripleGeometry.CurrentStep(SessionStep, curve), TripleGeometry.StepCount(curve), FramingIsGameFov, saved);
         ComparisonNotice.Show(label);
         float radius = _curveRadius.Value;
-        Runtime.Log.LogInfo(FormattableString.Invariant($"Triple comparison ({FovKeyName}, this session): {label}; camera {MountedCamera.Cycle.View}, framing {(MatchGameFov ? "MatchGameFov" : "measured rig")}{(_chaseGameFov.Value ? "+ChaseUsesGameFov" : "")}, effective eye {_viewEye:0} mm, radius {radius:0} mm{(radius > 0f && !curve ? ", curve unavailable: " + (TripleCurve.Failure ?? "no renderer") : "")}"));
+        Runtime.Log.LogInfo(FormattableString.Invariant($"Triple comparison ({FovKeyName}, {(saved ? "saved" : "save failed, saved pick kept")}): {label}; camera {MountedCamera.Cycle.View}, framing {(MatchGameFov ? "MatchGameFov" : "measured rig")}{(_chaseGameFov.Value ? "+ChaseUsesGameFov" : "")}, effective eye {_viewEye:0} mm, radius {radius:0} mm{(radius > 0f && !curve ? ", curve unavailable: " + (TripleCurve.Failure ?? "no renderer") : "")}"));
     }
+    // Only the CompareView line is written (ConfigLine); the in-memory value follows only a successful write, so a later
+    // full settings save never stores a pick the player was told failed.
+    private static bool SavePick(int step)
+    {
+        try
+        {
+            WodenRallyEdge.Core.ConfigLine.Write(_compareView.ConfigFile.ConfigFilePath, "Triple", "CompareView", step.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            _compareView.Value = step;
+            return true;
+        }
+        catch (Exception ex) { Runtime.Log.LogWarning("Triple comparison: could not save the pick: " + ex.Message); return false; }
+    }
+
     // Curved panels: the warps for the current views (null when flat), and the flat frusta kept for a curve that cannot run.
     private static CurvedPanelWarp[]? _warps;
     private static PanelFrustum[]? _flatViews;
@@ -158,7 +173,10 @@ internal static class TripleView
         _sideAngle = cfg.Bind("Triple", "SideAngle", 70f, "How far each side screen is turned toward you, degrees (0 = flat row).");
         _bezel = cfg.Bind("Triple", "BezelMm", 8f, "Gap between the visible areas at each seam, millimetres.");
         _curveRadius = cfg.Bind("Triple", "CurveRadiusMm", 0f, "Monitor curve radius in millimetres (1500 for 1500R); 0 is flat. Eye distance is measured to the middle of the center screen glass; curved views are redrawn along your eye rays.");
-        _fovKey = cfg.Bind("Triple", "FovKey", "F7", "Comparison key, this session only: original game view, angle correction, angle + curve correction (when a curve radius is set), with an on-screen label (Input System key name; None to disable). Nothing is saved.");
+        _fovKey = cfg.Bind("Triple", "FovKey", "F7", "Comparison key while driving: original game view, angle correction, angle + curve correction (when a curve radius is set), with an on-screen label (Input System key name; None to disable). The pick is kept for next time (CompareView).");
+        // No value range: BepInEx would clamp an invalid value into a step; FromSaved treats it as none.
+        _compareView = cfg.Bind("Triple", "CompareView", 0, "The view last picked with the comparison key: 1 original game view, 2 angle correction, 3 angle + curve correction; 0 (never pressed) or any other value follows the settings above.");
+        SessionStep = TripleGeometry.FromSaved(_compareView.Value);
     }
 
     private static string? WhyNot()
