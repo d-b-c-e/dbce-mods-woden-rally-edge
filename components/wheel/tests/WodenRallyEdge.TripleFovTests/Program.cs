@@ -15,12 +15,33 @@ internal sealed class Camera
     internal string name = "fake game camera";
     internal bool isActiveAndEnabled = true, orthographic = false;
     internal object? targetTexture = null;
+    internal PostProcessLayer? Post = new();
+    internal T? GetComponent<T>() where T : class => Post as T;
     internal float nearClipPlane = .1f, farClipPlane = 1000, depth = 0;
     internal readonly object transform = new();
     internal Rect rect = new(0, 0, 1, 1);
     internal object projectionMatrix = new();
     internal void ResetProjectionMatrix() { ProjectionResets++; }
 }
+internal sealed class PostProcessLayer
+{
+    internal enum Antialiasing { None, FastApproximateAntialiasing, SubpixelMorphologicalAntialiasing, TemporalAntialiasing }
+    internal bool enabled = true;
+    internal Antialiasing antialiasingMode = Antialiasing.TemporalAntialiasing;
+    internal int HistoryResets;
+    internal void ResetHistory() => HistoryResets++;
+}
+internal static class TripleCurve
+{
+    internal static bool ForceCurved = false;
+    private static readonly object[] Targets = [new(), new(), new()];
+    internal static bool Active => ForceCurved;
+    internal static bool Owns(object value) => Targets.Contains(value);
+    internal static bool Configure(object[] _, string key, Camera source, int width, int height) => ForceCurved;
+    internal static object? Target(int index) => Targets[index];
+    internal static void Reset() { ForceCurved = false; }
+}
+internal static class TripleGeometry { internal const int AngleStep = 2; }
 internal readonly record struct Rect(float X, float Y, float Width, float Height);
 internal sealed class GameObject { }
 internal static class Object { internal static void Destroy(GameObject _) { } }
@@ -50,7 +71,10 @@ internal static class MountedCamera
 }
 internal sealed class FakeCycle { internal WodenRallyEdge.Core.MountedView View = WodenRallyEdge.Core.MountedView.Stock; }
 internal sealed class FakePose { internal float Fov = 37; }
-internal static class TripleNative { internal static void SetDepth(Camera c, float value) { c.depth = value; } }
+internal static class TripleNative {
+    internal static void SetDepth(Camera c, float value) { c.depth = value; }
+    internal static void SetTarget(Camera c, object? target) { c.targetTexture = target; }
+}
 
 internal static partial class TripleView
 {
@@ -61,6 +85,15 @@ internal static partial class TripleView
     private static double _nextLog = 0;
     private static readonly Entry<bool> _centerHud = new(false);
     private static readonly List<object> MovedCanvases = new();
+    internal static PostProcessLayer? _sourcePost = null;
+    internal static PostProcessLayer.Antialiasing _sourceAa = PostProcessLayer.Antialiasing.None;
+    internal static bool _sourceAaOverridden = false;
+    internal static bool _curvedApplied = false;
+    internal static object[]? _warps = null;
+    internal static PanelFrustum[]? _shownViews = null;
+    internal static string _viewsKey = "fixture";
+    internal static int? SessionStep = null;
+    private static PanelFrustum[] FlatViews() => Views(37, null);
     private static float _observedGameFov;
     private static string? WhyNot() => null;
     private static bool Alive(object _) => true;
@@ -80,10 +113,13 @@ internal static partial class TripleView
         var photo = new Camera(1, 37); var rect = photo.rect;
         AfterCarCamera(new(photo));
         Check(photo.usePhysicalProperties && photo.fieldOfView == 37, "first physical transition retains photo/game FOV");
+        Check(photo.Post!.antialiasingMode == PostProcessLayer.Antialiasing.FastApproximateAntialiasing && photo.Post.HistoryResets == 1,
+              "center rejects temporal projection/history while triples own it");
         Check(_observedGameFov == 37, "Views receives the captured game FOV");
         Check(photo.PhysicalWrites == 1 && photo.FovWrites == 1, "transition enables once then synchronizes focal lens once");
         AfterCarCamera(new(photo));
         Check(photo.fieldOfView == 37 && photo.PhysicalWrites == 1 && photo.FovWrites == 1, "photo without native per-frame FOV writer stays unchanged");
+        Check(photo.Post!.HistoryResets == 1, "stable triple frame does not reset history again");
         photo.fieldOfView = 54; // A later native game/lens writer must win.
         AfterCarCamera(new(photo));
         Check(photo.fieldOfView == 54 && _observedGameFov == 54 && photo.FovWrites == 2, "later native FOV remains authoritative");
@@ -92,11 +128,16 @@ internal static partial class TripleView
         AfterCarCamera(new(replacement));
         Check(!photo.usePhysicalProperties && photo.fieldOfView == 54 && photo.rect == rect && photo.ProjectionResets == 1,
               "changed-camera path restores prior camera without stale lens overwrite");
+        Check(photo.Post!.antialiasingMode == PostProcessLayer.Antialiasing.TemporalAntialiasing && photo.Post.HistoryResets == 2,
+              "camera handoff restores previous center AA and invalidates old history");
         Check(replacement.usePhysicalProperties && replacement.fieldOfView == 63 && _observedGameFov == 63,
               "replacement captures its own lens before physical transition");
         Stop("fixture off");
         Check(!replacement.usePhysicalProperties && replacement.fieldOfView == 63 && replacement.ProjectionResets == 1 && _source == null,
               "Stop restores native mode and retains replacement lens");
+
+        Check(replacement.Post!.antialiasingMode == PostProcessLayer.Antialiasing.TemporalAntialiasing && replacement.Post.HistoryResets == 2,
+              "Original restores center AA without stale triple history");
 
         var alreadyPhysical = new Camera(3, 72, true);
         AfterCarCamera(new(alreadyPhysical));
@@ -104,6 +145,47 @@ internal static partial class TripleView
               "already-physical camera gets no unnecessary physical/lens write");
         Stop("fixture physical off");
         Check(alreadyPhysical.usePhysicalProperties && alreadyPhysical.fieldOfView == 72, "Stop preserves original physical camera mode/lens");
+        var cycling = new Camera(4, 51);
+        for (int cycle = 0; cycle < 4; cycle++) {
+            SessionStep = TripleGeometry.AngleStep;
+            AfterCarCamera(new(cycling)); AfterCarCamera(new(cycling));
+            Check(cycling.Post!.antialiasingMode == PostProcessLayer.Antialiasing.FastApproximateAntialiasing && cycling.Post.HistoryResets == cycle * 2 + 1,
+                  "F7 Angle enters with one history reset, never temporal projection");
+            SessionStep = 1; Stop("F7 Original");
+            Check(cycling.Post.antialiasingMode == PostProcessLayer.Antialiasing.TemporalAntialiasing && cycling.Post.HistoryResets == (cycle + 1) * 2,
+                  "F7 Original returns native AA with fresh center history on every cycle");
+            Check(cycling.rect == new Rect(0, 0, 1, 1) && !cycling.usePhysicalProperties && cycling.fieldOfView == 51,
+                  "F7 repeated cycle preserves full-window native lens");
+        }
+        var curved = new Camera(9, 55);
+        _warps = [new(), new(), new()];
+        for (int cycle = 0; cycle < 2; cycle++) {
+            TripleCurve.ForceCurved = true; SessionStep = 3;
+            AfterCarCamera(new(curved));
+            Check(curved.targetTexture != null && curved.Post!.antialiasingMode == PostProcessLayer.Antialiasing.FastApproximateAntialiasing,
+                  "Angle+curve owns a target and protects center from TAA");
+            SessionStep = 1; Stop("curve to Original");
+            Check(curved.targetTexture == null && curved.Post!.antialiasingMode == PostProcessLayer.Antialiasing.TemporalAntialiasing && curved.Post.HistoryResets == (cycle + 1) * 2,
+                  "curve to Original clears target and resets native center history every cycle");
+        }
+        _warps = null;
+        var external = new Camera(5, 42);
+        AfterCarCamera(new(external));
+        external.Post!.antialiasingMode = PostProcessLayer.Antialiasing.SubpixelMorphologicalAntialiasing;
+        AfterCarCamera(new(external)); Stop("external AA");
+        Check(external.Post.antialiasingMode == PostProcessLayer.Antialiasing.SubpixelMorphologicalAntialiasing,
+              "detectable external AA choice is retained");
+        var absent = new Camera(6, 42) { Post = null };
+        AfterCarCamera(new(absent)); Stop("no PP layer");
+        Check(absent.fieldOfView == 42 && _source == null, "missing post-process layer stays supported");
+        var disabled = new Camera(7, 42); disabled.Post!.enabled = false;
+        AfterCarCamera(new(disabled)); Stop("disabled PP layer");
+        Check(disabled.Post.antialiasingMode == PostProcessLayer.Antialiasing.TemporalAntialiasing && disabled.Post.HistoryResets == 0,
+              "disabled post-process layer is untouched");
+        var nonTemporal = new Camera(8, 42); nonTemporal.Post!.antialiasingMode = PostProcessLayer.Antialiasing.SubpixelMorphologicalAntialiasing;
+        AfterCarCamera(new(nonTemporal)); Stop("SMAA layer");
+        Check(nonTemporal.Post.antialiasingMode == PostProcessLayer.Antialiasing.SubpixelMorphologicalAntialiasing && nonTemporal.Post.HistoryResets == 2,
+              "non-temporal AA retained and camera-cut history reset");
         Check(!_failed, "actual handler path completes without exception");
         Console.WriteLine($"{(expectRegression ? "BASELINE REGRESSION" : "SUCCESSOR")}: {_checks} checks, {_failures} failures; fake cameras only");
         return expectRegression ? (_failures >= 3 ? 0 : 2) : (_failures == 0 ? 0 : 1);

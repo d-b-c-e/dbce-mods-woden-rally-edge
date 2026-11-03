@@ -1,4 +1,4 @@
-"""Copy the three actual handler bodies unchanged into a device-free fixture."""
+"""Copy actual camera/PP handler bodies unchanged into a device-free fixture."""
 import argparse
 import hashlib
 import json
@@ -13,7 +13,9 @@ source = raw.decode('utf-8-sig')
 methods = []
 for signature in ('internal static void AfterCarCamera(Car_Cam carCam)',
                   'private static void Apply(Camera source, float? ownedMountedFov)',
-                  'internal static void Stop(string why)'):
+                  'internal static void Stop(string why)',
+                  *(['private static void PreparePostProcessing(Camera source)',
+                     'private static void RestorePostProcessing()'] if 'private static void PreparePostProcessing(Camera source)' in source else [])):
     assert source.count(signature) == 1, signature
     start = source.index(signature)
     opening = source.index('{', start)
@@ -29,4 +31,4 @@ a.output.parent.mkdir(parents=True, exist_ok=True)
 a.output.write_text('internal static partial class TripleView {\n' + '\n'.join(methods) + '\n}\n', encoding='utf-8')
 print(json.dumps({'source': str(a.source), 'sourceSha256': hashlib.sha256(raw).hexdigest(),
                   'outputSha256': hashlib.sha256(a.output.read_bytes()).hexdigest(),
-                  'methods': 3, 'bodySubstitutions': 0, 'unityOrDeviceExecuted': False}))
+                  'methods': len(methods), 'bodySubstitutions': 0, 'unityOrDeviceExecuted': False}))

@@ -1,3 +1,11 @@
+# November 2 ISS-0016 offline source candidate
+
+Center TAA/history is now handled when F7 changes the projection. Baseline actual
+handlers fail17/35, fixed35/35; Core104 suites/52642 assertions and UI7033 pass.
+Core/Plugin Release builds are clean. No install/runtime/owner validation.
+See root docs/2026-11-02-f7-center-postprocessing.md. Current camera policy stays;
+new per-camera sets remain a separate pending standards task.
+
 # October 27: 0.2.16 released; side branches retired
 
 Public release [v0.2.16](https://github.com/d-b-c-e/dbce-mods-woden-rally-edge/releases/tag/v0.2.16)

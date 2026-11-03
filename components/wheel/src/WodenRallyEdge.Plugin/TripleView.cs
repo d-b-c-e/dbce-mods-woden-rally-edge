@@ -150,6 +150,9 @@ internal static class TripleView
     private static GameObject? _leftGo, _rightGo, _hudGo;
     private static Rect _sourceRect;
     private static bool _sourcePhysical;
+    private static PostProcessLayer? _sourcePost;
+    private static PostProcessLayer.Antialiasing _sourceAa;
+    private static bool _sourceAaOverridden;
     private static PanelFrustum[]? _views;
     private static string _viewsKey = "";
     private static double _nextLog, _nextCanvasScan;
@@ -254,6 +257,8 @@ internal static class TripleView
             Runtime.Log.LogInfo($"Triple screens on: '{source.name}' at {Screen.width}x{Screen.height}");
             if (!_loggedScene) { _loggedScene = true; LogCameras(source); }
         }
+
+        PreparePostProcessing(source);
 
         // PostProcessLayer.OnPreCull resets a non-physical camera's projection; a custom
         // matrix stays authoritative when physical properties are on. Switching them on re-derives fieldOfView from a
@@ -365,6 +370,46 @@ internal static class TripleView
         side.projectionMatrix = Frustum(view, near, far);
         SyncPostProcessing(side, source);
         if (!side.enabled) side.enabled = true;
+    }
+
+    // PPv2 TAA installs its own jittered projection and keeps history in that projection.
+    // The sides already use FXAA; the center needs the same protection while we own it.
+    private static void PreparePostProcessing(Camera source)
+    {
+        var layer = source.GetComponent<PostProcessLayer>();
+        if (layer == null || !layer.enabled) return;
+        bool reset = false;
+        if (_sourcePost != layer)
+        {
+            RestorePostProcessing();
+            _sourcePost = layer;
+            reset = true;
+        }
+        if (layer.antialiasingMode == PostProcessLayer.Antialiasing.TemporalAntialiasing)
+        {
+            _sourceAa = layer.antialiasingMode;
+            _sourceAaOverridden = true;
+            layer.antialiasingMode = PostProcessLayer.Antialiasing.FastApproximateAntialiasing;
+            reset = true;
+        }
+        if (reset) layer.ResetHistory();
+    }
+
+    private static void RestorePostProcessing()
+    {
+        var layer = _sourcePost;
+        _sourcePost = null;
+        bool owned = _sourceAaOverridden;
+        _sourceAaOverridden = false;
+        if (layer == null) return;
+        try
+        {
+            // A different native/external AA choice wins; never persist a graphics setting.
+            if (owned && layer.antialiasingMode == PostProcessLayer.Antialiasing.FastApproximateAntialiasing)
+                layer.antialiasingMode = _sourceAa;
+            layer.ResetHistory(); // Original must not reuse narrow/off-axis center history.
+        }
+        catch (Exception ex) { Runtime.Log.LogWarning("Triple: restoring center post-processing: " + ex.Message); }
     }
 
     private static void SyncPostProcessing(Camera side, Camera source)
@@ -483,6 +528,7 @@ internal static class TripleView
             }
         }
         catch (Exception ex) { Runtime.Log.LogWarning("Triple: restoring the game camera: " + ex.Message); }
+        RestorePostProcessing();
         foreach (var go in new[] { _leftGo, _rightGo, _hudGo })
             try { if (go != null && Alive(go)) Object.Destroy(go); } catch { }
         _source = _left = _right = _hud = null;

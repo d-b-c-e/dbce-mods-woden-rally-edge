@@ -339,3 +339,7 @@ The ignored artifacts contain native disassembly, offsets, offline audit output 
 The toolkit's local UX-1/setup/checklist were updated for persistent FFB and agent-managed captures. That checkout has unrelated uncommitted work: preserve it, do not commit it wholesale, and do not rebuild its moving Recording source into this consumer. Toolkit v0.12.0/native v0.5.0 and the unpublished recording pin remain unchanged.
 
 Next: test pre-green revs/steering/camera and 75% countdown speed, checkpoint bonuses, pause/restart/expiry and persistence; verify handbrake partial/full/release, FFB sign/delivery and pause/focus recovery during an attended drive; use a recording when ready to assess remaining hitches and contact validity. Do not launch a physical force test unattended.
+
+## November 2 ISS-0016 center post-processing source fix
+
+TripleView now protects the center custom projection from PPv2 temporal AA, matching the existing FXAA side-view policy, then restores native AA and resets history on Original/stop/handoff. Detectable external AA changes win; no graphics setting is saved. Actual-handler baseline81d1cab fails17/35; fixed35/35, Core104 suites/52642 assertions, UI7033 and zero-warning Core/Plugin builds pass. No runtime pixels, package/install or owner acceptance. See docs/2026-11-02-f7-center-postprocessing.md for full hashes/evidence and rendered validation. Current F7 Original/Angle/Curve is retained; STD-041/046 per-camera redesign and other pending standards remain open.

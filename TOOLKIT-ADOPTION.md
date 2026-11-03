@@ -480,3 +480,7 @@ normal close restored owner state and released the lease. Newproduct runtime
 Save/restart and driving acceptance remain pending; earlier positives remain valid.
 All37 ledger IDs remain represented; STD-016/017/020 unchecked and STD-031/037
 pending remain unchanged. No runtime, owner-profile migration or physical claim.
+
+## November 2 ISS-0016 center post-processing source fix
+
+TripleView now protects the center custom projection from PPv2 temporal AA, matching the existing FXAA side-view policy, then restores native AA and resets history on Original/stop/handoff. Detectable external AA changes win; no graphics setting is saved. Actual-handler baseline81d1cab fails17/35; fixed35/35, Core104 suites/52642 assertions, UI7033 and zero-warning Core/Plugin builds pass. No runtime pixels, package/install or owner acceptance. See docs/2026-11-02-f7-center-postprocessing.md for full hashes/evidence and rendered validation. Current F7 Original/Angle/Curve is retained; STD-041/046 per-camera redesign and other pending standards remain open.
