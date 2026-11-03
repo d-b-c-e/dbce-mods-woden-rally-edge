@@ -1,3 +1,26 @@
+## November 2: STD-038..049 and F7 save audit
+
+The selected offline gap was ConfigLine: a one-key save rebuilt all line endings,
+dropped BOM and appended a final newline. It now preserves exact UTF-8/BOM and
+line structure, refuses ambiguous owned entries, and writes through an exclusive
+flushed temporary with owned cleanup. No owner-state preparation or install.
+Evidence and limits: [single-key save handoff](docs/2026-11-02-configline-preservation.md).
+
+| Standard | Title | Status | Notes |
+|---|---|---|---|
+| STD-038 | Window on the racing row | partial | Existing landing implementation and historical span evidence retained; no new startup/display qualification. |
+| STD-039 | Direct game steering | adopted | Existing Native/Shim in-process routes retained; no virtual-controller route added. No new device proof. |
+| STD-040 | One player download and F6 parity | partial | Existing released player ZIP and F6 retained; current clean-install launch awaits owner Steam Cloud choice. |
+| STD-041 | Always corrected triples; framing sets | pending | Current F7 still saves Original/Angle/Curve; new Game/Realistic camera-set implementation remains open. |
+| STD-042 | Remember and label camera adjustments | partial | Existing camera tuning/reset retained; per-set calculated starts/offsets not adopted here. |
+| STD-043 | Independent hotkey release; held gates | unchecked | No new hotkey/shifter lifecycle qualification in this writer task. |
+| STD-044 | Atomic owned-key writes preserve bytes | partial | ConfigLine preserves mixed separators/BOM/spacing/no final newline, refuses duplicate owned keys/sections, and uses unique CreateNew+Flush(true). Focused regression plus 104 suites/52,642 assertions and Core/Plugin builds pass. Full config/binding writers and concurrent-edit admission remain separate. |
+| STD-045 | Default force On; My Rig owns switch | partial | Saved On/Off, accepted Grip tune and current profile mapping retained. No force/default/owner-file change or device test. |
+| STD-046 | Per-camera starting choices and offsets | pending | Existing measured/game framing remains; per-camera Game/Realistic contract not implemented. |
+| STD-047 | One spanning window; eye to edge plane | partial | Existing one-window span retained. Vendored TripleRigDefinition still subtracts sagitta in ChordDistanceMm; renderer/toolkit adoption remains open. |
+| STD-048 | Numpad plus zooms in | pending | Current CameraTuning maps numpad plus to Camera wider; direction/migration not changed by this persistence fix. |
+| STD-049 | Cab-over bonnet on roof front edge | unchecked | Existing car-body camera fitting retained; cab-over-specific placement unqualified. |
+
 ## October 27: focused TripleView FOV successor
 
 Compared current STD-001..040. Reused eaea8fb/d6488dd on53af231 without changing

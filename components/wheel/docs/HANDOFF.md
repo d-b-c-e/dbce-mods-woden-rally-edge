@@ -1,3 +1,12 @@
+# November 2: single-key save source fix, local main only
+
+ConfigLine now preserves exact UTF-8/BOM, per-line endings and owned-line spacing,
+refuses ambiguous owned keys/sections, and uses exclusive flushed atomic temps.
+104 suites/52,642 assertions plus Core/Plugin Release builds pass. No install,
+game/device/force or owner-state preparation. Public push requires the owner's
+decision through kole; named lease released. Full details, hashes and evidence:
+[single-key save handoff](../../../docs/2026-11-02-configline-preservation.md).
+
 # October 30, 01:00-01:45: ISS-0013 camera keys, centred F7 label, installed 60be56c (vemi, taking over from dome)
 
 ISS-0013 (6e0fb7a): the owner's saved camera keys (8/2 up/down, 9/7 forward/back, 1/3 tilt, 0 reset) are an earlier family

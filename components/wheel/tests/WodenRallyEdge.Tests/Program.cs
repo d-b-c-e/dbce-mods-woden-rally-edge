@@ -20,6 +20,8 @@ TelemetrySample Sample(double time, float velocity = 10, float position = 0, int
     s.Vector("motion.position.world", new(position, 0, 0)); s.Vector("motion.velocity.world", new(velocity, 0, 0)); return s;
 }
 
+Test("single-key saves preserve file bytes and refuse ambiguous input", () => ConfigLineChecks.Run(Check));
+
 Test("shared recording HUD uses actual Woden recorder states and center viewport", () => {
     var clean = new RecordingCounters();
     Check(RecordingHudLine.Describe("Disabled", 0, clean, null, false, false) == null, "no prepared recorder has no HUD");
