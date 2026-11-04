@@ -67,13 +67,15 @@ public sealed class Bindings
         if (!hadKeys) { bindings.CameraKeys = CameraTuning.DefaultKeys(); bindings.CameraKeysMigrated = true; }
         return bindings;
     }
-    public void Save(string path) => SaveJson(path, JsonSerializer.Serialize(this, Json));
+    public void Save(string path) => SaveJson(path, JsonSerializer.Serialize(this, Json), true);
+    // First-file fallback may never replace a file created by another writer.
+    internal void SaveNew(string path) => SaveJson(path, JsonSerializer.Serialize(this, Json), false);
     public void SaveDeadzone(string path, string axis, AxisBinding previous)
     {
         var updated = Axis(axis) ?? throw new IOException("Missing edited axis");
         if (!updated.Valid || (updated with { Calibration = updated.Calibration with { Deadzone = previous.Calibration.Deadzone } }) != previous)
             throw new IOException("Deadzone save cannot change the axis binding");
-        if (!File.Exists(path)) { Save(path); return; }
+        if (!File.Exists(path)) { SaveNew(path); return; }
         string full = Path.GetFullPath(path);
         if ((File.GetAttributes(full) & (FileAttributes.ReparsePoint | FileAttributes.ReadOnly)) != 0)
             throw new IOException("Linked or read-only bindings refused");
@@ -144,16 +146,32 @@ public sealed class Bindings
         }
         throw new IOException("Unterminated saved object");
     }
-    private static void SaveJson(string path, string json)
+    private static void SaveJson(string path, string json, bool allowReplace)
     {
-        string full = Path.GetFullPath(path); Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+        string full = Path.GetFullPath(path);
+        bool existed = File.Exists(full);
+        if (!allowReplace && (existed || Directory.Exists(full))) throw new IOException("Bindings already exist; reopen the editor");
+        if (existed && (File.GetAttributes(full) & (FileAttributes.ReparsePoint | FileAttributes.ReadOnly)) != 0)
+            throw new IOException("Linked or read-only bindings refused");
+        Directory.CreateDirectory(Path.GetDirectoryName(full)!);
         string temp = full + ".tmp-" + Guid.NewGuid().ToString("N");
+        bool owned = false;
         try
         {
-            File.WriteAllText(temp, json);
-            if (File.Exists(full)) File.Replace(temp, full, full + ".bak", true); else File.Move(temp, full);
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(json);
+            using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None)) {
+                owned = true; stream.Write(bytes, 0, bytes.Length); stream.Flush(true);
+            }
+            if (existed) {
+                string backup = full + ".bak";
+                if (File.Exists(backup) || Directory.Exists(backup)) backup += "." + Guid.NewGuid().ToString("N");
+                File.Replace(temp, full, backup, true);
+            } else File.Move(temp, full); // Never adopt a target appearing after admission.
+            owned = false;
         }
-        finally { if (File.Exists(temp)) File.Delete(temp); }
+        finally {
+            if (owned) try { File.Delete(temp); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
     }
 }
 
