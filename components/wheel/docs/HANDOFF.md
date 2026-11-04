@@ -1,3 +1,11 @@
+# November 3: presentation preferences are one owned batch, local source only
+
+[Presentation handoff](../../../docs/2026-11-03-presentation-batch.md): View/Page
+now use one ConfigLine batch, shared with the single-key writer lock; model/Bep
+entries commit after disk success. Real old Settings+BepConfig byte regression
+red, fixed58/58 including existing7 single-key checks; net6 build clean. Managed
+Core/Bep only in an inert fixture. No Woden plugin DLL/game/device/UI/install or
+public push. General config/full-binding writers and live gates remain open.
 # November 3: binding publication/missing-file slice, local source only
 
 [Publication handoff](../../../docs/2026-11-03-bindings-publication.md): full
