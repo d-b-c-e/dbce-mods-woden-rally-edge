@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ProductionRoot Condition="'$(ProductionRoot)' == ''">../../src</ProductionRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(ProductionRoot)/WodenRallyEdge.Core/CameraCycle.cs" Link="Production/CameraCycle.cs" />
+    <Compile Include="$(ProductionRoot)/WodenRallyEdge.Core/CameraTuning.cs" Link="Production/CameraTuning.cs" />
+    <Compile Include="$(ProductionRoot)/WodenRallyEdge.Plugin/TripleGeometry.cs" Link="Production/TripleGeometry.cs" />
+    <Compile Include="$(ProductionRoot)/WodenRallyEdge.Plugin/CurvedRig.cs" Link="Production/CurvedRig.cs" />
+    <Compile Include="$(ProductionRoot)/WodenRallyEdge.Plugin/Toolkit/Triple/*.cs" Link="Production/Toolkit/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>
