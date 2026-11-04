@@ -9,7 +9,7 @@ string root = Path.GetFullPath(args[0]); Directory.CreateDirectory(root);
 string path = Path.Combine(root, "presentation.cfg");
 int checks = 0, failures = 0;
 void Check(bool pass, string label) { checks++; if (!pass) failures++; Console.Error.WriteLine((pass ? "ok " : "FAIL ") + label); }
-bool Refuses(Action save) { try { save(); return false; } catch (IOException) { return true; } catch (UnauthorizedAccessException) { return true; } catch (DecoderFallbackException) { return true; } }
+bool Refuses(Action save) { try { save(); return false; } catch (InvalidDataException) { return true; } catch (IOException) { return true; } catch (UnauthorizedAccessException) { return true; } catch (DecoderFallbackException) { return true; } }
 byte[] Bytes(string text, bool bom = false) => (bom ? new byte[] { 239,187,191 } : Array.Empty<byte>()).Concat(Encoding.UTF8.GetBytes(text)).ToArray();
 const string raw = "# owner café\r\n[Interface]\n  View  = Simple  \r\n Page = Setup \nScalePercent=117\r\n[ForceFeedback]\nEnabled=false\r\nModel=Classic\nStrengthPercent = 43.75\r\nDamping=0.123\n[Future]\r\nMystery=keep";
 (Settings Settings, ConfigFile Config) Load(byte[] data) { File.WriteAllBytes(path, data); var cfg = new ConfigFile(path, false); return (new Settings(cfg), cfg); }
