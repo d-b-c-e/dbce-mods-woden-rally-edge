@@ -70,9 +70,36 @@ or errors. The exact plugin-build Core DLL passed all80 CameraSets checks,
 the INI suite7 and FOV-policy suite95. The next curved suite stopped at its
 historical expectation that the centre source must be wider; shared74c5eda
 keeps the centre boundary rays at the measured panel-edge plane instead.
-That test is corrected without production changes. Focused suites3-7 await
-retry; passed builds and assertions are retained. Cleanup and certificate checks
-passed again. No game was loaded or installed.
+That test was corrected without production changes. CPU514570 passed the five
+remaining suites:290 curve,15 UX,23 pose/bindings,9 camera-cycle and20 release
+assertions. Total:80 camera-set checks plus459 focused assertions. Production at
+9ff7bc9d is byte-source-identical to compiled6c75894d. All jobs exited, independent
+all-image audits passed before exact lease exit, handles0, My/Root certificates
+unchanged. No game was loaded.
+
+## Installed owner candidate
+
+File-only installation completed after local-main landing. Exact installed DLLs:
+
+- Plugin: `1ABE6F1B66C4A5CBF0141EB7F5DC7A4FFD78997A606120725C57AB71B69A880B`
+- Core: `B769F6C6C70F97EB5E477AF6308031E5160650E43D4551EBD6027DE56045C660`
+- Receipt: `31BE6508AE414318AD04F02092A7B4C921829AAE1455022F6E04C9A7E8386659`
+
+Backup and one-step rollback:
+`E:/Source/_archive/2026-11-03/owner-before-woden-camera-sets-054253518/Rollback.ps1`.
+The external manifest includes41 original files. Independent readback confirmed
+all23 receipt-owned payloads, all3 replacements, all backups and9 protected
+configuration files including timestamps/attributes. Existing settings/tune kept.
+The old receipt's nested identities were stale; the real Manage-Install.ps1
+Expected-Candidate/Expected-OrdinarySession producers regenerated them from the
+actual23-file tuple, then its Assert-ReceiptFiles validator accepted the result.
+No new camera capability declaration was invented; Wheelkit support remains a
+separate integration step.
+
+Evidence in the owning worktree's ignored
+`bld/camera-sets-qualification/`: `cpu-baseline02`, `cpu-green02`,
+`cpu-focused04`, and `owner-install/{deploy-plan,install,independent-readback}.json`.
+Failed/refused attempts remain in separate directories. Public push: none.
 
 CameraSets uses actual Core, real
 BepInEx ConfigFile and production planning/store handlers for restart, locked
