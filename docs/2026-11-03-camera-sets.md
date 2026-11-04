@@ -65,7 +65,16 @@ UnityPlayer SHA256 9FEEDB4527A30FAE4762BFF45D204F8E85B90851B2C8AE8D24F436F7D4746
 following existing native-self/bool adapters. Missing calls leave the body alone.
 This is shipped-file evidence, not proof the runtime calls succeed.
 
-Green and full-plugin retry await CPU GO. CameraSets uses actual Core, real
+CPU514343 then built the full plugin and all three projects with zero warnings
+or errors. The exact plugin-build Core DLL passed all80 CameraSets checks,
+the INI suite7 and FOV-policy suite95. The next curved suite stopped at its
+historical expectation that the centre source must be wider; shared74c5eda
+keeps the centre boundary rays at the measured panel-edge plane instead.
+That test is corrected without production changes. Focused suites3-7 await
+retry; passed builds and assertions are retained. Cleanup and certificate checks
+passed again. No game was loaded or installed.
+
+CameraSets uses actual Core, real
 BepInEx ConfigFile and production planning/store handlers for restart, locked
 saves, byte preservation, independent cars/sets, developer non-persistence,
 measured-eye UVs, lens withdrawal and custom binding preservation. Existing

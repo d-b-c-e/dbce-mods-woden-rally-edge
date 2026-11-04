@@ -515,9 +515,11 @@ Test("curved rig: radius 0 reproduces TripleGeometry, curvature widens the sourc
     }
     var curved = WodenRallyEdge.CurvedRig.Compute(708.4, 398.5, 660, 70, 8, 1500);
     Check(curved.Warps is { Length: 3 } && curved.Warps.All(w => !w.IsFlat), "1500R gives three warps");
-    // Eye distance stays at the panel-edge plane. The source covers the curve,
-    // so the centre source is wider; its middle still maps to the middle.
-    Check(curved.Views[1].Top > reference[1].Top && curved.Views[1].Right > reference[1].Right, "curved centre source is wider than the flat panel");
+    // Shared 74c5eda defines distance at the panel-edge plane, not the glass
+    // middle. Centre boundary rays therefore remain equal to the flat panel;
+    // the interior UVs account for the glass receding behind those edges.
+    Near(curved.Views[1].Top, reference[1].Top, "curved centre top stays on the measured edge plane", 1e-9);
+    Near(curved.Views[1].Right, reference[1].Right, "curved centre right stays on the measured edge plane", 1e-9);
     Near(curved.Views[0].YawDegrees, -70, "curved left yaw", 1e-9); Near(curved.Views[2].YawDegrees, 70, "curved right yaw", 1e-9);
     curved.Warps![1].SourceUv(0.5, 0.5, out double cu, out double cv);
     Near(cu, 0.5, "centre column samples the source centre", 1e-9); Near(cv, 0.5, "centre row samples the source centre", 1e-9);
