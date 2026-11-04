@@ -57,7 +57,15 @@ under `bld/camera-sets-qualification/cpu-baseline02/` in the owning worktree.
 First attempt511982 refused a forward-slash executable path before resume; its
 failure/release evidence remains separate. No product test ran in that attempt.
 
-Green and full-plugin build await CPU GO. CameraSets uses actual Core, real
+First GREEN run (CPU514123) compiled CameraSets, then found the generated
+Renderer has no forceRenderingOff member. It exited with no fixtures executed;
+job/audit/handles/lease closure passed and My/Root certificates were unchanged.
+RendererNative now uses the two exact injected names present in supported
+UnityPlayer SHA256 9FEEDB4527A30FAE4762BFF45D204F8E85B90851B2C8AE8D24F436F7D474667B,
+following existing native-self/bool adapters. Missing calls leave the body alone.
+This is shipped-file evidence, not proof the runtime calls succeed.
+
+Green and full-plugin retry await CPU GO. CameraSets uses actual Core, real
 BepInEx ConfigFile and production planning/store handlers for restart, locked
 saves, byte preservation, independent cars/sets, developer non-persistence,
 measured-eye UVs, lens withdrawal and custom binding preservation. Existing

@@ -193,9 +193,9 @@ internal static class MountedCamera
         try
         {
             var renderer = car.CarMesh?.GetComponent<Renderer>();
-            if (renderer == null) return;
-            _hiddenBody = renderer; _bodyWasForcedOff = renderer.forceRenderingOff;
-            renderer.forceRenderingOff = true;
+            if (renderer == null || !RendererNative.TryGet(renderer, out bool wasOff)) return;
+            _hiddenBody = renderer; _bodyWasForcedOff = wasOff;
+            RendererNative.ForceOff(renderer, true);
         }
         catch (Exception ex) { if (!_bodyHideWarned) { _bodyHideWarned = true; Runtime.Log.LogWarning("Bumper body visibility unavailable: " + ex.Message); } }
     }
@@ -205,7 +205,7 @@ internal static class MountedCamera
         if (body == null) return;
         // Keep the native enabled state, layers, colliders, lights and effects
         // untouched. This lease owns only the body's rendering override.
-        try { if (body.forceRenderingOff) body.forceRenderingOff = _bodyWasForcedOff; }
+        try { if (RendererNative.TryGet(body, out bool forcedOff) && forcedOff) RendererNative.ForceOff(body, _bodyWasForcedOff); }
         catch (Exception ex) { Runtime.Log.LogWarning("Bumper body restore target gone: " + ex.Message); }
     }
     internal static CameraPose Pose(bool bumper)
