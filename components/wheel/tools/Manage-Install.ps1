@@ -26,6 +26,21 @@ $reviewedPrivateShimHashes = @('9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B
 $basePaths = @($payloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
 $revision4BasePaths = @($revision4PayloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
 $legacyBasePaths = @($legacyPayloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
+function Expected-WodenFovSets {
+    # CameraFramingStore: both stock modes inherit Chase; saved preset choices
+    # override that fallback. This owns booleans only, never offsets or poses.
+    [ordered]@{
+        schema=1; config='BepInEx/config/dbce.wodenrallyedgewheel.cfg'; section='Triple'
+        starts=@(
+            [ordered]@{camera='Bonnet';key='BonnetRealistic';defaultRealistic=$false}
+            [ordered]@{camera='Bumper';key='BumperRealistic';defaultRealistic=$true}
+            [ordered]@{camera='Chase';key='ChaseRealistic';defaultRealistic=$false}
+            [ordered]@{camera='Isometric';key='IsometricRealistic';defaultRealistic=$false}
+        )
+        stockPresetFamilies=@('Chase','Isometric'); stockPresetIndex='canonical-int32'
+        offsetsOwnedByApply=$false; runtimeVerified=$false
+    }
+}
 function Get-ReviewedCompanionHash {
     # Only a new install needs the current package's reviewed companion. An
     # uninstall validates its prior receipt without this source-side file.
@@ -396,6 +411,7 @@ try {
         $nextReceipt.nativeGearboxPreference = $true
         # [Triple] CurveRadiusMm (curved panels) and FovKey are read by this plugin; Wheelkit shows and writes the curve row only when this is true.
         $nextReceipt.curvedTriples = $true
+        $nextReceipt.wodenFovSets = Expected-WodenFovSets
         if ($private) { $nextReceipt.sharedInputCandidate = $privateMetadata }
         $nextReceipt.ordinarySession = Expected-OrdinarySession $owned $advertiseInputOrigin
     }
