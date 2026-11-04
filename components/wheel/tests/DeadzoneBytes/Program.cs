@@ -29,7 +29,8 @@ if (args[1] != "regression") {
     ClearBackups(); File.WriteAllBytes(path, before); File.WriteAllText(path + ".bak", "prior backup");
     edited.SaveDeadzone(path, "Brake", previous);
     Check(File.ReadAllText(path + ".bak") == "prior backup", "existing backup never overwritten");
-    Check(Directory.GetFiles(directory, "bindings.json.bak.*").Single() is string backup && File.ReadAllBytes(backup).SequenceEqual(before), "new backup suffix retains exact original");
+    string backup = Directory.GetFiles(directory).Single(p => Path.GetFileName(p).StartsWith("bindings.json.bak.", StringComparison.Ordinal));
+    Check(File.ReadAllBytes(backup).SequenceEqual(before), "new backup suffix retains exact original");
     var current = edited.Brake!;
     long ticks = File.GetLastWriteTimeUtc(path).Ticks;
     edited.SaveDeadzone(path, "Brake", current);
