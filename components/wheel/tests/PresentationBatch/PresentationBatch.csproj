@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net6.0</TargetFramework><UseAppHost>false</UseAppHost>
+    <SettingsSource Condition="'$(SettingsSource)' == ''">../../src/WodenRallyEdge.Plugin/Settings.cs</SettingsSource>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/WodenRallyEdge.Core/WodenRallyEdge.Core.csproj" />
+    <Reference Include="BepInEx.Core" HintPath="../../lib/core/BepInEx.Core.dll" />
+    <Compile Include="$(SettingsSource)" Link="Production/Settings.cs" />
+    <Compile Include="../WodenRallyEdge.Tests/ConfigLineChecks.cs" Link="Existing/ConfigLineChecks.cs" />
+  </ItemGroup>
+</Project>

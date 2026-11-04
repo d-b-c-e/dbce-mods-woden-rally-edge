@@ -34,10 +34,13 @@ public sealed class Settings
     public bool CustomFfb => FfbModel != "Grip" || FfbLoadRatio != 1.5f || FfbGripSmoothing != .2f || FfbPeak != 25 || FfbLoadReference != 6000 || FfbSlipScale != .35f || FfbSmoothing != 35 || FfbDamping != .05f || FfbInvert;
     public void SetPresentation(string view, string page)
     {
-        UiView = SettingsPresentation.View(view); UiPage = SettingsPresentation.Page(page, UiView);
-        _config.Bind("Interface", "View", "Simple").Value = UiView;
-        _config.Bind("Interface", "Page", "Setup").Value = UiPage;
-        _config.Save();
+        string nextView = SettingsPresentation.View(view), nextPage = SettingsPresentation.Page(page, nextView);
+        var viewEntry = _config.Bind("Interface", "View", "Simple");
+        var pageEntry = _config.Bind("Interface", "Page", "Setup");
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(_config.ConfigFilePath))!);
+        ConfigLine.WriteBatch(_config.ConfigFilePath, "Interface", ("View", nextView), ("Page", nextPage));
+        UiView = nextView; UiPage = nextPage;
+        viewEntry.Value = UiView; pageEntry.Value = UiPage;
     }
     public ForceOptions ForceOptions => new(FfbStrength, FfbPeak, FfbLoadReference, FfbSlipScale, FfbSmoothing, FfbDamping, FfbInvert,
         FfbModel == "Classic" ? 3 : GripSignal.ModelVersion, FfbLoadRatio, FfbGripSmoothing);
