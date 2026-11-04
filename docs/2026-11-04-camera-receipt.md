@@ -22,5 +22,12 @@ assignment through the PowerShell AST. Baseline ab0c0c3 is RED (missing producer
 the new producer is GREEN in PowerShell 7 and Windows PowerShell 5.1. Its
 `-EmitFixture` output supplies Wheelkit's inert reader declaration fixture.
 
+Matching Wheelkit source e4f4855 passed116/116 Release camera cases under
+GO518906 (new Woden36/existing80). Restore/test27.06s, offline18-package feed,
+isolated CLI/NuGet/TEMP, unchanged certificate metadata. All18 observed process
+identities were absent at independent census; exact named lease released16:36:14Z.
+This is not job containment. Evidence is in that Wheelkit worktree's
+`artifacts/napo-woden-camera/cpu-518906/` (TRX, result, audit and closure).
+
 This is no plugin rebuild, package, install, game/UI, physical or owner-acceptance
 evidence. `runtimeVerified=false` and `offsetsOwnedByApply=false` remain explicit.

@@ -4,7 +4,8 @@
 declares `wodenFovSets` starting choices, including existing Chase/Isometric
 preset overrides. No offsets, preset-count claim or runtime verification.
 Actual producer baseline RED/new GREEN under PS7 and PS5.1. Matching isolated
-Wheelkit reader qualification is pending. No package/install/owner writes.
+Wheelkit e4f4855 passed116/116 focused camera cases (new Woden36/existing80),
+GO518906; lease and process closure verified. No package/install/owner writes.
 
 # November 3: presentation preferences are one owned batch, local source only
 
