@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Nodes;
 
 namespace WodenRallyEdge.Core;
 
@@ -75,20 +74,75 @@ public sealed class Bindings
         if (!updated.Valid || (updated with { Calibration = updated.Calibration with { Deadzone = previous.Calibration.Deadzone } }) != previous)
             throw new IOException("Deadzone save cannot change the axis binding");
         if (!File.Exists(path)) { Save(path); return; }
-        var saved = JsonNode.Parse(File.ReadAllText(path))?.AsObject() ?? throw new IOException("Empty bindings");
-        static string Key(JsonObject owner, string name)
-        {
-            var keys = owner.Select(p => p.Key).Where(k => k.Equals(name, StringComparison.OrdinalIgnoreCase)).ToArray();
-            return keys.Length == 1 ? keys[0] : throw new IOException("Missing or ambiguous saved " + name);
-        }
-        var savedAxis = saved[Key(saved, axis)]!.AsObject();
-        if (JsonSerializer.Deserialize<AxisBinding>(savedAxis.ToJsonString(), Json) != previous)
+        string full = Path.GetFullPath(path);
+        if ((File.GetAttributes(full) & (FileAttributes.ReparsePoint | FileAttributes.ReadOnly)) != 0)
+            throw new IOException("Linked or read-only bindings refused");
+        // Deny content writers while retaining the snapshot through replacement.
+        // Independently renaming editors must still be excluded by the caller.
+        using var input = new FileStream(full, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+        if (input.Length > 1024 * 1024) throw new IOException("Oversized bindings");
+        byte[] before;
+        using (var copy = new MemoryStream()) { input.CopyTo(copy); before = copy.ToArray(); }
+        int bom = before.Length >= 3 && before[0] == 0xef && before[1] == 0xbb && before[2] == 0xbf ? 3 : 0;
+        using var document = JsonDocument.Parse(before.AsMemory(bom)); // Validate every byte, not just the owned object.
+        var axisSpan = Member(before.AsSpan(bom), axis);
+        if (axisSpan.Start < 0) throw new IOException("Missing saved " + axis);
+        var axisBytes = before.AsSpan(bom + axisSpan.Start, axisSpan.End - axisSpan.Start);
+        var calibrationSpan = Member(axisBytes, "Calibration");
+        if (calibrationSpan.Start < 0) throw new IOException("Missing saved Calibration");
+        if (JsonSerializer.Deserialize<AxisBinding>(axisBytes, Json) != previous)
             throw new IOException("Saved axis changed; reopen the deadzone editor");
-        var calibration = savedAxis[Key(savedAxis, "Calibration")]!.AsObject();
-        var deadzones = calibration.Select(p => p.Key).Where(k => k.Equals("Deadzone", StringComparison.OrdinalIgnoreCase)).ToArray();
-        if (deadzones.Length > 1) throw new IOException("Ambiguous saved Deadzone");
-        calibration[deadzones.SingleOrDefault() ?? "Deadzone"] = updated.Calibration.Deadzone;
-        SaveJson(path, saved.ToJsonString(Json));
+        int calibrationStart = bom + axisSpan.Start + calibrationSpan.Start;
+        var deadzoneSpan = Member(before.AsSpan(calibrationStart, calibrationSpan.End - calibrationSpan.Start), "Deadzone");
+        if (updated.Calibration.Deadzone == previous.Calibration.Deadzone) return;
+        byte[] value = JsonSerializer.SerializeToUtf8Bytes(updated.Calibration.Deadzone);
+        int start, end;
+        if (deadzoneSpan.Start >= 0) {
+            start = calibrationStart + deadzoneSpan.Start; end = calibrationStart + deadzoneSpan.End;
+        } else {
+            start = end = calibrationStart + deadzoneSpan.Close;
+            value = System.Text.Encoding.UTF8.GetBytes((deadzoneSpan.HasMembers ? "," : "") + "\"Deadzone\":" + System.Text.Encoding.UTF8.GetString(value));
+        }
+        byte[] after = new byte[start + value.Length + before.Length - end];
+        before.AsSpan(0, start).CopyTo(after);
+        value.CopyTo(after, start);
+        before.AsSpan(end).CopyTo(after.AsSpan(start + value.Length));
+        string temp = full + ".tmp-" + Guid.NewGuid().ToString("N");
+        bool owned = false;
+        try {
+            using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None)) {
+                owned = true; stream.Write(after, 0, after.Length); stream.Flush(true);
+            }
+            if (!File.ReadAllBytes(full).AsSpan().SequenceEqual(before)) throw new IOException("Saved bindings changed; reopen the editor");
+            string backup = full + ".bak";
+            if (File.Exists(backup) || Directory.Exists(backup)) backup += "." + Guid.NewGuid().ToString("N");
+            File.Replace(temp, full, backup, true);
+            owned = false;
+        } finally {
+            if (owned) try { File.Delete(temp); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    // Locate one immediate member using JSON tokens; escaped property names and
+    // nested lookalikes cannot make a string search edit the wrong value.
+    private static (int Start, int End, int Close, bool HasMembers) Member(ReadOnlySpan<byte> json, string name)
+    {
+        var reader = new Utf8JsonReader(json);
+        if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject) throw new IOException("Expected saved object " + name);
+        int start = -1, end = -1; bool members = false;
+        while (reader.Read()) {
+            if (reader.TokenType == JsonTokenType.EndObject) return (start, end, checked((int)reader.TokenStartIndex), members);
+            if (reader.TokenType != JsonTokenType.PropertyName) throw new IOException("Invalid saved object");
+            members = true;
+            bool match = string.Equals(reader.GetString(), name, StringComparison.OrdinalIgnoreCase);
+            if (!reader.Read()) throw new IOException("Missing saved value");
+            int a = checked((int)reader.TokenStartIndex); reader.Skip();
+            if (match) {
+                if (start >= 0) throw new IOException("Ambiguous saved " + name);
+                start = a; end = checked((int)reader.BytesConsumed);
+            }
+        }
+        throw new IOException("Unterminated saved object");
     }
     private static void SaveJson(string path, string json)
     {

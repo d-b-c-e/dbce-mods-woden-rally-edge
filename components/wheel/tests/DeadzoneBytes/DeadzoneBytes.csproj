@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net6.0</TargetFramework><UseAppHost>false</UseAppHost>
+    <BindingsSource Condition="'$(BindingsSource)' == ''">../../src/WodenRallyEdge.Core/Bindings.cs</BindingsSource>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(BindingsSource)" Link="Production/Bindings.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Core/AxisCalibration.cs" Link="Production/AxisCalibration.cs" />
+  </ItemGroup>
+</Project>
