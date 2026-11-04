@@ -10,12 +10,18 @@ namespace WodenRallyEdge.Core;
 /// </summary>
 public static class ConfigLine
 {
+    private static readonly object Writers = new();
     public static void Write(string path, string section, string key, string value)
         => WriteBatch(path, section, (key, value));
 
     // Plan every requested value against one snapshot; publish once, after all
     // keys have passed validation. Never call the single-key disk writer in a loop.
     public static void WriteBatch(string path, string section, params (string Key, string Value)[] changes)
+    {
+        lock (Writers) WriteBatchLocked(path, section, changes);
+    }
+
+    private static void WriteBatchLocked(string path, string section, (string Key, string Value)[] changes)
     {
         string full = Path.GetFullPath(path);
         if (string.IsNullOrWhiteSpace(section) || section.Trim() != section || section.IndexOfAny(new[] { '[', ']', '\r', '\n', '\0' }) >= 0)

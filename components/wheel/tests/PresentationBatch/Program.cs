@@ -79,6 +79,11 @@ if (args[1] != "regression") {
     fresh.SetPresentation("typo","Controls");
     Check(fresh.UiView == "Simple" && fresh.UiPage == "Controls", "invalid view normalization retains common page");
     ConfigLineChecks.Run(Check); // Existing seven actual single-key preservation/refusal checks.
+    File.WriteAllBytes(path, Bytes(raw));
+    Task.WaitAll(
+        Task.Run(() => { for (int i=0;i<20;i++) ConfigLine.Write(path,"Interface","View","Advanced"); }),
+        Task.Run(() => { for (int i=0;i<20;i++) ConfigLine.Write(path,"Interface","Page","Driving"); }));
+    Check(File.ReadAllBytes(path).SequenceEqual(Bytes(raw.Replace("View  = Simple","View  = Advanced").Replace("Page = Setup","Page = Driving"))), "single-key and batch callers share in-process serialization");
     (s,cfg) = Load(Bytes(raw)); string unrelated = path + ".tmp-unrelated"; File.WriteAllText(unrelated,"keep sibling");
     s.SetPresentation("Advanced","Driving");
     Check(File.ReadAllText(unrelated) == "keep sibling", "batch does not reclaim unrelated temp");
