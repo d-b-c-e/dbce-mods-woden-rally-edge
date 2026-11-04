@@ -61,14 +61,21 @@ public static class CameraTuning
     public static readonly string[] Labels = { "Change camera", "Look behind", "Move up", "Move down", "Move forward", "Move back", "Move left", "Move right", "Tilt up", "Tilt down", "Widen FOV", "Narrow FOV", "Reset view" };
     // Family layout (owner, 2026-10-04): 8/2 forward/back, 9/3 up/down, 4/6 left/right,
     // 7/1 tilt forward/back, +/- FOV, 5 reset. Tilt forward looks down (pitch down).
-    private static readonly string[] Keys = { "None", "None", "Numpad9", "Numpad3", "Numpad8", "Numpad2", "Numpad4", "Numpad6", "Numpad1", "Numpad7", "NumpadPlus", "NumpadMinus", "Numpad5" };
+    private static readonly string[] Keys = { "None", "None", "Numpad9", "Numpad3", "Numpad8", "Numpad2", "Numpad4", "Numpad6", "Numpad1", "Numpad7", "NumpadMinus", "NumpadPlus", "Numpad5" };
     public static Dictionary<string, string> DefaultKeys() => Actions.Select((a, i) => (a, i)).ToDictionary(x => x.a, x => Keys[x.i]);
+    public static string KeyHint(Bindings? bindings, string action)
+    {
+        string? key = bindings?.CameraKeys.GetValueOrDefault(action);
+        if (key != null && key != "None") return key.Replace("Numpad", "Num ").Replace("Plus", "+").Replace("Minus", "-");
+        return bindings != null && bindings.Buttons.TryGetValue(action, out var button) ? Dbce.Wheel.Ffb.DigitalInput.Label(button.Button) : "unbound";
+    }
 
     // Earlier family defaults, adjustment keys only (up, down, forward, back, left, right,
     // pitch up, pitch down, wider, narrower, reset). A saved set equal to one of these
     // records no player choice and moves to the current layout.
     private static readonly string[][] PreviousLayouts =
     {
+        new[] { "Numpad9", "Numpad3", "Numpad8", "Numpad2", "Numpad4", "Numpad6", "Numpad1", "Numpad7", "NumpadPlus", "NumpadMinus", "Numpad5" },
         new[] { "Numpad8", "Numpad2", "Numpad9", "Numpad7", "Numpad4", "Numpad6", "Numpad3", "Numpad1", "NumpadPlus", "NumpadMinus", "Numpad0" },
         new[] { "Numpad8", "Numpad2", "Numpad9", "Numpad7", "Numpad4", "Numpad6", "Numpad1", "Numpad3", "NumpadPlus", "NumpadMinus", "Numpad0" },
         new[] { "Numpad9", "Numpad3", "Numpad8", "Numpad2", "NumpadDivide", "NumpadMultiply", "Numpad4", "Numpad6", "NumpadPlus", "NumpadMinus", "Numpad5" },

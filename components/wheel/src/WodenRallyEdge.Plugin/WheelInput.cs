@@ -67,7 +67,7 @@ internal sealed class WheelInput
         try
         {
             Bindings = Bindings.Load(path);
-            if (Bindings.CameraKeysMigrated) Runtime.Log.LogInfo("Camera keys: no saved keys; using default numpad layout 8/2 forward/back, 9/3 up/down, 4/6 left/right, 7/1 tilt, +/- FOV, 5 reset");
+            if (Bindings.CameraKeysMigrated) Runtime.Log.LogInfo("Camera shortcut defaults supplied or upgraded in memory: numpad + narrows, - widens; customized keyboard layouts and wheel bindings are kept. No bindings file was rewritten on load.");
         }
         catch (Exception ex) { Status = "Bindings could not load: " + ex.Message; SaveError = Status; }
     }

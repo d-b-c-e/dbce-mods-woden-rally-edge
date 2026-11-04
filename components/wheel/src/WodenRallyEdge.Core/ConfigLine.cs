@@ -11,6 +11,24 @@ namespace WodenRallyEdge.Core;
 public static class ConfigLine
 {
     private static readonly object Writers = new();
+    /// <summary>Read a scoped scalar with the same UTF-8, section and duplicate-key validation as the writer.</summary>
+    public static string? ReadValue(string path, string section, string key)
+    {
+        if (!File.Exists(path)) return null;
+        if (new FileInfo(path).Length > 1024 * 1024) throw new InvalidDataException("Oversized settings file");
+        byte[] bytes = File.ReadAllBytes(path);
+        _ = Edit(bytes, section, key, ""); // Validate in memory only; no file publication.
+        int bom = bytes.Length >= 3 && bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf ? 3 : 0;
+        string text = new UTF8Encoding(false, true).GetString(bytes, bom, bytes.Length - bom), current = "";
+        foreach (Match line in Regex.Matches(text, @"[^\r\n]*(?:\r\n|\r|\n|$)"))
+        {
+            string value = line.Value.Trim();
+            if (value.StartsWith('[')) current = value[1..^1];
+            else if (current == section && value.IndexOf('=') is var equals && equals >= 0 && value[..equals].Trim() == key)
+                return value[(equals + 1)..].Trim();
+        }
+        return null;
+    }
     public static void Write(string path, string section, string key, string value)
         => WriteBatch(path, section, (key, value));
 

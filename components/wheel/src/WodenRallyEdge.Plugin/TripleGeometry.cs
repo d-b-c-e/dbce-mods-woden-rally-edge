@@ -48,10 +48,14 @@ internal static class TripleGeometry
     /// A mounted view uses its owned saved pose, not a Camera.fieldOfView value affected by physical/custom projections.
     /// A missing mounted pose (handoff/replay/foreign camera) retains the game camera's lens behavior.</summary>
     public static double EyeDistanceForView(double panelHeight, double physicalEyeDistance, bool matchGameFov,
-        bool chaseUsesGameFov, MountedView view, double gameFov, double? ownedMountedFov, bool? sessionGameFov = null)
+        bool chaseUsesGameFov, MountedView view, double gameFov, double? ownedMountedFov, bool? sessionGameFov = null, double offsetDegrees = 0)
     {
-        if (!ShowsGameFov(sessionGameFov, matchGameFov, chaseUsesGameFov, view)) return physicalEyeDistance;
-        double fov = view != MountedView.Stock && ownedMountedFov.HasValue ? ownedMountedFov.Value : gameFov;
+        bool game = ShowsGameFov(sessionGameFov, matchGameFov, chaseUsesGameFov, view);
+        if (!game && offsetDegrees == 0) return physicalEyeDistance;
+        double fov = game
+            ? view != MountedView.Stock && ownedMountedFov.HasValue ? ownedMountedFov.Value : gameFov
+            : 2 * Math.Atan(panelHeight / (2 * physicalEyeDistance)) * 180 / Math.PI;
+        fov += offsetDegrees;
         return double.IsFinite(fov) && fov > 0 && fov < 180
             ? EyeDistanceForVerticalFov(panelHeight, fov) : physicalEyeDistance;
     }
@@ -60,7 +64,7 @@ internal static class TripleGeometry
     /// session A/B (FovKey, never saved) wins over the saved MatchGameFov/ChaseUsesGameFov choices: false is the
     /// measured perspective for every view, chase included; true is the lens for every view.</summary>
     public static bool ShowsGameFov(bool? sessionGameFov, bool matchGameFov, bool chaseUsesGameFov, MountedView view) =>
-        sessionGameFov ?? (matchGameFov || (chaseUsesGameFov && view == MountedView.Stock));
+        sessionGameFov ?? (view == MountedView.Stock ? chaseUsesGameFov : matchGameFov);
 
     // F7 comparison cycle (toolkit camera-framing-and-comparison policy, revision 2): 1 original game view, 2 angle
     // correction, 3 angle + curve correction. Saved as [Triple] CompareView; null (never pressed) follows the saved choices. Framing is not a step.
@@ -82,8 +86,8 @@ internal static class TripleGeometry
     public static string StepName(int step) =>
         step == OriginalStep ? "Original game view" : step == AngleStep ? "Angle correction" : "Angle + curve correction";
 
-    /// <summary>The saved pick ([Triple] CompareView): 1..3 is a step; anything else (a missing key reads 0) means none.</summary>
-    public static int? FromSaved(int saved) => saved is >= OriginalStep and <= AngleCurveStep ? saved : null;
+    /// <summary>STD-041: retired CompareView values never disable normal correction at startup. Developer state is session-only.</summary>
+    public static int? FromSaved(int saved) => null;
 
     /// <summary>The on-screen label: actual mode, step of count, framing source; only a failed save is reported.</summary>
     public static string ComparisonLabel(int step, int count, bool gameFov, bool saved = true) =>

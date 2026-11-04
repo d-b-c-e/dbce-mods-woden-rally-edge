@@ -5,6 +5,8 @@ using Il2CppInterop.Runtime;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Rendering.PostProcessing;
+using UnityEngine.SceneManagement;
+using WodenRallyEdge.Core;
 using Object = UnityEngine.Object;
 
 namespace WodenRallyEdge;
@@ -35,41 +37,81 @@ internal static class TripleView
     internal static TripleMode Mode { get => _mode?.Value ?? TripleMode.Auto; set { if (_mode != null && _mode.Value != value) _mode.Value = value; } }
     internal static bool MatchGameFov
     {
-        get => _matchGameFov?.Value ?? false;
-        set
-        {
-            if (_matchGameFov == null || _matchGameFov.Value == value) return;
-            if (value) StartAdjustableAtShownAngle(); // before the switch, while the center angle is still the rig's
-            SessionStep = TripleGeometry.FromSaved(_compareView.Value); // an explicit saved framing choice returns to the saved pick (clearing a fallback)
-            _matchGameFov.Value = value;
-        }
+        get => _framing == null ? _matchGameFov?.Value ?? true : !_framing.Realistic(CurrentCamera);
+        set { if (_framing != null && MatchGameFov != value) PressComparison(fromPanel: true); }
     }
-
-    /// <summary>
-    /// Both F6 routes to Adjustable (the Triple FOV choice and the locked row's button) start the on-screen mounted lens
-    /// at the angle shown, within the 30–110° lens bounds (Core FovModeSwitch). Only that view's saved lens changes: the
-    /// other view, Fit to car and the height, forward and tilt stay. A chase view, a fitted bonnet or no measured angle
-    /// leaves every value alone (the saved lens then applies). The Advanced editor caches its pose before the button
-    /// and saves only an edited pose, so this value is not overwritten in the same draw.
-    /// </summary>
-    private static void StartAdjustableAtShownAngle()
+    private static CameraFramingStore? _framing;
+    internal static CameraSlot CurrentCamera => MountedCamera.CurrentSlot;
+    internal static int CurrentCar => Runtime.Local == null ? 0 : (int)Runtime.Local.CarId;
+    internal static bool FramingEnabled => _mode != null && _mode.Value != TripleMode.Off && !_toggledOff && !_failed &&
+        (_mode.Value == TripleMode.On || Screen.width >= Screen.height * 2.9f);
+    internal static bool CameraEditAllowed => FramingEnabled && _framing != null && Runtime.Focused && Runtime.Local != null && MountedCamera.PlayerOwned;
+    internal static bool MountedFovLocked => false;
+    internal static double MeasuredFov => 2 * Math.Atan(_panelHeight.Value / (2 * _eye.Value)) * 180 / Math.PI;
+    private static string _cameraNotice = "";
+    internal static bool Realistic(CameraSlot camera) => _framing?.Realistic(camera) ??
+        !TripleGeometry.ShowsGameFov(null, _matchGameFov?.Value ?? true, _chaseGameFov?.Value ?? true, camera.Mount);
+    private static float LegacyFovOffset(CameraSlot camera) => camera.Mount switch
+    { MountedView.Bonnet => Runtime.Settings.CameraFov - CameraPose.Bonnet.Fov, MountedView.Bumper => Runtime.Settings.BumperFov - CameraPose.Bumper.Fov, _ => 0 };
+    private static float FovOffset(CameraSlot camera) => _framing?.FovOffset(camera, Realistic(camera), LegacyFovOffset(camera)) ?? 0;
+    internal static float FramedFov(CameraSlot camera, float gameFov, float? mountedStart = null) =>
+        CameraLens.Fov(Realistic(camera) ? MeasuredFov : mountedStart ?? gameFov, FovOffset(camera));
+    internal static string FramingStatus => !FramingEnabled ? "Game camera framing (single screen)." :
+        _framing == null ? "Camera sets unavailable; see the mod log." : CameraName(CurrentCamera) + ". F7 switches this camera's saved set.";
+    private static string CameraName(CameraSlot camera) => camera.Name + " - " + (Realistic(camera) ? "Realistic" : "Game") +
+        " FOV" + (Math.Abs(FovOffset(camera)) > .001f ? " (Custom)" : "");
+    private static void Announce(string? suffix = null)
     {
+        string text = CameraName(CurrentCamera) + (suffix == null ? "" : " - " + suffix) +
+            "\n" + CameraTuning.KeyHint(Runtime.Wheel?.Bindings, "Camera narrower") + " in / " +
+            CameraTuning.KeyHint(Runtime.Wheel?.Bindings, "Camera wider") + " out · " + FovKeyName + " sets · " +
+            CameraTuning.KeyHint(Runtime.Wheel?.Bindings, "Camera reset") + " reset";
+        ComparisonNotice.Show(text); Panel.ShowCameraMessage(text);
+        Runtime.Log.LogInfo(text.Replace('\n', ' '));
+    }
+    internal static bool TryGetPanelFov(out float value)
+    {
+        value = 0;
+        if (!CameraEditAllowed || _source == null) return false;
+        value = FramedFov(CurrentCamera, MountedCamera.NativeFov(_source), MountedCamera.BaseFov(CurrentCamera));
+        return true;
+    }
+    internal static void SetFovFromPanel(float value) => SaveFov(value);
+    internal static void AdjustFov(float delta) { if (TryGetPanelFov(out float current)) SaveFov(current + delta); }
+    private static void SaveFov(float value)
+    {
+        if (!CameraEditAllowed || _source == null || _framing == null) return;
         try
         {
-            var view = MountedCamera.Cycle.View;
-            bool mounted = Active && view != WodenRallyEdge.Core.MountedView.Stock, bumper = view == WodenRallyEdge.Core.MountedView.Bumper;
-            var cfg = Runtime.Settings;
-            double? shown = CenterVerticalFov;
-            if (WodenRallyEdge.Core.FovModeSwitch.AdjustableStart(shown, mounted, bumper || !cfg.CameraAutoFit) is not { } fov) return;
-            var pose = cfg.GetCameraPose(bumper);
-            if (Math.Abs(pose.Fov - fov) < .05f) return;
-            cfg.SetCameraPose(bumper, pose with { Fov = fov });
-            Panel.SettingsChanged();
-            Runtime.Log.LogInfo(FormattableString.Invariant($"Adjustable FOV: {(bumper ? "bumper" : "bonnet")} lens starts at {fov:0.0}° (shown {shown:0.0}°, saved lens was {pose.Fov:0.0}°)"));
+            var camera = CurrentCamera;
+            double start = Realistic(camera) ? MeasuredFov : MountedCamera.BaseFov(camera) ?? MountedCamera.NativeFov(_source);
+            _framing.SetFov(camera, Realistic(camera), start, value); _views = null; Announce();
         }
-        catch (Exception ex) { Runtime.Log.LogWarning("Adjustable FOV start: " + ex.Message); }
+        catch (Exception ex) { Announce("Couldn't save FOV: " + ex.Message); }
     }
-    internal static bool MountedFovLocked => Active && !MatchGameFov;
+    internal static CameraOffset PositionOffset(CameraSlot camera, CameraOffset fallback = default) =>
+        _framing?.Position(camera, CurrentCar, Realistic(camera), fallback) ?? fallback;
+    internal static void SetPositionFromPanel(CameraOffset value)
+    {
+        if (!CameraEditAllowed || _framing == null) return;
+        try { _framing.SetPosition(CurrentCamera, CurrentCar, Realistic(CurrentCamera), value, MountedCamera.LegacyOffset(CurrentCamera)); Announce(); }
+        catch (Exception ex) { Announce("Couldn't save position: " + ex.Message); }
+    }
+    internal static void AdjustPosition(string action) => SetPositionFromPanel(
+        PositionOffset(CurrentCamera, MountedCamera.LegacyOffset(CurrentCamera)).Adjust(action, Runtime.Settings.CameraSteps));
+    internal static void ResetCurrent()
+    {
+        if (!CameraEditAllowed || _framing == null) return;
+        try { _framing.Reset(CurrentCamera, CurrentCar, Realistic(CurrentCamera)); _views = null; Announce("reset to calculated start"); }
+        catch (Exception ex) { Announce("Couldn't reset view: " + ex.Message); }
+    }
+    internal static string LastCamera => _framing?.LastCamera ?? "";
+    internal static void RememberCamera()
+    {
+        if (!FramingEnabled || _framing == null) return;
+        try { _framing.Remember(CurrentCamera); }
+        catch (Exception ex) { Announce("Couldn't save camera: " + ex.Message); }
+    }
     /// <summary>The [Triple] geometry Physical mode uses, and whether it is still the shipped defaults.</summary>
     internal static string RigSettingsText => _panelWidth == null ? "" : WodenRallyEdge.Core.FovLockText.RigSettings(_panelWidth.Value, _panelHeight.Value,
         _eye.Value, _sideAngle.Value, _bezel.Value,
@@ -104,37 +146,31 @@ internal static class TripleView
     internal static string FovKeyName => _fovKey?.Value ?? "F7";
     /// <summary>A curve the comparison can show: a positive valid radius with no latched renderer failure.</summary>
     private static bool CurveAvailable => _curveRadius != null && _curveRadius.Value > 0f && float.IsFinite(_curveRadius.Value) && TripleCurve.Failure == null;
-    private static bool FramingIsGameFov => TripleGeometry.ShowsGameFov(null, MatchGameFov, _chaseGameFov?.Value ?? true, MountedCamera.Cycle.View);
+    private static bool FramingIsGameFov => !Realistic(CurrentCamera);
     internal static string ComparisonLabel => TripleGeometry.ComparisonLabel(TripleGeometry.CurrentStep(SessionStep, CurveAvailable), TripleGeometry.StepCount(CurveAvailable), FramingIsGameFov);
-    internal static string ComparisonText => SessionStep is null ? "" : FovKeyName + " comparison: " + ComparisonLabel + ". Kept for next time; press " + FovKeyName + " while driving to change it.";
+    internal static string ComparisonText => SessionStep is null ? "" : "Developer: " + ComparisonLabel + ". Shift+" + FovKeyName + " comparison is session-only and never saved.";
 
-    private static void PressComparison()
+    internal static void PressComparison(bool developer = false, bool fromPanel = false)
     {
-        if (Runtime.Local == null)
+        if (!CameraEditAllowed || (!fromPanel && Panel.Open))
         {
             ComparisonNotice.Show("View switching available while driving");
             Runtime.Log.LogInfo("Triple comparison (" + FovKeyName + "): not driving, projection unchanged");
             return;
         }
-        bool curve = CurveAvailable;
-        SessionStep = TripleGeometry.NextStep(SessionStep, curve);
-        bool saved = SavePick(SessionStep.Value);
-        string label = TripleGeometry.ComparisonLabel(TripleGeometry.CurrentStep(SessionStep, curve), TripleGeometry.StepCount(curve), FramingIsGameFov, saved);
-        ComparisonNotice.Show(label);
-        float radius = _curveRadius.Value;
-        Runtime.Log.LogInfo(FormattableString.Invariant($"Triple comparison ({FovKeyName}, {(saved ? "saved" : "save failed, saved pick kept")}): {label}; camera {MountedCamera.Cycle.View}, framing {(MatchGameFov ? "MatchGameFov" : "measured rig")}{(_chaseGameFov.Value ? "+ChaseUsesGameFov" : "")}, effective eye {_viewEye:0} mm, radius {radius:0} mm{(radius > 0f && !curve ? ", curve unavailable: " + (TripleCurve.Failure ?? "no renderer") : "")}"));
-    }
-    // Only the CompareView line is written (ConfigLine); the in-memory value follows only a successful write, so a later
-    // full settings save never stores a pick the player was told failed.
-    private static bool SavePick(int step)
-    {
         try
         {
-            WodenRallyEdge.Core.ConfigLine.Write(_compareView.ConfigFile.ConfigFilePath, "Triple", "CompareView", step.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            _compareView.Value = step;
-            return true;
+            if (developer)
+            {
+                SessionStep = _framing!.Press(CurrentCamera, true, SessionStep, CurveAvailable);
+                ComparisonNotice.Show("Developer: " + ComparisonLabel + " · session only");
+                Runtime.Log.LogInfo("Shift+" + FovKeyName + ": " + ComparisonText);
+                return;
+            }
+            SessionStep = _framing!.Press(CurrentCamera, false, SessionStep, CurveAvailable);
+            _views = null; Announce();
         }
-        catch (Exception ex) { Runtime.Log.LogWarning("Triple comparison: could not save the pick: " + ex.Message); return false; }
+        catch (Exception ex) { Announce("Couldn't save view: " + ex.Message); }
     }
 
     // Curved panels: the warps for the current views (null when flat), and the flat frusta kept for a curve that cannot run.
@@ -175,11 +211,13 @@ internal static class TripleView
         _eye = cfg.Bind("Triple", "EyeDistanceMm", 660f, "Distance from your eyes to the center screen, millimetres.");
         _sideAngle = cfg.Bind("Triple", "SideAngle", 70f, "How far each side screen is turned toward you, degrees (0 = flat row).");
         _bezel = cfg.Bind("Triple", "BezelMm", 8f, "Gap between the visible areas at each seam, millimetres.");
-        _curveRadius = cfg.Bind("Triple", "CurveRadiusMm", 0f, "Monitor curve radius in millimetres (1500 for 1500R); 0 is flat. Eye distance is measured to the middle of the center screen glass; curved views are redrawn along your eye rays.");
-        _fovKey = cfg.Bind("Triple", "FovKey", "F7", "Comparison key while driving: original game view, angle correction, angle + curve correction (when a curve radius is set), with an on-screen label (Input System key name; None to disable). The pick is kept for next time (CompareView).");
+        _curveRadius = cfg.Bind("Triple", "CurveRadiusMm", 0f, "Monitor curve radius in millimetres (1500 for 1500R); 0 is flat. Eye distance is measured to the panel-edge plane. The warp always uses the measured seat.");
+        _fovKey = cfg.Bind("Triple", "FovKey", "F7", "Switch this camera's saved Game/Realistic set on triples. Shift plus this key is a developer correction comparison for this session only.");
         // No value range: BepInEx would clamp an invalid value into a step; FromSaved treats it as none.
-        _compareView = cfg.Bind("Triple", "CompareView", 0, "The view last picked with the comparison key: 1 original game view, 2 angle correction, 3 angle + curve correction; 0 (never pressed) or any other value follows the settings above.");
+        _compareView = cfg.Bind("Triple", "CompareView", 0, "Retired comparison setting, ignored at startup. Normal triple views are always corrected; Shift+F7 is never saved.");
         SessionStep = TripleGeometry.FromSaved(_compareView.Value);
+        try { _framing = new CameraFramingStore(cfg); }
+        catch (Exception ex) { _framing = null; Runtime.Log.LogWarning("Camera sets unavailable: " + ex.Message); }
     }
 
     private static string? WhyNot()
@@ -206,14 +244,20 @@ internal static class TripleView
             }
             // The comparison key works whenever three views are enabled, including at step 1 while they are off.
             if (kb != null && _mode.Value != TripleMode.Off && !Panel.Open && Enum.TryParse<Key>(_fovKey.Value, true, out var fovKey) && fovKey != Key.None && kb[fovKey].wasPressedThisFrame)
-                PressComparison();
+                PressComparison(kb[Key.LeftShift].isPressed || kb[Key.RightShift].isPressed);
         }
         catch { }
+        if (!MountedCamera.PlayerOwned) _cameraNotice = "";
         string? why = WhyNot();
         if (why != null) { Stop(why); Status = "Off (" + why + ")"; return; }
         if (_source != null && !Alive(_source)) Stop("camera destroyed");
         Status = Active ? "On" + TripleCurve.Note : "Waiting for the driving camera";
         if (Active && _centerHud.Value && now >= _nextCanvasScan) { _nextCanvasScan = now + 2; MoveCanvases(); }
+        if (CameraEditAllowed && Runtime.Local != null)
+        {
+            string notice = SceneManager.GetActiveScene().name + ":" + Runtime.Local.GetInstanceID() + ":" + CurrentCamera.Key + ":" + Realistic(CurrentCamera);
+            if (_cameraNotice != notice) { _cameraNotice = notice; Announce(); }
+        }
     }
 
     internal static void AfterCarCamera(Car_Cam carCam)
@@ -232,9 +276,8 @@ internal static class TripleView
                 return;
             }
             if (_source != null && _source.Pointer != cam.Pointer) Stop("player camera changed");
-            float? mountedFov = car.IsPlayer && MountedCamera.PlayerOwned && MountedCamera.Cycle.View != WodenRallyEdge.Core.MountedView.Stock
-                ? MountedCamera.Pose(MountedCamera.Cycle.View == WodenRallyEdge.Core.MountedView.Bumper).Fov : null;
-            Apply(cam, mountedFov);
+            var slot = car.IsPlayer ? MountedCamera.CurrentSlot : new CameraSlot(MountedView.Stock, carCam.PresetIndex, carCam.Mode == Car_Cam.Cam_Mode.IsoMetric);
+            Apply(cam, slot, MountedCamera.BaseFov(slot));
         }
         catch (Exception ex)
         {
@@ -244,7 +287,7 @@ internal static class TripleView
         }
     }
 
-    private static void Apply(Camera source, float? ownedMountedFov)
+    private static void Apply(Camera source, CameraSlot slot, float? ownedMountedFov)
     {
         if (_source == null)
         {
@@ -265,9 +308,9 @@ internal static class TripleView
         // focal length nothing synced while the camera was non-physical (UnityPlayer set_usePhysicalProperties; owner
         // log 2026-10-15: 37 before, 45 after), so write the game's angle back: the physical-mode setter syncs the focal
         // length, and views whose camera mode does not rewrite the FOV every frame (Photo) keep it.
-        float gameFov = source.fieldOfView;
-        if (!source.usePhysicalProperties) { source.usePhysicalProperties = true; source.fieldOfView = gameFov; }
-        var views = Views(gameFov, ownedMountedFov);
+        float gameFov = MountedCamera.NativeFov(source), displayedFov = source.fieldOfView;
+        if (!source.usePhysicalProperties) { source.usePhysicalProperties = true; source.fieldOfView = displayedFov; }
+        var views = Views(slot, gameFov, ownedMountedFov);
         // Curved panels: the views render full-rect into textures that TripleCurve redraws over the window. A curve that
         // cannot run keeps the original flat frusta, never the widened curved-source ones.
         // Step 2 of the comparison shows the angled views without the curve: the presenter is released so nothing stale is drawn.
@@ -311,10 +354,11 @@ internal static class TripleView
     }
 
     private static double _viewEye;
-    private static PanelFrustum[] Views(float gameFov, float? ownedMountedFov)
+    private static PanelFrustum[] Views(CameraSlot slot, float gameFov, float? ownedMountedFov)
     {
-        double eye = TripleGeometry.EyeDistanceForView(_panelHeight.Value, _eye.Value, MatchGameFov,
-            _chaseGameFov.Value, MountedCamera.Cycle.View, gameFov, ownedMountedFov);
+        bool game = !Realistic(slot);
+        double eye = TripleGeometry.EyeDistanceForView(_panelHeight.Value, _eye.Value, game,
+            game, slot.Mount, gameFov, ownedMountedFov, offsetDegrees: FovOffset(slot));
         float radius = _curveRadius.Value > 0f && float.IsFinite(_curveRadius.Value) ? _curveRadius.Value : 0f;
         string key = $"{_panelWidth.Value}|{_panelHeight.Value}|{eye:0.###}|{_sideAngle.Value}|{_bezel.Value}|{radius}";
         if (_views == null || key != _viewsKey)
@@ -325,7 +369,7 @@ internal static class TripleView
             {
                 try
                 {
-                    var rig = CurvedRig.Compute(_panelWidth.Value, _panelHeight.Value, eye, _sideAngle.Value, _bezel.Value, radius);
+                    var rig = CurvedRig.Compute(_panelWidth.Value, _panelHeight.Value, eye, _sideAngle.Value, _bezel.Value, radius, _eye.Value);
                     _views = rig.Views; _warps = rig.Warps;
                 }
                 catch (ArgumentOutOfRangeException ex)

@@ -8,7 +8,7 @@
 
 For triples, first select your intended Windows display profile and one three-panel-wide game resolution. The mod's Auto mode creates three angle-correct views within that wide window; it does not switch Windows from independent monitors to Surround. Enter your own panel size, eye distance, bezel gap and side angles. Apply display choices before launch, then let the game apply its resolution once. Avoid live resolution/fullscreen changes during automated testing.
 
-Change camera cycles enabled stock, Bonnet and Bumper views. Mounted-camera defaults: numpad 8/2 forward/back, 9/3 up/down, 4/6 left/right, 7/1 tilt down/up, +/- FOV, 5 reset. Advanced Cameras exposes movement, tilt and FOV step sizes. Custom bindings remain intact.
+Change camera cycles enabled stock, Bonnet and Bumper views. On triples, **F7** switches the current camera's saved **Game/Realistic** set; F6 → Cameras has the same button and FOV slider. Numpad **+** zooms in, **−** zooms out, and **5** resets that camera/set to its calculated start. Position/pitch defaults: 8/2 forward/back, 9/3 up/down, 4/6 left/right, 7/1 tilt. Custom bindings stay intact. Game FOV wider than seat-true stretches sides. **Shift+F7** compares correction for this session only; ordinary triples remain corrected. See [camera sets](2026-11-03-camera-sets.md).
 
 To update, close the game and run Install.bat from the newly extracted package. Backups are in `WodenWheelBackups` inside the game folder; the ownership receipt is `BepInEx/WodenWheel-install.json`. **Uninstall.bat** removes only verified owned files and keeps settings, recordings, other mods and the shared loader. Keep recovery.json and the backup if an external change prevents rollback. Do not overwrite an unknown changed file.
 

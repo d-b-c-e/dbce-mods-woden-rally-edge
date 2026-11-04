@@ -499,7 +499,7 @@ Test("triple FOV policy preserves physical geometry and coherently follows mount
     double gameEye = WodenRallyEdge.TripleGeometry.EyeDistanceForVerticalFov(height, 45);
     Near(Eye(false, true, MountedView.Stock, 45, 80), gameEye, "stock chase retains game lens");
     Near(Eye(false, false, MountedView.Stock, 45, 80), physicalEye, "stock physical override retained");
-    Near(Eye(true, false, MountedView.Stock, 45, 80), gameEye, "adjustable stock uses game lens");
+    Near(Eye(true, false, MountedView.Stock, 45, 80), physicalEye, "chase Realistic is independent of a mounted Game choice");
     Near(Eye(true, true, MountedView.Bonnet, 45, null), gameEye, "unowned mount retains game fallback");
     Near(Eye(true, true, MountedView.Bumper, 45, double.NaN), physicalEye, "invalid lens safely keeps measured eye");
 });
@@ -515,8 +515,8 @@ Test("curved rig: radius 0 reproduces TripleGeometry, curvature widens the sourc
     }
     var curved = WodenRallyEdge.CurvedRig.Compute(708.4, 398.5, 660, 70, 8, 1500);
     Check(curved.Warps is { Length: 3 } && curved.Warps.All(w => !w.IsFlat), "1500R gives three warps");
-    // Eye distance is to the glass middle: the chord plane is one sagitta closer and the source covers the curve, so the
-    // centre source is wider than the flat panel; its middle still maps to the middle.
+    // Eye distance stays at the panel-edge plane. The source covers the curve,
+    // so the centre source is wider; its middle still maps to the middle.
     Check(curved.Views[1].Top > reference[1].Top && curved.Views[1].Right > reference[1].Right, "curved centre source is wider than the flat panel");
     Near(curved.Views[0].YawDegrees, -70, "curved left yaw", 1e-9); Near(curved.Views[2].YawDegrees, 70, "curved right yaw", 1e-9);
     curved.Warps![1].SourceUv(0.5, 0.5, out double cu, out double cv);
@@ -535,9 +535,9 @@ Test("curved rig: radius 0 reproduces TripleGeometry, curvature widens the sourc
         Check(WodenRallyEdge.TripleGeometry.ComparisonLabel(3, 3, true) == "Angle + curve correction (3/3) · Game FOV" &&
               WodenRallyEdge.TripleGeometry.ComparisonLabel(1, 2, false) == "Original game view (1/2) · Measured FOV" &&
               WodenRallyEdge.TripleGeometry.ComparisonLabel(2, 3, true, saved: false) == "Angle correction (2/3) · Game FOV · Couldn't save view", "labels name the actual mode, step of count and framing source; only a failed save is reported");
-        Check(WodenRallyEdge.TripleGeometry.FromSaved(1) == 1 && WodenRallyEdge.TripleGeometry.FromSaved(2) == 2 && WodenRallyEdge.TripleGeometry.FromSaved(3) == 3 &&
+        Check(WodenRallyEdge.TripleGeometry.FromSaved(1) == null && WodenRallyEdge.TripleGeometry.FromSaved(2) == null && WodenRallyEdge.TripleGeometry.FromSaved(3) == null &&
               WodenRallyEdge.TripleGeometry.FromSaved(0) == null && WodenRallyEdge.TripleGeometry.FromSaved(4) == null && WodenRallyEdge.TripleGeometry.FromSaved(99) == null && WodenRallyEdge.TripleGeometry.FromSaved(-1) == null,
-              "a saved pick restores; missing or invalid keeps the pre-update startup");
+              "STD-041 retires all saved correction picks; normal startup is always corrected");
         // The pick is written as one line (ConfigLine): comments, unknown keys and absent defaults stay; a failure keeps the file.
         string dir = Path.Combine(Path.GetTempPath(), "woden-f7-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(dir);
         try

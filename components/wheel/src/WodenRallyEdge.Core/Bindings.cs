@@ -24,7 +24,7 @@ public sealed class Bindings
     public bool HandbrakeUsesAxis { get; set; }
     public Dictionary<string, ButtonBinding> Buttons { get; set; } = new();
     public Dictionary<string, string> CameraKeys { get; set; } = CameraTuning.DefaultKeys();
-    /// <summary>Load supplied defaults because no camera keys were saved (not saved).</summary>
+    /// <summary>Load supplied missing defaults or migrated an untouched old default layout in memory (not saved).</summary>
     [System.Text.Json.Serialization.JsonIgnore] public bool CameraKeysMigrated { get; set; }
     public string? Conflict(string action, ButtonBinding? button = null, string? key = null)
     {
@@ -63,8 +63,11 @@ public sealed class Bindings
         foreach (var name in new[] { "Steer", "Throttle", "Brake", "Handbrake" })
             if (bindings.Axis(name) is { } b && !b.Valid) throw new IOException("Invalid saved " + name + " calibration");
         if (bindings.Buttons == null || bindings.Buttons.Any(x => x.Value?.Valid != true)) throw new IOException("Invalid saved button binding");
-        // Persisted keys are user choices, including layouts equal to earlier defaults.
+        // STD-048: only an untouched default adjustment set migrates. A custom
+        // keyboard layout or a wheel-button adjustment binding is a player choice.
         if (!hadKeys) { bindings.CameraKeys = CameraTuning.DefaultKeys(); bindings.CameraKeysMigrated = true; }
+        else if (!CameraTuning.Actions.Skip(2).Any(bindings.Buttons.ContainsKey) && CameraTuning.MigratePreviousDefaults(bindings.CameraKeys))
+            bindings.CameraKeysMigrated = true;
         return bindings;
     }
     public void Save(string path) => SaveJson(path, JsonSerializer.Serialize(this, Json), true);

@@ -21,7 +21,23 @@ internal static class CameraShortcuts
     internal static void Update()
     {
         if (Runtime.Wheel == null) return;
-        bool allowed = Runtime.Focused && !Panel.Open && Runtime.Local != null && Runtime.CameraAvailable(Runtime.Local) && MountedCamera.PlayerOwned && MountedCamera.Cycle.View != MountedView.Stock;
+        bool allowed = Runtime.Focused && !Panel.Open && Runtime.Local != null && Runtime.CameraAvailable(Runtime.Local) && MountedCamera.PlayerOwned &&
+            (TripleView.FramingEnabled || MountedCamera.Cycle.View != MountedView.Stock);
+        if (TripleView.FramingEnabled)
+        {
+            foreach (string action in CameraTuning.Actions.Skip(2))
+            {
+                // Only this action's held binding controls its repeat/release;
+                // an H-pattern gate held in gear cannot block camera keys.
+                bool held = Runtime.Wheel.Button(action, false);
+                if (!Repeats[action].Tick(held, allowed && TripleView.CameraEditAllowed, Runtime.Clock.Elapsed.TotalSeconds, action != "Camera reset")) continue;
+                if (action == "Camera reset") TripleView.ResetCurrent();
+                else if (action == "Camera wider") TripleView.AdjustFov(Runtime.Settings.CameraSteps.Fov);
+                else if (action == "Camera narrower") TripleView.AdjustFov(-Runtime.Settings.CameraSteps.Fov);
+                else TripleView.AdjustPosition(action);
+            }
+            return;
+        }
         bool bumper = MountedCamera.Cycle.View == MountedView.Bumper;
         // The first locked bonnet or bumper view of the session says why the FOV keys do nothing, before they are tried.
         // It only shows text; the saved mode and poses are untouched.

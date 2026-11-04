@@ -5,10 +5,12 @@
     <ProductionRoot Condition="'$(ProductionRoot)' == ''">../../src</ProductionRoot>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="$(ProductionRoot)/WodenRallyEdge.Core/CameraCycle.cs" Link="Production/CameraCycle.cs" />
-    <Compile Include="$(ProductionRoot)/WodenRallyEdge.Core/CameraTuning.cs" Link="Production/CameraTuning.cs" />
+    <ProjectReference Include="$(ProductionRoot)/WodenRallyEdge.Core/WodenRallyEdge.Core.csproj" />
     <Compile Include="$(ProductionRoot)/WodenRallyEdge.Plugin/TripleGeometry.cs" Link="Production/TripleGeometry.cs" />
     <Compile Include="$(ProductionRoot)/WodenRallyEdge.Plugin/CurvedRig.cs" Link="Production/CurvedRig.cs" />
+    <Compile Include="$(ProductionRoot)/WodenRallyEdge.Plugin/CameraFramingStore.cs" Link="Production/CameraFramingStore.cs" />
     <Compile Include="$(ProductionRoot)/WodenRallyEdge.Plugin/Toolkit/Triple/*.cs" Link="Production/Toolkit/%(Filename)%(Extension)" />
+    <Reference Include="BepInEx.Core" HintPath="../../lib/core/BepInEx.Core.dll" />
+    <Reference Include="SemanticVersioning" HintPath="../../lib/core/SemanticVersioning.dll" />
   </ItemGroup>
 </Project>

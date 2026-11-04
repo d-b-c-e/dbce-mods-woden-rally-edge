@@ -195,7 +195,7 @@ internal static partial class Panel
     { Message = message; _liveMessageUntil = Runtime.Clock.Elapsed.TotalSeconds + seconds; }
     internal static void SettingsChanged() => Dirty();
     private static void Dirty() { _dirty = true; _saveStatus = "Saving…"; _changedAt = Runtime.Clock.Elapsed.TotalSeconds; }
-    private static void Save() { try { Runtime.Settings.Save(); _dirty = false; _saveStatus = "Saved"; } catch (Exception ex) { _saveStatus = "Save failed"; Message = "Could not save settings: " + ex.Message; _changedAt = Runtime.Clock.Elapsed.TotalSeconds; } }
+    private static void Save() { if(!_dirty)return;try { Runtime.Settings.Save(); _dirty = false; _saveStatus = "Saved"; } catch (Exception ex) { _saveStatus = "Save failed"; Message = "Could not save settings: " + ex.Message; _changedAt = Runtime.Clock.Elapsed.TotalSeconds; } }
     // A preference that must reach disk now (FFB Off from F8 or the FFB page, or On): saved at once. A failure stays
     // pending, shows "Save failed" and is retried like any other change, instead of escaping to the caller and being lost.
     internal static void SaveSettingsNow() { _dirty = true; Save(); }
@@ -707,14 +707,22 @@ internal static partial class Panel
         int priorLayout=layout;y=Choice(y,"Triple screens",TripleLayoutChoice.Labels,ref layout);
         if(layout!=priorLayout){var picked=TripleLayoutChoice.Apply(layout);TripleView.Mode=picked.Off?TripleMode.Off:TripleView.Mode==TripleMode.On?TripleMode.On:TripleMode.Auto;SpanWindow.Enabled=picked.Span;}
         Label(250,y,690,layout==0?"Single view. Window size changes at the next game start. Status: "+TripleView.Status:layout==1?"Three views on Surround. Window layout applies at the next game start. Status: "+TripleView.Status:"One borderless window across three side-by-side monitors, applied at the next game start. Span: "+SpanWindow.Status+"; views: "+TripleView.Status,true,46);y+=56;
-        int fovMode=TripleView.MatchGameFov?0:1;y=Choice(y,"Triple FOV",new[]{"Game field of view","Measured perspective"},ref fovMode);TripleView.MatchGameFov=fovMode==0;
-        Label(250,y,690,TripleView.MatchGameFov?"Default. Bonnet and bumper keep the game's own framing, including Fit to car; all three views are angled together from one virtual eye. Your rig measurements are kept.":"Advanced. Bonnet and bumper use your measured seat: true angles, but the view is narrower than the game's lens. Their FOV keys and slider are inactive while triples are on; stock chase keeps its saved FOV behavior.",true,64);y+=72;
-        if(!TripleView.MatchGameFov){Label(250,y,690,"Rig: "+TripleView.RigSettingsText,true,88);y+=96;}
-        Label(250,y,690,TripleView.CenterFovStatus,true,46);y+=54;
+        if(layout!=0)
+        {
+            Label(250,y,690,TripleView.FramingStatus,true,46);y+=54;
+            if(Button(250,y,694,TripleView.MatchGameFov?"Use Realistic set for this camera (F7)":"Use Game set for this camera (F7)",enabled:TripleView.CameraEditAllowed))TripleView.PressComparison(fromPanel:true);y+=48;
+            Label(250,y,690,"Triple views are always corrected. Realistic starts at your measured seat; Game keeps the camera's own framing. A FOV wider than seat-true stretches the side screens. Each camera and set remembers its own FOV offset.",true,64);y+=72;
+            if(TripleView.TryGetPanelFov(out float cameraFov))
+            {
+                float beforeFov=cameraFov;y=Slider(y,"Current camera FOV (degrees)",ref cameraFov,20,120,"F1",save:false);
+                if(cameraFov!=beforeFov)TripleView.SetFovFromPanel(cameraFov);
+            }
+        }
+        if(Advanced){Label(250,y,690,TripleView.CenterFovStatus,true,46);y+=54;}
         if(TripleView.ComparisonText.Length>0){Label(250,y,690,TripleView.ComparisonText,true,46);y+=54;}
         y=ToggleRow(y,"Bonnet camera",ref cfg.Bonnet);y=ToggleRow(y,"Bumper camera",ref cfg.Bumper);
         BindingRow(y,"Camera");y+=100;
-        Label(250,y,690,"Cycle to Bonnet or Bumper to adjust the active view. Open Adjustment bindings for your saved keys or to rebind them.",true,46);y+=60;
+        Label(250,y,690,"Choose a camera while driving, then adjust its current set here or with your saved camera keys. Numpad + zooms in, - zooms out, and 5 resets the calculated start.",true,46);y+=60;
         if(Runtime.Wheel?.Bindings is {} saved && CameraTuning.IsPreviousDefaults(saved.CameraKeys))
         {
             Label(250,y,690,"Your camera keys use an older layout. Standard: 8/2 forward/back, 9/3 up/down, 4/6 left/right, 7/1 tilt, +/− FOV, 5 reset.",true,46);y+=54;
@@ -740,10 +748,28 @@ internal static partial class Panel
             }
             y+=46;Label(250,y,690,"Restores adjustment shortcuts only. Saved camera positions and Change camera stay unchanged.",true,46);y+=58;
         }
-        bool custom=!cfg.CameraAutoFit || (cfg.GetCameraPose(true) with {Forward=CameraPose.Bumper.Forward})!=CameraPose.Bumper || cfg.BumperAhead!=CameraPose.BumperAheadDefault;
+        bool custom=TripleView.FramingEnabled
+            ? TripleView.PositionOffset(TripleView.CurrentCamera,MountedCamera.LegacyOffset(TripleView.CurrentCamera))!=default
+            : !cfg.CameraAutoFit || (cfg.GetCameraPose(true) with {Forward=CameraPose.Bumper.Forward})!=CameraPose.Bumper || cfg.BumperAhead!=CameraPose.BumperAheadDefault;
         if(!Advanced&&custom){if(Button(250,y,694,"Custom camera positioning active. Review in Advanced"))Navigate("Cameras","Advanced");y+=48;}
         if(Advanced)
         {
+            if(TripleView.FramingEnabled)
+            {
+                Label(250,y,690,"Position offsets: "+TripleView.FramingStatus,true,46);y+=54;
+                if(TripleView.CameraEditAllowed)
+                {
+                    var offset=TripleView.PositionOffset(TripleView.CurrentCamera,MountedCamera.LegacyOffset(TripleView.CurrentCamera));
+                    float side=offset.Side,height=offset.Height,forward=offset.Forward,pitch=offset.Pitch;
+                    y=Slider(y,"Side offset (m)",ref side,-2,2,save:false);y=Slider(y,"Height offset (m)",ref height,-2,2,save:false);
+                    y=Slider(y,"Forward offset (m)",ref forward,-4,4,save:false);y=Slider(y,"Tilt offset (degrees)",ref pitch,-90,90,"F1",save:false);
+                    var edited=new CameraOffset(side,height,forward,pitch);if(edited!=offset)TripleView.SetPositionFromPanel(edited);
+                    if(Button(250,y,330,"Reset current camera/set (Numpad 5)"))TripleView.ResetCurrent();y+=48;
+                }
+                Label(250,y,690,"Position stays with this car, camera and set. FOV offsets follow this camera and set across cars. Reset returns both to the calculated start; customized bindings are kept.",true,58);y+=66;
+            }
+            else
+            {
             if(Button(250,y,164,"Bonnet pose",!_editBumper))_editBumper=false;if(Button(426,y,164,"Bumper pose",_editBumper))_editBumper=true;y+=48;
             if(!_editBumper){bool fit=cfg.CameraAutoFit;y=ToggleRow(y,"Fit to car",ref cfg.CameraAutoFit);if(fit&&!cfg.CameraAutoFit)cfg.SetCameraPose(false,MountedCamera.Pose(false));}
             var pose=MountedCamera.Pose(_editBumper);float side=pose.Side,height=pose.Height,forward=pose.Forward,pitch=pose.Pitch,fov=pose.Fov;
@@ -759,6 +785,7 @@ internal static partial class Panel
             var edited=new CameraPose(side,height,forward,pitch,fov);if(edited!=pose){MountedCamera.SavePose(_editBumper,edited);Dirty();}
             if(Button(250,y,260,"Reset this view")){cfg.ResetCamera(_editBumper);Dirty();}y+=46;
             Label(250,y,690,"Position moves the selected mount in meters; positive tilt looks down. FOV widens single and adjustable views; physical triples use rig geometry. Reset restores this mount's defaults.",true,58);y+=66;
+            }
             y=Slider(y,"Move step per press (m)",ref cfg.CameraMoveStep,.005f,.25f,"F3");
             y=Slider(y,"Tilt step per press (°)",ref cfg.CameraTiltStep,.1f,10,"F1");
             y=Slider(y,"FOV step per press (°)",ref cfg.CameraFovStep,.5f,10,"F1");
