@@ -20,9 +20,9 @@ Check("normal flat output starts corrected", TripleGeometry.CurrentStep(null, fa
 Check("normal curved output starts fully corrected", TripleGeometry.CurrentStep(null, true) == TripleGeometry.AngleCurveStep);
 Check("developer comparison retains original as a session step", TripleGeometry.NextStep(null, true) == TripleGeometry.OriginalStep);
 
-Check("stock chase keeps native framing despite old global switches", TripleGeometry.ShowsGameFov(null, false, false, MountedView.Stock));
-double chaseEye = TripleGeometry.EyeDistanceForView(398.5, 660, false, false, MountedView.Stock, 70, null);
-Check("stock chase projection follows native lens", Math.Abs(chaseEye - TripleGeometry.EyeDistanceForVerticalFov(398.5, 70)) < 1e-9);
+Check("chase Realistic choice is independent of mounted Game choice", !TripleGeometry.ShowsGameFov(null, true, false, MountedView.Stock));
+double chaseEye = TripleGeometry.EyeDistanceForView(398.5, 660, true, false, MountedView.Stock, 70, null);
+Check("chase Realistic projection uses the measured starting eye", Math.Abs(chaseEye - 660) < 1e-9);
 
 var physical = CurvedRig.Compute(708.4, 398.5, 660, 70, 8, 1500);
 Check("measured eye distance stays at the panel-edge plane", Math.Abs(physical.Warps![1].Panel.LowerLeft.Z + 660) < 1e-8);
