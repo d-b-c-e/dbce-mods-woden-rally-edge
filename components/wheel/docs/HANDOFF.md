@@ -1,4 +1,13 @@
-# November 4: camera capability declaration, source only
+# November 4: camera receipt installed, payload/settings unchanged
+
+GO519745 upgraded only the install receipt to3A760EEE. Installed Wheelkit Core
+admits4 starting choices; all23 payloads unchanged,41 backups and104 protected
+files pass bytes/creation/write ticks/attributes. Guarded rollback is
+`E:/Source/_archive/2026-11-04/owner-before-woden-camera-receipt-20261104/Rollback.ps1`.
+Lease/census/cert closure PASS; no game/UI/profile Apply or device acceptance.
+Full details: [receipt report](../../../docs/2026-11-04-camera-receipt.md).
+
+# November 4: initial camera capability declaration, source only
 
 [Receipt contract](../../../docs/2026-11-04-camera-receipt.md): the installer now
 declares `wodenFovSets` starting choices, including existing Chase/Isometric
