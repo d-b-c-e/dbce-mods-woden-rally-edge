@@ -1,3 +1,7 @@
+# November 3: Wheelkit camera adapter design, local main only
+
+Docs-only [adapter contract](../../../docs/2026-11-03-wheelkit-camera-adapter-contract.md): explicit eleven-action/Input System key translation, STD-048 FOV direction, proposed `wodenCameraKeysV1` receipt, surgical JSON preservation, and separate unsupported four-set behavior. Lists Wheelkit work for coordinator assignment; no Wheelkit edits, implementation, tests, install or live evidence. STD-042/046/048 and ISS-0023 remain open at their existing statuses.
+
 # November 2: single-key save source fix, local main only
 
 ConfigLine now preserves exact UTF-8/BOM, per-line endings and owned-line spacing,
