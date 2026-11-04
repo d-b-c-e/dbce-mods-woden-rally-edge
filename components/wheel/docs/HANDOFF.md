@@ -1,3 +1,11 @@
+# November 3: binding publication/missing-file slice, local source only
+
+[Publication handoff](../../../docs/2026-11-03-bindings-publication.md): full
+binding publisher now stages exclusively/flushes, preserves prior backups and
+uses a creation-only route for the missing-file deadzone fallback. Actual old
+backup-loss regression red, fixed30/30 and real Core6 build clean. Existing-file
+full JSON serialization remains open, as do BepInEx config and all live gates.
+No plugin/owner/install/public push. Next source slices are sized in that note.
 # November 3: existing-binding deadzone byte preservation, local source only
 
 [Focused writer handoff](../../../docs/2026-11-03-deadzone-byte-preservation.md):
