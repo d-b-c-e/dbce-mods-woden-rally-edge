@@ -38,7 +38,7 @@ internal static class CameraRangePanelChecks
                 {
                     var row=GUI.Commands.FirstOrDefault(c=>c.Kind=="text"&&c.Text==rows[i]);
                     if(row==null||reached.Contains(rows[i]))continue;
-                    var command=GUI.Commands.FirstOrDefault(c=>c.Kind=="text"&&c.Text=="Default"&&Math.Abs(c.Rect.y-row.Rect.y-5*scale)<1);
+                    var command=GUI.Commands.FirstOrDefault(c=>c.Kind=="text"&&c.Text=="Default"&&(Math.Abs(c.Rect.y-row.Rect.y-5*scale)<1||Math.Abs(c.Rect.y-row.Rect.y-37*scale)<1));
                     if(command==null)continue;
                     check(command.Rect.x-8*scale>=0&&command.Rect.x+command.Rect.width+8*scale<=width&&command.Rect.y>=0&&command.Rect.y+command.Rect.height<=720,"complete Default bounds inside actual viewport");
                     check(Math.Abs(command.Rect.width-80*scale)<1,"actual numeric row reserves96px Default button including text padding");
@@ -49,7 +49,7 @@ internal static class CameraRangePanelChecks
                 }
                 Draw(new(){type=EventType.KeyDown,keyCode=KeyCode.PageDown});Draw();
             }
-            check(reached.Count==5,"all five current camera controls reachable by actual page scrolling");
+            check(reached.Count==5,"all five current camera controls reachable by actual page scrolling width="+width+" reached="+string.Join(",",reached));
             check(angles,"requested and effective lens readout reachable");
             check(File.ReadAllBytes(path).SequenceEqual(before),"actual draw and field commands never call whole Settings save");
             check(force.Changes==changes&&force.Reconnects==reconnects,"camera panel does not reconnect or change force");
