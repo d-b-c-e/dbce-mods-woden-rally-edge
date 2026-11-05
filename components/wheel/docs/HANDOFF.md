@@ -1,3 +1,18 @@
+November5 current camera editor-range successor file-only installed0.2.16+1d536414:
+PluginA02C20CB/CoreCAC1CC4F/receipt8E30031C/ZIP4851B53E. Four current pose editors
+extend around finite saved offsets; FOV edits the saved request and shows the
+effective1..179 lens separately. Range2527/Defaults565/scoped wholePanel320 pass,
+full plugin0warnings/errors. Broad old general UI suite still FAILS at its retired
+Measured-perspective control; it is retained/not fixed, not an all-suite pass.
+Owner531572 first admitted1793884369448 independently verifies3lockedwrites,
+all23payloads/four actual installed-Core starts/24originalmetadata+84protected/
+108SID+SDDL/ticks/rawattrs/25typedprefs and external backup exact. Rawidle17673.219/
+17675.25; exactfba561b1 lease released13:13:06.6011516Z, standingSTOP/no custody.
+PUBLIC local commits only/no push. No new native/game/rendered/device/owner Apply
+or acceptance. Legacy single-view and all-camera rendered gates remain separate.
+[Complete qualification, retained failures and rollback](../../../docs/2026-11-05-camera-editor-ranges.md).
+Older checkpoints below are historical.
+
 November5 current field Defaults successor file-only installed0.2.16+52288c2e:
 F6 current Game/Realistic side/height/forward/tilt/FOV each has a one-key zero-offset
 Default. Other fields/cars/sets and whole Reset preserved. Plugin30FBAE77/

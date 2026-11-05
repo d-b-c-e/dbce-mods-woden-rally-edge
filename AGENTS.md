@@ -1,3 +1,18 @@
+November5 current camera editor-range successor file-only installed0.2.16+1d536414:
+PluginA02C20CB/CoreCAC1CC4F/receipt8E30031C/ZIP4851B53E. Four current pose editors
+extend around finite saved offsets; FOV edits the saved request and shows the
+effective1..179 lens separately. Range2527/Defaults565/scoped wholePanel320 pass,
+full plugin0warnings/errors. Broad old general UI suite still FAILS at its retired
+Measured-perspective control; it is retained/not fixed, not an all-suite pass.
+Owner531572 first admitted1793884369448 independently verifies3lockedwrites,
+all23payloads/four actual installed-Core starts/24originalmetadata+84protected/
+108SID+SDDL/ticks/rawattrs/25typedprefs and external backup exact. Rawidle17673.219/
+17675.25; exactfba561b1 lease released13:13:06.6011516Z, standingSTOP/no custody.
+PUBLIC local commits only/no push. No new native/game/rendered/device/owner Apply
+or acceptance. Legacy single-view and all-camera rendered gates remain separate.
+[Complete qualification, retained failures and rollback](docs/2026-11-05-camera-editor-ranges.md).
+Older checkpoints below are historical.
+
 **November5 installed finite FOV/final lens update:** source8c98267, Plugin9F72D8D8/Core9D30ED0F/receipt2BE94411. Source4oldRED/current52 +539/fullcompile0/0 and package98checks PASS. First admitted1793869814074 file-only install verified23payloads/fourstarts;24 original metadata/ownerSID+SDDL,84protected files and25prefs exact. Independent108SDDL+backups PASS; original verifier path-slash bug corrected read-only, no install retry/rollback. Exact lease released09:12:08.6454894Z; no custody. External backup owner-before-woden-final-lens-20261105-030719-110686d3/Rollback.ps1. PUBLIC/local only; no game/UI/device/physical/new owner acceptance. See [full source/package/delivery evidence](docs/2026-11-05-final-lens-source.md).
 
 **Previous owner install - November 4, 20:21 CT:** camera set-key fix `0.2.16+eec3b87845c648ebe2d0dbdfbfa9a704b2021c63`, Plugin248B8AD1/Core911D5EC8, receiptFC5ABFF6. Actual packaged PS5 file install523477 verified all23payloads and preserved fourcamera starts,81protected config/save/unknownplugin files and25typed preferences. Backup+guarded rollback: E:/Source/_archive/2026-11-04/owner-before-woden-camera-set-key-20261104-202031-53a14222/Rollback.ps1 -Apply. Local main landed; PUBLIC repo, no push. Source-linked66checks/fullcompile0/0 and packagedinstaller98checks PASS; independent postrelease readback and exact lease release02:21:59.971Z PASS. No game/UI/input/device/FFB/configwrites or new physical/owner acceptance. See docs/2026-11-04-camera-set-key-audit.md for complete identities/evidence. Older install headers below are historical.
