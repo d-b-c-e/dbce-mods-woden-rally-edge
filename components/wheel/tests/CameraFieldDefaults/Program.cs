@@ -103,8 +103,78 @@ void LegacyAndReset(){
  Near(Panel.Plain(.3f),.3,"ordinary sliders keep their existing behavior");
  Check(Panel.Defaults.Count==0,"ordinary rows do not gain camera commands");
 }
+
+double Current(string field) => field=="Fov"
+ ? (realistic?TripleView.MeasuredFov:70)+TripleView.Store.FovOffset(selected,realistic)
+ : Axis(TripleView.Store.Position(selected,1,realistic),field);
+void Seed(string field,float value) {
+ if(field=="Fov")TripleView.Store.SetFov(selected,realistic,realistic?TripleView.MeasuredFov:70,value);
+ else {var pose=TripleView.Store.Position(selected,1,realistic);pose=field switch {
+ "Side"=>pose with{Side=value},"Height"=>pose with{Height=value},"Forward"=>pose with{Forward=value},_=>pose with{Pitch=value}};
+ TripleView.Store.SetPosition(selected,1,realistic,pose);}
+}
+void Input(string field,string action) {
+ var row=Row(field);Panel.Frame(row,action is "+" or "−"?action:"__none");
+ if(action is "Right" or "Left" or "Menu") {
+  Panel.EventRow=row;
+  if(action=="Menu")typeof(Panel).GetField("_menuStep",BindingFlags.Static|BindingFlags.NonPublic)!.SetValue(null,1);
+  else UnityEngine.Event.current=new(){type=UnityEngine.EventType.KeyDown,keyCode=action=="Right"?UnityEngine.KeyCode.RightArrow:UnityEngine.KeyCode.LeftArrow};
+ }
+ if(action=="Drag") {
+  Panel.Frame();Panel.Draw();var track=Panel.Tracks[row];Panel.Frame(row,"__none");
+  UnityEngine.Event.current=new(){type=UnityEngine.EventType.MouseDown,button=0,mousePosition=new(){x=track.x+track.width*.75f,y=track.y+14}};
+ }
+ Panel.Draw();
+}
+void NamedRange(string field) {
+ Setup(cameras[0],false);Seed(field,field=="Fov"?500:10);double before=Current(field);
+ Input(field,"+");
+ Check(Current(field)>before,field=="Fov"?"RANGE_FOV_REQUEST_RETAINED":"RANGE_SIDE_NO_JUMP");
+}
+void Ranges() {
+ foreach(var camera in cameras)foreach(bool set in new[]{false,true})foreach(string field in fields)
+ foreach(float value in field=="Fov"?new[]{-300f,0,20,34,70,120,179,500,1e8f}:new[]{-1000f,-10,0,10,1000,1e8f}) {
+  Setup(camera,set);Seed(field,value);var before=File.ReadAllBytes(path);Panel.Frame();Panel.Draw();
+  Check(File.ReadAllBytes(path).SequenceEqual(before),"passive outside-range draw writes nothing "+field);
+  double start=Current(field);var pose=TripleView.Store.Position(selected,1,set);var otherFov=TripleView.Store.FovOffset(selected,!set);
+  Input(field,"+");double plus=Current(field);
+  Check(plus>start&&plus-start<Math.Max(5,Math.Abs(start)*.05),"actual plus moves outward without endpoint jump "+field);
+  Input(field,"−");Check(Current(field)<plus,"actual minus moves back "+field);
+  TripleView.Open(path,camera);Check(Current(field)!=0||value==0||field=="Fov","outside-range value survives reload "+field);
+  Near(TripleView.Store.FovOffset(selected,!set),otherFov,"other set untouched");
+  if(field=="Fov")Check(TripleView.Store.Position(selected,1,set)==pose,"FOV edits preserve all pose axes");
+  else foreach(var other in fields.Take(4).Where(f=>f!=field))
+   Near(Axis(TripleView.Store.Position(selected,1,set),other),Axis(pose,other),"range edit preserves other axis");
+ }
+ foreach(string field in fields)foreach(string action in new[]{"Right","Left","Menu","Drag"}) {
+  Setup(cameras[0],false);Seed(field,field=="Fov"?500:1000);double start=Current(field);
+  Input(field,action);double after=Current(field);
+  Check(action=="Left"?after<start:after>start,"actual keyboard/menu/drag path moves at outside value "+field+"/"+action);
+  Check(Math.Abs(after-start)<Math.Abs(start)*.1,"input path cannot jump back to old endpoint "+field+"/"+action);
+ }
+ foreach(string field in fields)foreach(float value in new[]{float.MaxValue,-float.MaxValue}) {
+  Setup(cameras[0],false);Seed(field,value);Panel.Frame();Panel.Draw();var before=File.ReadAllBytes(path);
+  Check(File.ReadAllBytes(path).SequenceEqual(before),"extreme finite passive editor does not save");
+  Input(field,value>0?"−":"+");
+  Check(double.IsFinite(Current(field)),"extreme editor nudge stays finite "+field);
+ }
+ Setup(cameras[0],false);Seed("Side",1000);var locked=File.ReadAllBytes(path);
+ using(new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.None)){Input("Side","+");}
+ Check(File.ReadAllBytes(path).SequenceEqual(locked)&&Current("Side")==1000,"locked outside-range edit keeps cache and bytes");
+ Check(TripleView.Notice.Contains("Couldn't save position"),"actual outside-range failure notice");
+ Input("Side","+");Check(Current("Side")>1000,"explicit retry after failed outside-range edit");
+ Setup(cameras[0],false);Seed("Fov",500);Panel.Frame();Panel.Draw();
+ Check(TripleView.TryGetPanelFov(out float lens)&&lens==179,"effective lens still limited while request editor is unbounded");
+ Check(Current("Fov")==500,"showing saturated FOV does not replace saved request");
+ Check(Panel.DirtyCalls==0,"range editors do not trigger whole settings save");
+ Near(Panel.Plain(.3f),.3,"non-camera slider behavior retained");
+}
+
 try{
  if(mode=="pose"){Setup(cameras[0],false);CurrentDefault("Side",true);}
+ else if(mode=="range-pose"){NamedRange("Side");}
+ else if(mode=="range-fov"){NamedRange("Fov");}
+ else if(mode=="ranges"){Ranges();}
  else if(mode=="fov"){Setup(cameras[0],false);CurrentDefault("Fov",true);}
  else if(mode=="all"){
   foreach(var camera in cameras)foreach(bool set in new[]{false,true})foreach(string field in fields){Setup(camera,set);CurrentDefault(field);}

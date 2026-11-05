@@ -245,6 +245,7 @@ internal static class NativeGearboxApply {internal static string Status=>"Keep: 
         internal static void ResetCurrent()=>CameraAction?.Invoke("Camera reset");
         internal static void PressComparison(bool developer=false,bool fromPanel=false){}
         internal static bool TryGetPanelFov(out float value){value=70;return CameraEditAllowed;}
+        internal static bool TryGetPanelFovRequest(out float value){value=70;return CameraEditAllowed;}
         internal static void SetFovFromPanel(float value){}
         internal static CameraOffset PositionOffset(CameraSlot camera,CameraOffset fallback=default)=>fallback;
         internal static void SetPositionFromPanel(CameraOffset value){}

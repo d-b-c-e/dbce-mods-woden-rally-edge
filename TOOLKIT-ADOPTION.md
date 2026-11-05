@@ -1,3 +1,11 @@
+November5 camera editor-range source candidate (kole530891): four current
+Game/Realistic pose sliders extend around finite saved offsets; FOV slider edits
+the raw requested value with an effective-lens readout. Only final rendering stays
+1..179 degrees; passive draw, field Defaults, whole Reset, keys and storage scope
+are preserved. Actual panel/slider/store baseline range regressions and current
+button/key/menu/drag/reload/failure tests prepared, not run. STD046 remains partial;
+legacy single-view/editor/native/render/device/owner gates are separate.
+
 ## November 2: STD-038..049 and F7 save audit
 
 The selected offline gap was ConfigLine: a one-key save rebuilt all line endings,

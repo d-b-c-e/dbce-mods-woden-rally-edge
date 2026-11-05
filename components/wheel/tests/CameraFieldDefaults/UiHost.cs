@@ -16,20 +16,22 @@ namespace WodenRallyEdge {
   internal static string ClickRow="",ClickCaption="Default",CurrentRow="";
   internal static bool Clicked;internal static int DirtyCalls;
   internal static readonly HashSet<string> Defaults=new();
+  internal static readonly Dictionary<string,Rect> Tracks=new();
+  internal static string EventRow="";
   internal static readonly List<(string Row,string Caption,Rect Bounds)> Buttons=new();
   internal static void Frame(string click="",string caption="Default"){
-   ClickRow=click;ClickCaption=caption;Clicked=false;Defaults.Clear();Buttons.Clear();_ordinal=0;_drag=-1;_focus=-1;_menuStep=0;GUIUtility.keyboardControl=0;Event.current=new();
+   ClickRow=click;ClickCaption=caption;Clicked=false;Defaults.Clear();Buttons.Clear();Tracks.Clear();EventRow="";_ordinal=0;_drag=-1;_focus=-1;_menuStep=0;GUIUtility.keyboardControl=0;Event.current=new();
   }
   private static bool Button(float x,float y,float width,string text,bool selected=false,bool enabled=true){
    Buttons.Add((CurrentRow,text,new Rect(x,y,width,36)));
    if(text=="Default")Defaults.Add(CurrentRow);
    if(!Clicked&&enabled&&text==ClickCaption&&(ClickRow=="*"||ClickRow==CurrentRow)){Clicked=true;Event.current.Use();return true;}return false;
   }
-  private static void Label(float x,float y,float width,string text){if(x==250)CurrentRow=text;}
+  private static void Label(float x,float y,float width,string text,bool wrap=false,float height=0){if(x==250)CurrentRow=text;}
   private static void Dirty()=>DirtyCalls++;
-  private static Rect R(float x,float y,float width,float height)=>new(x,y,width,height);
-  private static bool Visible(Rect r)=>true;
-  private static bool Inside(Rect r,Vector2 position)=>false;
+  private static Rect R(float x,float y,float width,float height){var r=new Rect(x,y,width,height);if(height==28)Tracks[CurrentRow]=r;return r;}
+  private static bool Visible(Rect r){if(CurrentRow==EventRow)_focus=_ordinal-1;return true;}
+  private static bool Inside(Rect r,Vector2 position)=>position.x>=r.x&&position.x<=r.x+r.width&&position.y>=r.y&&position.y<=r.y+r.height;
   private static void Reveal(Rect r){}
   private static Color ColorOf(object color)=>new(1,1,1);
   private static void Fill(Rect r,Color color){}

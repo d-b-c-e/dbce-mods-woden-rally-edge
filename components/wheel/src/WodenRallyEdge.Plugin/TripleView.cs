@@ -76,6 +76,15 @@ internal static class TripleView
         value = FramedFov(CurrentCamera, MountedCamera.NativeFov(_source), MountedCamera.BaseFov(CurrentCamera));
         return true;
     }
+    internal static bool TryGetPanelFovRequest(out float value)
+    {
+        value=0;
+        if(!CameraEditAllowed || _source==null)return false;
+        var camera=CurrentCamera;
+        double start=Realistic(camera)?MeasuredFov:MountedCamera.BaseFov(camera)??MountedCamera.NativeFov(_source);
+        value=(float)CameraLens.RequestedFov(start,FovOffset(camera));
+        return float.IsFinite(value);
+    }
     internal static void SetFovFromPanel(float value) => SaveFov(value);
     internal static void AdjustFov(float delta) => SaveFov(delta, adjustment: true);
     private static void SaveFov(double value, bool adjustment = false)

@@ -283,6 +283,15 @@ internal static partial class Panel
         }
         return editorY+count*(F6Metrics.RowHeight+F6Metrics.RowGap)+6;
     }
+    private static float CameraSlider(float y,string label,ref float value,float min,float max,string format="F2",Action? defaultAction=null)
+    {
+        // Extend the existing editor around finite saved values. These are editor
+        // windows, not storage or lens limits; the next edit can extend them again.
+        double half=((double)max-min)/2;
+        min=(float)Math.Max(-float.MaxValue,Math.Min(min,(double)value-half));
+        max=(float)Math.Min(float.MaxValue,Math.Max(max,(double)value+half));
+        return Slider(y,label,ref value,min,max,format,save:false,defaultAction:defaultAction);
+    }
     private static float Slider(float y,string label,ref float value,float min,float max,string format="F2",bool save=true,Action? defaultAction=null)
     {
         void Changed() { if(save)Dirty(); }
@@ -717,7 +726,10 @@ internal static partial class Panel
             Label(250,y,690,"Triple views are always corrected. Realistic starts at your measured seat; Game keeps the camera's own framing. A FOV wider than seat-true stretches the side screens. Each camera and set remembers its own FOV offset.",true,64);y+=72;
             if(TripleView.TryGetPanelFov(out float cameraFov))
             {
-                float beforeFov=cameraFov;y=Slider(y,"Current camera FOV (degrees)",ref cameraFov,20,120,"F1",save:false,defaultAction:TripleView.DefaultFovFromPanel);
+                float effectiveFov=cameraFov;
+                if(TripleView.TryGetPanelFovRequest(out float requestedFov))cameraFov=requestedFov;
+                float beforeFov=cameraFov;y=CameraSlider(y,"Current camera FOV (degrees)",ref cameraFov,20,120,"F1",defaultAction:TripleView.DefaultFovFromPanel);
+                Label(250,y,690,$"Requested FOV {beforeFov:F1}°. Effective lens {effectiveFov:F1}° (1–179°).",true,42);y+=48;
                 if(cameraFov!=beforeFov)TripleView.SetFovFromPanel(cameraFov);
             }
         }
@@ -764,8 +776,8 @@ internal static partial class Panel
                 {
                     var offset=TripleView.PositionOffset(TripleView.CurrentCamera,MountedCamera.LegacyOffset(TripleView.CurrentCamera));
                     float side=offset.Side,height=offset.Height,forward=offset.Forward,pitch=offset.Pitch;
-                    y=Slider(y,"Side offset (m)",ref side,-2,2,save:false,defaultAction:()=>TripleView.DefaultPositionFromPanel("Side"));y=Slider(y,"Height offset (m)",ref height,-2,2,save:false,defaultAction:()=>TripleView.DefaultPositionFromPanel("Height"));
-                    y=Slider(y,"Forward offset (m)",ref forward,-4,4,save:false,defaultAction:()=>TripleView.DefaultPositionFromPanel("Forward"));y=Slider(y,"Tilt offset (degrees)",ref pitch,-90,90,"F1",save:false,defaultAction:()=>TripleView.DefaultPositionFromPanel("Pitch"));
+                    y=CameraSlider(y,"Side offset (m)",ref side,-2,2,defaultAction:()=>TripleView.DefaultPositionFromPanel("Side"));y=CameraSlider(y,"Height offset (m)",ref height,-2,2,defaultAction:()=>TripleView.DefaultPositionFromPanel("Height"));
+                    y=CameraSlider(y,"Forward offset (m)",ref forward,-4,4,defaultAction:()=>TripleView.DefaultPositionFromPanel("Forward"));y=CameraSlider(y,"Tilt offset (degrees)",ref pitch,-90,90,"F1",defaultAction:()=>TripleView.DefaultPositionFromPanel("Pitch"));
                     var edited=new CameraOffset(side,height,forward,pitch);if(edited!=offset)TripleView.SetPositionFromPanel(edited);
                     if(Button(250,y,330,"Reset current camera/set (Numpad 5)"))TripleView.ResetCurrent();y+=48;
                 }
