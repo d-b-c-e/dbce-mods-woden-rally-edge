@@ -114,7 +114,7 @@ void Seed(string field,float value) {
  TripleView.Store.SetPosition(selected,1,realistic,pose);}
 }
 void Input(string field,string action) {
- var row=Row(field);Panel.Frame(row,action is "+" or "âˆ’"?action:"__none");
+ var row=Row(field);Panel.Frame(row,action is "+" or "\u2212"?action:"__none");
  if(action is "Right" or "Left" or "Menu") {
   Panel.EventRow=row;
   if(action=="Menu")typeof(Panel).GetField("_menuStep",BindingFlags.Static|BindingFlags.NonPublic)!.SetValue(null,1);
@@ -139,7 +139,7 @@ void Ranges() {
   double start=Current(field);var pose=TripleView.Store.Position(selected,1,set);var otherFov=TripleView.Store.FovOffset(selected,!set);
   Input(field,"+");double plus=Current(field);
   Check(plus>start&&plus-start<Math.Max(5,Math.Abs(start)*.05),"actual plus moves outward without endpoint jump "+field);
-  Input(field,"âˆ’");Check(Current(field)<plus,"actual minus moves back "+field);
+  Input(field,"\u2212");Check(Current(field)<plus,"actual minus moves back "+field);
   TripleView.Open(path,camera);Check(Current(field)!=0||value==0||field=="Fov","outside-range value survives reload "+field);
   Near(TripleView.Store.FovOffset(selected,!set),otherFov,"other set untouched");
   if(field=="Fov")Check(TripleView.Store.Position(selected,1,set)==pose,"FOV edits preserve all pose axes");
@@ -155,7 +155,7 @@ void Ranges() {
  foreach(string field in fields)foreach(float value in new[]{float.MaxValue,-float.MaxValue}) {
   Setup(cameras[0],false);Seed(field,value);Panel.Frame();Panel.Draw();var before=File.ReadAllBytes(path);
   Check(File.ReadAllBytes(path).SequenceEqual(before),"extreme finite passive editor does not save");
-  Input(field,value>0?"âˆ’":"+");
+  Input(field,value>0?"\u2212":"+");
   Check(double.IsFinite(Current(field)),"extreme editor nudge stays finite "+field);
  }
  Setup(cameras[0],false);Seed("Side",1000);var locked=File.ReadAllBytes(path);
