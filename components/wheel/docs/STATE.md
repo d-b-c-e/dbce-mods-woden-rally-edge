@@ -1,3 +1,5 @@
+November5 local source qualified, not installed: source8c98267 separates raw FOV requests from final lens;4oldRED/current52 and80+459 exact-candidate-Core checks PASS; full plugin0/0. Installed eec3b878/248B8AD1 and owner configuration unchanged; see ../../../docs/2026-11-05-final-lens-source.md. Package/file-only delivery pending, no game/UI/device proof.
+
 # November 4: camera set-key fix installed; live acceptance open
 
 Current installed0.2.16+eec3b87845c648ebe2d0dbdfbfa9a704b2021c63 reserves the active
