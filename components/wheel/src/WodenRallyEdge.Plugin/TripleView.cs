@@ -100,6 +100,18 @@ internal static class TripleView
         try { _framing.SetPosition(CurrentCamera, CurrentCar, Realistic(CurrentCamera), value, MountedCamera.LegacyOffset(CurrentCamera)); Announce(); }
         catch (Exception ex) { Announce("Couldn't save position: " + ex.Message); }
     }
+    internal static void DefaultFovFromPanel()
+    {
+        if (!CameraEditAllowed || _source == null || _framing == null) return;
+        try { _framing.DefaultFov(CurrentCamera, Realistic(CurrentCamera)); _views = null; Announce("FOV default restored"); }
+        catch (Exception ex) { Announce("Couldn't restore FOV default: " + ex.Message); }
+    }
+    internal static void DefaultPositionFromPanel(string component)
+    {
+        if (!CameraEditAllowed || _framing == null || component is not ("Side" or "Height" or "Forward" or "Pitch")) return;
+        try { _framing.DefaultPosition(CurrentCamera, CurrentCar, Realistic(CurrentCamera), component); Announce(component + " default restored"); }
+        catch (Exception ex) { Announce("Couldn't restore position default: " + ex.Message); }
+    }
     internal static void AdjustPosition(string action) => SetPositionFromPanel(
         PositionOffset(CurrentCamera, MountedCamera.LegacyOffset(CurrentCamera)).Adjust(action, Runtime.Settings.CameraSteps));
     internal static void ResetCurrent()

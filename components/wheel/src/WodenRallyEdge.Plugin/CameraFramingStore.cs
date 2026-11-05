@@ -59,6 +59,17 @@ internal sealed class CameraFramingStore
         Save((entry.Definition.Key, Number(offset)));
         entry.Value = offset;
     }
+    internal void DefaultFov(CameraSlot camera, bool realistic)
+    {
+        var fov = Entry(FovKey(camera, realistic), 0f);
+        Save((fov.Definition.Key, "0")); fov.Value = 0;
+    }
+    internal void DefaultPosition(CameraSlot camera, int car, bool realistic, string component)
+    {
+        if (component is not ("Side" or "Height" or "Forward" or "Pitch")) throw new ArgumentOutOfRangeException(nameof(component));
+        var entry = Entry(PositionKey(camera, car, realistic, component), 0f);
+        Save((entry.Definition.Key, "0")); entry.Value = 0;
+    }
     internal CameraOffset Position(CameraSlot camera, int car, bool realistic, CameraOffset fallback = default) => new(
         Entry(PositionKey(camera, car, realistic, "Side"), fallback.Side).Value,
         Entry(PositionKey(camera, car, realistic, "Height"), fallback.Height).Value,
