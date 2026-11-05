@@ -93,3 +93,23 @@ yet compiled.19.01s/certmetadata unchanged/17identities absent/censusPASS; exact
 aad6589083194467aa5e805676796e6b lease exited2026-11-05T01:35:57.423Z.
 Remi523170 independently reviewed the source/dependency closure and522pins,
 finding no further missing references/links; no execution was claimed.
+
+## Qualified source-only result
+
+Packet04 GO523238 PASS on clean sourceeec3b87845c648ebe2d0dbdfbfa9a704b2021c63:
+66/66 focused source-linked checks; complete plugin/Core compile0warnings/0errors.
+All526source/tool/evidence pins and certificate metadata unchanged;17observed
+identities absent in independent all-image census.20.12s; exact
+bcb8d8983fb8434ebb8c0637b92b442f lease exited2026-11-05T02:06:12.319Z.
+Qualified old523134 RED witness/assembly/log retained and pinned, not rerun.
+
+- Plugin248B8AD1265FF488819E658E4C83CDD791A9EF5B18FFAEFCC0FB7A46D252393D
+- Core911D5EC8C6E85AE8B70BD3CD011FD192D7452F4D89B51AFFEAC35C1FEA692048
+- Result6158C561F55B190814134E3A7319D35BDE4723BB827FD054C2129A63077EB7B1
+- Audit093A76055241D270EFDC200E8E8BE76921BA4FF07D00F9BC31E6908061963EFB
+
+Raw evidence: ignored bld/soba-camera-set-key/packet04/cpu-523238; earlier
+attempts retained beside it. This source-only assignment is complete. No main
+merge, package, public push, owner install, product/native module load or game/
+UI/input/device/force activity. Actual Unity handler/rendered capture and owner
+acceptance remain open. The existing owner install remains unchanged.

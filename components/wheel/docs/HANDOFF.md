@@ -1,3 +1,16 @@
+# November 4: camera set-key reservation qualified offline; not installed
+
+Isolated sourceeec3b878 on soba/woden-camera-key-audit-20261104 reserves the active
+configured triples set key in camera capture/keyboard dispatch; saved maps,
+wheel bindings, numpad5/Custom and single-screen behavior remain intact.
+CPU523238:66focused source-linked checks PASS/full plugin+Core compile0/0.
+Old dispatcher523134 proved an unintended private offset write; actual Unity/
+render/device/owner acceptance remains open. No main merge/package/public push/
+owner install. Evidence, candidate identities and all failed attempts:
+[camera set-key audit](../../../docs/2026-11-04-camera-set-key-audit.md).
+Exact leasebcb8d8983fb8434ebb8c0637b92b442f released02:06:12.319Z after independent
+census; no custody. Next action requires coordinator direction beyond source-only.
+
 # November 4: camera receipt installed, payload/settings unchanged
 
 GO519745 upgraded only the install receipt to3A760EEE. Installed Wheelkit Core
