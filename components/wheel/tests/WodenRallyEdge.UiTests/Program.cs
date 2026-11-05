@@ -24,6 +24,12 @@ if(args.SequenceEqual(new[]{"--camera-set-key-only"}))
     } catch(Exception ex) { Console.Error.WriteLine(ex); Environment.ExitCode=1; }
     return;
 }
+if(args.SequenceEqual(new[]{"--camera-ranges-panel-only"}))
+{
+    CameraRangePanelChecks.Run(dir,Check);
+    Console.WriteLine($"Camera panel fixture: {checks} assertions passed. Actual whole Panel drawing/scroll/default dispatch; native/render endpoints simulated; no game/device.");
+    return;
+}
 PanelShutdownChecks.Run(dir, Check);
 if(args.SequenceEqual(new[]{"--panel-shutdown-only"}))
 {
