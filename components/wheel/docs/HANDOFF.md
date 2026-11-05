@@ -1,3 +1,19 @@
+# November 4: camera set-key fix installed; live acceptance open
+
+Current installed0.2.16+eec3b87845c648ebe2d0dbdfbfa9a704b2021c63 reserves the active
+configured triples set key in camera capture/keyboard dispatch. Saved maps,
+wheel routes, numpad5/Custom and single-screen behavior are retained. Plugin248B8AD1/
+Core911D5EC8/receiptFC5ABFF6; all23payloads and fourcamera starts verified.
+Source66checks/fullcompile0/0 + packagedPS5installer98checks PASS. Fileinstall523477
+and independent postrelease readback PASS:81protected files/25typed preferences
+exact,24original+81protected backup hashes verified, guardedRollback dry-run PASS.
+Backup: E:/Source/_archive/2026-11-04/owner-before-woden-camera-set-key-20261104-202031-53a14222/Rollback.ps1 -Apply.
+Exact leasea033b92a4b33442eb226dd6c7e8513a9 released02:21:59.971Z; no custody.
+Canonical local main landed, PUBLIC/no push. No game/GUI/input/device/FFB/config
+writes; actual native/render/owner acceptance remains open. Full identities and
+retained evidence/package: ../../../docs/2026-11-04-camera-set-key-audit.md.
+Older sections below describe prior snapshots.
+
 # November 4: camera set-key reservation qualified offline; not installed
 
 Isolated sourceeec3b878 on soba/woden-camera-key-audit-20261104 reserves the active

@@ -113,3 +113,38 @@ attempts retained beside it. This source-only assignment is complete. No main
 merge, package, public push, owner install, product/native module load or game/
 UI/input/device/force activity. Actual Unity handler/rendered capture and owner
 acceptance remain open. The existing owner install remains unchanged.
+
+## Landed on local main and installed
+
+Kole523283 authorized delivery after source qualification. Canonical local main
+fast-forwarded9b6ad33->acd5110; GitHub visibility PUBLIC verified. No push.
+Complete private update package keeps21existing payloads and replaces the
+qualified plugin/Core pair. ZIPBC8F8BDBDA1329E6511A4DACC563AF1CD4CC1DA57292FC5D5AE524E60B762EBF;
+manifestE49438620FB4CEE28D6501FBD0698F2DA3B4515F4A0DF57EDB4086809F6FB04E.
+All30ZIPmembers verified. Actual packaged PS5 installer98checks passed under
+CPU523407: fresh/update/injectedrollback, private+ordinary hashes, fourstarts,
+configbytes/BOM/offsets. Initial delivery523390 fixture-order refusal retained;
+corrected continuation reused the sealed ZIP without rebuild/repackage.
+
+File-only install523477 PASS: installed0.2.16+eec3b87845c648ebe2d0dbdfbfa9a704b2021c63,
+Plugin248B8AD1265FF488819E658E4C83CDD791A9EF5B18FFAEFCC0FB7A46D252393D,
+Core911D5EC8C6E85AE8B70BD3CD011FD192D7452F4D89B51AFFEAC35C1FEA692048,
+receiptFC5ABFF67B891943533CEC654339CD490297899EBFFE591CFE8D6C68876BC4E5.
+All23owned payloads/fourstarts/private+ordinary metadata verified.81protected
+config/save/unknownplugin files retain SHA/creation+write ticks/rawattrs and
+inventory;25typed preferences exact.24original/81protected backups verified.
+10.19s/inputpins+certmetadata unchanged/3observed identities absent/censusPASS;
+exacta033b92a4b33442eb226dd6c7e8513a9 exited2026-11-05T02:21:59.971Z.
+Independent postrelease readback/gameclosed/tokenabsent PASS.
+
+Guarded rollback dry-run PASS:
+E:/Source/_archive/2026-11-04/owner-before-woden-camera-set-key-20261104-202031-53a14222/Rollback.ps1 -Apply.
+ResultBB3F377A03149C311ACF2BE39112346494C4D717413C1A00712BD81C0A8C0866;
+audit412F72D8AC75B96C8F97877DE3C4695A3DA989BBE67799A049EC16833119A1D0;
+independent06D63FEE7441167F129EA06972E42A7A1AD6BD8F2CAEE1216E6EA4F4E53E2A57.
+Raw evidence/package remains in the retained evidence worktree
+E:/Source/_work/soba-woden-camera-key-audit-20261104/bld/soba-camera-set-key/;
+install01/install-523477 is the final install receipt. Preserve this worktree
+until evidence/package retention is transferred. No custody/game/GUI/input/
+device/FFB/config writes/public push. Native/rendered behavior and owner
+acceptance remain open; portfolio camera_sets stays partial.
