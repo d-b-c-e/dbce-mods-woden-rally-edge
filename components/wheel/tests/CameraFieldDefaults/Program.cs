@@ -158,7 +158,7 @@ void Ranges() {
   Input(field,value>0?"\u2212":"+");
   Check(double.IsFinite(Current(field)),"extreme editor nudge stays finite "+field);
  }
- Setup(cameras[0],false);Seed("Side",1000);var locked=File.ReadAllBytes(path);
+ Setup(cameras[0],false);Seed("Side",1000);Panel.Frame();Panel.Draw();var locked=File.ReadAllBytes(path);
  using(new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.None)){Input("Side","+");}
  Check(File.ReadAllBytes(path).SequenceEqual(locked)&&Current("Side")==1000,"locked outside-range edit keeps cache and bytes");
  Check(TripleView.Notice.Contains("Couldn't save position"),"actual outside-range failure notice");
