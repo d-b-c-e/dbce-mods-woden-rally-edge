@@ -1,4 +1,4 @@
-November5 local source qualified, not installed: source8c98267 separates raw FOV requests from final lens;4oldRED/current52 and80+459 exact-candidate-Core checks PASS; full plugin0/0. Installed eec3b878/248B8AD1 and owner configuration unchanged; see ../../../docs/2026-11-05-final-lens-source.md. Package/file-only delivery pending, no game/UI/device proof.
+November5 file-only installed0.2.16+8c98267: finite saved/requested FOV and final lens/projection agree, raw saturated edits retained. Plugin9F72D8D8/Core9D30ED0F/receipt2BE94411. Four oldRED/current52+539/fullcompile0/0; actual packaged installer98checks PASS. First admitted1793869814074 verified23payloads/fourstarts;24original metadata/SDDL/ownerSID,84protected files/25prefs exact. Corrected read-only path verifier PASS, exact lease released09:12:08.6454894Z. No custody/game/UI/device/new owner acceptance/public push. See ../../../docs/2026-11-05-final-lens-source.md for hashes/backup/rollback and retained original verifier failure.
 
 # November 4: camera set-key fix installed; live acceptance open
 
