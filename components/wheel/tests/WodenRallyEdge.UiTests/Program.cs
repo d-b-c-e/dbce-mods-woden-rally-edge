@@ -16,6 +16,14 @@ int checks=0;void Check(bool ok,string message)
     File.WriteAllText(failure,JsonSerializer.Serialize(new{message,width=Screen.width,height=Screen.height,commands=GUI.Commands},new JsonSerializerOptions{IncludeFields=true,WriteIndented=true}));
     throw new Exception(message+"; trace: "+failure);
 }
+if(args.SequenceEqual(new[]{"--camera-set-key-only"}))
+{
+    try {
+        CameraSetKeyChecks.Run(dir,Check);
+        Console.WriteLine($"PASS {checks} focused source-linked Woden camera set-key checks; no game/device/native module.");
+    } catch(Exception ex) { Console.Error.WriteLine(ex); Environment.ExitCode=1; }
+    return;
+}
 PanelShutdownChecks.Run(dir, Check);
 if(args.SequenceEqual(new[]{"--panel-shutdown-only"}))
 {

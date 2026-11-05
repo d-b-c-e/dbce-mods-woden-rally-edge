@@ -35,3 +35,35 @@ and consumer seam. Do not guess a replacement binding or rewrite a saved map.
 
 No implementation or CPU request has been made by this selection. Woden's
 public-push restrictions and the existing rig/owner evidence boundaries remain.
+
+## Source correction prepared (kole522921)
+
+The active parsed Triple.FovKey is reserved only while triples framing applies.
+Capture refuses it before the publisher and names the reserved key; ordinary
+keyboard dispatch filters it, while the existing wheel/shim OR route remains.
+Observed reserved holds require their own release before acting after a mode/
+set-key change. No saved binding, offset, numpad default, Custom calculation,
+force, device path or single-screen setting is rewritten.
+
+The focused UI-harness mode links the actual CameraShortcuts, WheelInput and
+CameraFramingStore plus real Core/BepInEx ConfigFile. Engine/render classes remain
+stubs; only the camera action facade routes into the actual private store. The
+prior UI keyboard stub omitted F7; it now includes F7/F9 and the current camera
+facade needed by the source-linked panel. The legacy full UI suite is not claimed.
+
+Expected57 assertions cover default/configured/case-insensitive/numeric set keys,
+plain/Shift dispatch, real-store developer non-persistence, original binding BOM/
+unknown bytes, ordinary keys, wheel binding/capture, same-key hold release,
+single-screen keys/capture, actual numpad5 reset namespace, other car/set and
+Custom FOV preservation, blocked/locked capture and successful ordinary capture.
+The actual old9b6ad33 CameraShortcuts/WheelInput blobs are exported byte-exact into
+ignored bld/soba-camera-set-key/baseline. Baseline override properties affect only
+the test project. Require the first old dispatcher to write a private offset and
+fail the named regression, then current consumers to pass; no arbitrary crash is
+accepted as expected red. The fixture catches failure and exits1 without a crash
+UI. No compiler/test run yet. CPU request will include the full plugin compile.
+
+Private canonical core/interop/recording/toolkit dependencies116files were copied
+and hash-verified under ignored components/wheel/lib; no download/global install.
+No product/native DLL is loaded by these tests; actual managed Core/BepConfig are.
+Actual Unity/input/render/owner acceptance and the installed Woden remain unchanged.

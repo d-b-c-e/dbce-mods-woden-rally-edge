@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+  <PropertyGroup>
+    <WheelInputSource Condition="'$(WheelInputSource)' == ''">../../src/WodenRallyEdge.Plugin/WheelInput.cs</WheelInputSource>
+    <CameraShortcutsSource Condition="'$(CameraShortcutsSource)' == ''">../../src/WodenRallyEdge.Plugin/CameraShortcuts.cs</CameraShortcutsSource>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="Dbce.Wheel.Ffb" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Ffb.dll" />
     <Reference Include="Dbce.Wheel.Recording" HintPath="../../lib/recording/Dbce.Wheel.Recording.dll" />
@@ -20,8 +24,9 @@
     <Compile Include="../../src/WodenRallyEdge.Plugin/Panel.cs" Link="Consumer/Panel.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Panel.Support.cs" Link="Consumer/Panel.Support.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Toolkit/Support/SupportReport.cs" Link="Consumer/SupportReport.cs" />
-    <Compile Include="../../src/WodenRallyEdge.Plugin/WheelInput.cs" Link="Consumer/WheelInput.cs" />
-    <Compile Include="../../src/WodenRallyEdge.Plugin/CameraShortcuts.cs" Link="Consumer/CameraShortcuts.cs" />
+    <Compile Include="$(WheelInputSource)" Link="Consumer/WheelInput.cs" />
+    <Compile Include="$(CameraShortcutsSource)" Link="Consumer/CameraShortcuts.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/CameraFramingStore.cs" Link="Consumer/CameraFramingStore.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Settings.cs" Link="Consumer/Settings.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ShimBindingSnapshots.cs" Link="Consumer/ShimBindingSnapshots.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/SharedBindingHost.cs" Link="Consumer/SharedBindingHost.cs" />

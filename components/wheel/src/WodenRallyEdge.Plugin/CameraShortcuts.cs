@@ -6,6 +6,9 @@ namespace WodenRallyEdge;
 internal static class CameraShortcuts
 {
     internal static readonly Key[] BindableKeys = Enum.GetValues<Key>().Where(k => k is not (Key.None or Key.F6 or Key.F8 or Key.Escape)).Distinct().ToArray();
+    // Reserve only while the set shortcut applies. Saved maps are retained; single-screen keys and wheel buttons keep their routes.
+    internal static Key? SetKey => TripleView.FramingEnabled && Enum.TryParse<Key>(TripleView.FovKeyName, true, out var key) && key != Key.None ? key : null;
+    private static readonly HashSet<Key> ReservedHeld = new();
     private static readonly Dictionary<string, ShortcutRepeat> Repeats = CameraTuning.Actions.Skip(2).ToDictionary(a => a, _ => new ShortcutRepeat());
     // Lock texts carry a menu path, so they stay longer than the 3 s adjustment readout.
     private const double LockMessageSeconds = 6;
@@ -16,6 +19,11 @@ internal static class CameraShortcuts
         var kb = Keyboard.current;
         if (kb == null || Runtime.Wheel == null || !Runtime.Wheel.Bindings.CameraKeys.TryGetValue(action, out string? name) ||
             !Enum.TryParse<Key>(name, true, out var key) || !BindableKeys.Contains(key)) return false;
+        bool held = kb[key].isPressed;
+        if (!held) ReservedHeld.Remove(key);
+        if (SetKey == key) { if (held) ReservedHeld.Add(key); return false; }
+        // Leaving triples or changing its key cannot turn an observed blocked hold into a fresh adjustment.
+        if (ReservedHeld.Contains(key)) return false;
         return edge ? kb[key].wasPressedThisFrame : kb[key].isPressed;
     }
     internal static void Update()

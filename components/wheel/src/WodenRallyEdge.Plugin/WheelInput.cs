@@ -133,9 +133,15 @@ internal sealed class WheelInput
             var pressed = Runtime.Devices!.PressedButtons().ToArray();
             bool camera = CameraTuning.Actions.Contains(CaptureButton);
             var kb = Keyboard.current;
+            var setKey = camera ? CameraShortcuts.SetKey : null;
             if (camera && kb != null && (kb[Key.F6].wasPressedThisFrame || kb[Key.F8].wasPressedThisFrame))
                 Status = "F6 and F8 are reserved for Settings and Stop FFB. Press another key.";
-            var keys = camera && kb != null ? CameraShortcuts.BindableKeys.Where(k => kb[k].wasPressedThisFrame).ToArray() : Array.Empty<Key>();
+            if (kb != null && setKey is { } reservedKey && kb[reservedKey].wasPressedThisFrame)
+            {
+                Status = reservedKey + " switches Game/Realistic camera sets on triples. Press another key or a wheel button.";
+                return;
+            }
+            var keys = camera && kb != null ? CameraShortcuts.BindableKeys.Where(k => setKey != k && kb[k].wasPressedThisFrame).ToArray() : Array.Empty<Key>();
             if (pressed.Length == 1 && keys.Length == 0)
             {
                 string action = CaptureButton;

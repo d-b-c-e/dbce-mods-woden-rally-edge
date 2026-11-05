@@ -66,7 +66,7 @@ namespace UnityEngine.EventSystems
 namespace UnityEngine.InputSystem
 {
     public sealed class Gamepad { public static readonly List<Gamepad> all=new(); }
-    public enum Key {None,F6,F8,Escape,A,B,C,U,J,LeftShift,RightShift,LeftCtrl,RightCtrl,LeftAlt,RightAlt,LeftMeta,RightMeta,Numpad8,Numpad2,Numpad9,Numpad7,Numpad4,Numpad6,Numpad1,Numpad3,NumpadPlus,NumpadMinus,Numpad0,Numpad5}
+    public enum Key {None,F6,F8,Escape,A,B,C,U,J,LeftShift,RightShift,LeftCtrl,RightCtrl,LeftAlt,RightAlt,LeftMeta,RightMeta,Numpad8,Numpad2,Numpad9,Numpad7,Numpad4,Numpad6,Numpad1,Numpad3,NumpadPlus,NumpadMinus,Numpad0,Numpad5,F7,F9}
     public sealed class KeyControl { public bool wasPressedThisFrame,isPressed; }
     public sealed class Keyboard
     { public static Keyboard? current=new();public bool FailF8;private readonly Dictionary<Key,KeyControl> keys=new();public KeyControl anyKey=>new(){isPressed=keys.Values.Any(k=>k.isPressed)};public KeyControl this[Key key] {get{if(key==Key.F8&&FailF8)throw new InvalidOperationException("fixture F8 read failed");if(!keys.ContainsKey(key))keys[key]=new();return keys[key];}}public void Clear(){foreach(var k in keys.Values){k.wasPressedThisFrame=false;k.isPressed=false;}} }
@@ -234,6 +234,20 @@ internal static class NativeGearboxApply {internal static string Status=>"Keep: 
         internal static TripleMode Mode {get=>_mode?.Value??TripleMode.Auto;set{if(_mode!=null&&_mode.Value!=value)_mode.Value=value;}}
         internal static bool MatchGameFov {get=>_match?.Value??false;set{if(_match!=null&&_match.Value!=value)_match.Value=value;}}
         internal static bool Active;
+        // Native/render state is the fixture boundary. The focused mode routes these calls into the actual framing store.
+        internal static bool FramingEnabled;
+        internal static bool CameraEditAllowed=>FramingEnabled&&Runtime.Focused&&Runtime.Local!=null&&MountedCamera.PlayerOwned;
+        internal static string FovKeyName="F7",FramingStatus="Fixture framing";
+        internal static CameraSlot CurrentCamera=new(MountedView.Bonnet);
+        internal static Action<string>? CameraAction;
+        internal static void AdjustPosition(string action)=>CameraAction?.Invoke(action);
+        internal static void AdjustFov(float delta)=>CameraAction?.Invoke(delta<0?"Camera narrower":"Camera wider");
+        internal static void ResetCurrent()=>CameraAction?.Invoke("Camera reset");
+        internal static void PressComparison(bool developer=false,bool fromPanel=false){}
+        internal static bool TryGetPanelFov(out float value){value=70;return CameraEditAllowed;}
+        internal static void SetFovFromPanel(float value){}
+        internal static CameraOffset PositionOffset(CameraSlot camera,CameraOffset fallback=default)=>fallback;
+        internal static void SetPositionFromPanel(CameraOffset value){}
         internal static bool MountedFovLocked=>Active&&!MatchGameFov;
         // Renderer state is mocked; the lock texts are the real Core FovLockText at the fixture's center angle.
         internal static double? CenterVerticalFov=>Active?33.6:null;
@@ -254,6 +268,7 @@ internal static class NativeGearboxApply {internal static string Status=>"Keep: 
     }
     internal static class MountedCamera
     {internal static bool PlayerOwned=true;internal static CameraCycle Cycle=new();internal static string Status=>"Fixture mounted view";internal static CameraPose Pose(bool bumper)=>Runtime.Settings.GetCameraPose(bumper);
+     internal static CameraOffset LegacyOffset(CameraSlot camera)=>default;
      internal static void SavePose(bool bumper,CameraPose pose){Runtime.Settings.SetCameraPose(bumper,pose);if(!bumper)Runtime.Settings.CameraAutoFit=false;}}
     internal sealed class ForceController
     {
