@@ -1,3 +1,16 @@
+November5 current field Defaults successor file-only installed0.2.16+52288c2e:
+F6 current Game/Realistic side/height/forward/tilt/FOV each has a one-key zero-offset
+Default. Other fields/cars/sets and whole Reset preserved. Plugin30FBAE77/
+Core490CC641/receipt9CB32933. Actual old2namedRED/current565+retained539 and full
+plugin0/0 PASS; complete package/actualPS5installer98 PASS. First-admitted
+1793877234220 verified23payloads/fourstarts,24originalmetadata+108SDDL/
+84protected/25prefs exact; exact lease released11:14:11.9292258Z.
+External rollback: E:/Source/_archive/2026-11-05/owner-before-woden-field-defaults-20261105/Rollback.ps1 -Apply.
+PUBLIC/local only/no push. No custody/game/UI/input/device/new owner acceptance.
+Fixed editor ranges and legacy single-view per-field Defaults remain queued.
+See ../../../docs/2026-11-05-camera-field-defaults.md for exact evidence.
+Older entries below describe historical snapshots.
+
 # November 4: camera set-key fix installed; live acceptance open
 
 Current installed0.2.16+eec3b87845c648ebe2d0dbdfbfa9a704b2021c63 reserves the active

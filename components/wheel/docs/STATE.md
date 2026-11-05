@@ -1,3 +1,16 @@
+November5 current field Defaults successor file-only installed0.2.16+52288c2e:
+F6 current Game/Realistic side/height/forward/tilt/FOV each has a one-key zero-offset
+Default. Other fields/cars/sets and whole Reset preserved. Plugin30FBAE77/
+Core490CC641/receipt9CB32933. Actual old2namedRED/current565+retained539 and full
+plugin0/0 PASS; complete package/actualPS5installer98 PASS. First-admitted
+1793877234220 verified23payloads/fourstarts,24originalmetadata+108SDDL/
+84protected/25prefs exact; exact lease released11:14:11.9292258Z.
+External rollback: E:/Source/_archive/2026-11-05/owner-before-woden-field-defaults-20261105/Rollback.ps1 -Apply.
+PUBLIC/local only/no push. No custody/game/UI/input/device/new owner acceptance.
+Fixed editor ranges and legacy single-view per-field Defaults remain queued.
+See ../../../docs/2026-11-05-camera-field-defaults.md for exact evidence.
+Older entries below describe historical snapshots.
+
 November5 file-only installed0.2.16+8c98267: finite saved/requested FOV and final lens/projection agree, raw saturated edits retained. Plugin9F72D8D8/Core9D30ED0F/receipt2BE94411. Four oldRED/current52+539/fullcompile0/0; actual packaged installer98checks PASS. First admitted1793869814074 verified23payloads/fourstarts;24original metadata/SDDL/ownerSID,84protected files/25prefs exact. Corrected read-only path verifier PASS, exact lease released09:12:08.6454894Z. No custody/game/UI/device/new owner acceptance/public push. See ../../../docs/2026-11-05-final-lens-source.md for hashes/backup/rollback and retained original verifier failure.
 
 # November 4: camera set-key fix installed; live acceptance open
