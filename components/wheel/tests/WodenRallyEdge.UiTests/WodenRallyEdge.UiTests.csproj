@@ -27,6 +27,7 @@
     <Compile Include="$(WheelInputSource)" Link="Consumer/WheelInput.cs" />
     <Compile Include="$(CameraShortcutsSource)" Link="Consumer/CameraShortcuts.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CameraFramingStore.cs" Link="Consumer/CameraFramingStore.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/TripleGeometry.cs" Link="Consumer/TripleGeometry.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Settings.cs" Link="Consumer/Settings.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ShimBindingSnapshots.cs" Link="Consumer/ShimBindingSnapshots.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/SharedBindingHost.cs" Link="Consumer/SharedBindingHost.cs" />

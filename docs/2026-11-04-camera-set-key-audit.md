@@ -61,7 +61,18 @@ ignored bld/soba-camera-set-key/baseline. Baseline override properties affect on
 the test project. Require the first old dispatcher to write a private offset and
 fail the named regression, then current consumers to pass; no arbitrary crash is
 accepted as expected red. The fixture catches failure and exits1 without a crash
-UI. No compiler/test run yet. CPU request will include the full plugin compile.
+UI. The full plugin compile remains part of the CPU request.
+
+Two setup attempts are retained under ignored bld/soba-camera-set-key. GO523042
+stopped during restore because the private feed lacked three net6 reference packs.
+Packet02 GO523073 restored those exact qualified cached packs successfully, then
+stopped during UI compilation: the newly linked CameraFramingStore requires the
+production TripleGeometry helper. That helper is now linked too; its only external
+type dependency is MountedView in the already referenced Core project. Neither
+attempt executed the consumer or established the expected red/current pass. Both
+completed certificate checks, independent process census and exact lease release;
+no game, device, install or owner state was touched. Next is a fresh frozen packet
+and serialized CPU GO, preserving both failed receipts.
 
 Private canonical core/interop/recording/toolkit dependencies116files were copied
 and hash-verified under ignored components/wheel/lib; no download/global install.
