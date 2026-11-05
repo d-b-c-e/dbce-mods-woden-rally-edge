@@ -67,9 +67,13 @@ internal static class CameraSetKeyChecks
         Neutral();Press(Key.Numpad5);CameraShortcuts.Update();
         check(input.Bindings.CameraKeys["Camera reset"]=="Numpad5"&&store.FovOffset(camera,true)==0&&store.Position(camera,7,true)==default,"numpad5 resets current actual store namespace");
         check(store.Position(camera,8,true).Side==.5f&&store.FovOffset(camera,false)==4&&store.Realistic(camera),"reset preserves other car/set and starting choice");
-        var stock=new GamePadSystem();
+        // Production capture requires the settings panel's fresh stock-input observation.
+        // Opening the actual source-linked panel establishes that ownership; a closed panel
+        // deliberately makes MenuOwnership.AfterStock report unknown input.
+        Panel.Toggle();check(Panel.Open,"capture fixture opens the actual settings panel");
+        var stock=new GamePadSystem();stock.Game_Pads.Add(new());
         void Stock(){MenuOwnership.BeforeStock(stock);foreach(var pad in stock.Game_Pads)MenuOwnership.AfterRead(pad);MenuOwnership.AfterStock(stock);}
-        void Arm(string action){Neutral();input.BeginButton(action);Stock();MenuOwnership.CaptureReady();Runtime.Clock.Advance(.11);Stock();MenuOwnership.CaptureReady();typeof(WheelInput).GetField("_captureAfter",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(input,0d);}
+        void Arm(string action){Neutral();input.BeginButton(action);Stock();MenuOwnership.CaptureReady();Runtime.Clock.Advance(.11);Stock();check(MenuOwnership.CaptureReady(),"capture has a fresh observed neutral interval: "+action);typeof(WheelInput).GetField("_captureAfter",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(input,0d);}
         foreach(var choice in new[]{("F7",Key.F7),("J",Key.J)})
         foreach(bool shift in new[]{false,true})
         {

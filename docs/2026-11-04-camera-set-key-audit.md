@@ -78,3 +78,18 @@ Private canonical core/interop/recording/toolkit dependencies116files were copie
 and hash-verified under ignored components/wheel/lib; no download/global install.
 No product/native DLL is loaded by these tests; actual managed Core/BepConfig are.
 Actual Unity/input/render/owner acceptance and the installed Woden remain unchanged.
+
+Packet03 GO523134 compiled old/current consumers with zero warnings/errors and
+qualified the actual old named regression: writes0->1, private config changed,
+binding bytes unchanged. Current dispatch/reset checks reached the first capture
+status assertion, which failed because the focused fixture had never opened the
+settings panel. Actual MenuOwnership.AfterStock deliberately reports unknown
+input outside that panel; the refusal correctly stopped before key handling.
+The fixture now opens the actual source-linked panel, observes one synthetic
+stock pad, and asserts the real neutral-interval gate for every capture. It does
+not bypass the production gate. Expected total is now66 checks. The old witness
+is retained for a current-consumer/full-plugin continuation; full plugin has not
+yet compiled.19.01s/certmetadata unchanged/17identities absent/censusPASS; exact
+aad6589083194467aa5e805676796e6b lease exited2026-11-05T01:35:57.423Z.
+Remi523170 independently reviewed the source/dependency closure and522pins,
+finding no further missing references/links; no execution was claimed.
