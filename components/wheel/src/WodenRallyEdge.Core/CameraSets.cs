@@ -57,10 +57,15 @@ public sealed class CameraLens
     public void Applied(float native, float applied) { _native = native; _applied = applied; _owned = true; }
     public float Peek(float current) => _owned && Math.Abs(current - _applied) < .0001f ? _native : current;
     public float Remove(float current) { float native = Peek(current); _owned = false; return native; }
-    public static float Fov(double start, double offset)
+    // Keep the player's requested offset distinct from the representable lens.
+    // Native speed/seat changes must not turn a valid saved tweak into an error.
+    public static double RequestedFov(double start, double offset)
     {
         double value = start + offset;
-        if (!double.IsFinite(value) || value <= 1 || value >= 179) throw new ArgumentOutOfRangeException(nameof(offset), "FOV must remain between 1 and 179 degrees.");
-        return (float)value;
+        if (!double.IsFinite(start) || !double.IsFinite(offset) || !double.IsFinite(value))
+            throw new ArgumentOutOfRangeException(nameof(offset), "Camera FOV values must be finite.");
+        return value;
     }
+    public static double EffectiveFov(double start, double offset) => Math.Clamp(RequestedFov(start, offset), 1d, 179d);
+    public static float Fov(double start, double offset) => (float)EffectiveFov(start, offset);
 }

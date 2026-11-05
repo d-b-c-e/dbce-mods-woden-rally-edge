@@ -55,9 +55,11 @@ internal static class TripleGeometry
         double fov = game
             ? view != MountedView.Stock && ownedMountedFov.HasValue ? ownedMountedFov.Value : gameFov
             : 2 * Math.Atan(panelHeight / (2 * physicalEyeDistance)) * 180 / Math.PI;
-        fov += offsetDegrees;
-        return double.IsFinite(fov) && fov > 0 && fov < 180
-            ? EyeDistanceForVerticalFov(panelHeight, fov) : physicalEyeDistance;
+        // An unknown/invalid native start keeps the established physical fallback.
+        // Finite saved offsets use exactly the final lens policy, rather than
+        // silently switching back to the physical eye when a request saturates.
+        if (!double.IsFinite(fov) || fov <= 0 || fov >= 180 || !double.IsFinite(offsetDegrees)) return physicalEyeDistance;
+        return EyeDistanceForVerticalFov(panelHeight, CameraLens.EffectiveFov(fov, offsetDegrees));
     }
 
     /// <summary>Whether the view on screen follows a lens (game or saved mounted) rather than the measured eye. The

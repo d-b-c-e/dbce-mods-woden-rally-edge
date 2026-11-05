@@ -52,7 +52,9 @@ internal sealed class CameraFramingStore
     internal void SetFov(CameraSlot camera, bool realistic, double start, double value)
     {
         float offset = (float)(value - start);
-        _ = CameraLens.Fov(start, offset);
+        // Validate finite storage, without clipping/rejecting a player's finite
+        // offset according to this car's current lens. The final lens is bounded.
+        _ = CameraLens.RequestedFov(start, offset);
         var entry = Entry(FovKey(camera, realistic), 0f);
         Save((entry.Definition.Key, Number(offset)));
         entry.Value = offset;

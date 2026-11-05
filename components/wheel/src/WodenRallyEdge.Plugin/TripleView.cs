@@ -77,15 +77,18 @@ internal static class TripleView
         return true;
     }
     internal static void SetFovFromPanel(float value) => SaveFov(value);
-    internal static void AdjustFov(float delta) { if (TryGetPanelFov(out float current)) SaveFov(current + delta); }
-    private static void SaveFov(float value)
+    internal static void AdjustFov(float delta) => SaveFov(delta, adjustment: true);
+    private static void SaveFov(double value, bool adjustment = false)
     {
         if (!CameraEditAllowed || _source == null || _framing == null) return;
         try
         {
             var camera = CurrentCamera;
             double start = Realistic(camera) ? MeasuredFov : MountedCamera.BaseFov(camera) ?? MountedCamera.NativeFov(_source);
-            _framing.SetFov(camera, Realistic(camera), start, value); _views = null; Announce();
+            // A key changes the saved request, even while the displayed lens is
+            // saturated. Subtracting/clamping the display would lose that offset.
+            double requested = adjustment ? CameraLens.RequestedFov(start, FovOffset(camera)) + value : value;
+            _framing.SetFov(camera, Realistic(camera), start, requested); _views = null; Announce();
         }
         catch (Exception ex) { Announce("Couldn't save FOV: " + ex.Message); }
     }
