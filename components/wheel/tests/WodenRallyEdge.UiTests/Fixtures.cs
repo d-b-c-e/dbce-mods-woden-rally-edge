@@ -247,6 +247,8 @@ internal static class NativeGearboxApply {internal static string Status=>"Keep: 
         internal static bool TryGetPanelFov(out float value){value=70;return CameraEditAllowed;}
         internal static bool TryGetPanelFovRequest(out float value){value=70;return CameraEditAllowed;}
         internal static void SetFovFromPanel(float value){}
+        internal static void DefaultFovFromPanel(){}
+        internal static void DefaultPositionFromPanel(string component){}
         internal static CameraOffset PositionOffset(CameraSlot camera,CameraOffset fallback=default)=>fallback;
         internal static void SetPositionFromPanel(CameraOffset value){}
         internal static bool MountedFovLocked=>Active&&!MatchGameFov;
