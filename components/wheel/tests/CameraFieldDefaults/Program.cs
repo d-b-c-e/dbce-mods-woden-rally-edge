@@ -138,8 +138,8 @@ void Ranges() {
   Check(File.ReadAllBytes(path).SequenceEqual(before),"passive outside-range draw writes nothing "+field);
   double start=Current(field);var pose=TripleView.Store.Position(selected,1,set);var otherFov=TripleView.Store.FovOffset(selected,!set);
   Input(field,"+");double plus=Current(field);
-  Check(plus>start&&plus-start<Math.Max(5,Math.Abs(start)*.05),"actual plus moves outward without endpoint jump "+field);
-  Input(field,"\u2212");Check(Current(field)<plus,"actual minus moves back "+field);
+  Check(plus>start&&plus-start<Math.Max(5,Math.Abs(start)*.05),"actual plus moves outward without endpoint jump "+field+" start="+start+" plus="+plus);
+  Input(field,"\u2212");Check(Current(field)<plus,"actual minus moves back "+field+" start="+start+" plus="+plus+" now="+Current(field));
   TripleView.Open(path,camera);Check(Current(field)!=0||value==0||field=="Fov","outside-range value survives reload "+field);
   Near(TripleView.Store.FovOffset(selected,!set),otherFov,"other set untouched");
   if(field=="Fov")Check(TripleView.Store.Position(selected,1,set)==pose,"FOV edits preserve all pose axes");

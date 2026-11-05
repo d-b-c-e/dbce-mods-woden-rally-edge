@@ -287,7 +287,8 @@ internal static partial class Panel
     {
         // Extend the existing editor around finite saved values. These are editor
         // windows, not storage or lens limits; the next edit can extend them again.
-        double half=((double)max-min)/2;
+        // At large magnitudes leave room for a representable float nudge.
+        double half=Math.Max(((double)max-min)/2,Math.Abs((double)value)*.02);
         min=(float)Math.Max(-float.MaxValue,Math.Min(min,(double)value-half));
         max=(float)Math.Min(float.MaxValue,Math.Max(max,(double)value+half));
         return Slider(y,label,ref value,min,max,format,save:false,defaultAction:defaultAction);
