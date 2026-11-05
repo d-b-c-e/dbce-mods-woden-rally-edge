@@ -8,6 +8,7 @@
     <ProjectReference Include="$(ProductionRoot)/WodenRallyEdge.Core/WodenRallyEdge.Core.csproj" />
     <Compile Include="$(ProductionRoot)/WodenRallyEdge.Plugin/CameraFramingStore.cs" />
     <Compile Include="$(ProductionRoot)/WodenRallyEdge.Plugin/TripleGeometry.cs" />
+    <Compile Include="$(ProductionRoot)/WodenRallyEdge.Plugin/Toolkit/Triple/*.cs" />
     <Compile Include="$(HarnessRoot)/Program.cs;$(HarnessRoot)/Host.cs;$(GeneratedRoot)/TripleView.Fov.cs" />
     <Reference Include="BepInEx.Core"><HintPath>$(LibDir)/core/BepInEx.Core.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="SemanticVersioning"><HintPath>$(LibDir)/core/SemanticVersioning.dll</HintPath><Private>true</Private></Reference>
