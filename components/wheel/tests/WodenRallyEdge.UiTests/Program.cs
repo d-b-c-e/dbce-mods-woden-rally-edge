@@ -260,12 +260,12 @@ Check(TripleView.FovLockMessage.Contains("33.6° vertical")&&TripleView.FovLockM
     "locked key message names the actual angle and the one switch");
 TripleView.MatchGameFov=true;
 Keyboard.current[Key.NumpadPlus].isPressed=true;CameraShortcuts.Update();
-Check(Math.Abs(Runtime.Settings.CameraFov-physicalBonnet.Fov-Runtime.Settings.CameraFovStep)<.0001f&&Runtime.Settings.GetCameraPose(true)==physicalBumper,
+Check(Math.Abs(Runtime.Settings.CameraFov-physicalBonnet.Fov+Runtime.Settings.CameraFovStep)<.0001f&&Runtime.Settings.GetCameraPose(true)==physicalBumper,
     "adjustable bonnet shortcut changes only its saved lens");
 var adjustedBonnet=Runtime.Settings.GetCameraPose(false);
 Keyboard.current.Clear();CameraShortcuts.Update();MountedCamera.Cycle.Advance(true,true);
 Keyboard.current[Key.NumpadPlus].isPressed=true;CameraShortcuts.Update();
-Check(Math.Abs(Runtime.Settings.GetCameraPose(true).Fov-physicalBumper.Fov-Runtime.Settings.CameraFovStep)<.0001f&&Runtime.Settings.GetCameraPose(false)==adjustedBonnet,
+Check(Math.Abs(Runtime.Settings.GetCameraPose(true).Fov-physicalBumper.Fov+Runtime.Settings.CameraFovStep)<.0001f&&Runtime.Settings.GetCameraPose(false)==adjustedBonnet,
     "adjustable bumper shortcut changes only its saved lens");
 Keyboard.current.Clear();CameraShortcuts.Update();MountedCamera.Cycle.Handoff();MountedCamera.Cycle.StockChanged(4,0,true,true);
 var adjustedBumper=Runtime.Settings.GetCameraPose(true);

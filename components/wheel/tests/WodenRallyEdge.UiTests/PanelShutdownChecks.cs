@@ -41,7 +41,7 @@ internal static class PanelShutdownChecks
                 Keyboard.current[Key.Numpad9].isPressed = true;
                 CameraShortcuts.Update();
                 var edited = Runtime.Settings.GetCameraPose(bumper);
-                check(edited.Fov == pose.Fov + Runtime.Settings.CameraFovStep &&
+                check(edited.Fov == pose.Fov - Runtime.Settings.CameraFovStep &&
                     Math.Abs(edited.Height - pose.Height - Runtime.Settings.CameraMoveStep) < .0001f,
                     "closed-panel shortcuts change FOV and pose before shutdown");
                 check(File.ReadAllText(path) == before, "shortcut changes remain pending before shutdown");
