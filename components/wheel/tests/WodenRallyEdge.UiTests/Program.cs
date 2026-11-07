@@ -278,15 +278,10 @@ var adjustedBumper=Runtime.Settings.GetCameraPose(true);
 Panel.Toggle();Click("Cameras");Draw();
 Check(TripleView.MatchGameFov&&TripleView.Mode==physicalMode&&Runtime.Settings.GetCameraPose(false)==adjustedBonnet&&Runtime.Settings.GetCameraPose(true)==adjustedBumper,
     "drawing Cameras preserves explicit mode and poses");
-Click("Measured perspective");
-typeof(Panel).GetMethod("Save",BindingFlags.Static|BindingFlags.NonPublic)!.Invoke(null,null);
+// The Simple-view Measured perspective / Game field of view selector was retired with camera sets. The saved
+// MatchGameFov key stays, and the Advanced switch below is the one way to choose the game field of view.
 string cfgPath=Path.Combine(dir,"settings.cfg");
-Check(!new ConfigFile(cfgPath,false).Bind("Triple","MatchGameFov",true).Value,"Measured perspective persists through the existing key");
-Click("Game field of view");typeof(Panel).GetMethod("Save",BindingFlags.Static|BindingFlags.NonPublic)!.Invoke(null,null);
-Check(new ConfigFile(cfgPath,false).Bind("Triple","MatchGameFov",false).Value&&TripleView.Mode==physicalMode&&Runtime.Settings.GetCameraPose(false)==adjustedBonnet&&Runtime.Settings.GetCameraPose(true)==adjustedBumper&&Runtime.Wheel.Bindings.CameraKeys.SequenceEqual(cameraKeys),
-    "explicit FOV choice persists without changing poses, triple layout or saved keys");
-Click("Measured perspective");Draw();
-Check(Find("Use game field of view")==null,"Simple view keeps the one Triple FOV selector, no duplicate switch");
+TripleView.MatchGameFov=false;Draw();
 Click("Advanced");Reach(()=>Find("Use game field of view")!=null,"locked Advanced FOV row offers one explicit switch");
 Check(!TripleView.MatchGameFov,"the Advanced switch is offered, not applied");
 Click("Use game field of view");Draw();
