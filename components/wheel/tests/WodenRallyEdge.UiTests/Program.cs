@@ -429,8 +429,9 @@ byte[] sharedStartup=System.Text.Encoding.UTF8.GetBytes("[Controls]\nSchema = 1\
     Dbce.Wheel.Input.ControlBinding.FromCapture("steer",Dbce.Wheel.Input.ControlKind.Axis,0,1,32768,sharedInstance,sharedProduct,"Fixture wheel",0,65535)+"\n");
 File.WriteAllBytes(sharedPath,sharedStartup);
 var panelHost=new SharedBindingHost(sharedPath,sharedStartup,()=>Runtime.Clock.Elapsed.TotalSeconds,()=>true);
-panelHost.Observe(new(sharedInstance,sharedProduct,"Fixture wheel","fixture-path",1,1,Runtime.Clock.Elapsed.TotalSeconds,
+void ObserveSharedWheel()=>panelHost.Observe(new(sharedInstance,sharedProduct,"Fixture wheel","fixture-path",1,1,Runtime.Clock.Elapsed.TotalSeconds,
     new(new[]{32768,0,0,0,0,0,0,0},new bool[128],new[]{-1,-1,-1,-1}),new int[8],Enumerable.Repeat(65535,8).ToArray()));
+ObserveSharedWheel();
 var currentHostProperty=typeof(SharedBindingHost).GetProperty("Current",BindingFlags.Static|BindingFlags.NonPublic)!;
 var retainedHost=SharedBindingHost.Current;currentHostProperty.SetValue(null,panelHost);
 try
@@ -453,7 +454,8 @@ try
         Snapshot("shared-controls-initial-"+resolution.Item1+"x"+resolution.Item2);
     }
     Screen.width=1280;Screen.height=720;Panel.Close(false);Panel.Toggle();Click("Controls");
-    panelHost.BeginCapture("steer",sharedInstance.ToString("D"));Draw();
+    // A fresh observation: the resolution passes above can outlast the device freshness window on a busy machine.
+    ObserveSharedWheel();panelHost.BeginCapture("steer",sharedInstance.ToString("D"));Draw();
     Check(panelHost.CapturingAction=="steer"&&Find("Cancel capture")!=null&&GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.StartsWith("Binding steer")),
         "capture instructions and Cancel retain their initial viewport space");
     panelHost.CancelCapture();Draw();
