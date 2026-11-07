@@ -7,7 +7,7 @@ public sealed class Settings
 {
     private readonly ConfigFile _config;
     public int Player, ForzaPort = 8000, DetailPort = 8001, DetailHz = 20;
-    public bool Record, WheelEnabled, Bonnet = true, Bumper = true, FfbEnabled = true, FfbInvert;
+    public bool Record, WheelEnabled = true, Bonnet = true, Bumper = true, FfbEnabled = true, FfbInvert;
     public bool CountdownAssistEnabled;
     public float CountdownSpeed = 75;
     public float CameraHeight = CameraPose.Bonnet.Height, CameraForward = CameraPose.Bonnet.Forward, CameraPitch = 8, CameraSide, CameraFov = 70;
@@ -141,7 +141,7 @@ public sealed class Settings
         Item("ForceFeedback", "SelectionVersion", ref _selectionVersion, "Preserve legacy explicit selections during migration.");
         Item("ForceFeedback", "DefaultsVersion", ref _ffbDefaultsVersion, "Grip tune migration marker (1 = grip v8 base gain applied once); keeps saved feel unchanged.");
         Item("General", "PlayerIndex", ref Player, "Exact local player index; change from the F6 panel.");
-        Item("Wheel", "Enabled", ref WheelEnabled, "Use calibrated direct wheel input. F6 provides binding and calibration.");
+        Item("Wheel", "Enabled", ref WheelEnabled, "Use calibrated direct wheel input. Default On (ISS-0032); keyboard and gamepad keep working until Steering, Throttle and Brake are bound in F6. A saved Off is kept.");
         Item("Difficulty", "CountdownAssistEnabled", ref CountdownAssistEnabled, "Optional single-player countdown/time-limit assist. Default Off; does not change lap/stage timing or game speed.");
         Item("Difficulty", "CountdownSpeedPercent", ref CountdownSpeed, "Countdown speed when enabled, 25..100%. 75% gives about 80 seconds of driving per 60 countdown seconds.");
         Item("Telemetry", "ForzaPort", ref ForzaPort, "Loopback Forza Horizon 5 UDP; 0 disables. Apply outputs in F6 after edits.");

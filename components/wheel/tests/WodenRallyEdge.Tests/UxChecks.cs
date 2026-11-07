@@ -18,6 +18,8 @@ internal static class UxChecks
         s=new(new ConfigFile(path,false));check(s.UiView=="Advanced"&&s.UiPage=="Driving"&&s.FfbGuid==guid.ToString()&&!s.FfbFollowSteering,"explicit view and wheel persist");
         s.SetPresentation("Simple","Driving");check(s.UiPage=="Setup","Advanced-only page maps to Setup");s.SetPresentation("typo","Controls");check(s.UiView=="Simple"&&s.UiPage=="Controls"&&!s.FfbEnabled,"invalid view keeps common page and Off");
         var fresh=new Settings(new ConfigFile(Path.Combine(dir,"fresh.cfg"),false));check(fresh.FfbFollowSteering&&fresh.UiView=="Simple"&&fresh.FfbStrength==50,"fresh settings follow Steering with 50% default");
+        check(fresh.WheelEnabled,"ISS-0032: a fresh install starts with wheel controls On");
+        string savedOff=Path.Combine(dir,"wheel-off.cfg");File.WriteAllText(savedOff,"[Wheel]\nEnabled = false\n");check(!new Settings(new ConfigFile(savedOff,false)).WheelEnabled,"ISS-0032: a saved wheel Off is kept");
         path=Path.Combine(dir,"bindings.json");File.WriteAllText(path,"{\"Version\":1}");var legacy=Bindings.Load(path);
         check(legacy.CameraKeysMigrated&&legacy.CameraKeys["Camera pitch down"]=="Numpad7"&&legacy.CameraKeys["Camera reset"]=="Numpad5"&&new Bindings().CameraKeys["Camera pitch up"]=="Numpad1","keyless bindings get the 2026-10-04 family layout");
         var old=new Dictionary<string,string>{["Camera"]="C",["Camera up"]="Numpad8",["Camera down"]="Numpad2",["Camera forward"]="Numpad9",["Camera back"]="Numpad7",["Camera left"]="Numpad4",["Camera right"]="Numpad6",["Camera pitch up"]="Numpad3",["Camera pitch down"]="Numpad1",["Camera wider"]="NumpadPlus",["Camera narrower"]="NumpadMinus",["Camera reset"]="Numpad0"};
