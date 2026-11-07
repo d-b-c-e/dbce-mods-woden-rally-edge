@@ -14,6 +14,7 @@
     <Compile Include="../../src/WodenRallyEdge.Plugin/InputLease.cs" Link="Consumer/InputLease.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CountdownTimerAssist.cs" Link="Consumer/CountdownTimerAssist.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Settings.cs" Link="Consumer/Settings.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/InternalTools.cs" Link="Consumer/InternalTools.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/TripleHudDepth.cs" Link="Consumer/TripleHudDepth.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/TripleGeometry.cs" Link="Consumer/TripleGeometry.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CurvedRig.cs" Link="Consumer/CurvedRig.cs" />

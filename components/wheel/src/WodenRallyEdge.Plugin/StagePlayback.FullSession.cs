@@ -18,7 +18,7 @@ internal static partial class StagePlayback
     private static string? _fullReported;
     internal static bool FullObserving => _full?.Observing == true;
     internal static StageSignalFiles.Identity SignalIdentity => new(Runtime.GameAssemblyHash, typeof(Plugin).Assembly.Location,
-        Runtime.RecordingProvenance(Path.GetDirectoryName(typeof(Plugin).Assembly.Location)!), Plugin.Version, Runtime.SessionId);
+        DevSession.RecordingProvenance(Path.GetDirectoryName(typeof(Plugin).Assembly.Location)!), Plugin.Version, Runtime.SessionId);
 
     private static volatile bool _fullClosing;
     /// <summary>The ordinary status holds at Stopping until session.json or its incomplete marker exists (bounded;

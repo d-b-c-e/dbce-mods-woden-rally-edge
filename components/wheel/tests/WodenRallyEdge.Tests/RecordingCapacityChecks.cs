@@ -43,7 +43,7 @@ internal static class RecordingCapacityChecks
         string[] lines;
         try
         {
-            using (var output = new TelemetryOutput(new OutputOptions(ForzaPort: 0, DetailPort: 0, RecordingPath: path, Enabled: false), "capacity", "synthetic", "0.2.14", null, ordinary))
+            using (var output = TelemetryOutput.WithRecording(new OutputOptions(ForzaPort: 0, DetailPort: 0, RecordingPath: path, Enabled: false), "capacity", "synthetic", "0.2.14", null, ordinary))
             {
                 for (int i = 0; i < 64; i++) output.Publish(Largest(i));
                 output.StopRecording();

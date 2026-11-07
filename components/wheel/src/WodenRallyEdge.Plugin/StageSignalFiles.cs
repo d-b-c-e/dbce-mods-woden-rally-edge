@@ -23,7 +23,7 @@ internal static class StageSignalFiles
             ["analysisForceContract"] = ForceAnalysisHistory.Contract, ["analysisForce"] = ForceAnalysisHistory.Scope,
             ["posePhase"] = "MainCar.FixedUpdate.prefix; signals from postfix before Unity solve",
             ["alignment"] = "capture.trajectoryIndex is the zero-based trajectory row; sample.simulationSeconds is the absolute physics clock" };
-        return new TelemetryOutput(new OutputOptions(RecordingPath: Path.Combine(directory, "source.jsonl"), Enabled: false), id.SessionId,
+        return TelemetryOutput.WithRecording(new OutputOptions(RecordingPath: Path.Combine(directory, "source.jsonl"), Enabled: false), id.SessionId,
             id.RecordingSource, id.PluginVersion, properties, recording);
     }
 

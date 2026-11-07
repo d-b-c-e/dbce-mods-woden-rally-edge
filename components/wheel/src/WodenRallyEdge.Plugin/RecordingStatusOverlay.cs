@@ -4,14 +4,14 @@ using WodenRallyEdge.Core;
 
 namespace WodenRallyEdge;
 
-// The existing Lifecycle.OnGUI is visible while driving. The actual recorder
-// owns its state and output; this adapter only presents it on the center view.
+// Developer recordings only (DevSession). The actual recorder owns its state and
+// output; this adapter only presents it on the center view while driving.
 internal static class RecordingStatusOverlay
 {
     private static readonly StrippedSessionStatusHud Hud = new(UiNative.Style);
     private static bool _failed;
 
-    internal static void Draw()
+    internal static void Draw(DiagnosticRecordingControl? control)
     {
         if (_failed || Panel.Open || Event.current == null || Event.current.type != EventType.Repaint) return;
         var output = Runtime.Output;
@@ -19,7 +19,7 @@ internal static class RecordingStatusOverlay
         try
         {
             var line = RecordingHudLine.Describe(output, Runtime.DiagnosticNoForce || StagePlayback.OutputMuted,
-                Runtime.RecordingControl?.Finalization, Runtime.RecordingControl?.LastError);
+                control?.Finalization, control?.LastError);
             if (line != null) Hud.Draw(line, Screen.width >= Screen.height * 2.9f,
                 StagePlayback.OutputMuted ? 112 : 12);
         }

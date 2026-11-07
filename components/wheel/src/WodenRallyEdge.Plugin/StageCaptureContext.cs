@@ -124,11 +124,13 @@ internal static class StageCaptureContext
 [HarmonyPatch(typeof(LoadScene), nameof(LoadScene.LoadScene_))]
 internal static class StageNativeLoadObserver
 {
+    private static bool Prepare() => DevSession.PatchesEnabled();
     private static void Prefix(LoadScene __instance, string __0) => StageCaptureContext.ObserveLoad(__instance, __0);
 }
 
 [HarmonyPatch(typeof(MenuCameraScript), nameof(MenuCameraScript.LoadScene))]
 internal static class StageNativeMenuLoadObserver
 {
+    private static bool Prepare() => DevSession.PatchesEnabled();
     private static void Prefix(string __0, bool __1, bool __2) => StageCaptureContext.ObserveMenuLoad(__0, __1, __2);
 }

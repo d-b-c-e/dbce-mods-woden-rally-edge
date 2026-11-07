@@ -11,6 +11,8 @@ public sealed record OutputOptions(int ForzaPort = 8000, int DetailPort = 8001, 
 
 // The physics thread hands off a completed, exclusively-owned snapshot. Network
 // serialization and sends run on a bounded one-slot worker; old ticks may be dropped.
+// Recording is an optional sink (ITelemetryRecorder): with no RecordingPath, nothing here
+// reaches Dbce.Wheel.Recording, so player installs need no recorder DLL.
 public sealed class TelemetryOutput : IDisposable
 {
     public static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
@@ -23,19 +25,12 @@ public sealed class TelemetryOutput : IDisposable
     private UdpClient? _detail;
     public OutputOptions ActiveOptions { get { lock (_networkGate) return _options; } }
     public bool RecordingActive => RecordingStatus == "Recording";
-    public void StopRecording() { lock (_recordingGate) _recorder?.Stop(TimeSpan.FromMilliseconds(500)); }
+    public void StopRecording() { lock (_recordingGate) _recorder?.Stop(); }
     private string? _recordingFailure;
     public void FailRecording(double elapsedSeconds, string reason)
     {
         _recordingFailure = reason;
-        // This semantic failure is part of the source, even if a complete prefix/footer can be saved.
-        // A rejected marker is also refused by the existing dropped/invalid-counter checks.
-        lock (_recordingGate)
-        {
-            if (_recorder?.Status == RecorderStatus.Recording)
-                _recorder.TryMark(Math.Max(0, elapsedSeconds - (_recordOrigin ?? elapsedSeconds)), "capture-failed", reason.Length > 4096 ? reason[..4096] : reason);
-            _recorder?.Stop(TimeSpan.FromMilliseconds(500));
-        }
+        lock (_recordingGate) _recorder?.Fail(elapsedSeconds, reason);
     }
     private static void Validate(OutputOptions options)
     {
@@ -64,17 +59,9 @@ public sealed class TelemetryOutput : IDisposable
         finally { forza?.Dispose(); detail?.Dispose(); }
     }
     private readonly Stopwatch _clock = Stopwatch.StartNew();
-    private readonly SessionRecorder? _recorder;
+    private readonly ITelemetryRecorder? _recorder;
     private sealed record Pending(TelemetrySample Sample, long EnqueuedAt);
     private Pending? _pending;
-    private string? _lastState;
-    private string? _lastDiscontinuity;
-    private string? _lastUnavailable;
-    private string? _lastForceStatus;
-    private string? _lastForceGate;
-    private string? _lastForceModelReason;
-    private double? _recordOrigin;
-    private double _recordingElapsedSeconds;
     private volatile bool _stop;
     private long _overwrites, _sent, _errors, _detailSent, _lastSentAt;
     public long OverwrittenTicks => Interlocked.Read(ref _overwrites);
@@ -85,39 +72,33 @@ public sealed class TelemetryOutput : IDisposable
     public long SendErrors => Interlocked.Read(ref _errors);
     public string? LastError { get; private set; }
     public bool Stopped => !_worker.IsAlive;
-    public string? RecordingError => _recordingFailure ?? _recorder?.LastError;
-    public string RecordingStatus => _recordingFailure != null ? "Faulted" : _recorder?.Status.ToString() ?? "Disabled";
-    public long RecordingDrops => _recorder?.DroppedSamples ?? 0;
-    public RecordingCounters? RecordingCounters => _recorder?.GetCounters();
+    public string? RecordingError => _recordingFailure ?? _recorder?.Error;
+    public string RecordingStatus => _recordingFailure != null ? "Faulted" : _recorder?.Status ?? "Disabled";
+    public long RecordingDrops => _recorder?.Drops ?? 0;
+    /// <summary>Developer recording only; compiles a Dbce.Wheel.Recording reference when called.</summary>
+    public RecordingCounters? RecordingCounters => (_recorder as SessionRecordingSink)?.Counters;
     public bool RecordingRequiresFinalization { get; }
-    public double RecordingElapsedSeconds => Volatile.Read(ref _recordingElapsedSeconds);
+    public double RecordingElapsedSeconds => _recorder?.ElapsedSeconds ?? 0;
 
+    /// <summary>A RecordingPath records with the ordinary profile; without one the output has no recorder.</summary>
     public TelemetryOutput(OutputOptions options, string sessionId, string recordingSource, string pluginVersion = "unknown",
-        IReadOnlyDictionary<string, string>? recordingProperties = null, RecordingOptions? recordingOptions = null)
+        IReadOnlyDictionary<string, string>? recordingProperties = null)
+        : this(options, recordingProperties, path => SessionRecordingSink.Open(path, sessionId, recordingSource, pluginVersion, recordingProperties)) { }
+
+    /// <summary>Developer recording with explicit limits. A factory, not a constructor overload, so the player path's
+    /// constructor never shares an overload set with a Dbce.Wheel.Recording type.</summary>
+    public static TelemetryOutput WithRecording(OutputOptions options, string sessionId, string recordingSource, string pluginVersion,
+        IReadOnlyDictionary<string, string>? recordingProperties, RecordingOptions? recordingOptions) =>
+        new(options, recordingProperties, path => SessionRecordingSink.Open(path, sessionId, recordingSource, pluginVersion, recordingProperties, recordingOptions));
+
+    private TelemetryOutput(OutputOptions options, IReadOnlyDictionary<string, string>? recordingProperties, Func<string, ITelemetryRecorder> openRecorder)
     {
         Validate(options);
         _options = options;
         RecordingRequiresFinalization = recordingProperties != null &&
             recordingProperties.TryGetValue("recordingContract", out string? contract) && contract == "dbce.wheel.replay-case@1";
-        if (options.RecordingPath != null)
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(options.RecordingPath))!);
-            var properties = new Dictionary<string, string> { ["sessionId"] = sessionId, ["recordingSource"] = recordingSource,
-                ["phase"] = "MainCar.FixedUpdate.postfix.prePhysicsSolve", ["schema"] = TelemetrySchema.Name + "/1",
-                ["missing"] = "Absent channel = unavailable; never carry prior values forward" };
-            if (recordingProperties != null) foreach (var pair in recordingProperties)
-            {
-                if (properties.ContainsKey(pair.Key)) throw new ArgumentException("Reserved recording property: " + pair.Key);
-                properties.Add(pair.Key, pair.Value);
-            }
-            _recorder = new SessionRecorder(options.RecordingPath, new SessionMetadata {
-                Game = "Super Woden Rally Edge", PluginVersion = pluginVersion, ToolkitVersion = "v0.12.0 + separately pinned unpublished recording",
-                StartedUtc = DateTime.UtcNow,
-                Properties = properties,
-                ChannelUnits = TelemetrySchema.Channels.ToDictionary(x => x.Key, x => x.Value.Unit)
-            }, recordingOptions ?? RecordingProfiles.Ordinary());
-        }
-        try { ConfigureNetwork(options); } catch { _recorder?.Stop(TimeSpan.FromMilliseconds(500)); throw; }
+        if (options.RecordingPath != null) _recorder = openRecorder(options.RecordingPath);
+        try { ConfigureNetwork(options); } catch { _recorder?.Stop(); throw; }
         _worker = new Thread(Run) { IsBackground = true, Name = "Woden telemetry output" };
         _worker.Start();
     }
@@ -131,34 +112,7 @@ public sealed class TelemetryOutput : IDisposable
         sample.Add("sample.sequence", sample.Sequence);
         sample.Add("sample.driving", sample.Driving ? 1 : 0);
         sample.Add("sample.discontinuity", sample.Discontinuity == null ? 0 : 1);
-        lock (_recordingGate)
-        {
-            // Stop may arrive while the game keeps producing samples. Never offer a
-            // post-Stop record to SessionRecorder: it counts rejected-after-stop
-            // attempts and makes an otherwise complete source unusable.
-            if (_recorder?.Status == RecorderStatus.Recording)
-            {
-                _recordOrigin ??= sample.ElapsedSeconds;
-                double recordTime = sample.ElapsedSeconds - _recordOrigin.Value;
-                Volatile.Write(ref _recordingElapsedSeconds, Math.Max(0, recordTime));
-                _recorder.TryRecord(recordTime, sample.Channels);
-                if (_recorder.Status == RecorderStatus.Recording)
-                {
-                    if (_lastState != sample.State) _recorder.TryMark(recordTime, "state", sample.State);
-                    if (sample.Discontinuity != null && _lastDiscontinuity != sample.Discontinuity) _recorder.TryMark(recordTime, "discontinuity", sample.Discontinuity);
-                    if (sample.ForceStatus != null && sample.ForceStatus != _lastForceStatus) _recorder.TryMark(recordTime, "ffb", sample.ForceStatus);
-                    if (sample.ForceGate != null && sample.ForceGate != _lastForceGate) _recorder.TryMark(recordTime, "ffb-gate", sample.ForceGate);
-                    if (sample.ForceModelReason != null && sample.ForceModelReason != _lastForceModelReason) _recorder.TryMark(recordTime, "ffb-model", sample.ForceModelReason);
-                    string unavailable = string.Join(",", sample.Unavailable);
-                    if (unavailable != _lastUnavailable && (unavailable.Length > 0 || _lastUnavailable?.Length > 0))
-                        _recorder.TryMark(recordTime, "unavailable", unavailable.Length <= 4096 ? unavailable : unavailable[..4096]);
-                    _lastUnavailable = unavailable;
-                    _lastForceStatus = sample.ForceStatus;
-                    _lastForceGate = sample.ForceGate; _lastForceModelReason = sample.ForceModelReason;
-                    _lastState = sample.State; _lastDiscontinuity = sample.Discontinuity;
-                }
-            }
-        }
+        if (_recorder != null) lock (_recordingGate) _recorder.Offer(sample);
         if (Interlocked.Exchange(ref _pending, new(sample, Stopwatch.GetTimestamp())) != null) Interlocked.Increment(ref _overwrites);
         _wake.Set();
     }

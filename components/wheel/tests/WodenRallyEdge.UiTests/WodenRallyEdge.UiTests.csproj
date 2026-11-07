@@ -29,6 +29,7 @@
     <Compile Include="../../src/WodenRallyEdge.Plugin/CameraFramingStore.cs" Link="Consumer/CameraFramingStore.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/TripleGeometry.cs" Link="Consumer/TripleGeometry.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Settings.cs" Link="Consumer/Settings.cs" />
+    <Compile Include="../../src/WodenRallyEdge.Plugin/InternalTools.cs" Link="Consumer/InternalTools.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ShimBindingSnapshots.cs" Link="Consumer/ShimBindingSnapshots.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/SharedBindingHost.cs" Link="Consumer/SharedBindingHost.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Toolkit/Input/BindingEditorContract.cs" Link="Consumer/BindingEditorContract.cs" />

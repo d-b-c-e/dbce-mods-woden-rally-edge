@@ -21,6 +21,9 @@ public sealed class Plugin : BasePlugin
     public override void Load()
     {
         Runtime.Log = Log;
+        string pluginDirectory = Path.GetDirectoryName(typeof(Plugin).Assembly.Location)!;
+        string? internalTools = InternalTools.Bind(Config, pluginDirectory);
+        if (internalTools != null) Log.LogWarning(internalTools);
         Runtime.Settings = new(Config);
         if (Runtime.Settings.FfbMigration != null) Log.LogInfo(Runtime.Settings.FfbMigration);
         string path = Path.Combine(Paths.GameRootPath, "GameAssembly.dll");
@@ -36,11 +39,11 @@ public sealed class Plugin : BasePlugin
             DesktopResolution.Bind(Config);
         SpanWindow.Bind(Config, () => TripleView.Allowed);
             MenuBorders.Bind(Config);
-            DevInput.Bind(Config, Path.GetDirectoryName(typeof(Plugin).Assembly.Location)!);
-            Runtime.Start(Path.GetDirectoryName(typeof(Plugin).Assembly.Location)!);
+            DevInput.Bind(Config, pluginDirectory);
+            Runtime.Start(pluginDirectory);
             _harmony = new Harmony(Id);
             _harmony.PatchAll(typeof(Plugin).Assembly);
-            TestSaveGuard.Confirm(_harmony.Id);
+            DevSession.ConfirmPatches(_harmony.Id);
         SpanWindow.Apply(_harmony);
             WheelPrompts.Apply(_harmony);
             AddComponent<Lifecycle>();
@@ -62,10 +65,10 @@ public sealed class Lifecycle : MonoBehaviour
         using var lease = Runtime.Activity.TryEnter();
         if (lease == null) return;
         Panel.Draw();
-        StagePlayback.OnGui();
+        DevSession.StageGui();
         FrameRate.Draw(Runtime.Settings.ShowFrameRate);
         ComparisonNotice.Draw();
-        RecordingStatusOverlay.Draw();
+        DevSession.RecordingGui();
     }
     private void OnApplicationQuit() => Runtime.Stop();
     private void OnDestroy() => Runtime.Stop();
@@ -86,62 +89,29 @@ internal static class Runtime
     internal static TelemetryOutput? Output;
     internal static long Sequence, HookCalls, LocalTicks;
     internal static double LastLocal = -10;
+    /// <summary>Set only by a developer diagnostic launch (<see cref="DevSession"/>).</summary>
     internal static bool DiagnosticNoForce;
-    private static DiagnosticLaunch? _recordLaunch;
-    internal static DiagnosticRecordingControl? RecordingControl;
-    private static string? _recordingPath;
-    private static Dictionary<string, string>? _recordingProperties;
-    private static ForceAnalysisHistory? _recordingAnalysis;
     private static double _nextReport, _lastIdle;
     private static bool _stopped = true;
-    private static string _provenance = "";
     internal static string GameAssemblyHash = "";
     private static readonly HashSet<int> SeenPlayers = new();
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
     internal static bool Focused { get { GetWindowThreadProcessId(GetForegroundWindow(), out uint pid); return pid == Environment.ProcessId; } }
 
-    /// <summary>Development recordings stamp the toolkit Recording provenance when a dev install provides it; player
-    /// packages ship no provenance file, so the recording source is then empty.</summary>
-    internal static string RecordingProvenance(string directory)
-    {
-        string path = Path.Combine(directory, "recording-provenance.json");
-        return File.Exists(path) ? File.ReadAllText(path) : "";
-    }
-
     internal static void Start(string directory)
     {
         Force.BeginRuntime();
         _stopped = false;
-        _provenance = RecordingProvenance(directory);
-        string requestPath = Path.Combine(Paths.ConfigPath, "woden-record-next-launch.json");
-        DiagnosticNoForce = File.Exists(requestPath);
-        try { _recordLaunch = DiagnosticLaunch.Consume(requestPath, DateTimeOffset.UtcNow); DiagnosticNoForce = _recordLaunch?.DisableForces == true; }
-        catch (Exception ex) { Log.LogError("Diagnostic launch rejected; force suppressed for this run: " + ex.Message); }
-        if (_recordLaunch?.NativeObservationSource != null && Settings.TelemetryEnabled)
-            throw new IOException("Native observation requires network delivery disabled before startup");
-        if (_recordLaunch != null) Log.LogInfo($"Diagnostic launch {_recordLaunch.Id}; physical FFB suppressed={DiagnosticNoForce}");
-        StagePlayback.Initialize();
-        CourseRouteDump.Initialize(Log);
+        DevSession.Start(directory);
         ApplyOutputs();
-        if (_recordLaunch != null && Output != null && _recordingPath != null)
-        {
-            try
-            {
-                using var process = Process.GetCurrentProcess();
-                RecordingControl = new DiagnosticRecordingControl(Path.GetDirectoryName(_recordingPath)!,
-                    _recordLaunch.Id, process.Id, process.StartTime.ToUniversalTime().Ticks, Output);
-                StagePlayback.ArmFullSession(Path.GetDirectoryName(_recordingPath)!, StagePlayback.SignalIdentity, _recordLaunch.EffectiveInputOrigin);
-                RecordingControl.HoldTerminal = () => StagePlayback.FullPackagePending;
-            }
-            catch (Exception ex) { Log.LogWarning("Ordinary recording control unavailable; F6 Stop remains available: " + ex.Message); }
-        }
+        DevSession.AfterOutputs();
         Wheel = new(Path.Combine(Paths.ConfigPath, "wheel-bindings.json"));
         try { Devices = new(directory); }
         catch (Exception ex) { Log.LogError("Wheel route unavailable; telemetry remains enabled: " + ex.Message); }
         ShimInput.Start(directory, Paths.ConfigPath, Path.Combine(Paths.BepInExRootPath, "WodenShim"));
         Activity.BeginRuntime(); // Publish callback availability only after initialization.
-        NativeObservation.Begin(_recordLaunch);
+        DevSession.BeginNativeObservation();
     }
     internal static void ApplyOutputs()
     {
@@ -149,63 +119,13 @@ internal static class Runtime
         if (Settings.ForzaPort != 0 && Settings.ForzaPort == Settings.DetailPort)
             throw new ArgumentException("Forza and detailed telemetry need different ports.");
         Settings.Save();
-        if (Output == null)
-        {
-            if (_recordLaunch != null) PrepareRequestedRecording();
-            else if (Settings.Record) _recordingPath = Path.Combine(Paths.BepInExRootPath, "WodenRecordings", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-" + Guid.NewGuid().ToString("N") + ".jsonl");
-        }
-        var options = new OutputOptions(Settings.ForzaPort, Settings.DetailPort, Settings.DetailHz, _recordingPath, Settings.TelemetryEnabled && !StagePlayback.OutputMuted);
-        if (Output == null) Output = new(options, SessionId, _provenance, Plugin.Version, _recordingProperties);
+        string? recordingPath = DevSession.RecordingPath();
+        var options = new OutputOptions(Settings.ForzaPort, Settings.DetailPort, Settings.DetailHz, recordingPath, Settings.TelemetryEnabled && !DevSession.OutputMuted);
+        if (Output == null) Output = DevSession.CreateOutput(options);
         else Output.ConfigureNetwork(options);
-        Log.LogInfo("Telemetry outputs applied; capture=" + (_recordingPath ?? "disabled"));
+        Log.LogInfo(recordingPath == null ? "Telemetry outputs applied" : "Telemetry outputs applied; capture=" + recordingPath);
     }
 
-    private static void PrepareRequestedRecording()
-    {
-        var request = _recordLaunch!;
-        string root = Path.Combine(Paths.BepInExRootPath, "WodenRecordings");
-        string directory = Path.Combine(root, "request-" + request.Id.ToString("N"));
-        if (Directory.Exists(directory)) throw new IOException("Recording request directory already exists: " + directory);
-        Directory.CreateDirectory(directory);
-        _recordingPath = Path.Combine(directory, "source.jsonl");
-        string configPath = Path.Combine(Paths.ConfigPath, "dbce.wodenrallyedgewheel.cfg");
-        string bindingsPath = Path.Combine(Paths.ConfigPath, "wheel-bindings.json");
-        string pluginPath = typeof(Plugin).Assembly.Location;
-        string pluginHash = RecordingArtifacts.Sha256(pluginPath);
-        string configHash = RecordingArtifacts.WriteForceConfig(Path.Combine(directory, "force-config.json"), Settings.ForceOptions);
-        string profileHash = RecordingArtifacts.WriteCaptureProfile(Path.Combine(directory, "capture-profile.json"), GameAssemblyHash, pluginHash,
-            Identity(configPath), Identity(bindingsPath), Settings.WheelEnabled, Settings.FfbEnabled, Settings.FfbFollowSteering, Settings.FfbGuid);
-        string productVersion = FileVersionInfo.GetVersionInfo(pluginPath).ProductVersion ?? Plugin.Version;
-        string sourceRevision = productVersion.Contains('+') ? productVersion[(productVersion.IndexOf('+') + 1)..] : "unknown";
-        _recordingProperties = new()
-        {
-            ["recordingContract"] = "dbce.wheel.replay-case@1", ["capability"] = "signal-reprocess",
-            ["requestId"] = request.Id.ToString(), ["caseId"] = request.EffectiveCaseId, ["inputOrigin"] = request.EffectiveInputOrigin,
-            ["disableForces"] = request.DisableForces.ToString().ToLowerInvariant(), ["gameAssemblySha256"] = GameAssemblyHash,
-            ["pluginSha256"] = pluginHash, ["pluginProductVersion"] = productVersion, ["runtimeSource"] = sourceRevision,
-            ["forceConfigSha256"] = configHash, ["captureProfileSha256"] = profileHash,
-            ["analysisForceContract"] = ForceAnalysisHistory.Contract, ["analysisForce"] = ForceAnalysisHistory.Scope
-        };
-        _recordingAnalysis = new ForceAnalysisHistory();
-        Log.LogInfo($"Recording request {request.Id} maps to {_recordingPath}; case={request.EffectiveCaseId}, capability=signal-reprocess");
-    }
-
-    private static string Identity(string path)
-    {
-        if (File.Exists(path)) return RecordingArtifacts.Sha256(path);
-        return Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("missing:" + Path.GetFileName(path)))).ToLowerInvariant();
-    }
-    internal static void ObserveForceAnalysis(TelemetrySample sample)
-    {
-        if (_recordingAnalysis == null || Output?.RecordingActive != true) return;
-        try { _recordingAnalysis.Record(sample, Settings.ForceOptions); }
-        catch (Exception ex)
-        {
-            // Analysis failure invalidates this recording, never the actual output lifecycle.
-            _recordingAnalysis = null; Output.FailRecording(sample.ElapsedSeconds, "force analysis: " + ex.Message);
-            Log.LogError("Independent force analysis stopped recording: " + ex.Message);
-        }
-    }
     internal static bool Select(MainCar car)
     {
         if (_stopped || car == null || !car.IsPlayer) return false;
@@ -221,14 +141,14 @@ internal static class Runtime
             MainCar.CarStatus.END => PlayerPhase.Finished, MainCar.CarStatus.DESTROYED => PlayerPhase.Destroyed, _ => PlayerPhase.Unavailable };
         bool photo = car.MyControls?.PauseScript?.PhotomodeActive == true;
         return new(phase, true, Focused, Panel.Open, Pause.Paused,
-            car.Replay || (includeStageOwnership && StagePlayback.Owns(car)), car.Respawning, photo, car.locked);
+            car.Replay || (includeStageOwnership && DevSession.Owns(car)), car.Respawning, photo, car.locked);
     }
     internal static bool Driving(MainCar car) => ControlState(car).Driving;
-    internal static bool CameraAvailable(MainCar car) => StagePlayback.Owns(car)
-        ? StageReplayPolicy.Eligibility(ControlState(car, includeStageOwnership: false), StagePlayback.BackgroundReplay).CameraAvailable
+    internal static bool CameraAvailable(MainCar car) => DevSession.Owns(car)
+        ? StageReplayPolicy.Eligibility(ControlState(car, includeStageOwnership: false), DevSession.BackgroundReplay).CameraAvailable
         : ControlState(car).CameraAvailable;
     // Supervised replays keep their own eligibility; an open panel still ends them.
-    internal static bool CameraShown(MainCar car) => StagePlayback.Owns(car) ? CameraAvailable(car) : ControlState(car).CameraShown;
+    internal static bool CameraShown(MainCar car) => DevSession.Owns(car) ? CameraAvailable(car) : ControlState(car).CameraShown;
     internal static void Update()
     {
         using var lease = Activity.TryEnter(); if (lease == null) return;
@@ -238,10 +158,8 @@ internal static class Runtime
         FrameRate.Tick(now, Time.unscaledDeltaTime);
         try
         {
-            StagePlayback.Update(now);
-            NativeObservation.Tick(now);
+            DevSession.Update(now);
             NativeGearboxApply.FrameTick();
-            RecordingControl?.Tick();
             InputPolling.OncePerFrame();
             DevInput.FrameTick(now);
             TripleView.FrameTick(now);
@@ -258,7 +176,7 @@ internal static class Runtime
         }
         catch (Exception ex) { Force.Disarm("Runtime error"); if (now > _nextReport) Log.LogError("Input/UI update failed: " + ex); }
         TimingDiagnostics.UpdateMs = Clock.Elapsed.TotalMilliseconds - now * 1000;
-        if (((!Focused && !(StagePlayback.Playing && StagePlayback.BackgroundReplay)) || Pause.Paused || now - LastLocal > .5) && now - _lastIdle > .1)
+        if (((!Focused && !(DevSession.Playing && DevSession.BackgroundReplay)) || Pause.Paused || now - LastLocal > .5) && now - _lastIdle > .1)
         {
             MountedCamera.Restore();
             var sample = new TelemetrySample { SessionId = SessionId, Sequence = Sequence++, ElapsedSeconds = now,
@@ -276,14 +194,14 @@ internal static class Runtime
     internal static void Stop()
     {
         if (_stopped) return;
-        StagePlayback.Stop();
+        DevSession.Stop();
         _stopped = true;
         Activity.StopAndDrain(FinishStop);
     }
     private static void FinishStop()
     {
         TripleView.Stop("plugin stopping");
-        CourseRouteDump.Stop();
+        DevSession.BeforeShutdown();
         Force.Shutdown();
         ShimInput.Stop("plugin stopping");
         Panel.Close(false);
@@ -292,9 +210,7 @@ internal static class Runtime
         StockWheelOwner.Release(false);
         MountedCamera.Restore();
         Output?.Dispose();
-        StagePlayback.FinishFullOnExit();
-        RecordingControl?.Flush();
-        _recordingAnalysis = null;
+        DevSession.AfterOutputDisposed();
         Log.LogInfo($"Stopped; outputWorkerStopped={Output?.Stopped}, recording={Output?.RecordingStatus}, drops={Output?.RecordingDrops}");
     }
 }
@@ -303,7 +219,7 @@ internal static class Runtime
 internal static class CarHook
 {
     private static bool Prefix(MainCar __instance, out double __state)
-    { Runtime.HookCalls++; __state = Runtime.Clock.Elapsed.TotalMilliseconds; return StagePlayback.BeforeCar(__instance); }
+    { Runtime.HookCalls++; __state = Runtime.Clock.Elapsed.TotalMilliseconds; return DevSession.BeforeCar(__instance); }
     private static void Postfix(MainCar __instance, double __state)
     {
         using var lease = Runtime.Activity.TryEnter(); if (lease == null) return;
@@ -315,17 +231,15 @@ internal static class CarHook
             Runtime.LastLocal = Runtime.Clock.Elapsed.TotalSeconds;
             double started = Runtime.Clock.Elapsed.TotalMilliseconds;
             var sample = GameSampler.Read(__instance, Runtime.Wheel?.LastFor(__instance));
-            if (StagePlayback.Playing) sample.State = "trajectory";
+            if (DevSession.Playing) sample.State = "trajectory";
             TimingDiagnostics.SampleMs = Runtime.Clock.Elapsed.TotalMilliseconds - started;
             started = Runtime.Clock.Elapsed.TotalMilliseconds;
             Runtime.Force.Tick(sample);
-            Runtime.ObserveForceAnalysis(sample);
-            StagePlayback.Observe(sample);
+            DevSession.Observe(sample);
             TimingDiagnostics.ForceMs = Runtime.Clock.Elapsed.TotalMilliseconds - started;
             TimingDiagnostics.Record(sample);
             Runtime.Output?.Publish(sample);
-            NativeObservation.Observe(__instance, sample);
-            CourseRouteDump.Observe(__instance, sample);
+            DevSession.ObserveCar(__instance, sample);
         }
         catch (Exception ex) { Runtime.Force.Suspend("Sample failed"); if (Runtime.LocalTicks % 100 == 1) Runtime.Log.LogError("Sample failed: " + ex); }
     }

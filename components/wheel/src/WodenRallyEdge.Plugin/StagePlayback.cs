@@ -206,6 +206,7 @@ internal static partial class StagePlayback
 [HarmonyPatch]
 internal static class StagePlaybackResetGuards
 {
+    private static bool Prepare() => DevSession.PatchesEnabled();
     private static IEnumerable<MethodBase> TargetMethods()
     {
         foreach (var name in new[] { "ChangeCarPosition", "RespawnFunc", "SnapToGround", "GetDamage", "StopCarEnd", "AutopilotEnd" })
@@ -217,13 +218,13 @@ internal static class StagePlaybackResetGuards
 // Developer stage sessions never submit results or progression. These guards
 // stay latched after Stop, through the game's subsequent finish/menu callbacks.
 [HarmonyPatch(typeof(SteamLeaderBoard), nameof(SteamLeaderBoard.UpdateScore))]
-internal static class StageLeaderboardGuard { private static bool Prefix() => !StagePlayback.OutputMuted; }
+internal static class StageLeaderboardGuard { private static bool Prepare() => DevSession.PatchesEnabled(); private static bool Prefix() => !StagePlayback.OutputMuted; }
 [HarmonyPatch(typeof(Achievements), nameof(Achievements.Unlock))]
-internal static class StageAchievementGuard { private static bool Prefix() => !StagePlayback.OutputMuted; }
+internal static class StageAchievementGuard { private static bool Prepare() => DevSession.PatchesEnabled(); private static bool Prefix() => !StagePlayback.OutputMuted; }
 [HarmonyPatch(typeof(RaceConditions), nameof(RaceConditions.Finish))]
-internal static class StageFinishGuard { private static bool Prefix() => !StagePlayback.OutputMuted; }
+internal static class StageFinishGuard { private static bool Prepare() => DevSession.PatchesEnabled(); private static bool Prefix() => !StagePlayback.OutputMuted; }
 [HarmonyPatch(typeof(SaveOnEnable), nameof(SaveOnEnable.OnEnable))]
-internal static class StageSaveGuard { private static bool Prefix() => !StagePlayback.OutputMuted; }
+internal static class StageSaveGuard { private static bool Prepare() => DevSession.PatchesEnabled(); private static bool Prefix() => !StagePlayback.OutputMuted; }
 
 // The game's central static Save, ObjectPublicAbstractSealedSaStInStStUnique.Method_Public_Static_Void_3 (VA
 // 0x1807DE930 in the pinned GameAssembly F422894D): the only direct caller of the BinaryFormatter + WriteAllBytes save
@@ -231,7 +232,7 @@ internal static class StageSaveGuard { private static bool Prefix() => !StagePla
 // (the direct callers a static scan located on 2026-10-14; delegates or reflection would not show). Skipped while muted
 // stage playback owns the launch or one runner request is confirmed active (TestSaveSuppression.SaveAllowed).
 [HarmonyPatch(typeof(ObjectPublicAbstractSealedSaStInStStUnique), nameof(ObjectPublicAbstractSealedSaStInStStUnique.Method_Public_Static_Void_3))]
-internal static class TestSaveCentralGuard { private static bool Prefix() => TestSaveGuard.Allow(StagePlayback.OutputMuted); }
+internal static class TestSaveCentralGuard { private static bool Prepare() => DevSession.PatchesEnabled(); private static bool Prefix() => TestSaveGuard.Allow(StagePlayback.OutputMuted); }
 
 // One qualification-runner launch that must not write the game's save (Core TestSaveSuppression, sana 98059/98272).
 // The request is read once at start from the stage control folder, and suppression becomes active only after the

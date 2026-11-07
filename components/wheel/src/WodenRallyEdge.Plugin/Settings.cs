@@ -136,7 +136,7 @@ public sealed class Settings
         Item("Interface", "ScalePercent", ref UiScale, "Settings text and target scale, 85..150%.");
         Item("Input", "Backend", ref InputBackend, "Native (standalone bindings) or opt-in Shim wheel-only pilot. Requires dbce-controls.ini and no Unity gamepads; restart to change. Sequential or H-pattern N/R/gears 1-6 require native Manual; clutch, select and gears 7-8 remain unavailable.");
         Item(NativeGearboxPreference.Section, NativeGearboxPreference.Key, ref NativeGearbox, NativeGearboxPreference.Help);
-        Item("Telemetry", "Enabled", ref TelemetryEnabled, "Send dashboard UDP; does not start or stop diagnostic recording.");
+        Item("Telemetry", "Enabled", ref TelemetryEnabled, "Send dashboard UDP.");
         Item("ForceFeedback", "FollowSteering", ref FfbFollowSteering, "Use the saved Steering device GUID. An explicit selection remains independent.");
         Item("ForceFeedback", "SelectionVersion", ref _selectionVersion, "Preserve legacy explicit selections during migration.");
         Item("ForceFeedback", "DefaultsVersion", ref _ffbDefaultsVersion, "Grip tune migration marker (1 = grip v8 base gain applied once); keeps saved feel unchanged.");
@@ -147,7 +147,8 @@ public sealed class Settings
         Item("Telemetry", "ForzaPort", ref ForzaPort, "Loopback Forza Horizon 5 UDP; 0 disables. Apply outputs in F6 after edits.");
         Item("Telemetry", "DetailPort", ref DetailPort, "Loopback detailed JSON UDP; 0 disables. Must differ from Forza.");
         Item("Telemetry", "DetailHz", ref DetailHz, "Detailed UDP maximum frequency, 1..60 Hz.");
-        Item("Diagnostics", "RecordSession", ref Record, "Legacy diagnostic capture preference. Use tools/Start-RecordedGame.ps1 for a single requested launch.");
+        // Developer recording only (STD-050): the key exists only with [Dev] InternalTools.
+        if (InternalTools.Enabled) Item("Diagnostics", "RecordSession", ref Record, "Development only: record every launch. Use tools/Start-RecordedGame.ps1 for a single requested launch.");
         Item("Camera", "BonnetEnabled", ref Bonnet, "Include bonnet in the normal camera-button cycle. Does not force this view.");
         Item("Camera", "BumperEnabled", ref Bumper, "Include bumper in the normal camera-button cycle.");
         Item("Camera", "Height", ref CameraHeight, "Car-local vertical offset."); Item("Camera", "Forward", ref CameraForward, "Car-local forward offset."); Item("Camera", "PitchDegrees", ref CameraPitch, "Downward pitch.");

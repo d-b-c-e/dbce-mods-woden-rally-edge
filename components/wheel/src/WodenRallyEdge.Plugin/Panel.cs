@@ -834,8 +834,9 @@ internal static partial class Panel
         Label(250,344,690,"Receiver setup: select Forza Horizon 5 UDP and match the Forza port above. Default 8000; detailed JSON uses 8001. Receiver integration still needs live verification.",true,62);
         float y=422;
         if(!Advanced){if(Button(250,y,410,"Connection settings (Advanced)"))Navigate("Telemetry","Advanced");y+=54;}
-        if(output?.RecordingActive==true){Label(250,y,690,"Recording active · dropped samples "+output.RecordingDrops);y+=38;if(Button(250,y,248,"Stop recording"))output.StopRecording();y+=48;}
-        else if(output!=null&&output.RecordingStatus!="Disabled"){Label(250,y,690,"Recording: "+output.RecordingStatus+(output.RecordingError!=null?" — "+output.RecordingError:""),true,44);y+=52;}
+        // Developer recording (STD-050): shown only with [Dev] InternalTools.
+        if(InternalTools.Enabled&&output?.RecordingActive==true){Label(250,y,690,"Recording active · dropped samples "+output.RecordingDrops);y+=38;if(Button(250,y,248,"Stop recording"))output.StopRecording();y+=48;}
+        else if(InternalTools.Enabled&&output!=null&&output.RecordingStatus!="Disabled"){Label(250,y,690,"Recording: "+output.RecordingStatus+(output.RecordingError!=null?" — "+output.RecordingError:""),true,44);y+=52;}
         if(Advanced)
         {
             TextPort(y,"Forza UDP port (0 = off)",ref _forza);y+=54;TextPort(y,"Detailed JSON port (0 = off)",ref _detail);y+=54;y=Slider(y,"Detailed stream rate (Hz)",ref _rate,1,60,"F0");_rate=(int)Math.Round(_rate);
@@ -843,17 +844,20 @@ internal static partial class Panel
             {
                 if(int.TryParse(_forza,out int fp)&&int.TryParse(_detail,out int dp))
                 {
-                    try{output!.ConfigureNetwork(new(fp,dp,(int)_rate,Enabled:cfg.TelemetryEnabled));cfg.ForzaPort=fp;cfg.DetailPort=dp;cfg.DetailHz=(int)_rate;ReadConnection();Dirty();Message="Connection applied; recording retained.";}
+                    try{output!.ConfigureNetwork(new(fp,dp,(int)_rate,Enabled:cfg.TelemetryEnabled));cfg.ForzaPort=fp;cfg.DetailPort=dp;cfg.DetailHz=(int)_rate;ReadConnection();Dirty();Message=InternalTools.Enabled?"Connection applied; recording retained.":"Connection applied.";}
                     catch(Exception ex){Message="Connection unchanged: "+ex.Message;}
                 }else Message="Use whole-number ports 0..65535; active ports must differ.";
             }
             if(Button(510,y,148,"Cancel",false,ConnectionDirty))ReadConnection();y+=48;
             if(Button(250,y,356,"Restore connection defaults")){_forza="8000";_detail="8001";_rate=20;}y+=48;
             Label(250,y,690,$"Forza packets {output?.ForzaPackets}; overwritten ticks {output?.OverwrittenTicks}; send errors {output?.SendErrors}. Loopback only.",true,48);y+=60;
-            Label(250,y,690,"Recordings are prepared by the agent before launch ("+RecordingProfiles.OrdinaryLimit+" maximum). No recording starts from this menu. Changing connection/view keeps any capture running.",true,70);y+=80;
+            if(InternalTools.Enabled){Label(250,y,690,"Recordings are prepared by the agent before launch ("+RecordingLimit()+" maximum). No recording starts from this menu. Changing connection/view keeps any capture running.",true,70);y+=80;}
         }
         End(y);
     }
+    // Out of line: RecordingProfiles reaches Dbce.Wheel.Recording, which player installs do not ship.
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static string RecordingLimit()=>RecordingProfiles.OrdinaryLimit;
     private static void HelpPage()
     {
         Label(250,152,690,"Woden Rally Edge Wheel "+ReportVersion+" · development candidate",true,48);
@@ -891,7 +895,7 @@ internal static partial class Panel
             string dir=System.IO.Path.Combine(BepInEx.Paths.BepInExRootPath,"WodenSupport");System.IO.Directory.CreateDirectory(dir);
             string path=System.IO.Path.Combine(dir,"support-"+DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff")+".txt");
             var cfg=Runtime.Settings;
-            System.IO.File.WriteAllText(path,$"Woden {Plugin.Version}\nView: {cfg.UiView}\nFFB: {Runtime.Force?.Status}\nForce calls: {Runtime.Force?.Attempts}; failures: {Runtime.Force?.Failures}\nWheel: {Runtime.Wheel?.Status}\nCamera: {MountedCamera.Status}\nTelemetry error: {Runtime.Output?.LastError}\nRecording: {Runtime.Output?.RecordingStatus}\nDevices:\n"+string.Join("\n",Runtime.Devices!.Devices.Select(d=>$"{d.Info.Name} {d.Info.InstanceGuid} reading={d.Ok} FFB={d.Info.ForceFeedback}")));
+            System.IO.File.WriteAllText(path,$"Woden {Plugin.Version}\nView: {cfg.UiView}\nFFB: {Runtime.Force?.Status}\nForce calls: {Runtime.Force?.Attempts}; failures: {Runtime.Force?.Failures}\nWheel: {Runtime.Wheel?.Status}\nCamera: {MountedCamera.Status}\nTelemetry error: {Runtime.Output?.LastError}\n{(InternalTools.Enabled?"Recording: "+Runtime.Output?.RecordingStatus+"\n":"")}Devices:\n"+string.Join("\n",Runtime.Devices!.Devices.Select(d=>$"{d.Info.Name} {d.Info.InstanceGuid} reading={d.Ok} FFB={d.Info.ForceFeedback}")));
             Message="Support file saved locally: "+path;
         }
         catch(Exception ex){Message="Support file failed: "+ex.Message;}

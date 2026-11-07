@@ -37,7 +37,7 @@ internal static class FullSessionChecks
             Temp = Path.Combine(Path.GetTempPath(), "woden-full-session-" + Guid.NewGuid().ToString("N"));
             Root = Path.Combine(Temp, "request-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(Root);
-            Ordinary = new TelemetryOutput(new OutputOptions(ForzaPort: 0, DetailPort: 0, RecordingPath: Path.Combine(Root, "source.jsonl"), Enabled: false),
+            Ordinary = TelemetryOutput.WithRecording(new OutputOptions(ForzaPort: 0, DetailPort: 0, RecordingPath: Path.Combine(Root, "source.jsonl"), Enabled: false),
                 "fixture", "{\"fixture\":true}", "0.2.14", properties?.Invoke(Root) ?? new Dictionary<string, string> { ["gameAssemblySha256"] = Hash }, recording);
             Session = new OrdinaryFullSession(Root, "source.jsonl", Identity(), inputOrigin, 0);
         }
@@ -798,8 +798,10 @@ internal static class FullSessionChecks
     // The recorder's own snapshot of its options (Dbce.Wheel.Recording SessionRecorder.options): what the writer enforces.
     static RecordingOptions RecorderOptions(TelemetryOutput output)
     {
-        object recorder = typeof(TelemetryOutput).GetField("_recorder", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(output)
+        object sink = typeof(TelemetryOutput).GetField("_recorder", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(output)
             ?? throw new InvalidOperationException("no recorder");
+        object recorder = typeof(SessionRecordingSink).GetField("_recorder", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(sink)
+            ?? throw new InvalidOperationException("no SessionRecorder");
         return (RecordingOptions)(recorder.GetType().GetField("options", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(recorder)
             ?? throw new InvalidOperationException("SessionRecorder.options was not found"));
     }

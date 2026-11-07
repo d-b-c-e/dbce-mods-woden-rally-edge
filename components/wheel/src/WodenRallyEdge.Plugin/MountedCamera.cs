@@ -70,7 +70,7 @@ internal static class MountedCamera
             else Restore();
         }
         Observe(__instance);
-        StagePlayback.Camera(__instance);
+        DevSession.Camera(__instance);
     }
     internal static void RecordedView(Car_Cam camera, int mode, int preset, MountedView view)
     {

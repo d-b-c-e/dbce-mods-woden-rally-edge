@@ -106,7 +106,7 @@ internal static class SpanWindow
     {
         try
         {
-            if (StagePlayback.OutputMuted || TestSaveGuard.Active) { Runtime.Log.LogInfo("Window placement: Unity monitor preference left unchanged during a muted stage or test launch"); return; }
+            if (DevSession.MutedOrTestLaunch) { Runtime.Log.LogInfo("Window placement: Unity monitor preference left unchanged during a muted stage or test launch"); return; }
             var displays = UnityEngine.Display.displays;
             var engine = new List<EngineDisplay>();
             for (int i = 0; i < displays.Length; i++) engine.Add(new EngineDisplay(displays[i].systemWidth, displays[i].systemHeight));

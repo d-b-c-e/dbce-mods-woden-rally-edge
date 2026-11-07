@@ -31,7 +31,7 @@ internal static class NativeGearboxApply
                 return;
             }
             _onMenu = true;
-            bool tooling = StagePlayback.OutputMuted || StagePlayback.Playing || StageRunLifecycle.ReplayPath != null || StageStartup.Validated;
+            bool tooling = DevSession.Tooling;
             var stats = Progress.StatsData_;
             var plan = NativeGearboxPreference.Decide(_setting, Runtime.Settings.Player, tooling,
                 stats?.Auto_Transmission?.ToArray(), stats?.Arcade_Auto_Transmission?.ToArray());

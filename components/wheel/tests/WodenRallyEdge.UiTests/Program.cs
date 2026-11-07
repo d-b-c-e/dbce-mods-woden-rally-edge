@@ -225,6 +225,12 @@ DrawCommand? ForzaField()
     float scale=FixtureScale();return GUI.Commands.FirstOrDefault(c=>c.Kind=="text"&&Math.Abs(c.Rect.x-label.Rect.x-420*scale)<1&&Math.Abs(c.Rect.y-label.Rect.y+4*scale)<1&&Math.Abs(c.Rect.width-220*scale)<1);
 }
 Reach(()=>ForzaField()!=null,"Forza label and actual editable field");GUI.TextReplacement="9123";Draw();Draw();Click("Simple");Check(Runtime.Settings.UiView=="Advanced"&&Runtime.Settings.ForzaPort==8000,"unapplied connection edit locks presentation without runtime mutation");Click("Cancel");Click("Simple");Check(Runtime.Settings.ForzaPort==8000,"connection cancel retains working destination");
+// STD-050: recording text exists only with the developer flag, in both views of the Telemetry page.
+bool RecordingText()=>GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.Contains("ecording",StringComparison.Ordinal));
+Click("Advanced");Click("Telemetry");Reach(()=>GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.StartsWith("Forza packets",StringComparison.Ordinal)),"Telemetry advanced status line");
+Check(!RecordingText(),"player Telemetry page (Advanced) shows no recording text");
+InternalTools.Set(true);Reach(RecordingText,"developer flag restores the recording note");InternalTools.Set(false);
+Click("Simple");Click("Telemetry");Draw();Check(!RecordingText(),"player Telemetry page (Simple) shows no recording text");
 Click("Help");Snapshot("help-720");
 Click("Setup");Draw(new(){type=EventType.KeyDown,keyCode=KeyCode.Tab});Draw(new(){type=EventType.KeyDown,keyCode=KeyCode.Return});Check(Runtime.Settings.UiView=="Advanced","header supports Tab/Enter activation");
 Click("Simple");Screen.width=3840;Screen.height=2160;Snapshot("setup-4k");
