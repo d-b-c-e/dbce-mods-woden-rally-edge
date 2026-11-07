@@ -271,7 +271,9 @@ internal static class TripleView
         if (!MountedCamera.PlayerOwned) _cameraNotice = "";
         string? why = WhyNot();
         if (why != null) { Stop(why); Status = "Off (" + why + ")"; return; }
-        if (_source != null && !Alive(_source)) Stop("camera destroyed");
+        // Unity's == treats a destroyed camera as null, so test the reference itself: when a stage or the attract demo
+        // ends, the game destroys its camera and our side, HUD and curved presenter cameras must go with it (ISS-0016).
+        if (Held(_source) && !Alive(_source!)) Stop("camera destroyed");
         Status = Active ? "On" + TripleCurve.Note : "Waiting for the driving camera";
         if (Active && _centerHud.Value && now >= _nextCanvasScan) { _nextCanvasScan = now + 2; MoveCanvases(); }
         if (CameraEditAllowed && Runtime.Local != null)
@@ -312,6 +314,8 @@ internal static class TripleView
     {
         if (_source == null)
         {
+            // A previous camera that was destroyed without a Stop leaves our cameras behind; drop them before building new ones.
+            if (Held(_source) || Held(_leftGo) || Held(_rightGo) || Held(_hudGo)) Stop("camera destroyed");
             _source = source;
             _sourceRect = source.rect;
             _sourcePhysical = source.usePhysicalProperties;
@@ -571,7 +575,7 @@ internal static class TripleView
 
     internal static void Stop(string why)
     {
-        bool had = _source != null || _leftGo != null || _rightGo != null || _hudGo != null;
+        bool had = Held(_source) || Held(_leftGo) || Held(_rightGo) || Held(_hudGo);
         if (!had) return;
         RestoreCanvases();
         TripleCurve.Reset();
@@ -616,6 +620,8 @@ internal static class TripleView
     }
 
     private static bool Alive(Object o) { try { return o != null && !o.WasCollected; } catch { return false; } }
+    /// <summary>We still hold a reference, even to an object the engine has destroyed (where Unity's == says null).</summary>
+    private static bool Held(Object? o) => o is not null;
 }
 
 [HarmonyPatch(typeof(Car_Cam), nameof(Car_Cam.LateUpdate))]
