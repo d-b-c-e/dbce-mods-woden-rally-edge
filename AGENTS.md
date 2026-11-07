@@ -1,62 +1,47 @@
-November5 current camera editor-range successor file-only installed0.2.16+1d536414:
-PluginA02C20CB/CoreCAC1CC4F/receipt8E30031C/ZIP4851B53E. Four current pose editors
-extend around finite saved offsets; FOV edits the saved request and shows the
-effective1..179 lens separately. Range2527/Defaults565/scoped wholePanel320 pass,
-full plugin0warnings/errors. Broad old general UI suite still FAILS at its retired
-Measured-perspective control; it is retained/not fixed, not an all-suite pass.
-Owner531572 first admitted1793884369448 independently verifies3lockedwrites,
-all23payloads/four actual installed-Core starts/24originalmetadata+84protected/
-108SID+SDDL/ticks/rawattrs/25typedprefs and external backup exact. Rawidle17673.219/
-17675.25; exactfba561b1 lease released13:13:06.6011516Z, standingSTOP/no custody.
-PUBLIC local commits only/no push. No new native/game/rendered/device/owner Apply
-or acceptance. Legacy single-view and all-camera rendered gates remain separate.
-[Complete qualification, retained failures and rollback](docs/2026-11-05-camera-editor-ranges.md).
-Older checkpoints below are historical.
+# Super Woden Rally Edge mod — agent guide
 
-**November5 installed finite FOV/final lens update:** source8c98267, Plugin9F72D8D8/Core9D30ED0F/receipt2BE94411. Source4oldRED/current52 +539/fullcompile0/0 and package98checks PASS. First admitted1793869814074 file-only install verified23payloads/fourstarts;24 original metadata/ownerSID+SDDL,84protected files and25prefs exact. Independent108SDDL+backups PASS; original verifier path-slash bug corrected read-only, no install retry/rollback. Exact lease released09:12:08.6454894Z; no custody. External backup owner-before-woden-final-lens-20261105-030719-110686d3/Rollback.ps1. PUBLIC/local only; no game/UI/device/physical/new owner acceptance. See [full source/package/delivery evidence](docs/2026-11-05-final-lens-source.md).
+Portfolio rules: `E:\Source\dbce-project-mgmt\HOW-WE-WORK.md` (read first; it replaces older process, lease, review and testing instructions). Current focus: `E:\Source\dbce-project-mgmt\NOW.md`. Feature status lives in the portfolio grid (`python E:\Source\dbce-project-mgmt\tools\portfolio_grid.py plan <grid-id>`), not in this file. Grid id: `woden`.
 
-**Previous owner install - November 4, 20:21 CT:** camera set-key fix `0.2.16+eec3b87845c648ebe2d0dbdfbfa9a704b2021c63`, Plugin248B8AD1/Core911D5EC8, receiptFC5ABFF6. Actual packaged PS5 file install523477 verified all23payloads and preserved fourcamera starts,81protected config/save/unknownplugin files and25typed preferences. Backup+guarded rollback: E:/Source/_archive/2026-11-04/owner-before-woden-camera-set-key-20261104-202031-53a14222/Rollback.ps1 -Apply. Local main landed; PUBLIC repo, no push. Source-linked66checks/fullcompile0/0 and packagedinstaller98checks PASS; independent postrelease readback and exact lease release02:21:59.971Z PASS. No game/UI/input/device/FFB/configwrites or new physical/owner acceptance. See docs/2026-11-04-camera-set-key-audit.md for complete identities/evidence. Older install headers below are historical.
+## Game and mod
+- Super Woden Rally Edge, Steam app 3218630, `D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge`. Unity with BepInEx BE #788 (generated interop references; plugin targets net6.0). Runtime flavor (Mono vs IL2CPP) is unknown — check `components/wheel/AGENTS.md`.
+- Direct wheel/pedal/handbrake controls, force feedback for any DirectInput wheel, Forza telemetry, bonnet and bumper cameras, triple screens, F6 panel. Public repo (the owner pushes).
+- Source: root `src/WodenRallyEdge.Core` and `.Plugin`; the older wheel component with its solution is `components/wheel`.
 
-Desktop routes (2026-11-03): follow the [route ladder](../../dbce-project-mgmt/skills/automated-testing/references/desktop-routes.md) and run `pwsh E:\Source\dbce-project-mgmt\tools\Test-DesktopRoutes.ps1`; if a route is down, continue on the next route within existing authorization and game safeguards.
+## Build
+Exact root build command: unknown — check README. From `components/wheel`:
+```powershell
+.\tools\Initialize-Dependencies.ps1
+dotnet build WodenRallyEdgeWheel.sln -c Release -warnaserror
+.\tools\Package.ps1
+```
+Source verification without a device: `tools/game/Verify-Source.ps1`. Player ZIP: `tools/game/Package-Delivery.ps1`.
 
-**Current owner install - October 15, 17:08 CT:** private UX/status candidate `0.2.16+d45e2ce2b92fe0335c43e28ae57b93dfc101a76f`, revision-5 receipt `A93D0E5661E4826F7F5CBDF0C2410769AF81F5B7E72BCE41CE228B606777315E`. Exact ZIP `147DA6551672FF660AFEDC496735014C025B1C2FACD3E3F023BBB19EA3BD91FE` / manifest `BAF90F90EF886D7C56BEF99B43E425BEA666AB55FA94E3EB52C4463A1D5C640E`. Closed-game update verified all23 payloads twice; only Plugin533D217E and Core0F99A847 changed, other21 remain exact. All five configs including A9D5, Native backend/native bindings, force tune,305 protected nonowned/save/loader files,10 directory entries and raw typed preferences stayed byte-exact. Automatic rollback of old422F/23payloads/configs remains at `WodenWheelBackups/before-install-20261015-170817-df15496a`. The original functionalPASS retained its lease because its own console host was still alive; authorized post-host cleanup separately released that exact lease, and independent22:10:15Z readback confirmed both original identities absent, scope0, lease absent and small installed pins exact. Evidence: hub `artifacts/woden-fov-ux-status-20261015/owner-ux-update-01` (original2FABCDE6, cleanupDE3865D3, independentC3665E3F), closure161523. No game/helper Apply/native/device/force run or public push accompanied installation. **Genuine focused F6/button/FOV validation and owner preferred FOV/weak-force acceptance remain pending.** Keep installed Physical config and existing tune; no new input helper or idle game launch. Older installed-state headers below are historical.
+## Test
+- Executable harnesses (`dotnet test` does not run them): `dotnet run --project tests\WodenRallyEdge.Tests -c Release` and `tests\WodenRallyEdge.UiTests`; installer checks `components/wheel/tools/Test-Installer.ps1`.
+- In game: launch via Steam, F6 opens the panel, F8 turns FFB off. Logs: `<game>\BepInEx\LogOutput.log`.
+- Back up and restore around a run: BepInEx configs and bindings, saves and `LocalLow\ViJuDa\Super Woden Rally Edge`, and the HKCU Unity preferences.
 
-**Current owner install - October 15, 07:37 CT:** private `0.2.16+fe5828d68e17dce02e8641c2dee5825cabd38b20`, revision-5 receipt `422F8E52578FD2B81B404398D0DE068FADB4D76228B9BC71A5FCFD4BC62F46CE`. Exact ZIP `0DDECAC4A0AD9AFA45E3CCE306B8FBB45AE4F1F637D39809C767ADBB54B9789A` / manifest `995B1D1E55ED8F18F2FA7AA6F2EE672876A844ECDBD8001D205D998EEFD773CC`; packaging source `2fb68a2`, compiled source `fe5828d` (UI source qualified at `92794b8`). Closed-game update passed all 23 payloads twice, exact automatic backup of the prior 857F receipt/23 payloads/five configs, and byte-exact preservation of all five configs, native bindings, force tune, raw typed preferences and 305 protected nonowned/save/loader files plus 10 directory entries. Only Plugin/Core/case finalizer and the already-qualified request-ID runner DF140 changed; other 19 payloads including normal F836 force native and 4AF shim remain unchanged. The one bff4ce86 setup helper is package-only, never installed or applied to owner. No game/native/device/force test or public push accompanied installation. Evidence: hub `artifacts/woden-ui-0.2.16-20261015`, owner result `4AA681E0E793D4C7EF0A72BD9770DE9EB54F77E3A041C560EC073D98FDA45108`; backup `WodenWheelBackups/before-install-20261015-073749-8603e4cc`. Dine owns the separate volume-trigger/seam source candidate; it is not installed and seam improvement remains unproven. Earlier checkpoints below are historical.
+## Install on the rig
+With the game closed, run `Install.bat` from the built ZIP (packaged `Manage-Install.ps1`: verified update, backup, rollback, owned-file uninstall). Backups go to `<game>/WodenWheelBackups`. Rollback: `Uninstall.bat` or the backup.
 
-**Current owner install (2026-10-14, 15:21 CT):** Private save-guard/gearbox candidate from exact source `24d7203e684e45b1a69ba6a6db3ba2b1d0b28179` is installed with revision-5 receipt `D50B71A24BDD1ACD7654026DF3FC35BC8013B1096A4736408118D032CE3AA50D` (`nativeGearboxPreference=true`). All 23 payloads, the backup of the `f252deb` install, saved Native default, Gearbox at start Keep, tune, 305 nonowned files and raw preferences passed readback; displays were recorded only. No launch, opt-in, device or force test. See `components/wheel/docs/HANDOFF.md`, `docs/READY-TO-TEST.md` and hub `artifacts/woden-private-owner-install-24d7203-20261014/README.md`.
+## Shared code
+Vendored toolkit code is under `lib/` and `vendor/` (shim, playback) and `components/wheel`; refresh with `components/wheel/tools/Sync-Toolkit.ps1`. Change shared code in the toolkit and re-sync; never edit the vendored copy.
 
-**Previous owner install (2026-10-13, 19:17 CT):** Optional private-shim package from exact source `f252debc54159d101b344abf0f5631b503b64c16` is installed with revision-5 receipt `3041965CC31751B0F4F04A248932E31CB549A4F48208A63129C1A8C0CACCC516`. All 23 payloads, backup of prior 7c package, saved Native default/tune, 305 nonowned files, raw preferences and four displays passed readback. No launch, opt-in, device or force test. See `components/wheel/docs/STATE.md` and hub `artifacts/woden-private-owner-install-20261013/README.md` for exact evidence; ordinary Shim FFB-open/shared-reader coexistence remains unqualified.
+## Game-specific rules
+- Never call the generated `WheelCollider.GetGroundHit(out WheelHit)` wrapper: it corrupts memory on first level entry. Use `WheelContact.Read`.
+- `MainCar.FixedUpdate` samples before the next physics solve; keep the phase label and reset derivatives at pause, respawn and teleports.
+- Woden strips `GUI.Button`/`GUILayout`; the panel uses IMGUI rectangles and events.
+- Missing telemetry channels mean unavailable; preserve genuine zero. Do not fabricate tyre temperatures, redline or suspension data.
+- Never silently change vehicle physics or assists. Never stop a running game to deploy.
+- No proprietary assemblies, generated interop, recordings or owner settings in Git or packages.
+- Public repo: never push or publish without the owner.
 
-**Earlier owner install (2026-10-13, 15:27 CT):** production-native private HUD-speed candidate source `0ed0292888f29d2152e3a0a77c39e23e43b9d72c`, version `0.2.14+0ed0292888f29d2152e3a0a77c39e23e43b9d72c`, revision-4 receipt SHA-256 `CC7983451ACF140AC742A648D15253B98D3BFF0993815C38AB1D17D8810304A2`. Exact private ZIP SHA-256 `A97B8E8CBD5B17BCC42D07E16106872A7714F78B615AE4AED2EA85F0A9459DBB`; all 17 owned payloads matched manifest `10770DE7...`. The closed-game install retained 306 non-owned files, raw Unity preferences, saved Backend Native and the prior tune byte-exact; no game/force run accompanied installation. A separate temporary load-muted Kenya replay passed 3,601 poses and selected recorded `game.trueSpeed` for all rows, but still frames do not close temporal HUD jitter or physical scanout. Owner-driven ordinary Saved, Shim FFB-open/shared-reader coexistence and physical force remain open. Read `components/wheel/docs/STATE.md` and `HANDOFF.md` before using older installed-state notes below.
+## Key docs
+- `components/wheel/AGENTS.md` (deeper technical notes; the top is dated install history, skip it)
+- `docs/STATE.md`, `docs/PUBLIC-RELEASE.md`
+- `tools/game/player/QUICK-START.md`
+- `TOOLKIT-ADOPTION.md` (reference)
 
-**Span and background qualification (2026-10-06):** the 02:05 session-span.1 replay passed all 3,601 poses while naturally unfocused, zero force writes/Forza sends, normal exit and exact restoration. Frames 01/03 show the bonnet drive across three views with centre HUD. Claude promoted the new-config span default to true (explicit false retained) and installed `8678f06/session-span.2`. Plain Steam launch and Surround return now pass: borderless 7680x1440 at (0,0) on Surround, then (-2560,0) on separate monitors. Independent readback verifies all 13 current payloads, 55 original LocalLow files and byte-exact pre/post/current registry exports. Focus-transition/interruption coverage remains open; startup backgrounds still extend onto the side screens (STD-019), and the broader public-release checklist remains. Read docs/2026-10-06-span-qualification.md. Saved FFB remains On; supervised tests must mute outputs independently.
-
-**FFB comparison (2026-10-06):** `docs/FFB-COMPARISON.md` documents the new offline tools and remaining physical acceptance. No installed tune/default was changed. Coordinate normalization with the shared toolkit findings before changing gains.
-
-Release/readiness (2026-10-05): read docs/PUBLIC-RELEASE.md, docs/STAGE-PLAYBACK.md and docs/2026-10-05-background-replay.md. Installed 05837ee/session-focus.1 passed all 3,601 Kenya poses, normal quit/exact restoration, zero physical writes, 111 PS5.1 installer checks. It scopes background execution to validated supervised muted replay; this run remained focused, so background qualification awaits a naturally unfocused coordinated run. Do not move focus or inject OS input to manufacture coverage. The log reports triples at the retained 7680 config; new rendered acceptance is separate. Prior a628e04 owner acceptance and exact backup remain. Private reference is sealed outside worktrees under LocalAppData/Dbce/StagePlayback/references/woden-kenya-20261005. Do not delete results when consolidating source.
-
-# Super Woden Rally Edge coordination
-
-Owner decision, October 5 23:35 CT: publish the whole repository and history
-with the final release. This supersedes older private-only instructions once
-the checks in docs/PUBLIC-RELEASE.md are complete. Keep visibility private during
-preparation; preserve historical tags/artifacts and unmerged cadence work.
-
-Read components/wheel/AGENTS.md and its STATE and HANDOFF before feature work. Their safety, ownership and fixture requirements remain in force.
-
-One game repository, one installable package, one setup and release version. Source folders are internal features, not separately released products. Preserve legacy plugin/adapter IDs, settings, receipts, histories and frozen archives. The shared feature contract remains under review; package metadata is not installed optimizer discovery.
-
-Run tools/game/Verify-Source.ps1 for device-free verification. Stage-Package.ps1 retains source-stage preparation; Package-Delivery.ps1 wraps the exact reviewed baseline into the player ZIP, without installation. Keep the generic tools/delivery/v1 files byte-pinned; only Woden integrity/semantics belong in Woden-Delivery.ps1. Keep proprietary dependencies, recordings and owner settings out of Git/packages. Keep private visibility. Publication, live incorporation and game/device/display work require coordinated owner handoff.
-
-## Toolkit standards
-
-At the start of every session, compare the wheel toolkit's ledger
-(`E:\Source\toolkits\dbce-wheel-mod-toolkit\STANDARDS.md`) with this repo's
-`TOOLKIT-ADOPTION.md`. Report any entry that is `pending`, `unchecked` or missing
-from the adoption file, and bring it in when your work touches that area. When you
-adopt one (or find it does not apply), update `TOOLKIT-ADOPTION.md` in the same
-commit. When you set a new family-wide standard, append it to the toolkit ledger
-and commit it in the same turn; do not leave it only in an uncommitted file.
 
 <!-- BEGIN project-file-location -->
 ## Project files and temporary work
@@ -65,7 +50,3 @@ Keep project-related research, evidence, scripts, packages, and other working fi
 
 Clean up temporary files and disposable copies promptly once they are no longer useful. Preserve active work, user data, settings, saves, required evidence, backups, rollback artifacts, and worktrees until their retention or replacement is established. Follow existing project, rig, and data-loss safeguards; do not remove files merely because they are old or untracked.
 <!-- END project-file-location -->
-
-## Owner deployment directive - November 3, 2026
-
-The owner authorizes installing the latest available work for playtesting, superseding older install, source-only and attended-review holds. Use the actual Steam/Stream Deck launch copy, verify build compatibility, preserve saved settings, back up replaced files and small mod-owned folders outside the game with hashes and one-step rollback, and refuse replacement while that game is running. Coordinate serialized builds below normal priority. This file-only deployment does not authorize a game launch or establish runtime, device or owner acceptance. Preserve existing technical safety constraints; Sonic UE4SS stays unloaded online. Public-push restrictions remain in force.
