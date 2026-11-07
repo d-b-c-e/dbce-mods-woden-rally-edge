@@ -38,7 +38,7 @@ Vendored toolkit code is under `lib/` and `vendor/` (shim, playback) and `compon
 
 ## Key docs
 - `components/wheel/AGENTS.md` (deeper technical notes; the top is dated install history, skip it)
-- `docs/STATE.md`, `docs/PUBLIC-RELEASE.md`
+- `components/wheel/docs/STATE.md`, `docs/PUBLIC-RELEASE.md`
 - `tools/game/player/QUICK-START.md`
 - `TOOLKIT-ADOPTION.md` (reference)
 
