@@ -35,8 +35,8 @@ $plugin = Join-Path $stage 'BepInEx\plugins\WodenRallyEdgeWheel'
 New-Item -ItemType Directory -Force $plugin | Out-Null
 $bin = Join-Path $root 'src\WodenRallyEdge.Plugin\bin\Release\net6.0'
 # The player payload is the mod only: plugin, Core, toolkit FFB/telemetry and the native FFB DLL. The toolkit
-# Recording and Playback assemblies stay because the plugin references them at load (dev-only code paths).
-foreach ($name in 'WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Recording.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll','Dbce.Wheel.Playback.dll') {
+# Recording and Playback assemblies are developer tooling ([Dev] InternalTools, STD-050); the plugin runs without them.
+foreach ($name in 'WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll') {
     Copy-Item -LiteralPath (Join-Path $bin $name) -Destination $plugin
 }
 if ($PrivateShimPath) {

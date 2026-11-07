@@ -16,9 +16,11 @@ $gameName = 'Super Woden Rally Edge'
 $gameHash = 'F422894D8D2B0DF4EDB7E5259E5E60CB8C4F8DEA2E85EBDFC09DD6766349250C'
 $loaderHash = 'F4CC496BD098A0DF4164B81E3737297707F13A47C2478DBA2F60EEFAB784817A'
 $loaderName = 'BepInEx-Unity.IL2CPP-win-x64-6.0.0-be.788+5b766a3.zip'
-# Revision 6 owns the mod only. Revisions 1-5 also owned development recording/playback files; an update removes
-# those through the prior receipt, and their names stay here only to validate older receipts.
-$payloadNames = @('WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Recording.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll','Dbce.Wheel.Playback.dll','telemetry-schema.json')
+# Revision 7 owns the mod only: plugin, Core, toolkit FFB and telemetry, the native FFB DLL and the schema. Revision 6
+# also owned the developer Recording/Playback DLLs, and revisions 1-5 more development recording/playback files; an
+# update removes those through the prior receipt, and their names stay here only to validate older receipts.
+$payloadNames = @('WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll','telemetry-schema.json')
+$revision6PayloadNames = @('WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Recording.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll','Dbce.Wheel.Playback.dll','telemetry-schema.json')
 $legacyPayloadNames = @('WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Recording.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll','recording-provenance.json','toolkit.version','telemetry-schema.json','Dbce.Wheel.Playback.dll','playback-provenance.json','playback-LICENSE.txt','Stage-Session.ps1')
 $revision4PayloadNames = @($legacyPayloadNames + @('Start-RecordedGame.ps1','RecordedStopControl.ps1','WodenCaseFinalizer.exe'))
 $revision5PayloadNames = @($revision4PayloadNames + @('WodenFullSession.ps1','ReplayEnvironment.ps1','Stage-RigLease.ps1','rig-lease-provenance.json','Stage-RunnerLifecycle.ps1','session-capabilities.json'))
@@ -26,6 +28,7 @@ $shimPath = 'BepInEx\plugins\WodenRallyEdgeWheel\dbce_shim.dll'
 $capabilityPath = 'private-shim-capability.json'
 $reviewedPrivateShimHashes = @('9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8','4AF269C9F2FDBAE3CEF1A78E563C3877CB0AB820D4BE4C2579A1AD6EA25CECC5')
 $basePaths = @($payloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
+$revision6BasePaths = @($revision6PayloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
 $revision5BasePaths = @($revision5PayloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
 $revision4BasePaths = @($revision4PayloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
 $legacyBasePaths = @($legacyPayloadNames | ForEach-Object { 'BepInEx\plugins\WodenRallyEdgeWheel\' + $_ })
@@ -76,7 +79,7 @@ function Assert-Candidate($Actual,$Entries) {
 function Assert-ReceiptFiles($Receipt) {
     $paths = @($Receipt.files | ForEach-Object { $_.path.Replace('/','\').ToLowerInvariant() })
     $private = $shimPath.ToLowerInvariant() -in $paths
-    $allowlist = switch ($Receipt.installerRevision) { 6 { $basePaths } 5 { $revision5BasePaths } 4 { $revision4BasePaths } default { $legacyBasePaths } }
+    $allowlist = switch ($Receipt.installerRevision) { 7 { $basePaths } 6 { $revision6BasePaths } 5 { $revision5BasePaths } 4 { $revision4BasePaths } default { $legacyBasePaths } }
     $expected = if ($private) { @($allowlist + $shimPath) } else { $allowlist }
     $expected = @($expected | ForEach-Object { $_.ToLowerInvariant() })
     if (@($Receipt.files).Count -ne $expected.Count -or @($paths | Select-Object -Unique).Count -ne $expected.Count) { throw 'Invalid install ownership entries or payload count.' }
@@ -85,7 +88,7 @@ function Assert-ReceiptFiles($Receipt) {
     }
     if ($private -and $Receipt.mode -eq 'Install') { Assert-Candidate $Receipt.sharedInputCandidate $Receipt.files }
     elseif ($null -ne $Receipt.PSObject.Properties['sharedInputCandidate']) { throw 'Native or uninstalled receipt must not advertise private Shim capability.' }
-    if ($Receipt.installerRevision -eq 6 -and $null -ne $Receipt.PSObject.Properties['ordinarySession']) { throw 'Mod-only receipt must not advertise a recording session capability.' }
+    if ($Receipt.installerRevision -ge 6 -and $null -ne $Receipt.PSObject.Properties['ordinarySession']) { throw 'Mod-only receipt must not advertise a recording session capability.' }
     return $private
 }
 function Assert-NativeBackend([string]$ConfigPath) {
@@ -223,7 +226,7 @@ if ($Mode -eq 'Install') {
     $priorReceiptHash = File-Hash $receiptPath
     if ($null -ne $priorReceiptHash) {
         $prior = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
-        if ($prior.mode -notin @('Install','Uninstall') -or $prior.installerRevision -notin @(1,2,3,4,5,6) -or
+        if ($prior.mode -notin @('Install','Uninstall') -or $prior.installerRevision -notin @(1,2,3,4,5,6,7) -or
             [string]::IsNullOrWhiteSpace($prior.version) -or $prior.gameDirectory -ne $game) { throw 'Invalid prior install ownership receipt; separate adoption review required.' }
         try { $priorPrivate = Assert-ReceiptFiles $prior } catch { throw 'Invalid prior install ownership receipt; separate adoption review required. ' + $_.Exception.Message }
         foreach ($entry in @($prior.files)) {
@@ -273,7 +276,7 @@ if ($Mode -eq 'Install') {
 } else {
     if (-not (Test-Path -LiteralPath $receiptPath)) { throw 'No owned-file receipt. Separate adoption review required before update or uninstall.' }
     $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
-    if ($receipt.mode -notin @('Install','Uninstall') -or $receipt.installerRevision -notin @(1,2,3,4,5,6) -or
+    if ($receipt.mode -notin @('Install','Uninstall') -or $receipt.installerRevision -notin @(1,2,3,4,5,6,7) -or
         [string]::IsNullOrWhiteSpace($receipt.version) -or $receipt.gameDirectory -ne $game) { throw 'Invalid uninstall ownership receipt.' }
     try { $null = Assert-ReceiptFiles $receipt } catch { throw 'Unrecognized uninstall ownership entry or invalid receipt. ' + $_.Exception.Message }
     foreach ($entry in @($receipt.files)) {
@@ -349,7 +352,7 @@ try {
     $version = if ($Mode -eq 'Install') { (Get-Item -LiteralPath (Join-Path $destination 'WodenRallyEdgeWheel.dll')).VersionInfo.ProductVersion } else { $receipt.version }
     foreach ($entry in $owned) { $expected = if ($Mode -eq 'Install') { $entry.sha256 } else { $null }; Assert-Unchanged (Join-Path $game $entry.path) $expected }
     $stagedReceipt = Join-Path $backup 'new-receipt.json'
-    $revision = if ($Mode -eq 'Install') { 6 } else { $receipt.installerRevision }
+    $revision = if ($Mode -eq 'Install') { 7 } else { $receipt.installerRevision }
     $nextReceipt = [ordered]@{ version=$version; installerRevision=$revision; mode=$Mode; gameDirectory=$game; utc=[DateTime]::UtcNow.ToString('o'); backup=$backup; files=$owned; configurationPreserved=($Mode -ne 'Uninstall' -or -not $RemoveUserData); sharedLoaderRetained=$true; gameLaunched=$false }
     if ($Mode -eq 'Install') {
         # This package consumes the same v1 JSON bindings as F6. Wheelkit must

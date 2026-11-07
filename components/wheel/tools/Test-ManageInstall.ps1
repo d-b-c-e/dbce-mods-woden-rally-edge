@@ -54,9 +54,9 @@ try {
     } finally { $process.Dispose() }
 } finally { Pop-Location }
 $first = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
-$modPayload = @('WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Recording.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll','Dbce.Wheel.Playback.dll','telemetry-schema.json')
+$modPayload = @('WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll','telemetry-schema.json')
 Check ($first.files.Count -eq $modPayload.Count -and $first.mode -eq 'Install' -and -not $first.gameLaunched) 'Install receipt owns the mod payload only'
-Check ($first.installerRevision -eq 6) 'Default-root player installer revision'
+Check ($first.installerRevision -eq 7) 'Default-root player installer revision'
 Check ($null -eq $first.PSObject.Properties['ordinarySession']) 'Mod-only receipt advertises no recording session'
 # Golden list of what a player install writes into the plugin folder.
 $installedNames = @(Get-ChildItem -LiteralPath $plugin -File -Recurse | ForEach-Object { $_.FullName.Substring($plugin.Length + 1) } | Sort-Object)
@@ -67,8 +67,10 @@ Check ($first.nativeGearboxPreference -eq $true) 'Installed native gearbox prefe
 Check ($first.curvedTriples -eq $true) 'Installed curved triples capability'
 Check ((Hash (Join-Path $plugin 'WodenRallyEdgeWheel.dll')) -eq (Hash (Join-Path $PackageRoot 'BepInEx\plugins\WodenRallyEdgeWheel\WodenRallyEdgeWheel.dll'))) 'Default-root selected wrong package'
 foreach ($entry in $first.files) { Check ((Hash (Join-Path $fixture $entry.path)) -eq $entry.sha256) ('Payload ' + $entry.path) }
-# Revisions 1-5 also owned development recording/playback files. Updating such an install removes them through the
-# prior receipt, after backing them up, and refuses if any of them was modified.
+# Revisions 1-6 also owned development recording/playback files (revision 6 only the Recording/Playback DLLs).
+# Updating such an install removes them through the prior receipt, after backing them up, and refuses if any of them
+# was modified.
+$devAssemblies = @('Dbce.Wheel.Recording.dll','Dbce.Wheel.Playback.dll')
 $revision5DevFiles = @('recording-provenance.json','toolkit.version','playback-provenance.json','playback-LICENSE.txt','Stage-Session.ps1',
     'Start-RecordedGame.ps1','RecordedStopControl.ps1','WodenCaseFinalizer.exe','WodenFullSession.ps1','ReplayEnvironment.ps1',
     'Stage-RigLease.ps1','rig-lease-provenance.json','Stage-RunnerLifecycle.ps1','session-capabilities.json')
@@ -85,7 +87,7 @@ function Seed-PriorReceipt([int]$Revision,[string[]]$Names) {
     $prior.files = @($files)
     $prior | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $receipt -Encoding utf8
 }
-foreach ($case in @(@{revision=5; names=$revision5DevFiles; count=22},@{revision=3; names=@($revision5DevFiles[0..4]); count=13})) {
+foreach ($case in @(@{revision=6; names=$devAssemblies; count=8},@{revision=5; names=@($devAssemblies + $revision5DevFiles); count=22},@{revision=3; names=@($devAssemblies + $revision5DevFiles[0..4]); count=13})) {
     Seed-PriorReceipt $case.revision $case.names
     Check ((Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json).files.Count -eq $case.count) ("Revision-$($case.revision) fixture owns its historical payload")
     $tamperedDev = Join-Path $plugin $case.names[-1]
@@ -97,7 +99,7 @@ foreach ($case in @(@{revision=5; names=$revision5DevFiles; count=22},@{revision
     [IO.File]::WriteAllText($tamperedDev, $seeded)
     Install
     $upgraded = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
-    Check ($upgraded.installerRevision -eq 6 -and $upgraded.files.Count -eq $modPayload.Count) ("Revision-$($case.revision) receipt updates to mod-only ownership")
+    Check ($upgraded.installerRevision -eq 7 -and $upgraded.files.Count -eq $modPayload.Count) ("Revision-$($case.revision) receipt updates to mod-only ownership")
     foreach ($name in $case.names) {
         Check (-not (Test-Path -LiteralPath (Join-Path $plugin $name))) ("Update left a retired development file: $name")
         Check (Test-Path -LiteralPath (Join-Path $upgraded.backup ('WodenRallyEdgeWheel\' + $name))) ("Retired file missing from the update backup: $name")
