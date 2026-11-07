@@ -25,7 +25,7 @@ Timing: **live/save** means the existing in-memory value changes now and `Panel.
 | Telemetry/ForzaPort | Forza UDP port (0 = off); Advanced Telemetry | E | integer 0..65535; 8000 | draft until Apply connection succeeds; 0 disables channel; equal positive detailed port refused |
 | Telemetry/DetailPort | Detailed JSON port (0 = off); Advanced Telemetry | E | integer 0..65535; 8001 | same draft/Apply rule; both ports may be 0 |
 | Telemetry/DetailHz | Detailed stream rate (Hz); Advanced Telemetry | E | integer Hz 1..60; 20 | same draft/Apply rule; Cancel restores active values |
-| Diagnostics/RecordSession | No start-recording control | X | bool; Off | Legacy preference, not a menu start command; explicit prelaunch recording tooling owns capture |
+| Diagnostics/RecordSession | None (developer only) | X | bool; Off | Bound only with `[Dev] InternalTools` (STD-050); explicit prelaunch recording tooling owns capture |
 | Camera/BonnetEnabled | Bonnet camera; Cameras | E | bool; On | live/save; includes mount in camera cycle, does not force selection |
 | Camera/BumperEnabled | Bumper camera; Cameras | E | bool; On | live/save; same cycle rule |
 | Camera/Side | Side position (m); Advanced Cameras, Bonnet pose | E | m -2..2; 0 | live/save; edited bonnet pose disables Fit to car |

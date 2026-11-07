@@ -50,8 +50,8 @@ files and keeps settings and the shared loader. Full steps: [setup guide](tools/
 
 ## For developers
 
-Game-specific code is in `components/wheel`, shared playback artifacts in `vendor/playback`.
-No game files, saves or private recordings are in this repository or the release.
-[Public release notes](docs/PUBLIC-RELEASE.md) · [stage playback](docs/STAGE-PLAYBACK.md) ·
+Game-specific code is in `components/wheel`; developer tooling and notes are in
+[components/wheel/AGENTS.md](components/wheel/AGENTS.md). No game files or saves are in this
+repository or the release. [Public release notes](docs/PUBLIC-RELEASE.md) ·
 [FFB comparison](docs/FFB-COMPARISON.md) · [roadmap](components/wheel/docs/ROADMAP.md).
 MIT licence; see LICENSE.

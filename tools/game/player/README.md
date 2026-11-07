@@ -13,12 +13,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Verify-Package.ps1 -Pa
 This checks the package only; it does not start Woden, open devices, install
 anything or provide a no-write target-install preflight. Run `Install.bat` only
 with the supported game closed and installation separately authorized.
-`Uninstall.bat` removes unchanged receipt-owned files. Existing settings,
-recordings and other mods are retained. See [recovery and limits](GUIDE.md).
+`Uninstall.bat` removes unchanged receipt-owned files. Existing settings and
+other mods are retained. See [recovery and limits](GUIDE.md).
 
-Wheel input, provisional FFB, telemetry and request-driven diagnostic capture
-are retained. True triples and player playback commands are unavailable in this
-ZIP. No collision effect, shared cadence adoption or game-input replay is added.
+Wheel input, provisional FFB and telemetry are retained. True triples are
+unavailable in this ZIP. No collision effect or shared cadence adoption is added.
 
 Package identity is `dbce-mods-super-woden-rally-edge`; the approved intended
 repository name is `dbce-mods-woden-rally-edge`. That rename has not occurred.

@@ -8,22 +8,22 @@ BepInEx BE 788 prerequisite. It refuses a running game and never kills it.
 Install or update using `Install.bat -GameDir <game-directory>`. A fresh missing
 loader may need a download; the existing loader is verified and retained.
 `-LoaderArchive <archive>` supplies the exact pinned loader offline. Updates
-require a complete prior receipt whose nine payload hashes match. Missing,
+require a complete prior receipt whose payload hashes match. Missing,
 modified or unowned payloads block replacement before mutation. Existing legacy
 payloads without a receipt require separate adoption review; a backup alone
 does not establish ownership. Do not edit receipts to bypass refusal.
 
 F6 contains the existing calibration, binding and telemetry pages. Wheel input
-defaults Off; retained FFB preference defaults On, telemetry On and recording
-Off for fresh settings. Existing settings are preserved. F8 saves FFB Off; only
+defaults Off; retained FFB preference defaults On and telemetry On for fresh
+settings. Existing settings are preserved. F8 saves FFB Off; only
 explicitly choosing On resumes that preference. No package validation or metadata
 operation opens a wheel or enables force. Device calibration and candidate
 sign/load/focus/lifecycle acceptance require a coordinated attended session.
 
 Uninstall with `Uninstall.bat -GameDir <game-directory>`. Only unchanged
-receipt-owned payloads are removed. Shared loader, unknown files, captures and
-settings remain. Explicit `-RemoveUserData` additionally removes only named
-Woden config/binding/request files; private recordings still remain.
+receipt-owned payloads are removed. Shared loader, unknown files and settings
+remain. Explicit `-RemoveUserData` additionally removes only the named Woden
+config and binding files.
 
 Before writes the installer hashes backups under `WodenWheelBackups`. Caught
 failures roll back verified transaction bytes while the game is closed. If the
@@ -32,20 +32,6 @@ a recovery report retains unknown bytes. There is no rollback command or
 standalone no-write target-check flag. Power interruption/conflicts require
 manual review of the report and verified backup; never restore over newer user
 settings or overwrite unrecognized files. No second renderer migration is supplied.
-
-Capture is an existing request-driven diagnostic implementation. Its coordinated
-owner helper is source-only, not in this ZIP; the menu can stop a recording but
-does not initiate a new owner request. Captures are local-private JSONL, bounded
-by existing 1200-second/64-MiB limits; drops, limits or missing completion footer
-cannot be promoted to complete analysis evidence. Raw input and force requests
-are diagnostic channels, not measured wheel torque or a gameplay replay tape.
-
-Actual ForceSignal offline analysis exists in the retained Core and source-only
-TelemetryInspector tooling. No standalone player analysis/replay command is
-distributed. Source/case/config/profile/build/baseline identities must match;
-trials use separate hashes and new observations. Offline analysis never initializes
-devices or sends force. No game-input replay, physical playback or automatic
-capture/corpus upload is supplied.
 
 True triple rendering is unavailable: research source is excluded, with no
 validated game ABI, views or presentation. Historical owner 0.2.12 observations
