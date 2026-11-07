@@ -23,6 +23,7 @@ Source verification without a device: `tools/game/Verify-Source.ps1`. Player ZIP
 
 ## Install on the rig
 With the game closed, run `Install.bat` from the built ZIP (packaged `Manage-Install.ps1`: verified update, backup, rollback, owned-file uninstall). Backups go to `<game>/WodenWheelBackups`. Rollback: `Uninstall.bat` or the backup.
+From an agent shell, run it as `env -u PSModulePath powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File Manage-Install.ps1 -Mode Install -GameDir "<game>" < /dev/null` (bash). An inherited PowerShell 7 module path breaks `Get-FileHash` and the Steam registry lookup, and the installer then waits on a folder-picker dialog.
 
 ## Shared code
 Vendored toolkit code is under `lib/` and `vendor/` (shim, playback) and `components/wheel`; refresh with `components/wheel/tools/Sync-Toolkit.ps1`. Change shared code in the toolkit and re-sync; never edit the vendored copy.
