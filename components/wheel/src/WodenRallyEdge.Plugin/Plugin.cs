@@ -123,11 +123,19 @@ internal static class Runtime
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
     internal static bool Focused { get { GetWindowThreadProcessId(GetForegroundWindow(), out uint pid); return pid == Environment.ProcessId; } }
 
+    /// <summary>Development recordings stamp the toolkit Recording provenance when a dev install provides it; player
+    /// packages ship no provenance file, so the recording source is then empty.</summary>
+    internal static string RecordingProvenance(string directory)
+    {
+        string path = Path.Combine(directory, "recording-provenance.json");
+        return File.Exists(path) ? File.ReadAllText(path) : "";
+    }
+
     internal static void Start(string directory)
     {
         Force.BeginRuntime();
         _stopped = false;
-        _provenance = File.ReadAllText(Path.Combine(directory, "recording-provenance.json"));
+        _provenance = RecordingProvenance(directory);
         string requestPath = Path.Combine(Paths.ConfigPath, "woden-record-next-launch.json");
         DiagnosticNoForce = File.Exists(requestPath);
         try { _recordLaunch = DiagnosticLaunch.Consume(requestPath, DateTimeOffset.UtcNow); DiagnosticNoForce = _recordLaunch?.DisableForces == true; }
