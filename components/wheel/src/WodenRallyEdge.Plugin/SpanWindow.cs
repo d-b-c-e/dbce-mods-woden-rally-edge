@@ -58,6 +58,8 @@ internal static class SpanWindow
     // Unity's start-monitor PlayerPref; stored as UnitySelectMonitor_h17969598 (WindowPlacementChecks verifies the hash).
     private const string MonitorPref = "UnitySelectMonitor";
     internal static string Status { get; private set; } = "not needed";
+    /// <summary>True while a substituted apply is still placing the window (the attempts after the game's resolution apply).</summary>
+    internal static bool Settling => _attempts > 0;
     /// <summary>The saved separate-monitor span setting (F6 Cameras selector, STD-022); applies at the next start.</summary>
     internal static bool Enabled { get => _enabled != null && _enabled.Value; set { if (_enabled != null && _enabled.Value != value) _enabled.Value = value; } }
 

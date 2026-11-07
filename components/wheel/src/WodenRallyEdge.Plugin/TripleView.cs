@@ -206,6 +206,8 @@ internal static class TripleView
     private static bool _curvedApplied;
 
     private static bool _toggledOff, _failed, _loggedScene;
+    // Built while the span window was still being placed (the first stage after launch); rebuilt once it is placed (ISS-0037).
+    private static bool _builtWhileSettling;
     private static Camera? _source, _left, _right, _hud;
     private static GameObject? _leftGo, _rightGo, _hudGo;
     private static Rect _sourceRect;
@@ -274,6 +276,13 @@ internal static class TripleView
         // Unity's == treats a destroyed camera as null, so test the reference itself: when a stage or the attract demo
         // ends, the game destroys its camera and our side, HUD and curved presenter cameras must go with it (ISS-0016).
         if (Held(_source) && !Alive(_source!)) Stop("camera destroyed");
+        // A curved view built while the window was still being placed rendered black on every screen until F11 off and on
+        // (ISS-0037); rebuild it the same way once the placement has finished.
+        if (_builtWhileSettling && !SpanWindow.Settling)
+        {
+            _builtWhileSettling = false;
+            if (Active) Stop("window placed, rebuilding");
+        }
         Status = Active ? "On" + TripleCurve.Note : "Waiting for the driving camera";
         if (Active && _centerHud.Value && now >= _nextCanvasScan) { _nextCanvasScan = now + 2; MoveCanvases(); }
         if (CameraEditAllowed && Runtime.Local != null)
@@ -317,6 +326,7 @@ internal static class TripleView
             // A previous camera that was destroyed without a Stop leaves our cameras behind; drop them before building new ones.
             if (Held(_source) || Held(_leftGo) || Held(_rightGo) || Held(_hudGo)) Stop("camera destroyed");
             _source = source;
+            _builtWhileSettling = SpanWindow.Settling;
             _sourceRect = source.rect;
             _sourcePhysical = source.usePhysicalProperties;
             _leftGo = NewCamera("Woden.Triple.Left", out _left);
