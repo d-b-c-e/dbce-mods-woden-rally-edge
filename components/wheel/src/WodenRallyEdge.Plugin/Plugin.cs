@@ -42,7 +42,7 @@ public sealed class Plugin : BasePlugin
             DevInput.Bind(Config, pluginDirectory);
             Runtime.Start(pluginDirectory);
             _harmony = new Harmony(Id);
-            _harmony.PatchAll(typeof(Plugin).Assembly);
+            foreach (var type in PatchableTypes()) _harmony.CreateClassProcessor(type).Patch();
             DevSession.ConfirmPatches(_harmony.Id);
         SpanWindow.Apply(_harmony);
             WheelPrompts.Apply(_harmony);
@@ -50,6 +50,13 @@ public sealed class Plugin : BasePlugin
             Log.LogInfo("F6 opens settings and bindings; F8 saves FFB Off. Saved FFB On resumes through driving gates. Waiting for local MainCar.FixedUpdate.");
         }
         catch { Runtime.Stop(); _harmony?.UnpatchSelf(); throw; }
+    }
+    /// <summary>PatchAll's types, without its warning: a player install has no Dbce.Wheel.Playback, so the developer
+    /// types built on it cannot load. They are only used with [Dev] InternalTools, which requires that DLL.</summary>
+    private static IEnumerable<Type> PatchableTypes()
+    {
+        try { return typeof(Plugin).Assembly.GetTypes(); }
+        catch (System.Reflection.ReflectionTypeLoadException ex) { return ex.Types.Where(type => type != null).Select(type => type!); }
     }
     public override bool Unload() { Runtime.Stop(); _harmony?.UnpatchSelf(); return true; }
 }
