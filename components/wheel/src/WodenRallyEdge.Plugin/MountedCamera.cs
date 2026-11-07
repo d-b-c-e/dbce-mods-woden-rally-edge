@@ -17,9 +17,6 @@ internal static class MountedCamera
     private static Camera? _lens;
     private static Renderer? _hiddenBody;
     private static bool _bodyWasForcedOff, _bodyHideWarned;
-    private static readonly List<(Renderer Renderer, bool WasOff)> _hiddenLensQuads = new();
-    private static string _lensQuadsLogged = "";
-    private static bool _lensQuadWarned;
     private static readonly CameraLens LensMemory = new();
     private static string _restoreStage = "";
     private static int _restoreOwner;
@@ -114,7 +111,7 @@ internal static class MountedCamera
                 _appliedNearClip = Cycle.View == MountedView.Stock ? _nearClip : .03f;
                 LensMemory.Applied(_fov, _appliedFov);
                 camera.fieldOfView = _appliedFov;
-                if (Cycle.View != MountedView.Stock) { CameraNative.NearClip(camera, _appliedNearClip); HideLensQuads(camera, _nearClip); }
+                if (Cycle.View != MountedView.Stock) CameraNative.NearClip(camera, _appliedNearClip);
             }
             if (Cycle.View == MountedView.Stock && !rear && offset == default) return;
             _target = camera.transform; _position = _target.position; _rotation = _target.rotation;
@@ -202,38 +199,8 @@ internal static class MountedCamera
         }
         catch (Exception ex) { if (!_bodyHideWarned) { _bodyHideWarned = true; Runtime.Log.LogWarning("Bumper body visibility unavailable: " + ex.Message); } }
     }
-    /// <summary>
-    /// ISS-0047: the game parents quads to its camera just inside the stock near clip (one sized to the 16:9 view, so
-    /// it fills exactly the center screen of a triple span). The mounted views' shorter near clip would show them, so
-    /// keep hidden only what the stock near clip already hid.
-    /// </summary>
-    private static void HideLensQuads(Camera camera, float stockNear)
-    {
-        try
-        {
-            var t = camera.transform; string seen = "";
-            foreach (var renderer in camera.GetComponentsInChildren<Renderer>())
-            {
-                if (renderer == null || !renderer.enabled) continue;
-                float depth = t.InverseTransformPoint(renderer.transform.position).z;
-                if (depth >= stockNear || !RendererNative.TryGet(renderer, out bool wasOff)) continue;
-                _hiddenLensQuads.Add((renderer, wasOff)); RendererNative.ForceOff(renderer, true);
-                seen += $" '{renderer.name}' at {depth:0.###} m";
-            }
-            if (seen != _lensQuadsLogged)
-            {
-                _lensQuadsLogged = seen;
-                if (seen.Length > 0) Runtime.Log.LogInfo($"Mounted camera: hid camera-attached renderer(s) inside the stock near clip {stockNear:0.###} m:{seen}");
-            }
-        }
-        catch (Exception ex) { if (!_lensQuadWarned) { _lensQuadWarned = true; Runtime.Log.LogWarning("Camera-attached renderer visibility unavailable: " + ex.Message); } }
-    }
     private static void RestoreBody()
     {
-        foreach (var (renderer, wasOff) in _hiddenLensQuads)
-            try { if (renderer != null && RendererNative.TryGet(renderer, out bool off) && off) RendererNative.ForceOff(renderer, wasOff); }
-            catch (Exception ex) { Runtime.Log.LogWarning("Camera-attached renderer restore target gone: " + ex.Message); }
-        _hiddenLensQuads.Clear();
         var body = _hiddenBody; _hiddenBody = null;
         if (body == null) return;
         // Keep the native enabled state, layers, colliders, lights and effects
