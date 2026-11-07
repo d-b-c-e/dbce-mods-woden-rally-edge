@@ -23,7 +23,6 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'player/QUICK-START.md') -Destin
 DBCE Woden Rally Edge mod: MIT; see LICENSE.
 Dbce.Wheel.Ffb, Telemetry, Recording, Playback and WheelFfb: MIT, d-b-c-e.
 Sources: https://github.com/d-b-c-e/dbce-wheel-mod-toolkit
-Exact runtime pins are retained beside the plugin (toolkit.version and provenance JSON).
 No game assemblies, generated interop, owner settings or recordings are included.
 
 On first install Manage-Install.ps1 downloads BepInEx IL2CPP build 788

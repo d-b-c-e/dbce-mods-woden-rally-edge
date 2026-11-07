@@ -54,84 +54,57 @@ try {
     } finally { $process.Dispose() }
 } finally { Pop-Location }
 $first = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
-Check ($first.files.Count -eq 22 -and $first.mode -eq 'Install' -and -not $first.gameLaunched) 'Install receipt owns the installed ordinary companion and finalizer'
-Check ($first.installerRevision -eq 5) 'Default-root player installer revision'
-Check ($first.ordinarySession.schema -eq 'woden.signal-session@1' -and $first.ordinarySession.record -and -not $first.ordinarySession.playback) 'Record-only ordinary session capability'
-Check (($first.ordinarySession.inputOrigin -join ',') -ceq 'human,automated') 'Origin-capable companion advertises only human and automated'
-foreach ($pair in @(@('Start-RecordedGame.ps1','sourceToolSha256'),@('RecordedStopControl.ps1','stopToolSha256'),@('WodenCaseFinalizer.exe','finalizerSha256'))) {
-    Check ((Hash (Join-Path $plugin $pair[0])) -eq $first.ordinarySession.($pair[1])) ('Installed ordinary capability hash: ' + $pair[0])
-}
-$schemaOutput = Join-Path $fixture 'finalizer-schema.json'
-& (Join-Path $plugin 'WodenCaseFinalizer.exe') schema $schemaOutput
-Check ($LASTEXITCODE -eq 0 -and (Get-Content -LiteralPath $schemaOutput -Raw) -match '"sample.sequence"') 'Installed self-contained finalizer executes without an SDK/source checkout'
-Remove-Item -LiteralPath $schemaOutput
+$modPayload = @('WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Recording.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll','Dbce.Wheel.Playback.dll','telemetry-schema.json')
+Check ($first.files.Count -eq $modPayload.Count -and $first.mode -eq 'Install' -and -not $first.gameLaunched) 'Install receipt owns the mod payload only'
+Check ($first.installerRevision -eq 6) 'Default-root player installer revision'
+Check ($null -eq $first.PSObject.Properties['ordinarySession']) 'Mod-only receipt advertises no recording session'
+# Golden list of what a player install writes into the plugin folder.
+$installedNames = @(Get-ChildItem -LiteralPath $plugin -File -Recurse | ForEach-Object { $_.FullName.Substring($plugin.Length + 1) } | Sort-Object)
+Check (($installedNames -join ',') -ceq (($modPayload | Sort-Object) -join ',')) ('Installed plugin files differ: ' + ($installedNames -join ','))
 Check ($first.controlsProfileSchema -eq 1 -and $first.adapter -eq 'woden-bindings-1') 'Installed controls capability'
 Check ($first.controlsProfileHatNeighbours -eq $true) 'Installed circular profile hat capability'
 Check ($first.nativeGearboxPreference -eq $true) 'Installed native gearbox preference capability'
 Check ($first.curvedTriples -eq $true) 'Installed curved triples capability'
 Check ((Hash (Join-Path $plugin 'WodenRallyEdgeWheel.dll')) -eq (Hash (Join-Path $PackageRoot 'BepInEx\plugins\WodenRallyEdgeWheel\WodenRallyEdgeWheel.dll'))) 'Default-root selected wrong package'
 foreach ($entry in $first.files) { Check ((Hash (Join-Path $fixture $entry.path)) -eq $entry.sha256) ('Payload ' + $entry.path) }
-$playbackFiles = @('WodenFullSession.ps1','ReplayEnvironment.ps1','Stage-RigLease.ps1','rig-lease-provenance.json','Stage-RunnerLifecycle.ps1','session-capabilities.json')
-$capability = Get-Content -LiteralPath (Join-Path $plugin 'session-capabilities.json') -Raw | ConvertFrom-Json
-Check ($capability.schema -eq 'dbce.session-capabilities@1' -and $capability.record.enabled -eq $false -and
-       $capability.playback.enabled -eq $true -and
-       ($capability.playback.adapters -join ',') -ceq 'woden.native-arcade-v1@1') 'Packaged playback matches qualified cold-replay contract'
-# A already declares origin, but its owned companion hash differs from this
-# package B. Updating and uninstalling B must not reinterpret A as legacy.
-$tool = Join-Path $plugin 'Start-RecordedGame.ps1'
-$originA = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
-Add-Content -LiteralPath $tool -Value '# fixture revision A; still accepts InputOrigin'
-$originAHash = Hash $tool
-$originAEntry = @($originA.files | Where-Object { $_.path -match 'Start-RecordedGame\.ps1$' })
-Check ($originAEntry.Count -eq 1) 'Origin-capable A companion ownership entry is unique'
-$originAEntry[0].sha256 = $originAHash
-$originA.ordinarySession.sourceToolSha256 = $originAHash.ToLowerInvariant()
-$originA | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $receipt -Encoding utf8
-Install
-$originB = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
-Check (($originB.ordinarySession.inputOrigin -join ',') -ceq 'human,automated' -and
-       $originB.ordinarySession.sourceToolSha256 -eq (Hash $tool).ToLowerInvariant() -and
-       $originB.ordinarySession.sourceToolSha256 -ne $originAHash.ToLowerInvariant()) 'Origin-capable A updated to changed companion B'
-$detached = Join-Path $fixture 'detached-installer'
-$null = New-Item -ItemType Directory -Path $detached
-$detachedInstaller = Join-Path $detached 'Manage-Install.ps1'
-Copy-Item -LiteralPath $installer -Destination $detachedInstaller
-Check (-not (Test-Path -LiteralPath (Join-Path $detached 'Start-RecordedGame.ps1'))) 'Detached uninstall has no local companion'
-& $detachedInstaller -Mode Uninstall -GameDir $fixture
-Check ((Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json).mode -eq 'Uninstall') 'Changed-companion B uninstalled without local reviewed companion'
-Install
-# A prior revision-4 companion that did not accept InputOrigin keeps its old
-# capability shape and can be updated without inventing an origin for past captures.
-$oldModern = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
-$oldModern.installerRevision = 4
-$oldModern.files = @($oldModern.files | Where-Object { [IO.Path]::GetFileName($_.path) -notin $playbackFiles })
-foreach ($name in $playbackFiles) { Remove-Item -LiteralPath (Join-Path $plugin $name) }
-$oldTool = Join-Path $plugin 'Start-RecordedGame.ps1'
-'param([string]$GameDirectory) # legacy companion without InputOrigin' | Set-Content -LiteralPath $oldTool
-$oldToolHash = Hash $oldTool
-$oldEntry = @($oldModern.files | Where-Object { $_.path -match 'Start-RecordedGame\.ps1$' })
-Check ($oldEntry.Count -eq 1) 'Prior companion ownership entry is unique'
-$oldEntry[0].sha256 = $oldToolHash
-$oldModern.ordinarySession.sourceToolSha256 = $oldToolHash.ToLowerInvariant()
-$oldModern.ordinarySession.PSObject.Properties.Remove('inputOrigin')
-$oldModern | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $receipt -Encoding utf8
-Install
-$originUpgrade = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
-Check ($originUpgrade.installerRevision -eq 5 -and $originUpgrade.files.Count -eq 22 -and
-       ($originUpgrade.ordinarySession.inputOrigin -join ',') -ceq 'human,automated' -and
-       (Hash $oldTool) -eq $originUpgrade.ordinarySession.sourceToolSha256) 'Prior revision-4 companion upgraded to explicit-origin capability'
-# A revision-3 install owns only the historical allowlist. Updating it must
-# introduce the three tools transactionally without claiming prior ownership.
-$legacy = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
-$legacy.installerRevision = 3
-$legacy.PSObject.Properties.Remove('ordinarySession')
-$legacy.files = @($legacy.files | Where-Object { $_.path -notmatch '(Start-RecordedGame\.ps1|RecordedStopControl\.ps1|WodenCaseFinalizer\.exe)$' -and [IO.Path]::GetFileName($_.path) -notin $playbackFiles })
-foreach ($name in @('Start-RecordedGame.ps1','RecordedStopControl.ps1','WodenCaseFinalizer.exe') + $playbackFiles) { Remove-Item -LiteralPath (Join-Path $plugin $name) }
-$legacy | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $receipt -Encoding utf8
-Check ($legacy.files.Count -eq 13) 'Legacy fixture owns exactly 13 files'
-Install
-$upgraded = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
-Check ($upgraded.installerRevision -eq 5 -and $upgraded.files.Count -eq 22 -and $upgraded.ordinarySession.schema -eq 'woden.signal-session@1') 'Legacy revision-3 receipt upgrades to complete revision-5 ownership'
+# Revisions 1-5 also owned development recording/playback files. Updating such an install removes them through the
+# prior receipt, after backing them up, and refuses if any of them was modified.
+$revision5DevFiles = @('recording-provenance.json','toolkit.version','playback-provenance.json','playback-LICENSE.txt','Stage-Session.ps1',
+    'Start-RecordedGame.ps1','RecordedStopControl.ps1','WodenCaseFinalizer.exe','WodenFullSession.ps1','ReplayEnvironment.ps1',
+    'Stage-RigLease.ps1','rig-lease-provenance.json','Stage-RunnerLifecycle.ps1','session-capabilities.json')
+function Seed-PriorReceipt([int]$Revision,[string[]]$Names) {
+    $prior = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
+    $files = [Collections.Generic.List[object]]::new()
+    foreach ($entry in $prior.files) { $files.Add($entry) }
+    foreach ($name in $Names) {
+        $path = Join-Path $plugin $name
+        "prior revision $Revision development file $name" | Set-Content -LiteralPath $path
+        $files.Add([pscustomobject]@{ path = 'BepInEx\plugins\WodenRallyEdgeWheel\' + $name; sha256 = (Hash $path).ToLowerInvariant() })
+    }
+    $prior.installerRevision = $Revision
+    $prior.files = @($files)
+    $prior | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $receipt -Encoding utf8
+}
+foreach ($case in @(@{revision=5; names=$revision5DevFiles; count=22},@{revision=3; names=@($revision5DevFiles[0..4]); count=13})) {
+    Seed-PriorReceipt $case.revision $case.names
+    Check ((Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json).files.Count -eq $case.count) ("Revision-$($case.revision) fixture owns its historical payload")
+    $tamperedDev = Join-Path $plugin $case.names[-1]
+    $seeded = Get-Content -LiteralPath $tamperedDev -Raw
+    'externally modified development file' | Set-Content -LiteralPath $tamperedDev
+    $tamperedReceipt = Hash $receipt
+    Refuses { Install } 'Prior owned file missing or modified'
+    Check ((Hash $receipt) -eq $tamperedReceipt) ("Modified revision-$($case.revision) file changed the receipt")
+    [IO.File]::WriteAllText($tamperedDev, $seeded)
+    Install
+    $upgraded = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
+    Check ($upgraded.installerRevision -eq 6 -and $upgraded.files.Count -eq $modPayload.Count) ("Revision-$($case.revision) receipt updates to mod-only ownership")
+    foreach ($name in $case.names) {
+        Check (-not (Test-Path -LiteralPath (Join-Path $plugin $name))) ("Update left a retired development file: $name")
+        Check (Test-Path -LiteralPath (Join-Path $upgraded.backup ('WodenRallyEdgeWheel\' + $name))) ("Retired file missing from the update backup: $name")
+    }
+    $installedNames = @(Get-ChildItem -LiteralPath $plugin -File -Recurse | ForEach-Object { $_.FullName.Substring($plugin.Length + 1) } | Sort-Object)
+    Check (($installedNames -join ',') -ceq (($modPayload | Sort-Object) -join ',')) ("Revision-$($case.revision) update left plugin files: " + ($installedNames -join ','))
+}
 Check ((Get-Content -LiteralPath (Join-Path $config 'BepInEx.cfg') -Raw) -match '(?m)^UnityBaseLibrariesSource\s*=\s*\r?$') 'Loader config'
 $settings = Join-Path $config 'dbce.wodenrallyedgewheel.cfg'
 $bindings = Join-Path $config 'wheel-bindings.json'
@@ -150,7 +123,7 @@ foreach ($file in @($settings,$bindings,$otherConfig,$unknown,$recording,(Join-P
 Install
 $updated = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
 $validReceiptBytes = [IO.File]::ReadAllBytes($receipt)
-foreach ($kind in 'incomplete','duplicate-alias','unknown-path','invalid-hash','wrong-game','forged-finalizer-capability','forged-input-origin') {
+foreach ($kind in 'incomplete','duplicate-alias','unknown-path','invalid-hash','wrong-game','forged-session-capability') {
     $bad=[Text.Encoding]::UTF8.GetString($validReceiptBytes).TrimStart([char]0xFEFF) | ConvertFrom-Json
     switch($kind) {
         'incomplete' { $bad.files=@($bad.files | Select-Object -Skip 1) }
@@ -158,8 +131,7 @@ foreach ($kind in 'incomplete','duplicate-alias','unknown-path','invalid-hash','
         'unknown-path' { $bad.files[0].path='BepInEx\plugins\WodenRallyEdgeWheel\unknown.dll' }
         'invalid-hash' { $bad.files[0].sha256='unknown' }
         'wrong-game' { $bad.gameDirectory='C:\unrelated-game' }
-        'forged-finalizer-capability' { $bad.ordinarySession.finalizerSha256='0'*64 }
-        'forged-input-origin' { $bad.ordinarySession.inputOrigin=@('automated','human') }
+        'forged-session-capability' { $bad | Add-Member -NotePropertyName ordinarySession -NotePropertyValue ([pscustomobject]@{schema='woden.signal-session@1'}) }
     }
     $bad | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $receipt -Encoding utf8
     $beforeHash=Hash $receipt
@@ -167,14 +139,6 @@ foreach ($kind in 'incomplete','duplicate-alias','unknown-path','invalid-hash','
     Check ((Hash $receipt) -eq $beforeHash) ('Invalid receipt mutated: '+$kind)
     [IO.File]::WriteAllBytes($receipt,$validReceiptBytes)
 }
-$finalizerPath = Join-Path $plugin 'WodenCaseFinalizer.exe'
-$finalizerBytes = [IO.File]::ReadAllBytes($finalizerPath)
-$finalizerReceiptHash = Hash $receipt
-try {
-    [IO.File]::WriteAllBytes($finalizerPath,[byte[]]@(1,2,3))
-    Refuses { Install } 'Prior owned file missing or modified'
-    Check ((Hash $receipt) -eq $finalizerReceiptHash) 'Modified finalizer changed receipt'
-} finally { [IO.File]::WriteAllBytes($finalizerPath,$finalizerBytes) }
 Check ($updated.backup -ne $first.backup -and $updated.configurationPreserved) 'Update backup receipt'
 foreach ($file in $retained.Keys) { Check ((Hash $file) -eq $retained[$file]) ('Update changed retained file: ' + $file) }
 Check ((Hash (Join-Path $updated.backup 'config\wheel-bindings.json')) -eq $retained[$bindings]) 'Binding backup'
@@ -200,8 +164,6 @@ function Catalog-FixturePayload {
     $catalog = [Text.Encoding]::UTF8.GetString($validReceiptBytes).TrimStart([char]0xFEFF) | ConvertFrom-Json
     foreach ($entry in $catalog.files) {
         $entry.sha256 = Hash (Join-Path $fixture $entry.path)
-        if ($entry.path -match 'WodenRallyEdgeWheel\.dll$') { $catalog.ordinarySession.pluginSha256 = $entry.sha256.ToLowerInvariant() }
-        if ($entry.path -match 'WodenRallyEdge\.Core\.dll$') { $catalog.ordinarySession.coreSha256 = $entry.sha256.ToLowerInvariant() }
     }
     $catalog | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $receipt -Encoding utf8
 }

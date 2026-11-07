@@ -2,69 +2,26 @@
 param(
     [ValidatePattern('^[a-z0-9][a-z0-9.-]*$')][string]$ArtifactLabel,
     [string]$PrivateShimPath,
-    [string]$AutomationMutedNativePath,
-    [string]$AutomationNativeProvenancePath,
-    [switch]$HudGuiDiagnostic,
-    [switch]$HudDepthDiagnostic,
-    [switch]$HudStateTrace,
     # Private shim packages only: the pinned DBCE mod setup helper (tools\standalone-setup.json) under Extras\ModSetup.
     [switch]$PrivateStandaloneSetup
 )
 $ErrorActionPreference = 'Stop'
 if ($env:PrivateShimPath) { throw 'Clear the global PrivateShimPath before packaging; managed package checks must not enable native ABI fixtures.' }
 if ($PrivateStandaloneSetup -and -not $PrivateShimPath) { throw 'The setup helper writes the shared profile: package it only with -PrivateShimPath.' }
-if ($HudDepthDiagnostic) { throw 'HudDepthDiagnostic is retired; plane 100/far 110 is ordinary HUD geometry.' }
-if ($HudGuiDiagnostic -and $HudStateTrace) { throw 'HUD state trace is for the matched driving depth trial, not the menu GUI trial.' }
-if ($HudGuiDiagnostic -and $ArtifactLabel -notmatch '^hudgui-') { throw 'HUD GUI diagnostic packages require a hudgui- artifact label.' }
-if ($HudStateTrace -and $ArtifactLabel -notmatch '^hudstate-') { throw 'HUD state trace packages require a hudstate- artifact label.' }
 $root = Split-Path $PSScriptRoot -Parent
 $reviewedPrivateShimHashes = @('9B8A036F664CF8F45CCCF82B98E5E4376F93215B60EAC50B6DB965BF498015D8','4AF269C9F2FDBAE3CEF1A78E563C3877CB0AB820D4BE4C2579A1AD6EA25CECC5')
 $privateShimHash = $null
-$automationNativeHash = '088F1089BEB6D18D478F37582C59330C6BDA6BC37D5E365F6BA7EBF80040F567'
-$automationProvenanceHash = '6068B7A848F85FE42AE88EE8A86B10F1EF4C4E307B9C4235BE44C1A84BBEA8E5'
-$baseNativeHash = 'F8361A08BBE08EAAB936B37800D308CF1FC7EDAB34E2839DB16A447FE34178C5'
 if ($PrivateShimPath) {
     if (-not [IO.Path]::IsPathFullyQualified($PrivateShimPath) -or -not (Test-Path -LiteralPath $PrivateShimPath -PathType Leaf)) { throw 'PrivateShimPath must be an existing absolute file.' }
     $PrivateShimPath = [IO.Path]::GetFullPath($PrivateShimPath)
     $privateShimHash = (Get-FileHash -LiteralPath $PrivateShimPath).Hash
     if ($privateShimHash -notin $reviewedPrivateShimHashes) { throw 'PrivateShimPath does not match the reviewed ABI 2 pins.' }
 }
-if ($AutomationNativeProvenancePath -and -not $AutomationMutedNativePath) { throw 'Automation native provenance requires the matching native DLL.' }
-if ($AutomationMutedNativePath) {
-    if (-not $PrivateShimPath -or $ArtifactLabel -notmatch '^automation-muted-[a-z0-9.-]+$') {
-        throw 'Automation-muted native requires a private shim and an automation-muted- artifact label.'
-    }
-    if (-not [IO.Path]::IsPathFullyQualified($AutomationMutedNativePath) -or -not (Test-Path -LiteralPath $AutomationMutedNativePath -PathType Leaf)) {
-        throw 'AutomationMutedNativePath must be an existing absolute file.'
-    }
-    $AutomationMutedNativePath = [IO.Path]::GetFullPath($AutomationMutedNativePath)
-    if ((Get-FileHash -LiteralPath $AutomationMutedNativePath).Hash -ne $automationNativeHash) {
-        throw 'AutomationMutedNativePath does not match the proven no-force test native pin.'
-    }
-    if (-not $AutomationNativeProvenancePath -or -not [IO.Path]::IsPathFullyQualified($AutomationNativeProvenancePath) -or
-        -not (Test-Path -LiteralPath $AutomationNativeProvenancePath -PathType Leaf)) { throw 'AutomationNativeProvenancePath must be the exact reviewed sidecar.' }
-    $AutomationNativeProvenancePath = [IO.Path]::GetFullPath($AutomationNativeProvenancePath)
-    if ((Get-FileHash -LiteralPath $AutomationNativeProvenancePath).Hash -ne $automationProvenanceHash) { throw 'Automation native provenance hash differs.' }
-    $nativeProvenance = Get-Content -LiteralPath $AutomationNativeProvenancePath -Raw | ConvertFrom-Json
-    if ($nativeProvenance.dllSha256 -ne $automationNativeHash -or $nativeProvenance.arch -cne 'x64' -or
-        $nativeProvenance.define -cne 'WHEELFFB_NO_FORCE_BUILD' -or $nativeProvenance.marker -cne 'DBCE-WHEELFFB-NO-FORCE-TEST-BUILD' -or
-        $nativeProvenance.commit -cne 'eb77b909416b8a6ef70787e4621aaa62f16b9f45' -or $nativeProvenance.sourcesDirty -ne $false -or
-        $nativeProvenance.firstCallStatus -notmatch 'armed: no force \(no-force build\)') { throw 'Native sidecar does not attest the qualified load-muted build.' }
-    $sourceCommit = (& git -C (Join-Path $root '..\..') rev-parse HEAD).Trim()
-    if ($LASTEXITCODE -ne 0 -or $sourceCommit -notmatch '^[a-f0-9]{40}$') { throw 'Automation package source commit could not be pinned.' }
-    if (@(& git -C (Join-Path $root '..\..') status --porcelain --untracked-files=no).Count -ne 0) {
-        throw 'Automation package requires a clean tracked source checkout.'
-    }
-}
 & (Join-Path $PSScriptRoot 'Verify-Dependencies.ps1')
 $buildArgs = @('build',(Join-Path $root 'WodenRallyEdgeWheel.sln'),'-c','Release','-warnaserror','-v','q')
 # Package the already hash-checked private DLL below. Passing PrivateShimPath to
 # the entire solution would also enable the separate real-DLL UI ABI fixture;
 # managed consumer/package checks do not repeat native qualification.
-$diagnostics = @()
-if ($HudGuiDiagnostic) { $diagnostics += 'WODEN_HUD_GUI_DIAGNOSTIC' }
-if ($HudStateTrace) { $diagnostics += 'WODEN_HUD_STATE_TRACE' }
-if ($diagnostics.Count) { $buildArgs += ('-p:DefineConstants=' + ($diagnostics -join '%3B')) }
 & dotnet @buildArgs
 if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
 & dotnet run --project (Join-Path $root 'tests\WodenRallyEdge.Tests') -c Release --no-build
@@ -77,60 +34,11 @@ $stage = Join-Path $root ('dist\stage-' + [guid]::NewGuid().ToString('N'))
 $plugin = Join-Path $stage 'BepInEx\plugins\WodenRallyEdgeWheel'
 New-Item -ItemType Directory -Force $plugin | Out-Null
 $bin = Join-Path $root 'src\WodenRallyEdge.Plugin\bin\Release\net6.0'
-# Allowlist prevents game/interop/core/analysis assemblies entering a release.
+# The player payload is the mod only: plugin, Core, toolkit FFB/telemetry and the native FFB DLL. The toolkit
+# Recording and Playback assemblies stay because the plugin references them at load (dev-only code paths).
 foreach ($name in 'WodenRallyEdgeWheel.dll','WodenRallyEdge.Core.dll','Dbce.Wheel.Telemetry.dll','Dbce.Wheel.Recording.dll','Dbce.Wheel.Ffb.dll','WheelFfb.dll','Dbce.Wheel.Playback.dll') {
     Copy-Item -LiteralPath (Join-Path $bin $name) -Destination $plugin
 }
-if ($AutomationMutedNativePath) {
-    if ((Get-FileHash -LiteralPath (Join-Path $plugin 'WheelFfb.dll')).Hash -ne $baseNativeHash) {
-        throw 'Automation package base native differs from the pinned v0.12.0 payload.'
-    }
-    Copy-Item -LiteralPath $AutomationMutedNativePath -Destination (Join-Path $plugin 'WheelFfb.dll') -Force
-    if ((Get-FileHash -LiteralPath (Join-Path $plugin 'WheelFfb.dll')).Hash -ne $automationNativeHash) {
-        throw 'Staged automation native differs from the proven no-force pin.'
-    }
-    Copy-Item -LiteralPath $AutomationNativeProvenancePath -Destination (Join-Path $stage 'WheelFfb.noforce.provenance.json')
-    if ((Get-FileHash -LiteralPath (Join-Path $stage 'WheelFfb.noforce.provenance.json')).Hash -ne $automationProvenanceHash) { throw 'Staged native provenance differs.' }
-    [ordered]@{
-        schema='woden.automation-muted-native@1'; purpose='internal hash-pinned temporary test deployment only; restore the product afterward; never a release or lasting install'
-        sourceCommit=$sourceCommit
-        baseToolkitVersion='v0.12.0'; baseNativeSha256=$baseNativeHash.ToLowerInvariant()
-        nativeSha256=$automationNativeHash.ToLowerInvariant()
-        nativeDefaultState='armed'; requiresExplicitArm=$false
-        toolkitNativeCommit=$nativeProvenance.commit; toolkitNativeProvenanceSha256=$automationProvenanceHash.ToLowerInvariant()
-        provenance='WheelFfb no-force internal build eb77b90; native force gate latched before first export, independently qualified with actual DLL first-call and fake-device checks'
-    } | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath (Join-Path $stage 'automation-native-provenance.json') -Encoding utf8
-    'INTERNAL AUTOMATION ONLY. Temporary hash-pinned test deployment; restore the product afterward. Never a release or lasting owner install.' |
-        Set-Content -LiteralPath (Join-Path $stage 'AUTOMATION-ONLY.txt') -Encoding utf8
-}
-Copy-Item -LiteralPath (Join-Path $root 'lib\recording\provenance.json') -Destination (Join-Path $plugin 'recording-provenance.json')
-$playback = Join-Path $root '../../vendor/playback'
-if ((Get-FileHash -LiteralPath (Join-Path $playback 'Stage-RunnerLifecycle.ps1') -Algorithm SHA256).Hash -ne
-    '4BA9A38519C981E4B9D7CF3C9765C9DCB0ECB4C15F3720CDB197C6DF4A27F62C') { throw 'Vendored runner lifecycle differs from the reviewed source.' }
-Copy-Item -LiteralPath (Join-Path $playback 'provenance.json') -Destination (Join-Path $plugin 'playback-provenance.json')
-Copy-Item -LiteralPath (Join-Path $playback 'LICENSE') -Destination (Join-Path $plugin 'playback-LICENSE.txt')
-Copy-Item -LiteralPath (Join-Path $playback 'Stage-Session.ps1') -Destination $plugin
-Copy-Item -LiteralPath (Join-Path $playback 'Stage-RigLease.ps1') -Destination $plugin
-Copy-Item -LiteralPath (Join-Path $playback 'rig-lease-provenance.json') -Destination $plugin
-Copy-Item -LiteralPath (Join-Path $playback 'Stage-RunnerLifecycle.ps1') -Destination $plugin
-Copy-Item -LiteralPath (Join-Path $root '../../tools/game/Run-StageSession.ps1') -Destination (Join-Path $plugin 'WodenFullSession.ps1')
-Copy-Item -LiteralPath (Join-Path $root '../../tools/game/ReplayEnvironment.ps1') -Destination $plugin
-[ordered]@{
-    schema='dbce.session-capabilities@1'; game='Super Woden Rally Edge'; protocol='woden.full-session-package@1'
-    runner='WodenFullSession.ps1'; gameBuildSha256='f422894d8d2b0df4edb7e5259e5e60cb8c4f8dea2e85ebdfc09dd6766349250c'
-    record=[ordered]@{enabled=$false}
-    # Exact muted cold-replay pass: docs/2026-10-13-portable-cold-replay.md; terminal SHA-256 0BF09459EE66F12FC68B87B2143EEC5A61C0E2EB071898E12A9C01F8847A85F5.
-    playback=[ordered]@{enabled=$true;adapters=@('woden.native-arcade-v1@1')}
-} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $plugin 'session-capabilities.json') -Encoding utf8
-Copy-Item -LiteralPath (Join-Path $root 'lib\toolkit\VERSION') -Destination (Join-Path $plugin 'toolkit.version')
-foreach ($name in 'Start-RecordedGame.ps1','RecordedStopControl.ps1') {
-    Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination $plugin
-}
-$finalizerPublish = Join-Path $root ('dist\finalizer-publish-' + [guid]::NewGuid().ToString('N'))
-& dotnet publish (Join-Path $root 'tools\TelemetryInspector\TelemetryInspector.csproj') -c Release -r win-x64 --self-contained true `
-    -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $finalizerPublish -v q
-if ($LASTEXITCODE -ne 0) { throw 'Self-contained case finalizer publish failed' }
-Copy-Item -LiteralPath (Join-Path $finalizerPublish 'TelemetryInspector.exe') -Destination (Join-Path $plugin 'WodenCaseFinalizer.exe')
 if ($PrivateShimPath) {
     Copy-Item -LiteralPath $PrivateShimPath -Destination (Join-Path $plugin 'dbce_shim.dll')
     if ((Get-FileHash -LiteralPath (Join-Path $plugin 'dbce_shim.dll')).Hash -ne $privateShimHash) { throw 'Staged private shim differs from the reviewed pin.' }

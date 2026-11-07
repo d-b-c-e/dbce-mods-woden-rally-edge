@@ -12,7 +12,7 @@ Closing settings waits for keys, pointer and menu controls to be released before
 
 Extract the complete ZIP into a separate folder and double-click **Install.bat**. It discovers Steam libraries or asks for the game folder. The game must be closed. First install downloads the hash-pinned BepInEx prerequisite; updates reuse only the supported loader. No .NET SDK is needed for this player installer. Unsupported game/loader versions and linked target paths are refused before replacement.
 
-Install backs up the existing plugin and all configuration under `WodenWheelBackups` in the game folder, verifies every packaged payload, and retains saved settings/bindings. Installer revision 3 fixes package-folder discovery through Install.bat on Windows PowerShell 5.1 and retains revision 2's closed-game and file-hash checks before every replacement, deletion and rollback. A failed replacement restores only verified bytes while the game remains closed. If the game starts or another process changes a target, it retains those files and reports **Recovery required**, with `recovery.json` and the original files in the backup. Close the game normally and review that report before using the installation; do not overwrite an external change blindly. The installer writes `BepInEx/WodenWheel-install.json` with owned file hashes and the backup path after success. Unknown mod files and recordings remain in place. It does not launch the game.
+Install backs up the existing plugin and all configuration under `WodenWheelBackups` in the game folder, verifies every packaged payload, and retains saved settings/bindings. Installer revision 3 fixes package-folder discovery through Install.bat on Windows PowerShell 5.1 and retains revision 2's closed-game and file-hash checks before every replacement, deletion and rollback. A failed replacement restores only verified bytes while the game remains closed. If the game starts or another process changes a target, it retains those files and reports **Recovery required**, with `recovery.json` and the original files in the backup. Close the game normally and review that report before using the installation; do not overwrite an external change blindly. The installer writes `BepInEx/WodenWheel-install.json` with owned file hashes and the backup path after success. Installer revision 6 owns only the mod files; updating an older install backs up and removes the development recording and playback files that earlier packages placed beside the plugin. Unknown mod files and recordings remain in place. It does not launch the game.
 
 Double-click **Uninstall.bat** to remove only unchanged files named in that ownership receipt. Shared BepInEx, settings, unknown files and recordings stay. For an explicit settings removal, run `Uninstall.bat -RemoveUserData`; this also backs up the named Woden settings first. Recordings are always retained for manual review/removal. A modified owned file requires review before uninstall. A legacy development install without a receipt must be adopted with Install first. The repository-only `Install-Dev.ps1` retains its initial-install refusal behavior.
 
@@ -46,35 +46,11 @@ Mounted views use a 0.03 m near clip. Normal stock pose/FOV/clip values are rest
 
 Simple → Cameras → Adjustment bindings accepts a keyboard key or wheel button for Change camera, Look behind and each adjustment. Defaults (family layout, 2026-10-04) are numpad 8/2 forward/back, 9/3 up/down, 4/6 left/right, 7/1 tilt forward/back (look down/up), +/− FOV and 5 reset. A saved set still equal to an earlier default layout moves to this one on load (logged); any customised assignment keeps the whole set. Restore numpad defaults changes only adjustment bindings. Adjustments affect only the active Bonnet or Bumper during the countdown or driving; each press moves, tilts or zooms by the step settings in Advanced → Cameras (default 0.02 m, 1 degree, 2 degrees of FOV; also [Camera] MoveStepMetres, TiltStepDegrees, FovStepDegrees). F6/F8 remain reserved; Escape cancels binding. Conflicts and modifier chords are rejected without clearing existing assignments. Held movement repeats after 350 ms at at most 10 Hz, with no catch-up after a stall; reset acts once. Captured/held keys must release after panel or focus suppression. The game's own keys remain active. Settings save automatically after adjustments settle.
 
-## Telemetry and agent-controlled recording
+## Telemetry
 
 Simple Telemetry has an Off/On master, actual destination, output status and active recording Stop. Advanced configures loopback Forza UDP (8000), detailed JSON UDP (8001) and rate. Port 0 disables a stream; nonzero ports must differ. Apply connection commits endpoint edits together. Cancel preserves the active destination. Connection changes and Telemetry Off do not restart or end a recording. The menu does not start recordings. Help can write a local support summary; it never uploads it.
 
-An agent can prepare and launch one bounded capture:
-
-```powershell
-# Diagnostic launch with physical force suppressed; saved FFB preference unchanged.
-.\tools\Start-RecordedGame.ps1 -CaseId corner-unwind-baseline
-
-# Only for a requested attended FFB drive:
-.\tools\Start-RecordedGame.ps1 -CaseId corner-unwind-baseline -AttendedFfb
-
-# Prepare a request without launching; valid for 15 minutes:
-.\tools\Start-RecordedGame.ps1 -CaseId fixture-drive -PrepareOnly
-```
-
-The plugin consumes the versioned request once and correlates it to `BepInEx/WodenRecordings/request-<guid>/source.jsonl`. Normal exit finalizes the 20-minute / 1.75 GiB source. The command waits a bounded time for start, normal exit and finalization; a timeout never stops Woden. After exit it validates driving coverage and reruns the actual managed force model into `force-observation.jsonl`, printing exact paths and hashes. The source, effective force config and capture-profile identities are bound by `case.json`; the observation header binds the exact manifest bytes. The legacy RecordSession configuration remains compatible but is unnecessary. Opening a menu does not start recording.
-
-Default capture suppresses physical FFB for that launch without changing the saved preference. Use `-AttendedFfb` only for an attended owner drive. `-PrepareOnly` creates the expiring request and expected path without launching the game or touching a device. See [recorded playback boundaries](RECORDED-PLAYBACK.md).
-
-Captures include raw/applied handbrake, FFB status markers, connection/write counters and main-thread timing. Timing channels distinguish frame intervals, input/device polling, native car update, sampling and force work; gear/shifting are available for correlation. A frame gap alone cannot attribute a hitch to shifting.
-
-```powershell
-dotnet run --project tools\TelemetryInspector -c Release -- inspect 'path\to\capture.jsonl'
-dotnet run --project tools\TelemetryInspector -c Release -- reprocess 'path\to\request-case-directory'
-dotnet run --project tools\TelemetryInspector -c Release -- trial 'path\to\request-case-directory' 'path\to\candidate-config.json' 'path\to\new-observation.jsonl'
-dotnet run --project tools\TelemetryInspector -c Release -- compare 'baseline.jsonl' 'candidate.jsonl' 0.000001
-```
+Recording and recorded playback are development tools that run from a source checkout (`components/wheel/tools/Start-RecordedGame.ps1` and `tools/TelemetryInspector`). This package does not include them.
 
 Missing channels remain unavailable; raw game scales are unvalidated. Successful native output calls do not prove physical feel. Inspector rejection of missing/corrupt footers is intentional.
 
