@@ -22,12 +22,13 @@ NOT TESTED, with what was seen.
    - the HUD no longer shakes. The position fix is in production; only the owner's acceptance is open.
    - The speed digits can flicker by 1 km/h. That is stock game behavior, and the mod leaves it unchanged.
 
-## B. Optional: shared Wheelkit profile (Shim)
+## B. Shared Wheelkit profile (Shim)
 
 5. **Before launch:** turn off every controller Unity would count as a gamepad. If one is connected, the shim refuses
    at startup and the Native bindings stay active. A gamepad plugged in later stops shared input until a restart.
-6. **Opt in:** with the game closed, Apply your profile to Super Woden in Wheelkit 0.6.42.
-   - It writes `BepInEx/config/dbce-controls.ini` and sets `[Input] Backend = Shim` for the next start.
+6. **Profile:** with the game closed, Apply your profile to Super Woden in Wheelkit 0.6.42.
+   - It writes `BepInEx/config/dbce-controls.ini`. The shim is the input route whenever the package ships `dbce_shim.dll`;
+     there is no `[Input] Backend` switch any more (a saved one is ignored).
    - Your Native bindings are kept. Shared bindings are wheel and shifter only; the keyboard keeps working.
    - The same Apply sets **Gearbox at start** from your profile: Sequential or H-pattern selects Manual, Automatic
      selects Automatic (section C).
@@ -42,9 +43,8 @@ NOT TESTED, with what was seen.
    names, and steering and pedals must **keep responding after force starts**. The F6 Controls bars must keep moving. That ordering has never been run with
    real devices (see the [reader boundary](SHIM-PILOT.md#ffb-and-direct-provider-reader-boundary-source-review-2026-10-13)).
    If input freezes once force starts, stop and report it; do not drive on.
-10. **Revert:** with the game closed, set `[Input] Backend = Native` in
-    `BepInEx/config/dbce.wodenrallyedgewheel.cfg`. Wheelkit's Woden page only selects Shim. Then start the game and
-    confirm the Native bindings are back.
+10. **Native bindings** stay in charge only when the shim refuses (status line above) or the package has no
+    `dbce_shim.dll`.
 
 ## C. Gearbox at start
 
