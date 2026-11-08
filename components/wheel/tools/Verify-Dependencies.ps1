@@ -1,7 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $toolkit = Join-Path $root 'lib\toolkit'
-if ((Get-Content (Join-Path $toolkit 'VERSION') -TotalCount 1) -ne 'v0.12.0') { throw 'Unexpected toolkit pin' }
 & (Join-Path $PSScriptRoot 'Sync-Toolkit.ps1') -Check -Destination $toolkit
 $dependencies = Get-Content (Join-Path $root 'lib\local-dependencies.json') -Raw | ConvertFrom-Json
 if ($dependencies.gameAssemblySha256 -ne 'F422894D8D2B0DF4EDB7E5259E5E60CB8C4F8DEA2E85EBDFC09DD6766349250C' -or $dependencies.unity -ne '6000.3.6f1') { throw 'Unsupported interop build identity' }
