@@ -9,5 +9,6 @@
     <Compile Include="../../lib/toolkit/shared/display/RacingRow.cs;../../lib/toolkit/shared/display/WindowLanding.cs;../../lib/toolkit/shared/display/WindowsMonitors.cs" LinkBase="Toolkit/Display" />
     <Compile Include="../../lib/toolkit/shared/ui/BindingSaveStatus.cs;../../lib/toolkit/shared/ui/F6Style.cs;../../lib/toolkit/shared/ui/SettingsPresentation.cs" LinkBase="Toolkit/Ui" />
     <Compile Include="../../lib/toolkit/shared/input/BindingCapture.cs;../../lib/toolkit/shared/input/BindingCaptureFlow.cs;../../lib/toolkit/shared/input/ControlBinding.cs;../../lib/toolkit/shared/input/ControlProfileDocument.cs;../../lib/toolkit/shared/input/ControlProfileDraft.cs;../../lib/toolkit/shared/input/DeclaredControlExtras.cs;../../lib/toolkit/shared/input/PovSnapshotReader.cs" LinkBase="Toolkit/Input" />
+    <Compile Include="../../lib/toolkit/shared/shim/ShimSnapshot.cs;../../lib/toolkit/shared/shim/ShimSnapshotFeed.cs" LinkBase="Toolkit/Shim" />
   </ItemGroup>
 </Project>

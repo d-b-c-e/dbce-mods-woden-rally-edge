@@ -8,7 +8,3 @@
 *.dll binary
 # Sync-Toolkit's MANIFEST.txt hashes the exact upstream bytes, including line endings.
 components/wheel/lib/toolkit/** -text -whitespace
-
-# Exact shared snapshot source receipts (from the toolkit's Dbce.Wheel.Shim project, not yet a Sync-Toolkit part).
-components/wheel/src/WodenRallyEdge.Core/Vendor/Shim/ShimSnapshot.cs -text -whitespace
-components/wheel/src/WodenRallyEdge.Core/Vendor/Shim/ShimSnapshotFeed.cs -text -whitespace
