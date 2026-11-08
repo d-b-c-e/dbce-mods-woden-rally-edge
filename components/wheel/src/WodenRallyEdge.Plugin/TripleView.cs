@@ -66,7 +66,9 @@ internal static class TripleView
             "\n" + CameraTuning.KeyHint(Runtime.Wheel?.Bindings, "Camera narrower") + " in / " +
             CameraTuning.KeyHint(Runtime.Wheel?.Bindings, "Camera wider") + " out · " + FovKeyName + " sets · " +
             CameraTuning.KeyHint(Runtime.Wheel?.Bindings, "Camera reset") + " reset";
-        ComparisonNotice.Show(text); Panel.ShowCameraMessage(text);
+        // One on-screen notice: the panel's live camera box drew the same text under it, garbled.
+        // With F6 open the panel's own status line still reports it.
+        ComparisonNotice.Show(text); if (Panel.Open) Panel.Message = text;
         Runtime.Log.LogInfo(text.Replace('\n', ' '));
     }
     internal static bool TryGetPanelFov(out float value)
