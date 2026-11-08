@@ -118,12 +118,6 @@ if($expectedShimHash -eq '4AF269C9F2FDBAE3CEF1A78E563C3877CB0AB820D4BE4C2579A1AD
 }
 Private
 Check ((Receipt).files.Count -eq 7 -and (Hash $shimPath) -eq $private.sharedInputCandidate.controls.shimSha256) 'Private update lost ownership'
-$nativeSettingsBytes = [IO.File]::ReadAllBytes($settings)
-"[Input]`r`nBackend = Shim" | Set-Content -LiteralPath $settings
-$activeShimConfigHash = Hash $settings; $activeShimReceiptHash = Hash $receiptPath; $activeShimDllHash = Hash $shimPath
-Refuses { Native } 'Native package refused while.*Backend=Shim'
-Check ((Hash $settings) -eq $activeShimConfigHash -and (Hash $receiptPath) -eq $activeShimReceiptHash -and (Hash $shimPath) -eq $activeShimDllHash) 'Active-Shim downgrade refusal changed owner state'
-[IO.File]::WriteAllBytes($settings,$nativeSettingsBytes)
 
 Refuses { & $nativeInstaller -GameDir $fixture -PackageRoot $NativePackageRoot -TestFailAfterWrite 2 } 'rolled back.*injected'
 Check ((Receipt).files.Count -eq 7 -and (Hash $shimPath) -eq $private.sharedInputCandidate.controls.shimSha256) 'Private-to-Native rollback lost shim ownership'

@@ -91,16 +91,6 @@ function Assert-ReceiptFiles($Receipt) {
     if ($Receipt.installerRevision -ge 6 -and $null -ne $Receipt.PSObject.Properties['ordinarySession']) { throw 'Mod-only receipt must not advertise a recording session capability.' }
     return $private
 }
-function Assert-NativeBackend([string]$ConfigPath) {
-    if (-not (Test-Path -LiteralPath $ConfigPath -PathType Leaf)) { return }
-    $section = ''; $values = @()
-    foreach ($line in @(Get-Content -LiteralPath $ConfigPath)) {
-        if ($line -match '^\s*\[([^\]]+)\]\s*(?:[;#].*)?$') { $section = $Matches[1].Trim(); continue }
-        if ($section -eq 'Input' -and $line -match '^\s*Backend\s*=\s*([^;#\r\n]*)') { $values += $Matches[1].Trim() }
-    }
-    if ($values.Count -gt 1 -or ($values.Count -eq 1 -and $values[0] -notin @('Native','Shim'))) { throw 'Native package refused: ambiguous saved [Input] Backend. Review the Woden configuration first.' }
-    if ($values.Count -eq 1 -and $values[0] -eq 'Shim') { throw 'Native package refused while [Input] Backend=Shim. Select Native and restart Woden before removing the private shim DLL.' }
-}
 function Assert-Closed {
     if ((Get-Process -Name $gameName -ErrorAction SilentlyContinue) -or $script:fixtureGameRunning) { throw "Close $gameName normally, then retry. No process will be stopped." }
 }
@@ -249,7 +239,6 @@ if ($Mode -eq 'Install') {
             $priorPayloadHashes[$target] = $null
         }
     }
-    if (-not $private) { Assert-NativeBackend (Join-Path $config 'dbce.wodenrallyedgewheel.cfg') }
     $core = Join-Path $game 'BepInEx\core\BepInEx.Unity.IL2CPP.dll'
     if (Test-Path -LiteralPath $core) {
         # Pin copied from the verified BE #788 archive, not a name/version guess.

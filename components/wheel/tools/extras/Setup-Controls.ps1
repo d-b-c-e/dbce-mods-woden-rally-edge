@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 <# Optional, private: set up Super Woden: Rally Edge's shared wheel controls without Wheelkit, using the packaged DBCE mod
-   setup helper. It writes only previewed changes (BepInEx\config\dbce-controls.ini and [Input] Backend = Shim, read at the
+   setup helper. It writes only previewed changes (BepInEx\config\dbce-controls.ini, read at the
    game's next start, plus screen measurements or mod settings only as changed on those tabs). It does not launch the
    game, change the Windows display mode or send wheel forces. Install the private shim package first (Install.bat). The
    helper runs from this package folder and is never copied into the game folder. #>
