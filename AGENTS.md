@@ -5,7 +5,7 @@ Portfolio rules: `E:\Source\dbce-project-mgmt\HOW-WE-WORK.md` (read first; it re
 ## Game and mod
 - Super Woden Rally Edge, Steam app 3218630, `D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge`. Unity with BepInEx BE #788 (generated interop references; plugin targets net6.0). Runtime flavor (Mono vs IL2CPP) is unknown — check `components/wheel/AGENTS.md`.
 - Direct wheel/pedal/handbrake controls, force feedback for any DirectInput wheel, Forza telemetry, bonnet and bumper cameras, triple screens, F6 panel. Public repo (the owner pushes).
-- Source: `components/wheel/src/WodenRallyEdge.Core` and `.Plugin`, with the solution in `components/wheel`. Root `src`, `tests` and `lib` hold only ignored build leftovers.
+- Source: `components/wheel/src/WodenRallyEdge.Core` and `.Plugin`, with the solution in `components/wheel`.
 
 ## Build
 Exact root build command: unknown — check README. From `components/wheel`:
