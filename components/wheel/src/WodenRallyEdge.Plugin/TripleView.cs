@@ -218,6 +218,7 @@ internal static class TripleView
     private static PanelFrustum[]? _views;
     private static string _viewsKey = "";
     private static double _nextLog, _nextCanvasScan;
+    private static string _loggedSlot = "";
     private static readonly List<(Canvas Canvas, RenderMode Mode, Camera? World, float Plane)> MovedCanvases = new();
     private static readonly TripleHudDepth HudDepth = TripleHudDepth.Production;
     private const int UiLayer = 5;
@@ -373,10 +374,11 @@ internal static class TripleView
         if (_hud != null) { _hud.rect = center; TripleNative.SetDepth(_hud, source.depth + 10); }
 
         double now = Runtime.Clock.Elapsed.TotalSeconds;
-        if (now >= _nextLog)
+        // Also on every camera change, so the log shows each view's projection (perspective in every camera).
+        if (now >= _nextLog || slot.Key != _loggedSlot)
         {
-            _nextLog = now + 30;
-            Runtime.Log.LogInfo($"Triple: {Screen.width}x{Screen.height}, '{source.name}', near {near:0.###} far {far:0}, side yaw {views[2].YawDegrees:0.0}, " +
+            _nextLog = now + 30; _loggedSlot = slot.Key;
+            Runtime.Log.LogInfo($"Triple: {Screen.width}x{Screen.height}, {slot.Name} ({(Realistic(slot) ? "Realistic" : "Game")}), '{source.name}', near {near:0.###} far {far:0}, side yaw {views[2].YawDegrees:0.0}, " +
                                 $"game vfov {gameFov:0.0}, center vfov {2 * Math.Atan(views[1].Top) * 180 / Math.PI:0.0}, hud canvases {MovedCanvases.Count}");
         }
     }
