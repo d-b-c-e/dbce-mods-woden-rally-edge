@@ -36,7 +36,7 @@ certificate comparison, tracked lineage plus independent all-image audit/exact
 lease release. Prior failures and their raw artifacts remain under
 bld/napo-camera-ranges-20261105; they were not overwritten or relabelled PASS.
 
-| Packet / GO | Actual result and retained boundary |
+| Packet | Actual result and retained boundary |
 |---|---|
 | cpu01/531064 | Atomic slot refusal, no child/compiler/test/lease or owner write. |
 | cpu01/1793882607507 under531064 | Baseline0d5 strict compile then RANGE_SIDE_NO_JUMP and RANGE_FOV_REQUEST_RETAINED actual runtime REDs. Initial plugin/current fixture0/0. Test-only minus-caption encoding error prevented the fake click; corrected to exact C# Unicode escape. Released341c169d. |

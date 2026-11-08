@@ -23,7 +23,7 @@ the new producer is GREEN in PowerShell 7 and Windows PowerShell 5.1. Its
 `-EmitFixture` output supplies Wheelkit's inert reader declaration fixture.
 
 Matching Wheelkit source e4f4855 passed116/116 Release camera cases under
-GO518906 (new Woden36/existing80). Restore/test27.06s, offline18-package feed,
+The run (new Woden36/existing80). Restore/test27.06s, offline18-package feed,
 isolated CLI/NuGet/TEMP, unchanged certificate metadata. All18 observed process
 identities were absent at independent census; exact named lease released16:36:14Z.
 This is not job containment. Evidence is in that Wheelkit worktree's
@@ -34,7 +34,7 @@ evidence. `runtimeVerified=false` and `offsetsOwnedByApply=false` remain explici
 
 ## Owner receipt upgrade
 
-GO519745 completed after the full shared-rig series. Only
+The run completed after the full shared-rig series. Only
 `BepInEx/WodenWheel-install.json` changed, from31BE6508 to3A760EEE. The actual
 producer added only wodenFovSets, preserving existing private/ordinary metadata;
 all23 payload bytes remain unchanged. Installed Wheelkit0.6.68 Core4B16C553
@@ -52,4 +52,4 @@ Evidence: `components/wheel/bld/camera-receipt-delivery/install-519745/`, result
 The initial519593 wrapper attempt failed before lease/output/owner writes on a
 literal source-root typo. Corrected path and hash-case text were approved as
 8B3177F1/84279977. Original failed script/plan are hash-verified in
-`pre-admission-519593/`; the consumed GO was not reused.
+`pre-admission-519593/`; the consumed run was not reused.

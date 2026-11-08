@@ -88,9 +88,8 @@ The owner requested documentation, simple setup and release readiness. This repo
 ./tools/game/Prepare-PublicRelease.ps1 -ArtifactLabel preview.1
 ```
 
-The older `Package-Delivery.ps1` deliberately repacks a frozen 0.2.13 baseline; do not use it for this newer runtime. `components/wheel/tools/Package.ps1` is the active runtime builder. The new wrapper adds player documentation around that builder's exact payload and existing installer.
+`components/wheel/tools/Package.ps1` is the runtime builder. The new wrapper adds player documentation around that builder's exact payload and existing installer.
 
-The known-good private reference is now outside disposable worktrees at `%LOCALAPPDATA%/Dbce/StagePlayback/references/woden-kenya-20261005`; all seven sealed files were copied and hash-verified. It must remain private. Archive private evidence before removing any finished worktree.
 
 ## Prepared player candidate
 

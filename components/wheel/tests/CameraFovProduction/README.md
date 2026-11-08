@@ -10,7 +10,7 @@ Fixture.csproj takes ProductionRoot, HarnessRoot, GeneratedRoot and LibDir.
 The actual Core project needs its existing qualified toolkit/recording references
 under the snapshot's components/wheel/lib. No game/Unity assembly is needed by
 this fixture. Keep source snapshots, dependencies and compiler pinned in a fresh
-ignored CPU packet; no execution before coordinator GO.
+ignored CPU packet; 
 
 Run Fixture.dll <fresh-evidence-directory> [lens|store|projection|consumer].
 Each named witness must compile on the old source and then exit1 with its

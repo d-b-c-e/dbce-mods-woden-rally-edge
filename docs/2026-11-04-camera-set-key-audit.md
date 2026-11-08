@@ -63,23 +63,23 @@ fail the named regression, then current consumers to pass; no arbitrary crash is
 accepted as expected red. The fixture catches failure and exits1 without a crash
 UI. The full plugin compile remains part of the CPU request.
 
-Two setup attempts are retained under ignored bld/soba-camera-set-key. GO523042
+Two setup attempts are retained under ignored bld/soba-camera-set-key.
 stopped during restore because the private feed lacked three net6 reference packs.
-Packet02 GO523073 restored those exact qualified cached packs successfully, then
+Packet02 restored those exact qualified cached packs successfully, then
 stopped during UI compilation: the newly linked CameraFramingStore requires the
 production TripleGeometry helper. That helper is now linked too; its only external
 type dependency is MountedView in the already referenced Core project. Neither
 attempt executed the consumer or established the expected red/current pass. Both
 completed certificate checks, independent process census and exact lease release;
 no game, device, install or owner state was touched. Next is a fresh frozen packet
-and serialized CPU GO, preserving both failed receipts.
+and serialized CPU run, preserving both failed receipts.
 
 Private canonical core/interop/recording/toolkit dependencies116files were copied
 and hash-verified under ignored components/wheel/lib; no download/global install.
 No product/native DLL is loaded by these tests; actual managed Core/BepConfig are.
 Actual Unity/input/render/owner acceptance and the installed Woden remain unchanged.
 
-Packet03 GO523134 compiled old/current consumers with zero warnings/errors and
+Packet03 compiled old/current consumers with zero warnings/errors and
 qualified the actual old named regression: writes0->1, private config changed,
 binding bytes unchanged. Current dispatch/reset checks reached the first capture
 status assertion, which failed because the focused fixture had never opened the
@@ -96,7 +96,7 @@ finding no further missing references/links; no execution was claimed.
 
 ## Qualified source-only result
 
-Packet04 GO523238 PASS on clean sourceeec3b87845c648ebe2d0dbdfbfa9a704b2021c63:
+Packet04 PASS on clean sourceeec3b87845c648ebe2d0dbdfbfa9a704b2021c63:
 66/66 focused source-linked checks; complete plugin/Core compile0warnings/0errors.
 All526source/tool/evidence pins and certificate metadata unchanged;17observed
 identities absent in independent all-image census.20.12s; exact

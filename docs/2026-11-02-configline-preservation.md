@@ -1,6 +1,6 @@
 # Woden single-key save preservation, November 2
 
-Kole assignment 497268; compiler GO 497462. Worktree
+Kole assignment 497268; compiler run. Worktree
 `E:/Source/_work/napo-woden-configline-20261102`, based on main c7e34f9.
 Owner Steam Cloud choice remains unresolved: no launch, install, clean-player
 preparation or owner-state changes were performed.

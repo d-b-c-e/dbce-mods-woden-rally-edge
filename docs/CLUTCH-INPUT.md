@@ -129,7 +129,7 @@ The following semantics must be settled and tested before enabling support:
    (`ShimChecks`, `ShimCarChecks`, `ShimAppliedCarChecks`, `SharedBindingChecks`,
    panel checks), and `WodenRallyEdge.InputTests` reader/lifecycle fixtures.
    Preserve the existing explicit unsupported-clutch capture assertion until
-   support is real. Update `tools/controls/Probe/AppliedCarWorkload.cs` and
+   support is real. Update the focused tests and
    ProtocolTests unsupported lists only with qualified observation semantics;
    update `Test-PrivateShimInstall.ps1` and the matching installer fixtures.
 5. **Native-car observation:** extend the existing raw-controls/CarTrial path,

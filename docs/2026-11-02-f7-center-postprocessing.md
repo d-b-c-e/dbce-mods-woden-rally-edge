@@ -48,7 +48,7 @@ camera/PP properties and curved target tokens model side effects only.
   fixtures report 96 checks. Native ABI explicitly NOT RUN.
 - Core and Plugin Release builds: **zero warnings/errors** with warn-as-error.
 
-GO #498370; lease `172fc405587842c2a9b6168560a778ee` released. TEMP/TMP restored.
+Lease `172fc405587842c2a9b6168560a778ee` released. TEMP/TMP restored.
 The dependency verifier passes using ignored copies of primary checkout's pinned
 core/interop, manifest and cached-core comparison files. No proprietary input
 or generated output is staged for Git.

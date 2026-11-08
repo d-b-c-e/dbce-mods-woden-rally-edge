@@ -14,7 +14,7 @@ Exact root build command: unknown — check README. From `components/wheel`:
 dotnet build WodenRallyEdgeWheel.sln -c Release -warnaserror
 .\tools\Package.ps1
 ```
-Source verification without a device: `tools/game/Verify-Source.ps1`. Player ZIP: `tools/game/Package-Delivery.ps1`.
+Source verification without a device: `tools/game/Verify-Source.ps1`. Player ZIP: `components/wheel/tools/Package.ps1` (public candidate: `tools/game/Prepare-PublicRelease.ps1`).
 
 ## Test
 - Executable harnesses (`dotnet test` does not run them): `dotnet run --project tests\WodenRallyEdge.Tests -c Release` and `tests\WodenRallyEdge.UiTests`; installer checks `components/wheel/tools/Test-Installer.ps1`.

@@ -40,16 +40,16 @@ as Settings.baseline.cs; Core was the current dependency, which the old method
 did not use to write. This is an actual managed dependency/consumer regression,
 not a fake ConfigFile serializer. No game/plugin/native behavior is implied.
 
-- cpu01/GO510337: setup refusal,8.3158095s. Baseline/Core built; actual ConfigFile.Save
+- cpu01: setup refusal,8.3158095s. Baseline/Core built; actual ConfigFile.Save
   could not resolve SemanticVersioning. Dependency added only to the fixture;
   product code unchanged. Result AD1186DD911BBDD97029C908C1692984F1C84B45219BA9933A5147A5E40D291D,
   pre-release audit F25281D521DC3758960584A1A1F3E20E65597E6B54461AD9E2336406B59C6266.
-- cpu02/GO510508: genuine original RED, then fixed build/first20 assertions passed;
+- cpu02: genuine original RED, then fixed build/first20 assertions passed;
   expected duplicate Page threw InvalidDataException, which the fixture's refusal
   catcher omitted.11.1132158s. Raw result20640958A1E54DD573489B6B32EA6F28502E78A24ABC52CFFBB127695BB9D665,
   pre-release auditDE6BD86A0DDABAC90B9F913F6012C99C363A7EB6A87E0F9CF85941FB9DA795CE.
   Only the fixture catch changed atdea9b20181ffc3148f7375f7213958d26c984e79.
-- cpu03/GO510604 per510607: **58/58 PASS in5.052293s**, original RED admitted
+- cpu03 per510607: **58/58 PASS in5.052293s**, original RED admitted
   from pinned cpu02 result/DLL/stdout/identity, no baseline replay. Actual Settings
   and Core compile against net6.0 with real Bep/Sem libraries;0warnings/0errors.
   Core SHA256 D3B43B098C9638CC62FEA40B40196E93FE98125360B6DDB8988F44551C59E01A,

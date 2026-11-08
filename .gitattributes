@@ -9,9 +9,6 @@
 # Release manifests hash the exact upstream bytes, including line endings.
 lib/toolkit/** -text -whitespace
 
-# Exact toolkit rig-lease source blob.
-vendor/playback/Stage-RigLease.ps1 -text
-
 # Exact shared UI/input/snapshot source receipts.
 components/wheel/src/WodenRallyEdge.Core/Vendor/Input/ControlBinding.cs -text -whitespace
 components/wheel/src/WodenRallyEdge.Core/Vendor/Input/BindingCapture.cs -text -whitespace

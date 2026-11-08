@@ -57,7 +57,7 @@ census; no custody. Next action requires coordinator direction beyond source-onl
 
 # November 4: camera receipt installed, payload/settings unchanged
 
-GO519745 upgraded only the install receipt to3A760EEE. Installed Wheelkit Core
+The run upgraded only the install receipt to3A760EEE. Installed Wheelkit Core
 admits4 starting choices; all23 payloads unchanged,41 backups and104 protected
 files pass bytes/creation/write ticks/attributes. Guarded rollback is
 `E:/Source/_archive/2026-11-04/owner-before-woden-camera-receipt-20261104/Rollback.ps1`.
@@ -71,7 +71,7 @@ declares `wodenFovSets` starting choices, including existing Chase/Isometric
 preset overrides. No offsets, preset-count claim or runtime verification.
 Actual producer baseline RED/new GREEN under PS7 and PS5.1. Matching isolated
 Wheelkit e4f4855 passed116/116 focused camera cases (new Woden36/existing80),
-GO518906; lease and process closure verified. No package/install/owner writes.
+Lease and process closure verified. No package/install/owner writes.
 
 # November 3: presentation preferences are one owned batch, local source only
 

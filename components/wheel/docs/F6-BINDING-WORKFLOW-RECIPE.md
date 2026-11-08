@@ -16,31 +16,9 @@ successor `27708b3`. Package binaries differ from the runtime tuple below;
 no owner install, publication or in-game acceptance is claimed. Full hashes
 and retained failures: hub `artifacts/woden-f6-runtime-prep-20261015`.
 
-## Existing route and limits
+## Route
 
-Reuse `tools/controls/Run-Controls.ps1` with explicit `-ShimF6Workflow`. This is
-the existing restored temporary candidate overlay in the installed game folder,
-not a new private-copy launcher or lasting install. Its existing cold request,
-shared lease, output fences, exact process/normal close, raw registry and full
-owner-file restoration remain in charge. Current owner-activity policy applies.
-Unknown requests/commands are preserved and block admission.
-
-Schema 9 uses the ordinary admission mode and exact extension-3 `4AF269C9`
-shim plus load-muted native `088F1089` and its `6068B7A8` provenance. No raw
-injection, gameplay trial, replay, recording or DevInput is enabled. The
-temporary console-off setting is restored with the existing config snapshot;
-it does not set foreground or falsify Unity focus.
-
-Only the actual shared production host edits the profile. Commands have the
-existing nonce/sequence reply plus a canonical unique step GUID, at most 64
-steps. Status may report a background/read-only host. Edits require actual
-Unity focus, the owned OS foreground window, open menu Controls, ordinary
-reader readiness and fresh accepted observations. No second reader opens.
-
-The probe permits fixed mod-page views and production-host operations. It
-does not navigate the game's menus. Begin requires an explicitly selected
-device already present in the accepted host observations. No input edge is
-created; Begin/Cancel observations cannot establish physical binding delivery.
+Check the shared binding page in the installed game with the dev input channel (`tools/dev/Woden-Dev.ps1`, `[Dev] InputCommandFile`) or ask the owner for a one-minute check.
 
 ## Frozen inputs before the affected offline batch
 
