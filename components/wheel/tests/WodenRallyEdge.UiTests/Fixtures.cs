@@ -273,7 +273,7 @@ internal static class NativeGearboxApply {internal static string Status=>"Keep: 
     }
     internal static class MountedCamera
     {internal static bool PlayerOwned=true;internal static CameraCycle Cycle=new();internal static string Status=>"Fixture mounted view";internal static CameraPose Pose(bool bumper)=>Runtime.Settings.GetCameraPose(bumper);
-     internal static CameraOffset LegacyOffset(CameraSlot camera)=>default;
+     internal static CameraOffset SavedPoseOffset(CameraSlot camera)=>default;
      internal static void SavePose(bool bumper,CameraPose pose){Runtime.Settings.SetCameraPose(bumper,pose);if(!bumper)Runtime.Settings.CameraAutoFit=false;}}
     internal sealed class ForceController
     {

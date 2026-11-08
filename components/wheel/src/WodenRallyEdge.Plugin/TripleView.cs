@@ -108,7 +108,7 @@ internal static class TripleView
     internal static void SetPositionFromPanel(CameraOffset value)
     {
         if (!CameraEditAllowed || _framing == null) return;
-        try { _framing.SetPosition(CurrentCamera, CurrentCar, Realistic(CurrentCamera), value, MountedCamera.LegacyOffset(CurrentCamera)); Announce(); }
+        try { _framing.SetPosition(CurrentCamera, CurrentCar, Realistic(CurrentCamera), value, MountedCamera.SavedPoseOffset(CurrentCamera)); Announce(); }
         catch (Exception ex) { Announce("Couldn't save position: " + ex.Message); }
     }
     internal static void DefaultFovFromPanel()
@@ -124,7 +124,7 @@ internal static class TripleView
         catch (Exception ex) { Announce("Couldn't restore position default: " + ex.Message); }
     }
     internal static void AdjustPosition(string action) => SetPositionFromPanel(
-        PositionOffset(CurrentCamera, MountedCamera.LegacyOffset(CurrentCamera)).Adjust(action, Runtime.Settings.CameraSteps));
+        PositionOffset(CurrentCamera, MountedCamera.SavedPoseOffset(CurrentCamera)).Adjust(action, Runtime.Settings.CameraSteps));
     internal static void ResetCurrent()
     {
         if (!CameraEditAllowed || _framing == null) return;

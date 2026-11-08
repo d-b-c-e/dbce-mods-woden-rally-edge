@@ -7,8 +7,8 @@ Host.cs substitutes only camera availability/native measurements and notices;
 it contains no replacement FOV editing, storage or projection implementation.
 
 Fixture.csproj takes ProductionRoot, HarnessRoot, GeneratedRoot and LibDir.
-The actual Core project needs its existing qualified toolkit/recording references
-under the snapshot's components/wheel/lib. No game/Unity assembly is needed by
+The actual Core project and this fixture need the current `lib/toolkit` (DLLs plus the
+synced shared and triple sources) under the snapshot's components/wheel/lib. No game/Unity assembly is needed by
 this fixture. Keep source snapshots, dependencies and compiler pinned in a fresh
 ignored CPU packet; 
 

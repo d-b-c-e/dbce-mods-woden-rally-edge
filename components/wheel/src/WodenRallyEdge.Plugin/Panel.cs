@@ -748,7 +748,7 @@ internal static partial class Panel
             y+=46;Label(250,y,690,"Restores adjustment shortcuts only. Saved camera positions and Change camera stay unchanged.",true,46);y+=58;
         }
         bool custom=TripleView.FramingEnabled
-            ? TripleView.PositionOffset(TripleView.CurrentCamera,MountedCamera.LegacyOffset(TripleView.CurrentCamera))!=default
+            ? TripleView.PositionOffset(TripleView.CurrentCamera,MountedCamera.SavedPoseOffset(TripleView.CurrentCamera))!=default
             : !cfg.CameraAutoFit || (cfg.GetCameraPose(true) with {Forward=CameraPose.Bumper.Forward})!=CameraPose.Bumper || cfg.BumperAhead!=CameraPose.BumperAheadDefault;
         if(!Advanced&&custom){if(Button(250,y,694,"Custom camera positioning active. Review in Advanced"))Navigate("Cameras","Advanced");y+=48;}
         if(Advanced)
@@ -758,7 +758,7 @@ internal static partial class Panel
                 Label(250,y,690,"Position offsets: "+TripleView.FramingStatus,true,46);y+=54;
                 if(TripleView.CameraEditAllowed)
                 {
-                    var offset=TripleView.PositionOffset(TripleView.CurrentCamera,MountedCamera.LegacyOffset(TripleView.CurrentCamera));
+                    var offset=TripleView.PositionOffset(TripleView.CurrentCamera,MountedCamera.SavedPoseOffset(TripleView.CurrentCamera));
                     float side=offset.Side,height=offset.Height,forward=offset.Forward,pitch=offset.Pitch;
                     y=CameraSlider(y,"Side offset (m)",ref side,-2,2,defaultAction:()=>TripleView.DefaultPositionFromPanel("Side"));y=CameraSlider(y,"Height offset (m)",ref height,-2,2,defaultAction:()=>TripleView.DefaultPositionFromPanel("Height"));
                     y=CameraSlider(y,"Forward offset (m)",ref forward,-4,4,defaultAction:()=>TripleView.DefaultPositionFromPanel("Forward"));y=CameraSlider(y,"Tilt offset (degrees)",ref pitch,-90,90,"F1",defaultAction:()=>TripleView.DefaultPositionFromPanel("Pitch"));

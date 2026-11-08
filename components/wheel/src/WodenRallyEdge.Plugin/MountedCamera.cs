@@ -102,7 +102,7 @@ internal static class MountedCamera
             var pose = Pose(bumper);
             var slot = CurrentSlot;
             bool framing = TripleView.FramingEnabled;
-            var offset = framing ? TripleView.PositionOffset(slot, LegacyOffset(slot)) : default;
+            var offset = framing ? TripleView.PositionOffset(slot, SavedPoseOffset(slot)) : default;
             if (framing || Cycle.View != MountedView.Stock)
             {
                 _lens = camera; _fov = camera.fieldOfView; _nearClip = camera.nearClipPlane;
@@ -209,18 +209,20 @@ internal static class MountedCamera
     }
     internal static CameraPose Pose(bool bumper)
     {
-        if (!TripleView.FramingEnabled) return LegacyPose(bumper);
+        if (!TripleView.FramingEnabled) return SavedPose(bumper);
         var slot = new CameraSlot(bumper ? MountedView.Bumper : MountedView.Bonnet);
         var calculated = CalculatedPose(bumper);
-        return TripleView.PositionOffset(slot, LegacyOffset(slot)).On(calculated) with
+        return TripleView.PositionOffset(slot, SavedPoseOffset(slot)).On(calculated) with
         { Fov = TripleView.FramedFov(slot, calculated.Fov, calculated.Fov) };
     }
     private static CameraPose CalculatedPose(bool bumper) => Bounds() is { } body
         ? bumper ? CameraPose.FitBumper(body.Lo, body.Hi, CameraPose.Bumper, CameraPose.BumperAheadDefault) : CameraPose.FitBonnet(body.Lo, body.Hi)
         : bumper ? CameraPose.Bumper : CameraPose.Bonnet;
-    internal static CameraOffset LegacyOffset(CameraSlot camera) => camera.Mount == MountedView.Stock ? default :
-        CameraOffset.Between(LegacyPose(camera.Mount == MountedView.Bumper), CalculatedPose(camera.Mount == MountedView.Bumper));
-    private static CameraPose LegacyPose(bool bumper)
+    /// <summary>The saved [Camera] pose as an offset from the calculated pose: the triple-framing offset for a camera that has
+    /// none of its own, so a single-screen adjustment carries over (same keys, no migration).</summary>
+    internal static CameraOffset SavedPoseOffset(CameraSlot camera) => camera.Mount == MountedView.Stock ? default :
+        CameraOffset.Between(SavedPose(camera.Mount == MountedView.Bumper), CalculatedPose(camera.Mount == MountedView.Bumper));
+    private static CameraPose SavedPose(bool bumper)
     {
         var cfg = Runtime.Settings;
         if (bumper)

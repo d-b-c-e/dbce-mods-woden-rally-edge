@@ -9,8 +9,8 @@ internal sealed class FakeCamera { internal float NativeFov; }
 internal static class MountedCamera
 {
     internal static float? Start;
-    internal static CameraOffset Legacy;
-    internal static CameraOffset LegacyOffset(CameraSlot _) => Legacy;
+    internal static CameraOffset Saved;
+    internal static CameraOffset SavedPoseOffset(CameraSlot _) => Saved;
     internal static float? BaseFov(CameraSlot _) => Start;
     internal static float NativeFov(FakeCamera camera) => camera.NativeFov;
 }
@@ -39,7 +39,7 @@ internal static partial class TripleView
         _framing = new CameraFramingStore(cfg); CurrentCamera = camera;
         _source = new FakeCamera { NativeFov = native }; CameraEditAllowed = true;
         _views = new object();
-        MountedCamera.Start = null; MountedCamera.Legacy=default; CurrentCar=1; MeasuredFov = 34.123456789; Notice = "";
+        MountedCamera.Start = null; MountedCamera.Saved=default; CurrentCar=1; MeasuredFov = 34.123456789; Notice = "";
     }
     internal static void Native(float value) { _source!.NativeFov = value; }
     internal static void SourceAvailable(bool value) => _source = value ? new FakeCamera { NativeFov = 70 } : null;

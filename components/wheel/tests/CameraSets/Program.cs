@@ -104,16 +104,16 @@ Check("fresh bumper starts Realistic", initial.Realistic(bumper));
 Check("fresh chase starts Game", !initial.Realistic(chase0));
 Check("reading defaults does not create a settings file", !File.Exists(fresh));
 
+// The camera-set store no longer derives from MatchGameFov or ChaseUsesGameFov: such a file gets the defaults and keeps its bytes.
 foreach (bool legacy in new[] { false, true })
 foreach (bool oldChase in new[] { false, true })
 {
-    string path = Path.Combine(root, "legacy-" + legacy + "-" + oldChase + ".cfg");
+    string path = Path.Combine(root, "global-fov-" + legacy + "-" + oldChase + ".cfg");
     File.WriteAllText(path, "[Triple]\r\nMatchGameFov = " + legacy + "\r\nChaseUsesGameFov = " + oldChase + "\r\n");
     byte[] before = Bytes(path);
     var store = Open(path);
-    Check("saved mounted framing retained " + legacy + oldChase, store.Realistic(bonnet) == !legacy && store.Realistic(bumper) == !legacy);
-    Check("saved visible chase framing retained " + legacy + oldChase, store.Realistic(chase0) == !(legacy || oldChase));
-    Check("legacy read retains all bytes " + legacy + oldChase, Same(before, Bytes(path)));
+    Check("camera sets ignore the global FOV keys " + legacy + oldChase, !store.Realistic(bonnet) && store.Realistic(bumper) && !store.Realistic(chase0));
+    Check("the global FOV keys keep all bytes " + legacy + oldChase, Same(before, Bytes(path)));
 }
 
 string cfgPath = Path.Combine(root, "camera.cfg");

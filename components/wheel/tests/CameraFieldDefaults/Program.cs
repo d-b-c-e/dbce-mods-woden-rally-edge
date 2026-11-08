@@ -79,19 +79,19 @@ void Failures(){
  Check(!Panel.Clicked&&File.ReadAllBytes(path).SequenceEqual(before),"missing source hides FOV default");
  Check(Directory.GetFiles(root,"*.tmp").Length==0,"actual writer removes temporary files");
 }
-void LegacyAndReset(){
- Setup(cameras[0],false,omitPose:true);MountedCamera.Legacy=new CameraOffset(9,8,7,6);
+void SavedPoseAndReset(){
+ Setup(cameras[0],false,omitPose:true);MountedCamera.Saved=new CameraOffset(9,8,7,6);
  Direct("DefaultPositionFromPanel","Side");
- var pose=TripleView.Store.Position(selected,1,false,MountedCamera.Legacy);
- Near(pose.Side,0,"legacy fallback resets without requiring prior UI/cache priming");
- Near(pose.Height,8,"other legacy fallback preserved");
+ var pose=TripleView.Store.Position(selected,1,false,MountedCamera.Saved);
+ Near(pose.Side,0,"saved-pose fallback resets without requiring prior UI/cache priming");
+ Near(pose.Height,8,"other saved-pose fallback preserved");
  var text=File.ReadAllText(path);string prefix="Car1."+selected.Key+".Game.";
- Check(text.Contains(prefix+"SideOffset")&&!text.Contains(prefix+"HeightOffset")&&!text.Contains(prefix+"ForwardOffset")&&!text.Contains(prefix+"PitchOffset"),"legacy position publishes exactly one new key");
- TripleView.Open(path,selected);MountedCamera.Legacy=new CameraOffset(9,8,7,6);
- Near(TripleView.Store.Position(selected,1,false,MountedCamera.Legacy).Side,0,"legacy default survives reload");
+ Check(text.Contains(prefix+"SideOffset")&&!text.Contains(prefix+"HeightOffset")&&!text.Contains(prefix+"ForwardOffset")&&!text.Contains(prefix+"PitchOffset"),"saved-pose position publishes exactly one new key");
+ TripleView.Open(path,selected);MountedCamera.Saved=new CameraOffset(9,8,7,6);
+ Near(TripleView.Store.Position(selected,1,false,MountedCamera.Saved).Side,0,"saved-pose default survives reload");
  Setup(cameras[0],false,omitFov:true);Runtime.Settings.CameraFov=83;Direct("DefaultFovFromPanel");
  TripleView.Open(path,selected);Runtime.Settings.CameraFov=83;
- Near(TripleView.Store.FovOffset(selected,false,13),0,"explicit FOV default overrides legacy offset after reload without cache priming");
+ Near(TripleView.Store.FovOffset(selected,false,13),0,"explicit FOV default overrides the saved-pose offset after reload without cache priming");
  Runtime.Settings.CameraFov=70;
  Setup(cameras[0],false);Panel.Frame("*","Reset current camera/set (Numpad 5)");Panel.Draw();
  Check(Panel.Clicked&&TripleView.Store.Position(selected,1,false)==default&&TripleView.Store.FovOffset(selected,false)==0,"actual whole Reset still clears pose and FOV");
@@ -178,7 +178,7 @@ try{
  else if(mode=="fov"){Setup(cameras[0],false);CurrentDefault("Fov",true);}
  else if(mode=="all"){
   foreach(var camera in cameras)foreach(bool set in new[]{false,true})foreach(string field in fields){Setup(camera,set);CurrentDefault(field);}
-  Failures();LegacyAndReset();
+  Failures();SavedPoseAndReset();
  }else throw new ArgumentException("Unknown mode");
  Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new{pass=true,checks,actualSlider=true,actualConsumers=true,realStore=true,engineSimulated=true}));return 0;
 }catch(Exception ex){Console.Error.WriteLine(ex);return 1;}
