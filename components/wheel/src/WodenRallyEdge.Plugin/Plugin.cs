@@ -22,8 +22,6 @@ public sealed class Plugin : BasePlugin
     {
         Runtime.Log = Log;
         string pluginDirectory = Path.GetDirectoryName(typeof(Plugin).Assembly.Location)!;
-        string? internalTools = InternalTools.Bind(Config, pluginDirectory);
-        if (internalTools != null) Log.LogWarning(internalTools);
         Runtime.Settings = new(Config);
         if (Runtime.Settings.FfbMigration != null) Log.LogInfo(Runtime.Settings.FfbMigration);
         string path = Path.Combine(Paths.GameRootPath, "GameAssembly.dll");
@@ -42,21 +40,13 @@ public sealed class Plugin : BasePlugin
             DevInput.Bind(Config, pluginDirectory);
             Runtime.Start(pluginDirectory);
             _harmony = new Harmony(Id);
-            foreach (var type in PatchableTypes()) _harmony.CreateClassProcessor(type).Patch();
-            DevSession.ConfirmPatches(_harmony.Id);
+            foreach (var type in typeof(Plugin).Assembly.GetTypes()) _harmony.CreateClassProcessor(type).Patch();
         SpanWindow.Apply(_harmony);
             WheelPrompts.Apply(_harmony);
             AddComponent<Lifecycle>();
             Log.LogInfo("F6 opens settings and bindings; F8 saves FFB Off. Saved FFB On resumes through driving gates. Waiting for local MainCar.FixedUpdate.");
         }
         catch { Runtime.Stop(); _harmony?.UnpatchSelf(); throw; }
-    }
-    /// <summary>PatchAll's types, without its warning: a player install has no Dbce.Wheel.Playback, so the developer
-    /// types built on it cannot load. They are only used with [Dev] InternalTools, which requires that DLL.</summary>
-    private static IEnumerable<Type> PatchableTypes()
-    {
-        try { return typeof(Plugin).Assembly.GetTypes(); }
-        catch (System.Reflection.ReflectionTypeLoadException ex) { return ex.Types.Where(type => type != null).Select(type => type!); }
     }
     public override bool Unload() { Runtime.Stop(); _harmony?.UnpatchSelf(); return true; }
 }
@@ -72,10 +62,8 @@ public sealed class Lifecycle : MonoBehaviour
         using var lease = Runtime.Activity.TryEnter();
         if (lease == null) return;
         Panel.Draw();
-        DevSession.StageGui();
         FrameRate.Draw(Runtime.Settings.ShowFrameRate);
         ComparisonNotice.Draw();
-        DevSession.RecordingGui();
     }
     private void OnApplicationQuit() => Runtime.Stop();
     private void OnDestroy() => Runtime.Stop();
@@ -96,11 +84,11 @@ internal static class Runtime
     internal static TelemetryOutput? Output;
     internal static long Sequence, HookCalls, LocalTicks;
     internal static double LastLocal = -10;
-    /// <summary>Set only by a developer diagnostic launch (<see cref="DevSession"/>).</summary>
-    internal static bool DiagnosticNoForce;
     private static double _nextReport, _lastIdle;
     private static bool _stopped = true;
     internal static string GameAssemblyHash = "";
+    /// <summary>Set only by a shim control trial's fixtures.</summary>
+    internal static bool DiagnosticNoForce { get; set; }
     private static readonly HashSet<int> SeenPlayers = new();
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
@@ -110,15 +98,12 @@ internal static class Runtime
     {
         Force.BeginRuntime();
         _stopped = false;
-        DevSession.Start(directory);
         ApplyOutputs();
-        DevSession.AfterOutputs();
         Wheel = new(Path.Combine(Paths.ConfigPath, "wheel-bindings.json"));
         try { Devices = new(directory); }
         catch (Exception ex) { Log.LogError("Wheel route unavailable; telemetry remains enabled: " + ex.Message); }
         ShimInput.Start(directory, Paths.ConfigPath, Path.Combine(Paths.BepInExRootPath, "WodenShim"));
         Activity.BeginRuntime(); // Publish callback availability only after initialization.
-        DevSession.BeginNativeObservation();
     }
     internal static void ApplyOutputs()
     {
@@ -126,11 +111,10 @@ internal static class Runtime
         if (Settings.ForzaPort != 0 && Settings.ForzaPort == Settings.DetailPort)
             throw new ArgumentException("Forza and detailed telemetry need different ports.");
         Settings.Save();
-        string? recordingPath = DevSession.RecordingPath();
-        var options = new OutputOptions(Settings.ForzaPort, Settings.DetailPort, Settings.DetailHz, recordingPath, Settings.TelemetryEnabled && !DevSession.OutputMuted);
-        if (Output == null) Output = DevSession.CreateOutput(options);
+        var options = new OutputOptions(Settings.ForzaPort, Settings.DetailPort, Settings.DetailHz, Settings.TelemetryEnabled);
+        if (Output == null) Output = new TelemetryOutput(options);
         else Output.ConfigureNetwork(options);
-        Log.LogInfo(recordingPath == null ? "Telemetry outputs applied" : "Telemetry outputs applied; capture=" + recordingPath);
+        Log.LogInfo("Telemetry outputs applied");
     }
 
     internal static bool Select(MainCar car)
@@ -141,21 +125,18 @@ internal static class Runtime
         Local = car;
         return true;
     }
-    internal static PlayerControlState ControlState(MainCar car, bool includeStageOwnership = true)
+    internal static PlayerControlState ControlState(MainCar car)
     {
         if (!Select(car)) return default;
         var phase = car.Status switch { MainCar.CarStatus.WARMING => PlayerPhase.Countdown, MainCar.CarStatus.RACE => PlayerPhase.Racing,
             MainCar.CarStatus.END => PlayerPhase.Finished, MainCar.CarStatus.DESTROYED => PlayerPhase.Destroyed, _ => PlayerPhase.Unavailable };
         bool photo = car.MyControls?.PauseScript?.PhotomodeActive == true;
         return new(phase, true, Focused, Panel.Open, Pause.Paused,
-            car.Replay || (includeStageOwnership && DevSession.Owns(car)), car.Respawning, photo, car.locked);
+            car.Replay, car.Respawning, photo, car.locked);
     }
     internal static bool Driving(MainCar car) => ControlState(car).Driving;
-    internal static bool CameraAvailable(MainCar car) => DevSession.Owns(car)
-        ? StageReplayPolicy.Eligibility(ControlState(car, includeStageOwnership: false), DevSession.BackgroundReplay).CameraAvailable
-        : ControlState(car).CameraAvailable;
-    // Supervised replays keep their own eligibility; an open panel still ends them.
-    internal static bool CameraShown(MainCar car) => DevSession.Owns(car) ? CameraAvailable(car) : ControlState(car).CameraShown;
+    internal static bool CameraAvailable(MainCar car) => ControlState(car).CameraAvailable;
+    internal static bool CameraShown(MainCar car) => ControlState(car).CameraShown;
     internal static void Update()
     {
         using var lease = Activity.TryEnter(); if (lease == null) return;
@@ -165,7 +146,6 @@ internal static class Runtime
         FrameRate.Tick(now, Time.unscaledDeltaTime);
         try
         {
-            DevSession.Update(now);
             NativeGearboxApply.FrameTick();
             InputPolling.OncePerFrame();
             DevInput.FrameTick(now);
@@ -183,7 +163,7 @@ internal static class Runtime
         }
         catch (Exception ex) { Force.Disarm("Runtime error"); if (now > _nextReport) Log.LogError("Input/UI update failed: " + ex); }
         TimingDiagnostics.UpdateMs = Clock.Elapsed.TotalMilliseconds - now * 1000;
-        if (((!Focused && !(DevSession.Playing && DevSession.BackgroundReplay)) || Pause.Paused || now - LastLocal > .5) && now - _lastIdle > .1)
+        if ((!Focused || Pause.Paused || now - LastLocal > .5) && now - _lastIdle > .1)
         {
             MountedCamera.Restore();
             var sample = new TelemetrySample { SessionId = SessionId, Sequence = Sequence++, ElapsedSeconds = now,
@@ -194,21 +174,19 @@ internal static class Runtime
         }
         if (now > _nextReport)
         {
-            Log.LogInfo($"hooks={HookCalls}, localTicks={LocalTicks}, age={now-LastLocal:F2}s, wheelTicks={Wheel?.AppliedTicks}, camera={MountedCamera.Status}, ffb={Force.Status}, writes={Force.Attempts}, failures={Force.Failures}, Forza={Output?.ForzaPackets}, overwritten={Output?.OverwrittenTicks}, errors={Output?.SendErrors}, recording={Output?.RecordingStatus}, recordDrops={Output?.RecordingDrops}; hotkeys={Panel.HotkeyStatus}; menu={MenuOwnership.Status}; {StartupMenuGuard.Status}; {Output?.LastError}");
+            Log.LogInfo($"hooks={HookCalls}, localTicks={LocalTicks}, age={now-LastLocal:F2}s, wheelTicks={Wheel?.AppliedTicks}, camera={MountedCamera.Status}, ffb={Force.Status}, writes={Force.Attempts}, failures={Force.Failures}, Forza={Output?.ForzaPackets}, overwritten={Output?.OverwrittenTicks}, errors={Output?.SendErrors}; hotkeys={Panel.HotkeyStatus}; menu={MenuOwnership.Status}; {StartupMenuGuard.Status}; {Output?.LastError}");
             _nextReport = now + 10;
         }
     }
     internal static void Stop()
     {
         if (_stopped) return;
-        DevSession.Stop();
         _stopped = true;
         Activity.StopAndDrain(FinishStop);
     }
     private static void FinishStop()
     {
         TripleView.Stop("plugin stopping");
-        DevSession.BeforeShutdown();
         Force.Shutdown();
         ShimInput.Stop("plugin stopping");
         Panel.Close(false);
@@ -217,16 +195,15 @@ internal static class Runtime
         StockWheelOwner.Release(false);
         MountedCamera.Restore();
         Output?.Dispose();
-        DevSession.AfterOutputDisposed();
-        Log.LogInfo($"Stopped; outputWorkerStopped={Output?.Stopped}, recording={Output?.RecordingStatus}, drops={Output?.RecordingDrops}");
+        Log.LogInfo($"Stopped; outputWorkerStopped={Output?.Stopped}");
     }
 }
 
 [HarmonyPatch(typeof(MainCar), nameof(MainCar.FixedUpdate))]
 internal static class CarHook
 {
-    private static bool Prefix(MainCar __instance, out double __state)
-    { Runtime.HookCalls++; __state = Runtime.Clock.Elapsed.TotalMilliseconds; return DevSession.BeforeCar(__instance); }
+    private static void Prefix(out double __state)
+    { Runtime.HookCalls++; __state = Runtime.Clock.Elapsed.TotalMilliseconds; }
     private static void Postfix(MainCar __instance, double __state)
     {
         using var lease = Runtime.Activity.TryEnter(); if (lease == null) return;
@@ -238,15 +215,12 @@ internal static class CarHook
             Runtime.LastLocal = Runtime.Clock.Elapsed.TotalSeconds;
             double started = Runtime.Clock.Elapsed.TotalMilliseconds;
             var sample = GameSampler.Read(__instance, Runtime.Wheel?.LastFor(__instance));
-            if (DevSession.Playing) sample.State = "trajectory";
             TimingDiagnostics.SampleMs = Runtime.Clock.Elapsed.TotalMilliseconds - started;
             started = Runtime.Clock.Elapsed.TotalMilliseconds;
             Runtime.Force.Tick(sample);
-            DevSession.Observe(sample);
             TimingDiagnostics.ForceMs = Runtime.Clock.Elapsed.TotalMilliseconds - started;
             TimingDiagnostics.Record(sample);
             Runtime.Output?.Publish(sample);
-            DevSession.ObserveCar(__instance, sample);
         }
         catch (Exception ex) { Runtime.Force.Suspend("Sample failed"); if (Runtime.LocalTicks % 100 == 1) Runtime.Log.LogError("Sample failed: " + ex); }
     }

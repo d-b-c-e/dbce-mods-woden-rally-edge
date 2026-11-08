@@ -5,7 +5,6 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using WodenRallyEdge;
 using WodenRallyEdge.Core;
-using Dbce.Wheel.Ui.Unity;
 
 var outputDir=Path.GetFullPath("artifacts/ux-ui-fixture");Directory.CreateDirectory(outputDir);
 var dir=Path.Combine(outputDir,Guid.NewGuid().ToString("N"));Directory.CreateDirectory(dir);
@@ -62,19 +61,8 @@ if(args.SequenceEqual(new[]{"--deadzone-only"}))
 }
 if(args.Length>0)throw new ArgumentException("Unknown fixture mode; refusing the full baseline.");
 
-Screen.width=7680;Screen.height=1440;GUI.Commands.Clear();Event.current.type=EventType.Repaint;
-var hudColor=GUI.color;var hudEnabled=GUI.enabled;var hudMatrix=GUI.matrix;
-new StrippedSessionStatusHud(UiNative.Style).Draw(RecordingHudLine.Describe("Recording",65,new(),null,true,true)!,true,112);
-Check(GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.Contains("REC  01:05")&&c.Text.Contains("F6 > Telemetry > Stop recording")&&c.FontSize>0&&c.Wrap),
-    "source-linked shared recording renderer shows the actual Woden stop route");
-Check(GUI.Commands.Count(c=>c.Kind=="rect")==2&&GUI.Commands.Where(c=>c.Kind=="rect").All(c=>c.Rect.x>2560&&c.Rect.x+c.Rect.width<5120&&c.Rect.y>100),
-    "source-linked recording renderer stays below stage banner on center display");
-Check(GUI.color.Equals(hudColor)&&GUI.enabled==hudEnabled&&GUI.matrix.Equals(hudMatrix),
-    "source-linked recording renderer restores IMGUI state");
 Screen.width=1280;Screen.height=720;GUI.Commands.Clear();
 ReadyGuideChecks.Run(dir, Check);
-StageLifecycleChecks.Run(dir, Check);
-StageReplayChecks.Run(Check);
 ShimChecks.Run(dir, Check);
 SharedBindingChecks.Run(dir, Check);
 void Draw(Event? e=null)
@@ -229,7 +217,6 @@ Reach(()=>ForzaField()!=null,"Forza label and actual editable field");GUI.TextRe
 bool RecordingText()=>GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.Contains("ecording",StringComparison.Ordinal));
 Click("Advanced");Click("Telemetry");Reach(()=>GUI.Commands.Any(c=>c.Kind=="text"&&c.Text.StartsWith("Forza packets",StringComparison.Ordinal)),"Telemetry advanced status line");
 Check(!RecordingText(),"player Telemetry page (Advanced) shows no recording text");
-InternalTools.Set(true);Reach(RecordingText,"developer flag restores the recording note");InternalTools.Set(false);
 Click("Simple");Click("Telemetry");Draw();Check(!RecordingText(),"player Telemetry page (Simple) shows no recording text");
 Click("Help");Snapshot("help-720");
 Click("Setup");Draw(new(){type=EventType.KeyDown,keyCode=KeyCode.Tab});Draw(new(){type=EventType.KeyDown,keyCode=KeyCode.Return});Check(Runtime.Settings.UiView=="Advanced","header supports Tab/Enter activation");

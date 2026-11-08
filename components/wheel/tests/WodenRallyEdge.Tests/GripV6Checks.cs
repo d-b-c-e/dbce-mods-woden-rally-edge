@@ -1,4 +1,3 @@
-using Dbce.Wheel.Recording;
 using WodenRallyEdge.Core;
 
 internal static class GripV6Checks
@@ -145,74 +144,4 @@ internal static class GripV6Checks
     }
 
     // Optional private input; no owner capture is committed. All generated replay artifacts go in a fresh temp copy.
-    internal static void NativeCapture(Action<bool, string> check, string capture)
-    {
-        string[] files = { "source.jsonl", "force-config.json", "capture-profile.json" };
-        var pins = files.ToDictionary(f => f, f => RecordingArtifacts.Sha256(Path.Combine(capture, f)));
-        check(pins["source.jsonl"] == "932e1d4dbd9da5da043963e1c5c3c9668eba85d0e1da7faa6efbdb22ea43ce4e", "exact native trial02 source pin");
-        string directory = Path.Combine(Path.GetTempPath(), "woden-native-grip6-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
-        try
-        {
-            foreach (string f in files) File.Copy(Path.Combine(capture, f), Path.Combine(directory, f));
-            var options = StageCaptureReview.ReadOptions(directory);
-            check(options.Model == 5 && options.Strength == 49.583332f && options.PeakPercent == 25 && options.LoadRatio == 2,
-                "actual saved Grip5 tune is retained");
-            var baseline = RecordedForceReplay.Reprocess(directory);
-            check(baseline.SourceSamples == 1895 && baseline.ModelSamples == 1696, "every native legacy model row replays unchanged");
-            var protectedPins = files.Concat(new[] { "case.json", "force-observation.jsonl" })
-                .ToDictionary(f => f, f => RecordingArtifacts.Sha256(Path.Combine(directory, f)));
-            string candidate = Path.Combine(directory, "candidate-grip6.json");
-            RecordingArtifacts.WriteForceConfig(candidate, options with { Model = 6 });
-            var trial = RecordedForceReplay.Trial(directory, candidate, Path.Combine(directory, "trial-grip6.jsonl"));
-            check(trial.ModelSamples == 1696 && trial.Comparison.BaselineModel == "woden-grip-signal@5" &&
-                trial.Comparison.CandidateModel == "woden-grip-signal@6", "actual immutable producer dispatches an explicit model6/config4 trial");
-            var grip = new GripSignal(); var reference = new FrontLoadReference();
-            int valid = 0, repaired = 0, reverse = 0, discontinuity = 0; long? previousReset = null;
-            foreach (var record in SessionReader.Read(Path.Combine(directory, "source.jsonl")))
-            {
-                if (record.Kind != SessionRecordKind.Sample) continue;
-                var row = record.Sample; var c = row.Channels;
-                if (!c.ContainsKey("ffb.modelResetBefore")) continue;
-                if (previousReset.HasValue && c["ffb.modelResetBefore"] != previousReset.Value) grip.Reset();
-                var s = new TelemetrySample { Sequence = row.Sequence, ElapsedSeconds = row.ElapsedSeconds,
-                    SimulationSeconds = c["sample.simulationSeconds"], State = c["sample.driving"] == 1 ? "driving" : "inactive",
-                    Discontinuity = c["sample.discontinuity"] == 1 ? "recorded-discontinuity" : null };
-                foreach (var p in c) s.Channels[p.Key] = p.Value;
-                reference.Restore(c["ffb.grip.reference"], (FrontLoadReferenceKind)(int)c["ffb.grip.referenceKind"]);
-                var r = grip.Evaluate(s, options with { Model = 6 }, reference);
-                check(c["ffb.modelValid"] == 0 && c["ffb.gate"] == 1 && c["ffb.deliveryAttempts"] == 0, "original invalid/muted production evidence stays explicit");
-                if (r.Valid) valid++;
-                if (c["ffb.modelReason"] == 19)
-                {
-                    foreach (string corner in new[] { "fl", "fr" })
-                    {
-                        string p = "wheel." + corner + ".sideFriction.";
-                        check(c[p + "extremumSlip"] == 2 && c[p + "asymptoteSlip"] == 2 && c[p + "extremumValue"] == 1 &&
-                            c[p + "asymptoteValue"] == 1 && c[p + "stiffness"] == 1, "actual five-field native front curve, no defaults");
-                    }
-                    check(r.Valid, "only curve admission repairs the captured friction rejection"); repaired++;
-                }
-                else
-                {
-                    int recordedReason = s.Discontinuity != null ? 11 : ForceObservationSemantics.ModelReason(r.Reason);
-                    check(!r.Valid && recordedReason == c["ffb.modelReason"], $"other native refusals remain refused at row {row.Sequence}: {recordedReason} vs {c["ffb.modelReason"]}");
-                    if (c["ffb.modelReason"] == 13) reverse++;
-                    if (c["ffb.modelReason"] == 11) discontinuity++;
-                }
-                // Preserve diagnostic lifecycle: no ramp recovery is inferred from the validity repair.
-                check(r.Preview == 0, "no-force reset ordering keeps the actual muted preview zero");
-                if (c["ffb.gate"] != 0) grip.Reset(); previousReset = (long)c["ffb.modelResetAfter"];
-            }
-            check(valid == 1151 && repaired == 1151 && reverse == 230 && discontinuity == 315,
-                $"native counterfactual validity: valid={valid}, repaired={repaired}, reverse={reverse}, discontinuity={discontinuity}");
-            foreach (var pin in protectedPins) check(RecordingArtifacts.Sha256(Path.Combine(directory, pin.Key)) == pin.Value, "trial preserves " + pin.Key);
-            Console.WriteLine("Native trial02: Grip5 exact replay 1696; Grip6 counterfactual valid 1151; reverse 230; discontinuity 315; muted preview remains zero.");
-        }
-        finally
-        {
-            foreach (var pin in pins) check(RecordingArtifacts.Sha256(Path.Combine(capture, pin.Key)) == pin.Value, "private original unchanged: " + pin.Key);
-            Directory.Delete(directory, true);
-        }
-    }
 }

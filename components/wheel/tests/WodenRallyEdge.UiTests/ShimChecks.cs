@@ -286,7 +286,6 @@ internal static partial class ShimChecks
         controls.field_Private_GamePadSystem_0=null;pad.AnyKey=false;pad.PadActions=null;
         TrialCore(dir,Check);
         TrialCarCore(dir,Check);
-        TrialAppliedHPattern(dir,Check);
         Reset(dir);Runtime.Settings.InputBackend="Native";ShimInput.Start(AppContext.BaseDirectory,dir,dir);Next();
         Check(!ShimInput.Owns&&_opens==0,"default standalone route never loads/opens an input host");
         Runtime.Log.Errors.Clear();Runtime.Log.Warnings.Clear();
@@ -305,7 +304,7 @@ internal static partial class ShimChecks
         check(gate.Read("Confirm",true)&&!gate.Read("Confirm",true),"owned known-neutral arms exactly one first injected edge");
         string? source=Environment.GetEnvironmentVariable("WODEN_CORE_MENU_FRAMES"),profile=Environment.GetEnvironmentVariable("WODEN_CORE_MENU_PROFILE");
         if(source==null||profile==null)return;
-        Panel.Close(false);Reset(dir);Runtime.DiagnosticNoForce=true;Runtime.Settings.FfbEnabled=Runtime.Settings.TelemetryEnabled=Runtime.Settings.Record=false;
+        Panel.Close(false);Reset(dir);Runtime.DiagnosticNoForce=true;Runtime.Settings.FfbEnabled=Runtime.Settings.TelemetryEnabled=false;
         File.WriteAllBytes(Path.Combine(dir,"dbce-controls.ini"),File.ReadAllBytes(profile));
         string session=Path.Combine(dir,"trial-session.txt"),batch=Path.Combine(dir,"trial-batch.txt");File.WriteAllText(session,"fixture");
         ShimInput.ConfigureMenuTrial(new string('a',32),session,batch,DateTimeOffset.UtcNow.AddMinutes(2),true);

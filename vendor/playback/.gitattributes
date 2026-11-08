@@ -1,3 +1,0 @@
-# Preserve exact upstream command bytes covered by provenance.json.
-Stage-Session.ps1 -text
-*.dll -text

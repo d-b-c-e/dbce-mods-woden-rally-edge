@@ -7,7 +7,7 @@ public sealed class Settings
 {
     private readonly ConfigFile _config;
     public int Player, ForzaPort = 8000, DetailPort = 8001, DetailHz = 20;
-    public bool Record, WheelEnabled = true, Bonnet = true, Bumper = true, FfbEnabled = true, FfbInvert;
+    public bool WheelEnabled = true, Bonnet = true, Bumper = true, FfbEnabled = true, FfbInvert;
     public bool CountdownAssistEnabled;
     public float CountdownSpeed = 75;
     public float CameraHeight = CameraPose.Bonnet.Height, CameraForward = CameraPose.Bonnet.Forward, CameraPitch = 8, CameraSide, CameraFov = 70;
@@ -147,8 +147,6 @@ public sealed class Settings
         Item("Telemetry", "ForzaPort", ref ForzaPort, "Loopback Forza Horizon 5 UDP; 0 disables. Apply outputs in F6 after edits.");
         Item("Telemetry", "DetailPort", ref DetailPort, "Loopback detailed JSON UDP; 0 disables. Must differ from Forza.");
         Item("Telemetry", "DetailHz", ref DetailHz, "Detailed UDP maximum frequency, 1..60 Hz.");
-        // Developer recording only (STD-050): the key exists only with [Dev] InternalTools.
-        if (InternalTools.Enabled) Item("Diagnostics", "RecordSession", ref Record, "Development only: record every launch. Use tools/Start-RecordedGame.ps1 for a single requested launch.");
         Item("Camera", "BonnetEnabled", ref Bonnet, "Include bonnet in the normal camera-button cycle. Does not force this view.");
         Item("Camera", "BumperEnabled", ref Bumper, "Include bumper in the normal camera-button cycle.");
         Item("Camera", "Height", ref CameraHeight, "Car-local vertical offset."); Item("Camera", "Forward", ref CameraForward, "Car-local forward offset."); Item("Camera", "PitchDegrees", ref CameraPitch, "Downward pitch.");

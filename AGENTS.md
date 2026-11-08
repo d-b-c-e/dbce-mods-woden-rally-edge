@@ -33,7 +33,7 @@ Vendored toolkit code is under `lib/` and `vendor/` (shim, playback) and `compon
 - Never call the generated `WheelCollider.GetGroundHit(out WheelHit)` wrapper: it corrupts memory on first level entry. Use `WheelContact.Read`.
 - `MainCar.FixedUpdate` samples before the next physics solve; keep the phase label and reset derivatives at pause, respawn and teleports.
 - Woden strips `GUI.Button`/`GUILayout`; the panel uses IMGUI rectangles and events.
-- Recording and playback are developer-only (STD-050): reach them only through `DevSession` behind `[Dev] InternalTools`. Player packages ship no Recording/Playback DLLs, so product code must never touch those types directly.
+- No recording or playback in the product (STD-050): the plugin and Core reference neither `Dbce.Wheel.Recording` nor `Dbce.Wheel.Playback`. Developer capture belongs in a separate dev-only assembly.
 - Missing telemetry channels mean unavailable; preserve genuine zero. Do not fabricate tyre temperatures, redline or suspension data.
 - Never silently change vehicle physics or assists. Never stop a running game to deploy.
 - No proprietary assemblies, generated interop, recordings or owner settings in Git or packages.

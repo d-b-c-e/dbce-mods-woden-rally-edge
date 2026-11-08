@@ -31,9 +31,8 @@ internal static class NativeGearboxApply
                 return;
             }
             _onMenu = true;
-            bool tooling = DevSession.Tooling;
             var stats = Progress.StatsData_;
-            var plan = NativeGearboxPreference.Decide(_setting, Runtime.Settings.Player, tooling,
+            var plan = NativeGearboxPreference.Decide(_setting, Runtime.Settings.Player, false,
                 stats?.Auto_Transmission?.ToArray(), stats?.Arcade_Auto_Transmission?.ToArray());
             if (plan.Outcome == NativeGearboxPreference.Outcome.Wait) { Status = plan.Status; return; }
             completed = new List<NativeGearboxPreference.Write>(plan.Writes.Count);

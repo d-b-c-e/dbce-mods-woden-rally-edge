@@ -2,8 +2,6 @@
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework></PropertyGroup>
   <ItemGroup>
     <None Update="Fixtures/ffb-reference-v1.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Update="Fixtures/kenya-ss1-stage-context.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Update="Fixtures/real-s1-kenya-stage-context.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/RuntimeActivityGate.cs" Link="Consumer/RuntimeActivityGate.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CommandProvenanceCapture.cs" Link="Consumer/CommandProvenanceCapture.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ForceController.cs" Link="Consumer/ForceController.cs" />
@@ -14,26 +12,15 @@
     <Compile Include="../../src/WodenRallyEdge.Plugin/InputLease.cs" Link="Consumer/InputLease.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CountdownTimerAssist.cs" Link="Consumer/CountdownTimerAssist.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Settings.cs" Link="Consumer/Settings.cs" />
-    <Compile Include="../../src/WodenRallyEdge.Plugin/InternalTools.cs" Link="Consumer/InternalTools.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/TripleHudDepth.cs" Link="Consumer/TripleHudDepth.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/TripleGeometry.cs" Link="Consumer/TripleGeometry.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CurvedRig.cs" Link="Consumer/CurvedRig.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CurveEvidence.cs" Link="Consumer/CurveEvidence.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Toolkit/Triple/*.cs" Link="Consumer/Toolkit/%(Filename)%(Extension)" />
-    <Compile Include="../../src/WodenRallyEdge.Plugin/OrdinaryFullSession.cs" Link="Consumer/OrdinaryFullSession.cs" />
-    <Compile Include="../../src/WodenRallyEdge.Plugin/StageSignalFiles.cs" Link="Consumer/StageSignalFiles.cs" />
-    <Compile Include="../../src/WodenRallyEdge.Plugin/StageLaunchOwner.cs" Link="Consumer/StageLaunchOwner.cs" />
-    <Compile Include="../../src/WodenRallyEdge.Plugin/ArcadeRouteProof.cs" Link="Consumer/ArcadeRouteProof.cs" />
-    <Compile Include="../../src/WodenRallyEdge.Plugin/FullSessionAdmission.cs" Link="Consumer/FullSessionAdmission.cs" />
     <ProjectReference Include="../../src/WodenRallyEdge.Core/WodenRallyEdge.Core.csproj" />
-    <Compile Include="../../tools/TelemetryInspector/StageCaptureReview.cs" Link="Diagnostics/StageCaptureReview.cs" />
-    <Compile Include="../../tools/TelemetryInspector/ForceExport.cs" Link="Diagnostics/ForceExport.cs" />
-    <Compile Include="../../tools/TelemetryInspector/OrdinaryStageReview.cs" Link="Diagnostics/OrdinaryStageReview.cs" />
-    <Reference Include="Dbce.Wheel.Playback" HintPath="../../../../vendor/playback/Dbce.Wheel.Playback.dll" />
     <Reference Include="Dbce.Wheel.Telemetry" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Telemetry.dll" />
     <Reference Include="Dbce.Wheel.Ffb" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Ffb.dll" />
     <Reference Include="BepInEx.Core" HintPath="../../lib/core/BepInEx.Core.dll" />
     <Reference Include="0Harmony" HintPath="../../lib/core/0Harmony.dll" />
-    <Reference Include="Dbce.Wheel.Recording" HintPath="../../lib/recording/Dbce.Wheel.Recording.dll" />
   </ItemGroup>
 </Project>

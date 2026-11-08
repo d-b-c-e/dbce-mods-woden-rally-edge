@@ -8,7 +8,6 @@
     <Reference Include="BepInEx.Core" HintPath="../../lib/core/BepInEx.Core.dll" />
     <Reference Include="SemanticVersioning" HintPath="../../lib/core/SemanticVersioning.dll" />
     <Compile Include="$(SettingsSource)" Link="Production/Settings.cs" />
-    <Compile Include="../../src/WodenRallyEdge.Plugin/InternalTools.cs" Link="Production/InternalTools.cs" />
     <Compile Include="../WodenRallyEdge.Tests/ConfigLineChecks.cs" Link="Existing/ConfigLineChecks.cs" />
   </ItemGroup>
 </Project>

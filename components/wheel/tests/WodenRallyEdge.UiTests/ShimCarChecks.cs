@@ -11,7 +11,7 @@ internal static partial class ShimChecks
         string? source=Environment.GetEnvironmentVariable("WODEN_CORE_CAR_FRAMES"),profile=Environment.GetEnvironmentVariable("WODEN_CORE_MENU_PROFILE");
         if(source==null||profile==null)return;
         bool forward=Environment.GetEnvironmentVariable("WODEN_CAR_RECIPE")=="forward";
-        Panel.Close(false);Reset(dir);Runtime.DiagnosticNoForce=true;Runtime.Settings.FfbEnabled=Runtime.Settings.TelemetryEnabled=Runtime.Settings.Record=false;
+        Panel.Close(false);Reset(dir);Runtime.DiagnosticNoForce=true;Runtime.Settings.FfbEnabled=Runtime.Settings.TelemetryEnabled=false;
         File.WriteAllBytes(Path.Combine(dir,"dbce-controls.ini"),File.ReadAllBytes(profile));
         string session=Path.Combine(dir,"car-session.txt"),batch=Path.Combine(dir,"car-batch.txt");File.WriteAllText(session,"fixture");
         ShimInput.ConfigureCarTrial(new string('a',32),session,batch,DateTimeOffset.UtcNow.AddMinutes(2),true);

@@ -2,7 +2,6 @@ using BepInEx.Configuration;
 using System.Net;
 using System.Net.Sockets;
 using WodenRallyEdge.Core;
-using Dbce.Wheel.Recording;
 
 namespace WodenRallyEdge;
 internal static class UxChecks
@@ -63,16 +62,12 @@ internal static class UxChecks
         using var a=new UdpClient(new IPEndPoint(IPAddress.Loopback,0));using var b=new UdpClient(new IPEndPoint(IPAddress.Loopback,0));
         a.Client.ReceiveTimeout=1500;b.Client.ReceiveTimeout=1500;
         int pa=((IPEndPoint)a.Client.LocalEndPoint!).Port,pb=((IPEndPoint)b.Client.LocalEndPoint!).Port;
-        string path=Path.Combine(Path.GetTempPath(),"woden-ux-network-"+Guid.NewGuid()+".jsonl");
-        using var output=new TelemetryOutput(new(pa,0,20,path),"ux-fixture","synthetic");
+        using var output=new TelemetryOutput(new(pa,0,20));
         TelemetrySample Sample(int n)=>new(){SessionId="ux-fixture",ElapsedSeconds=n,SimulationSeconds=n,State="driving",Sequence=n};
         output.Publish(Sample(1));IPEndPoint endpoint=new(IPAddress.Loopback,0);check(a.Receive(ref endpoint).Length==324,"initial real loopback destination");
         var old=output.ActiveOptions;bool rejected=false;try{output.ConfigureNetwork(new(pb,pb,20));}catch(ArgumentException){rejected=true;}
-        check(rejected&&output.ActiveOptions==old&&output.RecordingActive,"invalid Apply leaves network and recorder intact");
+        check(rejected&&output.ActiveOptions==old,"invalid Apply leaves network intact");
         output.ConfigureNetwork(new(pb,0,20));output.Publish(Sample(2));check(b.Receive(ref endpoint).Length==324,"atomic retarget sends to new loopback port");
-        check(output.ActiveOptions.RecordingPath==path&&output.RecordingActive,"destination change retains same capture");
-        output.ConfigureNetwork(new(pb,0,20,Enabled:false));long sent=output.ForzaPackets;output.Publish(Sample(3));Thread.Sleep(120);check(output.ForzaPackets==sent&&output.RecordingActive&&!output.Sending,"Telemetry Off stops UDP but retains recording");
-        output.StopRecording();check(!output.RecordingActive&&!output.Stopped,"Stop recording keeps dashboard worker alive");output.Dispose();
-        var result=SessionReader.Read(path).ToArray();check(result.Last().Kind==SessionRecordKind.Footer && result.Count(r=>r.Kind==SessionRecordKind.Sample)==3,"capture finalizes across connection/Off changes");
+        output.ConfigureNetwork(new(pb,0,20,Enabled:false));long sent=output.ForzaPackets;output.Publish(Sample(3));Thread.Sleep(120);check(output.ForzaPackets==sent&&!output.Sending&&!output.Stopped,"Telemetry Off stops UDP and keeps the worker alive");
     }
 }

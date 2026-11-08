@@ -3,7 +3,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
 using Dbce.Wheel.Telemetry;
-using Dbce.Wheel.Recording;
 using Dbce.Wheel.Ui;
 using WodenRallyEdge.Core;
 
@@ -21,35 +20,6 @@ TelemetrySample Sample(double time, float velocity = 10, float position = 0, int
 }
 
 Test("single-key saves preserve file bytes and refuse ambiguous input", () => ConfigLineChecks.Run(Check));
-
-Test("shared recording HUD uses actual Woden recorder states and center viewport", () => {
-    var clean = new RecordingCounters();
-    Check(RecordingHudLine.Describe("Disabled", 0, clean, null, false, false) == null, "no prepared recorder has no HUD");
-    var active = RecordingHudLine.Describe("Recording", 65, clean, null, true, true)!;
-    Check(active.Text.Contains("REC  01:05") && active.Text.Contains("F6 > Telemetry > Stop recording") &&
-        active.Text.Contains("Outputs muted") && !active.Text.Contains("stop and save"),
-        "prepared-request Stop route and mute do not promise package finalization");
-    Check(!RecordingHudLine.Describe("Stopping", 65, clean, null, false, true)!.Text.Contains("saved"), "stopping is saving");
-    Check(RecordingHudLine.Describe("Completed", 65, clean, null, false, false)!.Text.StartsWith("Recording saved"),
-        "loose source completion is saved");
-    Check(RecordingHudLine.Describe("Completed", 65, clean, null, false, true)!.Text.Contains("Finalization pending  |  Keep recording companion open to finalize"),
-        "prepared source completion is not a sealed package");
-    Check(RecordingHudLine.Describe("Completed", 65, clean, null, false, true, new(1, Guid.NewGuid(), "saved", null))!.Text.StartsWith("Recording saved"),
-        "only completed source plus verified finalizer notice shows saved");
-    Check(RecordingHudLine.Describe("Completed", 65, clean, null, false, true, new(1, Guid.NewGuid(), "incomplete", "case rejected"))!.Text.Contains("case rejected"),
-        "case validation failure remains incomplete");
-    Check(RecordingHudLine.Describe("LimitReached", 65, clean, null, false, true)!.Tone == SessionDisplayTone.Problem,
-        "limit cannot claim saved");
-    Check(RecordingHudLine.Describe("Faulted", 65, clean, "capture failed", false, true)!.Text.StartsWith("Recording incomplete"),
-        "failure cannot claim saved");
-    var damaged = new RecordingCounters { DroppedSamples = 2, DroppedMarkers = 1, InvalidCount = 1 };
-    var incomplete = RecordingHudLine.Describe("Completed", 65, damaged, null, false, false)!;
-    Check(incomplete.Text.StartsWith("Recording incomplete") && incomplete.Text.Contains("3 dropped") &&
-        incomplete.Text.Contains("1 invalid"), "sample/marker loss and invalid counters prevent saved claim");
-    var box = SessionStatusPresentation.Layout(7680, 1440, true, 112);
-    Check(box.X > 2560 && box.X + box.Width < 5120 && box.Y > 100,
-        "shared renderer layout stays below stage banner on center screen");
-});
 
 Test("calibration endpoints, asymmetric centre, inverted pedals and deadzone", () => {
     var steer = new AxisCalibration(0, 65535, 30000, .02);
@@ -149,43 +119,25 @@ Test("full detailed sample is finite JSON below UDP budget", () => {
     Check(doc.RootElement.GetProperty("version").GetInt32() == 1, "schema version");
     Check(doc.RootElement.GetProperty("channels").EnumerateObject().Count() == TelemetrySchema.Channels.Count, "all channels preserved");
 });
-Test("loopback packet delivery, stale idle, bounded stop, completed recording", () => {
+Test("loopback packet delivery, stale idle and bounded stop", () => {
     using var receiver = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0)); receiver.Client.ReceiveTimeout = 2000;
     int port = ((IPEndPoint)receiver.Client.LocalEndPoint!).Port;
-    string dir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../artifacts/tests")); Directory.CreateDirectory(dir);
-    string path = Path.Combine(dir, "synthetic-" + Guid.NewGuid().ToString("N") + ".jsonl");
-    var output = new TelemetryOutput(new(port, 0, 20, path), "synthetic-fixture", "test-created fixture, not gameplay", "fixture-version", new Dictionary<string,string>{{"fixtureIdentity","yes"}});
+    var output = new TelemetryOutput(new(port, 0, 20));
     var s = Sample(.02); new MotionProcessor().Process(s, Quaternion.Identity); output.Publish(s);
     IPEndPoint endpoint = new(IPAddress.Any, 0); var bytes = receiver.Receive(ref endpoint);
     Check(bytes.Length == 324 && BitConverter.ToInt32(bytes, 0) == 1, "active packet received");
     bool idle = false; var timeout = System.Diagnostics.Stopwatch.StartNew();
     while (timeout.Elapsed.TotalSeconds < 2 && !idle) idle = BitConverter.ToInt32(receiver.Receive(ref endpoint), 0) == 0;
     Check(idle, "stale source parks dashboard independently of Unity Update");
-    output.Dispose(); output.Dispose(); Check(output.Stopped, "worker joined"); Check(output.RecordingDrops == 0, "no recording drops");
-    var records = SessionReader.Read(path).ToArray(); Check(records.Last().Kind == SessionRecordKind.Footer, "validated footer");
-    Check(records.Last().Footer.Completed, "normal completion");
-    Check(records[0].Metadata.PluginVersion == "fixture-version" && records[0].Metadata.Properties["fixtureIdentity"] == "yes", "runtime recording identity is not hard-coded");
-    var recorded = records.Single(x => x.Kind == SessionRecordKind.Sample).Sample;
-    Check(recorded.Channels["sample.driving"] == 1, "recorded validity"); Check(recorded.Channels["sample.simulationSeconds"] == .02, "recorded simulation clock");
-    Console.WriteLine("  synthetic recording: " + path);
+    output.Dispose(); output.Dispose(); Check(output.Stopped, "worker joined");
 });
-Test("disabled network delivery still records published ordinary samples", () => {
-    string path = Path.Combine(Path.GetTempPath(), "woden-network-off-" + Guid.NewGuid().ToString("N") + ".jsonl");
-    try {
-        using (var output = new TelemetryOutput(new(8000, 8001, 20, path, Enabled: false), "network-off-fixture", "synthetic")) {
-            output.Publish(Sample(.02));
-            output.StopRecording();
-            Check(output.RecordingStatus == "Completed", "Stop completes while network delivery is off");
-            Check(output.ForzaPackets == 0 && output.DetailPackets == 0, "no loopback packets are sent");
-        }
-        var records = SessionReader.Read(path).ToArray();
-        Check(records.Count(r => r.Kind == SessionRecordKind.Sample) == 1 && records.Last().Footer.Completed,
-            "Publish records one sample and a completed footer independent of network delivery");
-    }
-    finally { if (File.Exists(path)) File.Delete(path); }
+Test("disabled network delivery sends no packets", () => {
+    using var output = new TelemetryOutput(new(8000, 8001, 20, Enabled: false));
+    output.Publish(Sample(.02)); Thread.Sleep(120);
+    Check(output.ForzaPackets == 0 && output.DetailPackets == 0, "no loopback packets are sent");
 });
 Test("invalid clocks are reported without killing output", () => {
-    using var output = new TelemetryOutput(new(0, 0), "synthetic", "fixture");
+    using var output = new TelemetryOutput(new(0, 0));
     output.Publish(Sample(double.NaN)); Check(output.SendErrors == 1, "invalid clock counted");
 });
 Test("binding capture rejects ambiguity and half steering sweeps; reversed pedals survive save/reload", () => {
@@ -768,123 +720,6 @@ Test("force rejects stale, paused, replay, reverse, airborne and incomplete or n
     Check(!new ForceSignal().Evaluate(Contact(1, speed: -2), new()).Valid, "reverse blocked");
     Check(!new ForceSignal().Evaluate(Contact(1), new(Strength: float.NaN)).Valid, "bad tuning blocked");
 });
-Test("live capture starts at zero even hours after game launch", () => {
-    string path = Path.Combine(Path.GetTempPath(), "woden-late-capture-" + Guid.NewGuid() + ".jsonl");
-    using (var output = new TelemetryOutput(new(0, 0, 20, path), "fixture", "synthetic")) {
-        output.Publish(Sample(7200)); output.Publish(Sample(7200.02));
-        Near(output.RecordingElapsedSeconds, .02, "HUD clock uses recording-relative elapsed time");
-        output.StopRecording();
-        output.Publish(Sample(7200.04));
-        Near(output.RecordingElapsedSeconds, .02, "HUD clock freezes after recorder stop");
-        Check(RecordingHudLine.Describe(output, false)!.Text.StartsWith("Recording saved"),
-            "loose source may claim saved after completed footer and clean counters");
-    }
-    var rows = SessionReader.Read(path).ToArray(); Check(rows.Count(x => x.Kind == SessionRecordKind.Sample) == 2, "late recording is not instantly duration-limited");
-    Check(rows.Last().Footer.Completed, "late capture complete"); File.Delete(path);
-});
-Test("prepared recording source completion waits for the external case finalizer", () => {
-    string directory = Path.Combine(Path.GetTempPath(), "woden-prepared-hud-" + Guid.NewGuid().ToString("N"));
-    Directory.CreateDirectory(directory);
-    try {
-        var properties = new Dictionary<string, string> {
-            ["recordingContract"] = "dbce.wheel.replay-case@1", ["requestId"] = Guid.NewGuid().ToString(), ["caseId"] = "hud-fixture"
-        };
-        using (var output = new TelemetryOutput(new(0, 0, 20, Path.Combine(directory, "source.jsonl")), "fixture", "synthetic", "fixture", properties)) {
-            output.Publish(Sample(10)); output.Publish(Sample(10.02)); output.StopRecording();
-            Check(output.RecordingStatus == "Completed" && output.RecordingRequiresFinalization,
-                "production prepared-request metadata identifies a completed source that still needs finalization");
-            var line = RecordingHudLine.Describe(output, true)!;
-            Check(line.Text.Contains("Finalization pending  |  Keep recording companion open to finalize") && !line.Text.Contains("saved") &&
-                !File.Exists(Path.Combine(directory, "case.json")),
-                "completed source without external case manifest cannot claim a sealed package");
-        }
-        using (var output = new TelemetryOutput(new(0, 0, 20, Path.Combine(directory, "damaged.jsonl")), "fixture", "synthetic", "fixture", properties)) {
-            output.Publish(Sample(11, state: new string('x', 4097))); output.StopRecording();
-            Check(output.RecordingCounters is { DroppedMarkers: > 0, InvalidCount: > 0 } &&
-                RecordingHudLine.Describe(output, true)!.Text.StartsWith("Recording incomplete"),
-                "production recorder marker/invalid counters take precedence over finalization pending");
-        }
-    } finally { Directory.Delete(directory, true); }
-});
-Test("ordinary control accepts only fresh request identity and stops without closing output", () => {
-    Guid id = Guid.NewGuid();
-    string directory = Path.Combine(Path.GetTempPath(), "woden-control-" + Guid.NewGuid().ToString("N"), "request-" + id.ToString("N"));
-    Directory.CreateDirectory(directory);
-    try {
-        using var output = new TelemetryOutput(new(0, 0, 20, Path.Combine(directory, "source.jsonl")), "fixture", "synthetic");
-        var control = new DiagnosticRecordingControl(directory, id, 12345, 456789, output);
-        string root = Path.Combine(directory, "control"), request = Path.Combine(root, "request.txt");
-        DateTimeOffset tick = DateTimeOffset.UtcNow;
-        void Next() => control.Tick(tick = tick.AddMilliseconds(300));
-        string[] Status() => File.ReadAllLines(Path.Combine(root, "status.txt"));
-        Check(Status().Contains("id=" + id.ToString("N")) && Status().Contains("pid=12345") &&
-            Status().Contains("startedUtcTicks=456789"), "status binds exact request and process start identity");
-        void StopFile(Guid target, DateTimeOffset expires) => File.WriteAllLines(request,
-            new[] { "id=" + target.ToString("N"), "expiresUtc=" + expires.ToString("O"), "action=stop" });
-        output.Publish(Sample(1));
-        StopFile(Guid.NewGuid(), DateTimeOffset.UtcNow.AddMinutes(2)); Next();
-        Check(output.RecordingActive && !File.Exists(request), "wrong request consumed without stopping");
-        StopFile(id, DateTimeOffset.UtcNow.AddMinutes(-1)); Next();
-        Check(output.RecordingActive && !File.Exists(request), "expired request consumed without stopping");
-        string helper = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../tools/RecordedStopControl.ps1"));
-        var writer = new System.Diagnostics.ProcessStartInfo("powershell.exe") { UseShellExecute = false, CreateNoWindow = true };
-        foreach (string arg in new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", helper,
-            "-RequestId", id.ToString(), "-ControlRoot", root, "-ExpiresUtc", DateTimeOffset.UtcNow.AddMinutes(2).ToString("O") }) writer.ArgumentList.Add(arg);
-        using (var process = System.Diagnostics.Process.Start(writer)!) { process.WaitForExit(); Check(process.ExitCode == 0, "actual PowerShell Stop writer succeeded"); }
-        Check(File.ReadAllLines(request).Length == 3, "actual PowerShell writer emitted three control fields");
-        Next();
-        Check(!output.RecordingActive && !output.Stopped && Status().Contains("status=Completed"),
-            "accepted Stop closes source but keeps ordinary telemetry worker and game path available");
-        for (int i = 0; i < 20; i++) output.Publish(Sample(1.02 + i * .02));
-        Check(output.RecordingCounters?.RejectedAfterStop == 0, "continued game samples never reach closed recorder");
-        File.WriteAllText(Path.Combine(root, "finalization.json"), JsonSerializer.Serialize(new DiagnosticFinalization(1, Guid.NewGuid(), "saved", null)));
-        Next(); Check(control.Finalization == null, "different request cannot claim Saved");
-        File.WriteAllText(Path.Combine(root, "finalization.json"), JsonSerializer.Serialize(new DiagnosticFinalization(1, id, "saved", null)));
-        Next(); Check(control.Finalization == null, "notice without case and observation cannot claim Saved");
-        File.WriteAllText(Path.Combine(directory, "case.json"), "fixture");
-        File.WriteAllText(Path.Combine(directory, "force-observation.jsonl"), "fixture");
-        Next(); Check(control.Finalization?.State == "saved", "exact finalizer notice reaches HUD");
-    } finally { Directory.Delete(Path.GetDirectoryName(directory)!, true); }
-});
-Test("ordinary control storage failure cannot stop the recorder or interrupt input", () => {
-    Guid id = Guid.NewGuid();
-    string parent = Path.Combine(Path.GetTempPath(), "woden-control-locked-" + Guid.NewGuid().ToString("N"));
-    string directory = Path.Combine(parent, "request-" + id.ToString("N")); Directory.CreateDirectory(directory);
-    try {
-        using var output = new TelemetryOutput(new(0, 0, 20, Path.Combine(directory, "source.jsonl")), "fixture", "synthetic");
-        Guid missingId = Guid.NewGuid();
-        var absent = new DiagnosticRecordingControl(Path.Combine(parent, "request-" + missingId.ToString("N")),
-            missingId, 12345, 456789, output);
-        Check(absent.LastError != null && output.RecordingActive, "missing control directory is contained without stopping recorder");
-        var control = new DiagnosticRecordingControl(directory, id, 12345, 456789, output);
-        string root = Path.Combine(directory, "control"), status = Path.Combine(root, "status.txt");
-        File.WriteAllLines(Path.Combine(root, "request.txt"), new[] { "id=wrong", "action=stop", "expiresUtc=bad" });
-        using (File.Open(status, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
-            control.Tick(DateTimeOffset.UtcNow.AddSeconds(1));
-        Check(output.RecordingActive && !output.Stopped && control.LastError != null,
-            "status sharing violation cannot stop output or recorder and is visible");
-        control.Tick(DateTimeOffset.UtcNow.AddSeconds(2));
-        Check(File.ReadAllText(status).Contains("Recording control storage"), "status write retries after lock released");
-    } finally { Directory.Delete(parent, true); }
-});
-Test("ordinary status replaces atomically while a delete-sharing reader holds the old file", () => {
-    Guid id = Guid.NewGuid();
-    string parent = Path.Combine(Path.GetTempPath(), "woden-status-reader-" + Guid.NewGuid().ToString("N"));
-    string directory = Path.Combine(parent, "request-" + id.ToString("N")); Directory.CreateDirectory(directory);
-    try {
-        using var output = new TelemetryOutput(new(0, 0, 20, Path.Combine(directory, "source.jsonl")), "fixture", "synthetic");
-        var control = new DiagnosticRecordingControl(directory, id, 12345, 456789, output);
-        string status = Path.Combine(directory, "control", "status.txt");
-        using var held = new FileStream(status, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        output.StopRecording();
-        control.Flush();
-        Check(control.LastError == null && File.ReadAllLines(status).Contains("status=Completed"),
-            "production status writer publishes Completed through a held shared reader");
-        byte[] previous = new byte[(int)held.Length];
-        Check(held.Read(previous) == previous.Length && System.Text.Encoding.UTF8.GetString(previous).Contains("status=Recording"),
-            "held reader keeps a complete old status while a new status becomes visible");
-    } finally { Directory.Delete(parent, true); }
-});
 Test("camera button extends the stock cycle without saving invalid native indices and yields on takeover", () => {
     var cycle = new CameraCycle();
     cycle.StockChanged(0, 1, true, true); Check(cycle.View == MountedView.Stock, "stock intermediate view retained");
@@ -918,386 +753,6 @@ Test("handbrake axis/button selection, proportional values and legacy binding pe
     File.WriteAllText(path, "{\"Version\":1,\"Buttons\":{}}");
     Check(!Bindings.Load(path).HandbrakeUsesAxis, "legacy file loads in button mode"); File.Delete(path);
 });
-Test("diagnostic launch is bounded, consumed once and rejects expired requests", () => {
-    string path = Path.Combine(Path.GetTempPath(), "woden-launch-" + Guid.NewGuid() + ".json");
-    DateTimeOffset now = DateTimeOffset.UtcNow;
-    File.WriteAllText(path, JsonSerializer.Serialize(new DiagnosticLaunch(2, Guid.NewGuid(), now.AddMinutes(15), true, "fixture-drive:baseline")));
-    var accepted = DiagnosticLaunch.Consume(path, now);
-    Check(accepted?.DisableForces == true && accepted.EffectiveCaseId == "fixture-drive:baseline", "v2 case identity and unattended no-force default retained");
-    Check(DiagnosticLaunch.Consume(path, now) == null, "second launch cannot repeat capture");
-    File.WriteAllText(path, JsonSerializer.Serialize(new DiagnosticLaunch(1, Guid.NewGuid(), now.AddMinutes(-1))));
-    bool rejected = false; try { DiagnosticLaunch.Consume(path, now); } catch (IOException) { rejected = true; }
-    Check(rejected && !File.Exists(path), "expired request rejected and consumed");
-    File.WriteAllText(path, JsonSerializer.Serialize(new DiagnosticLaunch(2, Guid.NewGuid(), now.AddMinutes(15), true, "../escape")));
-    rejected = false; try { DiagnosticLaunch.Consume(path, now); } catch (IOException) { rejected = true; }
-    Check(rejected && !File.Exists(path), "unsafe case identity rejected and consumed");
-    foreach (string file in Directory.GetFiles(Path.GetDirectoryName(path)!, Path.GetFileName(path) + ".consumed-*")) File.Delete(file);
-});
-Test("native observation launch requires bounded automated no-force identity", () => {
-    string path = Path.Combine(Path.GetTempPath(), "woden-native-observation-" + Guid.NewGuid().ToString("N") + ".json");
-    DateTimeOffset now = DateTimeOffset.UtcNow;
-    var valid = new DiagnosticLaunch(2, Guid.NewGuid(), now.AddMinutes(4), true, "native-observation:baseline", "automated", Path.GetTempPath(), 10);
-    try
-    {
-        File.WriteAllText(path, JsonSerializer.Serialize(valid));
-        Check(DiagnosticLaunch.Consume(path, now) == valid, "explicit bounded observation request accepted unchanged");
-        foreach (var invalid in new[] { valid with { DisableForces = false }, valid with { InputOrigin = "human" },
-            valid with { NativeObservationSource = "relative" }, valid with { NativeObservationSeconds = 0 },
-            valid with { NativeObservationSeconds = 16 }, valid with { ExpiresUtc = now.AddMinutes(6) },
-            valid with { Version = 1 }, valid with { NativeObservationSource = null } })
-        {
-            File.WriteAllText(path, JsonSerializer.Serialize(invalid));
-            bool refused = false; try { DiagnosticLaunch.Consume(path, now); } catch (IOException) { refused = true; }
-            Check(refused && !File.Exists(path), "unsafe/incomplete observation request refused and consumed");
-        }
-    }
-    finally
-    {
-        if (File.Exists(path)) File.Delete(path);
-        foreach (string file in Directory.GetFiles(Path.GetDirectoryName(path)!, Path.GetFileName(path) + ".consumed-*")) File.Delete(file);
-    }
-});
-Test("recorded driving reruns actual ForceSignal into a bound observation case", () => {
-    string directory = Path.Combine(Path.GetTempPath(), "woden-reprocess-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
-    try
-    {
-        var options = new ForceOptions();
-        string config = RecordingArtifacts.WriteForceConfig(Path.Combine(directory, "force-config.json"), options);
-        string profile = RecordingArtifacts.WriteCaptureProfile(Path.Combine(directory, "capture-profile.json"), new string('1',64), new string('2',64), new string('3',64), new string('4',64), true, true, true, "fixture-guid");
-        var properties = new Dictionary<string,string> { ["recordingContract"]="dbce.wheel.replay-case@1", ["capability"]="signal-reprocess",
-            ["requestId"]=Guid.NewGuid().ToString(), ["caseId"]="fixture-drive", ["disableForces"]="false", ["gameAssemblySha256"]=new string('1',64),
-            ["pluginSha256"]=new string('2',64), ["pluginProductVersion"]="0.2.12+fixture-source", ["runtimeSource"]="fixture-source",
-            ["forceConfigSha256"]=config, ["captureProfileSha256"]=profile };
-        var signal = new ForceSignal();
-        using (var output = new TelemetryOutput(new(0,0,20,Path.Combine(directory,"source.jsonl")), "fixture-session", "synthetic", "0.2.12", properties))
-        {
-            for (int i=1;i<=100;i++)
-            {
-                var sample=Contact(i*.02, slip: i<60?.3:-.2); long before=signal.ResetCount; var result=signal.Evaluate(sample,options);
-                sample.Add("ffb.frontLoad",result.FrontLoad);sample.Add("ffb.alignmentEstimate",result.Alignment);sample.Add("ffb.dampingEstimate",result.Damping);sample.Add("ffb.preview",result.Preview);
-                sample.Add("ffb.modelValid",result.Valid?1:0);sample.Add("ffb.modelReason",ForceObservationSemantics.ModelReason(result.Reason));
-                sample.Add("ffb.modelResetBefore",before);sample.Add("ffb.modelResetAfter",signal.ResetCount);sample.Add("ffb.gate",0);
-                sample.Add("ffb.tuning.strengthPercent",options.Strength);sample.Add("ffb.tuning.peakPercent",options.PeakPercent);sample.Add("ffb.tuning.loadReference",options.LoadReference);
-                sample.Add("ffb.tuning.slipScale",options.SlipScale);sample.Add("ffb.tuning.smoothingMs",options.SmoothingMs);sample.Add("ffb.tuning.damping",options.Damping);
-                sample.Add("ffb.tuning.invert",options.Invert?1:0);sample.Add("ffb.tuning.modelVersion",3); output.Publish(sample);
-            }
-            output.StopRecording(); // The owner pressed F6; Woden stays open.
-            for (int i=0;i<20;i++) output.Publish(Sample(3+i*.02));
-            Check(output.RecordingCounters?.RejectedAfterStop==0 && !output.Stopped,
-                "F6 Stop keeps game output alive without rejected recorder writes");
-        }
-        var prepared=RecordedForceReplay.Reprocess(directory);
-        Check(prepared.DrivingSamples==100&&prepared.ModelSamples==100&&prepared.DrivingSeconds>1,"driving coverage retained");
-        Check(File.Exists(prepared.CasePath)&&File.Exists(prepared.ObservationPath),"case and observation written");
-        Check(RecordedForceReplay.Compare(prepared.ObservationPath,prepared.ObservationPath).Equal,"baseline self-comparison is exact");
-        using var header=JsonDocument.Parse(File.ReadLines(prepared.ObservationPath).First());
-        Check(header.RootElement.GetProperty("caseSha256").GetString()==RecordingArtifacts.Sha256(prepared.CasePath),"observation binds exact case bytes");
-        string candidatePath=Path.Combine(directory,"candidate-20-percent.json"),candidateObservation=Path.Combine(directory,"force-observation.trial-20.jsonl");
-        string candidateHash=RecordingArtifacts.WriteForceConfig(candidatePath,options with { Strength=20 });
-        var protectedHashes=new[]{"source.jsonl","force-config.json","capture-profile.json","case.json","force-observation.jsonl"}
-            .ToDictionary(name=>name,name=>RecordingArtifacts.Sha256(Path.Combine(directory,name)));
-        var trial=RecordedForceReplay.Trial(directory,candidatePath,candidateObservation);
-        Check(!trial.Comparison.Equal&&trial.Comparison.Differences>0&&trial.CandidateConfigSha256==candidateHash,"separate tuning trial changes magnitudes under candidate config identity");
-        Check(protectedHashes.All(pair=>RecordingArtifacts.Sha256(Path.Combine(directory,pair.Key))==pair.Value),"trial preserves source, case, baseline and original config/profile bytes");
-        using(var trialHeader=JsonDocument.Parse(File.ReadLines(candidateObservation).First()))
-            Check(trialHeader.RootElement.GetProperty("caseSha256").GetString()==RecordingArtifacts.Sha256(prepared.CasePath)&&
-                trialHeader.RootElement.GetProperty("configSha256").GetString()==candidateHash,"trial retains original case identity with candidate config identity");
-
-        string Mutated(string name,Func<string[],string[]> change)
-        { string path=Path.Combine(directory,name);File.WriteAllLines(path,change(File.ReadAllLines(prepared.ObservationPath)),new System.Text.UTF8Encoding(false));return path; }
-        bool Invalid(string path){try{RecordedForceReplay.Compare(prepared.ObservationPath,path);return false;}catch{return true;}}
-        Check(Invalid(Mutated("invalid-no-footer.jsonl",lines=>lines[..^1])),"missing observation footer rejects");
-        Check(Invalid(Mutated("invalid-case-id.jsonl",lines=>{lines[0]=lines[0].Replace("\"caseId\":\"fixture-drive\"","\"caseId\":\"../escape\"");return lines;})),"invalid case identifier rejects");
-        Check(Invalid(Mutated("invalid-model-id.jsonl",lines=>{lines[0]=lines[0].Replace("\"model\":\"woden-force-signal@3\"","\"model\":\"bad/model\"");return lines;})),"invalid model identifier rejects");
-        Check(Invalid(Mutated("invalid-negative-tick.jsonl",lines=>{lines[1]=System.Text.RegularExpressions.Regex.Replace(lines[1],"\"tick\":\\d+","\"tick\":-1");return lines;})),"negative first tick rejects");
-        Check(Invalid(Mutated("invalid-shifted-timeline.jsonl",lines=>{lines[1]=System.Text.RegularExpressions.Regex.Replace(lines[1],"\"tick\":\\d+","\"tick\":1");return lines;})),"shifted timeline is structurally unavailable before magnitude comparison");
-
-        void CopyCase(string target){Directory.CreateDirectory(target);foreach(string file in Directory.GetFiles(directory))File.Copy(file,Path.Combine(target,Path.GetFileName(file)));}
-        string alteredSource=Path.Combine(directory,"altered-source");CopyCase(alteredSource);File.AppendAllText(Path.Combine(alteredSource,"source.jsonl")," ");
-        bool sourceRefused=false;try{RecordedForceReplay.Trial(alteredSource,Path.Combine(alteredSource,"candidate-20-percent.json"),Path.Combine(alteredSource,"new-trial.jsonl"));}catch{sourceRefused=true;}
-        Check(sourceRefused,"altered source cannot start a tuning trial");
-        string alteredBaseline=Path.Combine(directory,"altered-baseline");CopyCase(alteredBaseline);
-        string alteredBaselinePath=Path.Combine(alteredBaseline,"force-observation.jsonl");var alteredLines=File.ReadAllLines(alteredBaselinePath);
-        alteredLines[1]=System.Text.RegularExpressions.Regex.Replace(alteredLines[1],"\"magnitude\":-?[0-9.Ee+]+","\"magnitude\":0.123");File.WriteAllLines(alteredBaselinePath,alteredLines,new System.Text.UTF8Encoding(false));
-        bool baselineRefused=false;try{RecordedForceReplay.Trial(alteredBaseline,Path.Combine(alteredBaseline,"candidate-20-percent.json"),Path.Combine(alteredBaseline,"new-trial.jsonl"));}catch{baselineRefused=true;}
-        Check(baselineRefused,"altered baseline cannot start a tuning trial");
-        string idle=Path.Combine(directory,"idle");Directory.CreateDirectory(idle);
-        string idleConfig=RecordingArtifacts.WriteForceConfig(Path.Combine(idle,"force-config.json"),options);
-        string idleProfile=RecordingArtifacts.WriteCaptureProfile(Path.Combine(idle,"capture-profile.json"),new string('1',64),new string('2',64),new string('3',64),new string('4',64),false,false,true,"");
-        var idleProperties=new Dictionary<string,string>(properties){["caseId"]="fixture-idle",["forceConfigSha256"]=idleConfig,["captureProfileSha256"]=idleProfile};
-        using(var output=new TelemetryOutput(new(0,0,20,Path.Combine(idle,"source.jsonl")),"idle","synthetic","0.2.12",idleProperties)) output.Publish(Sample(0,state:"inactive"));
-        bool idleRefused=false;try{RecordedForceReplay.Reprocess(idle);}catch(IOException ex){idleRefused=ex.Message.Contains("Insufficient driving coverage");}
-        Check(idleRefused,"structurally valid idle-only recording cannot claim driving readiness");
-    }
-    finally
-    {
-        if (Environment.GetEnvironmentVariable("WODEN_KEEP_REPLAY_FIXTURE") == "1") Console.WriteLine("  replay fixture: " + directory);
-        else Directory.Delete(directory,true);
-    }
-});
-Test("actual force controller capture replays active, pause, camera, discontinuity and no-force gates", () => {
-    string directory=Path.Combine(Path.GetTempPath(),"woden-controller-reprocess-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(directory);
-    var options=new ForceOptions();string config=RecordingArtifacts.WriteForceConfig(Path.Combine(directory,"force-config.json"),options);
-    string profile=RecordingArtifacts.WriteCaptureProfile(Path.Combine(directory,"capture-profile.json"),new string('1',64),new string('2',64),new string('3',64),new string('4',64),true,true,true,"fixture-guid");
-    var properties=new Dictionary<string,string>{{"recordingContract","dbce.wheel.replay-case@1"},{"capability","signal-reprocess"},{"requestId",Guid.NewGuid().ToString()},
-        {"caseId","controller-lifecycle"},{"disableForces","false"},{"gameAssemblySha256",new string('1',64)},{"pluginSha256",new string('2',64)},
-        {"pluginProductVersion","0.2.12+fixture-source"},{"runtimeSource","fixture-source"},{"forceConfigSha256",config},{"captureProfileSha256",profile}};
-    var (controller,_)=WodenRallyEdge.ForceControllerChecks.Create();double time=0;controller.Prepare();
-    try
-    {
-        using(var output=new TelemetryOutput(new(0,0,20,Path.Combine(directory,"source.jsonl")),"controller-fixture","synthetic","0.2.12",properties))
-        {
-            void Emit(TelemetrySample sample){controller.Tick(sample);output.Publish(sample);}
-            for(int i=0;i<60;i++)Emit(Contact(time+=.02));
-            var noSpeed=Contact(time+=.02,state:"paused");noSpeed.Channels.Remove("motion.speed");Emit(noSpeed);
-            WodenRallyEdge.MountedCamera.PlayerOwned=false;Emit(Contact(time+=.02));WodenRallyEdge.MountedCamera.PlayerOwned=true;
-            var discontinuity=Contact(time+=.02);discontinuity.Discontinuity="wall-time-gap";Emit(discontinuity);
-            for(int i=0;i<60;i++)Emit(Contact(time+=.02,slip:-.2));
-            WodenRallyEdge.Runtime.DiagnosticNoForce=true;for(int i=0;i<3;i++)Emit(Contact(time+=.02));
-        }
-        var rows=SessionReader.Read(Path.Combine(directory,"source.jsonl")).Where(x=>x.Kind==SessionRecordKind.Sample).Select(x=>x.Sample).ToArray();
-        Check(rows.Any(x=>x.Channels["ffb.gate"]==0)&&rows.Any(x=>x.Channels["ffb.gate"]==9)&&rows.Any(x=>x.Channels["ffb.gate"]==7)&&rows.Any(x=>x.Channels["ffb.gate"]==1),"recording retains active, invalid-model, camera and diagnostic gates");
-        Check(rows.Any(x=>x.Channels["ffb.modelReason"]==11&&x.Channels["ffb.modelResetAfter"]-x.Channels["ffb.modelResetBefore"]==2),"discontinuity retains model and gate reset ordering");
-        Check(rows.Where(x=>x.Channels["ffb.gate"]==1).All(x=>x.Channels["ffb.modelResetAfter"]-x.Channels["ffb.modelResetBefore"]==1),"default no-force gate resets shaping after every valid model sample");
-        var prepared=RecordedForceReplay.Reprocess(directory);Check(prepared.DrivingSamples>=120&&prepared.ModelSamples==rows.Length,"actual controller lifecycle recording reprocesses completely");
-        var exported = RecordedForceReplay.ExportTrial(directory, options.Strength, options.PeakPercent, null);
-        Check(exported.Count == rows.Length, "ordinary export keeps every model row");
-        Check(exported.Any(x => x.Eligible) && exported.Any(x => x.Exclusion == "force gate 1") && exported.Any(x => !x.Valid),
-            "ordinary export excludes diagnostic gates and invalid model rows");
-        Check(exported.Any(x=>!x.SpeedKmh.HasValue && !x.Eligible && x.Exclusion=="not driving"),"ordinary missing idle speed is unavailable, never a measured zero");
-        for (int i = 0; i < rows.Length; i++) {
-            Check(Math.Abs(exported[i].Request - rows[i].Channels["ffb.preview"]) < .000002, "ordinary same-tune request preserves the actual lifecycle");
-            Check(exported[i].Epoch == (long)rows[i].Channels["ffb.modelResetBefore"], "ordinary epochs preserve gate reset boundaries");
-        }
-    }
-    finally
-    {
-        WodenRallyEdge.Runtime.DiagnosticNoForce=false;WodenRallyEdge.MountedCamera.PlayerOwned=true;controller.Shutdown();
-        Directory.Delete(directory,true);
-    }
-});
-Test("force model v4 replays through RecordedForceReplay; v4 trials need friction curves; versions dispatch", () => {
-    TelemetrySample Curved(double time, double slip) {
-        var s = Contact(time, slip: slip);
-        foreach (var c in new[] { "fl", "fr" }) { string k = "wheel." + c + ".sideFriction."; s.Add(k + "extremumSlip", .2); s.Add(k + "extremumValue", 1); s.Add(k + "asymptoteSlip", .5); s.Add(k + "asymptoteValue", .75); s.Add(k + "stiffness", 1); }
-        return s;
-    }
-    string Capture(string name, ForceOptions options, Func<double, double, TelemetrySample> sampleAt)
-    {
-        string directory = Path.Combine(Path.GetTempPath(), "woden-v4-" + name + "-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
-        string config = RecordingArtifacts.WriteForceConfig(Path.Combine(directory, "force-config.json"), options);
-        string profile = RecordingArtifacts.WriteCaptureProfile(Path.Combine(directory, "capture-profile.json"), new string('1', 64), new string('2', 64), new string('3', 64), new string('4', 64), true, true, true, "fixture-guid");
-        var properties = new Dictionary<string, string> { {"recordingContract","dbce.wheel.replay-case@1"}, {"capability","signal-reprocess"}, {"requestId",Guid.NewGuid().ToString()},
-            {"caseId","grip-" + name}, {"disableForces","false"}, {"gameAssemblySha256",new string('1',64)}, {"pluginSha256",new string('2',64)},
-            {"pluginProductVersion","0.2.14+fixture-source"}, {"runtimeSource","fixture-source"}, {"forceConfigSha256",config}, {"captureProfileSha256",profile} };
-        var (controller, _) = WodenRallyEdge.ForceControllerChecks.Create(); WodenRallyEdge.Runtime.Settings.Options = options; double time = 0; controller.Prepare();
-        try
-        {
-            using var output = new TelemetryOutput(new(0, 0, 20, Path.Combine(directory, "source.jsonl")), "grip-fixture", "synthetic", "0.2.14", properties);
-            void Emit(TelemetrySample sample) { controller.Tick(sample); output.Publish(sample); }
-            for (int i = 0; i < 160; i++) Emit(sampleAt(time += .02, i < 80 ? .15 : -.3));
-            Emit(sampleAt(time += .02, .1) is var paused && paused.State == "driving" ? Contact(time, state: "paused") : paused);
-            for (int i = 0; i < 60; i++) Emit(sampleAt(time += .02, .25));
-        }
-        finally { controller.Shutdown(); WodenRallyEdge.Runtime.Settings.Options = new(); }
-        return directory;
-    }
-    var grip = new ForceOptions(Model: 4);
-    string v4 = Capture("v4", grip, Curved);
-    try
-    {
-        var rows = SessionReader.Read(Path.Combine(v4, "source.jsonl")).Where(x => x.Kind == SessionRecordKind.Sample).Select(x => x.Sample).ToArray();
-        Check(rows.All(r => r.Channels["ffb.tuning.modelVersion"] == 4) && rows.Any(r => Math.Abs(r.Channels["ffb.preview"]) > .05), "the controller recorded grip-driven force");
-        using (var config = JsonDocument.Parse(File.ReadAllText(Path.Combine(v4, "force-config.json"))))
-            Check(config.RootElement.GetProperty("version").GetInt32() == 2 && config.RootElement.GetProperty("model").GetString() == "woden-grip-signal@4", "force config v2 declares the grip model");
-        var prepared = RecordedForceReplay.Reprocess(v4);
-        var export4 = RecordedForceReplay.ExportTrial(v4, grip.Strength, grip.PeakPercent, grip.LoadRatio);
-        Check(export4.All(x => x.ModelVersion == 4), "ordinary v4 export keeps its recorded model version");
-        Check(export4.Any(x => x.Exclusion == "provisional reference") && export4.Any(x => x.Eligible), "ordinary grip export distinguishes provisional reference");
-        Check(prepared.ModelSamples == rows.Length && prepared.DrivingSamples > 100, "a v4 capture replays exactly through the grip model with its recorded reference");
-        using (var header = JsonDocument.Parse(File.ReadLines(prepared.ObservationPath).First()))
-            Check(header.RootElement.GetProperty("model").GetString() == "woden-grip-signal@4", "observation names the grip model");
-        string classicCandidate = Path.Combine(v4, "candidate-classic.json"); RecordingArtifacts.WriteForceConfig(classicCandidate, new ForceOptions());
-        var toClassic = RecordedForceReplay.Trial(v4, classicCandidate, Path.Combine(v4, "trial-classic.jsonl"));
-        Check(!toClassic.Comparison.Equal && toClassic.Comparison.CandidateModel == "woden-force-signal@3", "a v4 capture can trial the classic model");
-        string lighter = Path.Combine(v4, "candidate-ratio3.json"); RecordingArtifacts.WriteForceConfig(lighter, grip with { LoadRatio = 3 });
-        var ratio = RecordedForceReplay.Trial(v4, lighter, Path.Combine(v4, "trial-ratio3.jsonl"));
-        Check(!ratio.Comparison.Equal && ratio.Comparison.CandidateModel == "woden-grip-signal@4", "a grip ratio trial reruns the grip model");
-        // Tampered grip output fails exact replay.
-        string tampered = Path.Combine(Path.GetTempPath(), "woden-v4-tampered-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(tampered);
-        foreach (string file in new[] { "source.jsonl", "force-config.json", "capture-profile.json" }) File.Copy(Path.Combine(v4, file), Path.Combine(tampered, file));
-        var lines = File.ReadAllLines(Path.Combine(tampered, "source.jsonl")); int index = Array.FindIndex(lines, l => l.Contains("\"ffb.preview\":") && !l.Contains("\"ffb.preview\":0,"));
-        lines[index] = System.Text.RegularExpressions.Regex.Replace(lines[index], "\"ffb.preview\":-?[0-9.Ee+-]+", "\"ffb.preview\":0.987"); File.WriteAllLines(Path.Combine(tampered, "source.jsonl"), lines, new System.Text.UTF8Encoding(false));
-        bool refused = false; try { RecordedForceReplay.Reprocess(tampered); } catch (IOException) { refused = true; }
-        Check(refused, "a tampered grip output is refused"); Directory.Delete(tampered, true);
-    }
-    finally { Directory.Delete(v4, true); }
-    string v3 = Capture("v3-no-curves", new ForceOptions(), (time, slip) => Contact(time, slip: slip));
-    try
-    {
-        Check(RecordedForceReplay.Reprocess(v3).ModelSamples > 0, "classic captures replay as before");
-        string gripCandidate = Path.Combine(v3, "candidate-grip.json"); RecordingArtifacts.WriteForceConfig(gripCandidate, grip);
-        bool refused = false; try { RecordedForceReplay.Trial(v3, gripCandidate, Path.Combine(v3, "trial-grip.jsonl")); } catch (IOException ex) { refused = ex.Message.Contains("sideFriction"); }
-        Check(refused, "a v4 trial on a capture without friction curves is refused, never filled with default curves");
-        refused = false; try { ForceExport.Run(v3, Path.Combine(v3,"no-curves.csv"),50,25,2); } catch(IOException ex) { refused=ex.Message.Contains("sideFriction"); }
-        Check(refused && !File.Exists(Path.Combine(v3,"no-curves.csv")),"ordinary exporter refuses missing friction curves before writing CSV");
-    }
-    finally { Directory.Delete(v3, true); }
-    // v5 at Steering strength 80 with the wheel moving: its own identity, exact replay, recorded terms, and a v4 trial differs.
-    TelemetrySample Steered(double time, double slip) { var s = Curved(time, slip); s.Channels["wheelInput.steer"] = Math.Sin(time * 9) * .4; return s; }
-    var v5Options = new ForceOptions(Strength: 80, Model: 5, Damping: .2f);
-    string v5 = Capture("v5", v5Options, Steered);
-    try
-    {
-        var rows = SessionReader.Read(Path.Combine(v5, "source.jsonl")).Where(x => x.Kind == SessionRecordKind.Sample).Select(x => x.Sample).ToArray();
-        Check(rows.All(r => r.Channels["ffb.tuning.modelVersion"] == 5) && rows.Any(r => Math.Abs(r.Channels["ffb.grip.dampingTerm"]) > 1e-4), "the controller recorded v5 with a damping term");
-        Check(rows.All(r => Math.Abs(r.Channels["ffb.grip.preview"] - Math.Clamp(r.Channels["ffb.grip.steering"] + r.Channels["ffb.grip.dampingTerm"], -1, 1)) < 1e-5), "the recorded steering and damping terms compose the grip preview");
-        using (var config = JsonDocument.Parse(File.ReadAllText(Path.Combine(v5, "force-config.json"))))
-            Check(config.RootElement.GetProperty("version").GetInt32() == 3 && config.RootElement.GetProperty("model").GetString() == "woden-grip-signal@5", "force config v3 declares grip v5");
-        var prepared = RecordedForceReplay.Reprocess(v5);
-        Check(prepared.ModelSamples == rows.Length && prepared.DrivingSamples > 100, "a v5 capture replays exactly");
-        var pins = new[] { "source.jsonl", "force-config.json", "capture-profile.json", "case.json", "force-observation.jsonl" }
-            .ToDictionary(n => n, n => RecordingArtifacts.Sha256(Path.Combine(v5,n)));
-        string csv80=Path.Combine(v5,"ordinary-80.csv"), csv0=Path.Combine(v5,"ordinary-0.csv");
-        ForceExport.Run(v5,csv80,80,v5Options.PeakPercent,v5Options.LoadRatio);
-        ForceExport.Run(v5,csv0,0,v5Options.PeakPercent,v5Options.LoadRatio);
-        var exported80=File.ReadAllLines(csv80).Skip(1).Select(l=>l.Split(',')).ToArray();
-        var exported0=File.ReadAllLines(csv0).Skip(1).Select(l=>l.Split(',')).ToArray();
-        Check(exported80.Length==rows.Length && exported0.Length==rows.Length,"ordinary CSV preserves every model row");
-        Check(exported80.Any(r=>r[6]=="1") && exported80.Any(r=>r[6]=="0"),"ordinary CSV labels eligibility instead of losing gated rows");
-        for(int i=0;i<rows.Length;i++) {
-            double Value(string s)=>double.Parse(s,System.Globalization.CultureInfo.InvariantCulture);
-            Check(Math.Abs(Value(exported80[i][4])-rows[i].Channels["ffb.preview"])<.000002,"ordinary CSV replays same-tune preview");
-            Check(Math.Abs(Value(exported80[i][8])-rows[i].Channels["ffb.grip.steering"])<.000002,"ordinary CSV exports actual trial steering");
-            Check(exported0[i][8]=="0" && exported0[i][9]==exported80[i][9],"zero steering trial retains independent damping");
-            Check(exported80[i][10]=="5","ordinary CSV retains v5 identity");
-        }
-        foreach(var pin in pins) Check(RecordingArtifacts.Sha256(Path.Combine(v5,pin.Key))==pin.Value,"ordinary CSV preserves "+pin.Key);
-        string observationText=File.ReadAllText(prepared.ObservationPath);
-        File.WriteAllText(prepared.ObservationPath,System.Text.RegularExpressions.Regex.Replace(observationText,"\"magnitude\":-?[0-9.Ee+-]+","\"magnitude\":0.998"));
-        bool invalidBaseline=false;try{ForceExport.Run(v5,Path.Combine(v5,"invalid-baseline.csv"),50,25,2);}catch(IOException ex){invalidBaseline=ex.Message.Contains("Baseline observation differs");}
-        Check(invalidBaseline&&!File.Exists(Path.Combine(v5,"invalid-baseline.csv")),"ordinary export rejects an altered baseline before writing CSV");
-        File.WriteAllText(prepared.ObservationPath,observationText,new System.Text.UTF8Encoding(false));
-        // A damaged stage cannot become an ordinary case by losing its seal.
-        string stageMarker=Path.Combine(v5,"stage-context.json");File.WriteAllText(stageMarker,"{}");
-        bool damagedStage=false;try{ForceExport.Run(v5,Path.Combine(v5,"damaged-stage.csv"),50,25,2);}catch(IOException){damagedStage=true;}
-        Check(damagedStage&&!File.Exists(Path.Combine(v5,"damaged-stage.csv")),"stage marker without seal refuses ordinary fallback");File.Delete(stageMarker);
-        using (var header = JsonDocument.Parse(File.ReadLines(prepared.ObservationPath).First()))
-            Check(header.RootElement.GetProperty("model").GetString() == "woden-grip-signal@5", "observation names grip v5");
-        string asV4 = Path.Combine(v5, "candidate-v4.json"); RecordingArtifacts.WriteForceConfig(asV4, v5Options with { Model = 4 });
-        var coupled = RecordedForceReplay.Trial(v5, asV4, Path.Combine(v5, "trial-v4.jsonl"));
-        Check(!coupled.Comparison.Equal && coupled.Comparison.CandidateModel == "woden-grip-signal@4", "v4's strength-scaled damping differs from v5 on the same rows");
-        // A tampered pre-clamp term is refused even though the composed preview is untouched. The edit keeps the line's
-        // byte length (one digit), so the recording footer's byte count cannot be what refuses it.
-        string bent = Path.Combine(Path.GetTempPath(), "woden-v5-tampered-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(bent);
-        foreach (string file in new[] { "source.jsonl", "force-config.json", "capture-profile.json" }) File.Copy(Path.Combine(v5, file), Path.Combine(bent, file));
-        string bentPath = Path.Combine(bent, "source.jsonl"), bentText = File.ReadAllText(bentPath);
-        var hit = System.Text.RegularExpressions.Regex.Matches(bentText, "\"ffb.grip.steering\":-?0\\.([1-9])").FirstOrDefault();
-        Check(hit != null, "the v5 capture has a steering term of at least 0.1 to tamper with");
-        int digit = hit!.Groups[1].Index; char flipped = (char)('0' + (bentText[digit] - '0' + 5) % 10);
-        File.WriteAllText(bentPath, bentText[..digit] + flipped + bentText[(digit + 1)..], new System.Text.UTF8Encoding(false));
-        string termMessage = "accepted"; bool termRefused = false;
-        try { RecordedForceReplay.Reprocess(bent); } catch (IOException ex) { termMessage = ex.Message; termRefused = ex.Message.Contains("steering term"); }
-        Check(termRefused, "a tampered v5 steering term is refused: " + termMessage); Directory.Delete(bent, true);
-    }
-    finally { Directory.Delete(v5, true); }
-    TelemetrySample NativeFlat(double time, double slip)
-    {
-        var s = Steered(time, slip);
-        foreach (string corner in new[] { "fl", "fr" }) {
-            string p = "wheel." + corner + ".sideFriction.";
-            s.Channels[p + "extremumSlip"] = s.Channels[p + "asymptoteSlip"] = 2;
-            s.Channels[p + "extremumValue"] = s.Channels[p + "asymptoteValue"] = 1;
-        }
-        return s;
-    }
-    foreach (int model in new[] { 4, 5, 6, 7, 8 })
-    {
-        var o = v5Options with { Model = model };
-        string captured = Capture("flat-v" + model, o, NativeFlat);
-        try
-        {
-            var rows = SessionReader.Read(Path.Combine(captured, "source.jsonl")).Where(r => r.Kind == SessionRecordKind.Sample).Select(r => r.Sample).ToArray();
-            Check(rows.All(r => r.Channels["ffb.tuning.modelVersion"] == model), "actual controller records explicit model identity");
-            var driving = rows.Where(r => r.Channels["sample.driving"] == 1).ToArray();
-            Check(driving.All(r => r.Channels["ffb.modelValid"] == (model >= 6 ? 1 : 0)), "only models 6 and 7 admit native flat curve in the production controller");
-            Check(model >= 6 ? driving.Any(r => Math.Abs(r.Channels["ffb.preview"]) > .05) : driving.All(r => r.Channels["ffb.modelReason"] == 19),
-                "actual producer exercises nonzero v6/v7 output and retained legacy refusals (fake device only)");
-            Check(StageCaptureReview.ReadOptions(captured) == o, "stage reader retains model/config identity and exact tune");
-            Check(RecordedForceReplay.Reprocess(captured).ModelSamples == rows.Length, "actual controller capture replays exactly for flat-curve model " + model);
-            var exported = RecordedForceReplay.ExportTrial(captured, o.Strength, o.PeakPercent, o.LoadRatio);
-            Check(exported.All(r => r.ModelVersion == model), "ordinary exporter never upgrades a recorded legacy model");
-            for (int i = 0; i < rows.Length; i++) Near(exported[i].Request, rows[i].Channels["ffb.preview"], "flat-curve export retains exact recorded preview", .000002);
-            if (model >= 7)
-            {
-                using var config = JsonDocument.Parse(File.ReadAllText(Path.Combine(captured, "force-config.json")));
-                Check(config.RootElement.GetProperty("version").GetInt32() == model - 2 && config.RootElement.GetProperty("model").GetString() == "woden-grip-signal@" + model, $"config{model - 2} declares only model{model}");
-                string candidate = Path.Combine(captured, "candidate-older.json"); RecordingArtifacts.WriteForceConfig(candidate, o with { Model = model - 1 });
-                var older = RecordedForceReplay.Trial(captured, candidate, Path.Combine(captured, "trial-older.jsonl"));
-                Check(!older.Comparison.Equal && older.Comparison.CandidateModel == "woden-grip-signal@" + (model - 1), $"a v{model - 1} trial of a v{model} capture differs (v7: centering and damping direction; v8: base gain)");
-            }
-            if (model == 6)
-            {
-                using var config = JsonDocument.Parse(File.ReadAllText(Path.Combine(captured, "force-config.json")));
-                Check(config.RootElement.GetProperty("version").GetInt32() == 4 && config.RootElement.GetProperty("model").GetString() == "woden-grip-signal@6", "config4 declares only model6");
-                string candidate = Path.Combine(captured, "candidate-v5.json"); RecordingArtifacts.WriteForceConfig(candidate, o with { Model = 5 });
-                var legacy = RecordedForceReplay.Trial(captured, candidate, Path.Combine(captured, "trial-v5.jsonl"));
-                Check(!legacy.Comparison.Equal && legacy.Comparison.CandidateModel == "woden-grip-signal@5", "explicit legacy trial retains its own rejection domain");
-                string mismatch = Path.Combine(captured, "candidate-mismatch.json");
-                File.WriteAllText(mismatch, File.ReadAllText(Path.Combine(captured, "force-config.json")).Replace("\"version\": 4", "\"version\": 3"));
-                bool refused = false;
-                try { RecordedForceReplay.Trial(captured, mismatch, Path.Combine(captured, "invalid-trial.jsonl")); } catch (IOException ex) { refused = ex.Message.Contains("Unsupported force config"); }
-                Check(refused && !File.Exists(Path.Combine(captured, "invalid-trial.jsonl")), "model6 cannot masquerade as a legacy config");
-            }
-            if (model >= 5)
-            {
-                string missing = Path.Combine(captured, "missing-term"); Directory.CreateDirectory(missing);
-                foreach (string file in new[] { "source.jsonl", "force-config.json", "capture-profile.json" }) File.Copy(Path.Combine(captured, file), Path.Combine(missing, file));
-                string path = Path.Combine(missing, "source.jsonl");
-                // Same byte length: missing required term, not a broken footer, must refuse both old5 and new6.
-                File.WriteAllText(path, File.ReadAllText(path).Replace("ffb.grip.steering", "ffb.grip.steerinx"), new System.Text.UTF8Encoding(false));
-                bool refused = false; try { RecordedForceReplay.Reprocess(missing); } catch (IOException ex) { refused = ex.Message.Contains("ffb.grip.steering"); }
-                Check(refused, "required pre-clamp term remains mandatory for model " + model);
-            }
-        }
-        finally { Directory.Delete(captured, true); }
-    }
-});Test("crash stage replays from recorded contacts; tampered contact or cue is refused", () => {
-    string directory = Path.Combine(Path.GetTempPath(), "woden-crash-replay-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
-    var options = new ForceOptions(); string config = RecordingArtifacts.WriteForceConfig(Path.Combine(directory, "force-config.json"), options);
-    string profile = RecordingArtifacts.WriteCaptureProfile(Path.Combine(directory, "capture-profile.json"), new string('1', 64), new string('2', 64), new string('3', 64), new string('4', 64), true, true, true, "fixture-guid");
-    var properties = new Dictionary<string, string> { {"recordingContract","dbce.wheel.replay-case@1"}, {"capability","signal-reprocess"}, {"requestId",Guid.NewGuid().ToString()},
-        {"caseId","crash-replay"}, {"disableForces","false"}, {"gameAssemblySha256",new string('1',64)}, {"pluginSha256",new string('2',64)},
-        {"pluginProductVersion","0.2.14+fixture-source"}, {"runtimeSource","fixture-source"}, {"forceConfigSha256",config}, {"captureProfileSha256",profile} };
-    var (controller, _) = WodenRallyEdge.ForceControllerChecks.Create(); double time = 0; controller.Prepare();
-    try
-    {
-        using (var output = new TelemetryOutput(new(0, 0, 20, Path.Combine(directory, "source.jsonl")), "crash-fixture", "synthetic", "0.2.14", properties))
-        {
-            void Emit(TelemetrySample sample) { controller.Tick(sample); output.Publish(sample); }
-            for (int i = 0; i < 60; i++) Emit(Contact(time += .02));
-            Emit(Contact(time += .02, state: "paused"));                      // a known crash state: the stage resets off the live car
-            for (int i = 0; i < 30; i++) Emit(Contact(time += .02));
-            controller.CrashContact(time, 20f, 0f, false, true);             // hardest hit at the last tracked tick
-            for (int i = 0; i < 30; i++) Emit(Contact(time += .02));
-        }
-        var rows = SessionReader.Read(Path.Combine(directory, "source.jsonl")).Where(x => x.Kind == SessionRecordKind.Sample).Select(x => x.Sample).ToArray();
-        Check(rows.Count(r => r.Channels.GetValueOrDefault("crash.delivered") == 1) >= 10 && rows.Any(r => r.Channels.GetValueOrDefault("crash.contacts") == 1), "the capture holds a delivered crash cue and its contact");
-        Check(RecordedForceReplay.Reprocess(directory).ModelSamples == rows.Length, "the crash stage replays exactly from the recorded contact");
-        string Tampered(string name, Func<string, string> change)
-        {
-            string copy = Path.Combine(directory, name); Directory.CreateDirectory(copy);
-            foreach (string file in new[] { "source.jsonl", "force-config.json", "capture-profile.json" }) File.Copy(Path.Combine(directory, file), Path.Combine(copy, file));
-            var lines = File.ReadAllLines(Path.Combine(copy, "source.jsonl")); int i = Array.FindIndex(lines, l => l.Contains("\"crash.contacts\":1"));
-            lines[i] = change(lines[i]); File.WriteAllLines(Path.Combine(copy, "source.jsonl"), lines, new System.Text.UTF8Encoding(false)); return copy;
-        }
-        bool Refused(string dir) { try { RecordedForceReplay.Reprocess(dir); return false; } catch (IOException) { return true; } }
-        Check(Refused(Tampered("intensity", l => System.Text.RegularExpressions.Regex.Replace(l, "\"crash.contact0.intensity\":[0-9.Ee+-]+", "\"crash.contact0.intensity\":0.5"))), "a tampered contact intensity is refused");
-        Check(Refused(Tampered("cue", l => System.Text.RegularExpressions.Regex.Replace(l, "\"crash.cue\":[0-9.Ee+-]+", "\"crash.cue\":0.99"))), "a tampered crash cue is refused");
-        Check(Refused(Tampered("strength", l => System.Text.RegularExpressions.Regex.Replace(l, "\"crash.contact0.strength\":[0-9.Ee+-]+", "\"crash.contact0.strength\":10"))), "a tampered event-time strength changes the replayed cue and is refused");
-    }
-    finally { controller.Shutdown(); Directory.Delete(directory, true); }
-});Test("native handbrake adaptation restores boxed tuning and preserves game transient state", () => WodenRallyEdge.HandbrakeChecks.Run(Check));
 Test("UX view migration, scoped camera defaults, additive bindings and inversion persistence", () => WodenRallyEdge.UxChecks.SettingsAndBindings(Check));
 Test("strict follow/override output selection and camera release/repeat gates", () => WodenRallyEdge.UxChecks.SelectionAndRepeat(Check));
 Test("atomic telemetry reconfiguration preserves capture and independent Stop", () => WodenRallyEdge.UxChecks.NetworkCapture(Check));
@@ -1306,48 +761,15 @@ Test("versioned production FFB reference envelopes, cadence and terminal zero", 
 Test("concurrent summary creation preserves the other creator's exact bytes", () => WodenRallyEdge.FfbRegressionChecks.ConcurrentCreation(Check));
 Test("bounded canonical command capture uses actual controller and pure fake replay", () => WodenRallyEdge.CommandCaptureChecks.Run(Check, t => Contact(t)));
 Test("summary CLI bounds ordinary failures and malformed requests without running fixtures", () => WodenRallyEdge.FfbSummaryCommandChecks.Run(Check));
-Test("independent analysis history ignores hardware gates and owns capture/car/tune/time boundaries", () => ForceAnalysisChecks.Boundaries(Check));
-Test("muted production controller keeps actual zero while independent history records and replays nonzero", () => ForceAnalysisChecks.ProducerReplay(Check));
 Test("grip v6 admits only finite continuous equal-knot curves; legacy arithmetic and admission stay exact", () => GripV6Checks.Curves(Check));
 Test("grip v6 learns front load only from forward-valid rows; recorded replay reference stays exact", () => GripV6Checks.ReferenceDirection(Check));
 Test("grip v8 centering: owner-accepted v7 at 50%, restoring from the first degrees, monotonic, none at standstill; damping resists", () => CenteringChecks.Run(Check));
 Test("grip v8 tune migration: the owner v7 tune 74.745544 becomes Strength 50 with an identical feel; earlier defaults take the v8 defaults; once, logged", () => CenteringChecks.Migration(Check));
 Test("grip v8 through the controller: On reaches the device; saved Off and diagnostic mute write nothing", () => CenteringChecks.Gates(Check));
 Test("ordinary HUD depth preserves ideal pixels and bounds isolated-world float precision", () => WodenRallyEdge.HudDepthChecks.Run(Check));
-Test("replay HUD speed uses the recorded game.trueSpeed per aligned row, derived only for captures without it", () => WodenRallyEdge.HudSpeedChecks.Run(Check));
 Test("native gearbox preference sets only the selected player's saved choice, once, never for tooling or malformed records", () => WodenRallyEdge.NativeGearboxChecks.Run(Check));
-Test("test save suppression needs an exact, fresh, short-lived runner request; anything else saves as normal", () => WodenRallyEdge.TestSaveSuppressionChecks.Run(Check));
-Test("ordinary full-session capture seals the first stage in DRIVE's package layout with phase-aligned signals", () => WodenRallyEdge.FullSessionChecks.Package(Check));
-Test("ordinary full-session outcomes stay incomplete without a sealed aligned stage and a clean source", () => WodenRallyEdge.FullSessionChecks.Incomplete(Check));
-Test("ordinary status shows Completed only after the full-session package or its marker exists", () => WodenRallyEdge.FullSessionChecks.StatusHold(Check));
-Test("plugin close releases the status hold even with a package commit already begun", () => WodenRallyEdge.FullSessionChecks.ClosingHold(Check));
-Test("an ordinary-owned launch ignores later stage requests: no mute, no supervised commands", () => WodenRallyEdge.FullSessionChecks.Ownership(Check));
-Test("the ordinary full session's stage copy records with the ordinary profile", () => WodenRallyEdge.FullSessionChecks.StageProfile(Check));
-Test("the ordinary stage seals detached from the game thread; its journal row and finish keep the stage-end place and time", () => WodenRallyEdge.FullSessionChecks.DetachedSeal(Check));
-Test("game close hands the package to the companion's finalizer, whose package is byte-identical to the worker's", () => WodenRallyEdge.FullSessionChecks.ExitHandoff(Check));
-Test("game close and the package worker: one owner of the outcome; the loser writes nothing", () => WodenRallyEdge.FullSessionChecks.ExitRaces(Check));
-Test("the companion's package step refuses without writing, and never packages a changed handoff", () => WodenRallyEdge.FullSessionChecks.FinalizerRefusals(Check));
-Test("the packaging lock: a live commit is refused, an interrupted one marked; a writer without it writes nothing", () => WodenRallyEdge.FullSessionChecks.CommitLock(Check));
-Test("player folder without Dbce.Wheel.Recording/Playback: TelemetryOutput still delivers Forza UDP", () => WodenRallyEdge.NoRecorderChecks.UdpWithoutRecorder(Check));
-Test("ordinary recording holds its full 20 minutes: the largest row at the budgeted 70 Hz fits the cap (real recorder)", () => WodenRallyEdge.RecordingCapacityChecks.Capacity(Check));
-Test("the capacity budget is the real recorder's arithmetic: header, rows and footer reserve stop it exactly there", () => WodenRallyEdge.RecordingCapacityChecks.Boundary(Check));
 Test("the separate-monitor span takes the toolkit racing row: the four-display rig spans only the racing displays", () => WodenRallyEdge.SpanTargetChecks.Run(Check));
 Test("a game window outside the racing row moves to its primary display, never to a dashboard; Unity's start monitor is saved only when its index is certain", () => WodenRallyEdge.WindowPlacementChecks.Run(Check));
-if (Environment.GetEnvironmentVariable("WODEN_LONG_SESSION_SECONDS") is { Length: > 0 } longSeconds)
-    Test("measurement only: a long ordinary full session's stage seal, package and case reprocess", () => WodenRallyEdge.FullSessionChecks.LongSession(Check,
-        double.Parse(longSeconds, System.Globalization.CultureInfo.InvariantCulture), Environment.GetEnvironmentVariable("WODEN_LONG_SESSION_TEXT") == "longest",
-        Environment.GetEnvironmentVariable("WODEN_LONG_SESSION_EXIT") == "1"));
-Test("S2 route proof: the archived Kenya original and owner-path variants restore the recorded stage choice; scope and mismatches refused", () => WodenRallyEdge.AdmissionChecks.Route(Check));
-Test("S2 admission writes a route-compatible derived package and never changes the S1 original", () => WodenRallyEdge.AdmissionChecks.Admission(Check));
-Test("S2 admission refuses originals outside the native-arcade-v1 first-stage scope", () => WodenRallyEdge.AdmissionChecks.Scope(Check));
-Test("input origin: a request states human or automated exactly, omission is unknown; the package maps owner only for human and must match its source", () => WodenRallyEdge.OriginChecks.Run(Check));
-Test("S2b: an FFB-on ordinary original is admitted and passes the ordinary review; the muted supervisor review still refuses it", () => WodenRallyEdge.AdmissionChecks.OrdinaryReview(Check));
-Test("course route request: one launch, claimed before reading, bounded expiry and seconds", () => WodenRallyEdge.CourseRouteChecks.Request(Check));
-Test("course route identity: exact build, raw track names, direction-aware folder, unusable routes refused whole", () => WodenRallyEdge.CourseRouteChecks.Identity(Check));
-Test("course route coordinates: Unity x, y, z stored unconverted and bit-exact in route and progress files", () => WodenRallyEdge.CourseRouteChecks.Coordinates(Check));
-Test("course route lifecycle: no rows before the route, seconds/rows/bytes caps, faults write nothing, written once, never overwritten", () => WodenRallyEdge.CourseRouteChecks.Lifecycle(Check));
-if (Environment.GetEnvironmentVariable("WODEN_GRIP_CAPTURE") is { Length: > 0 } gripCapture)
-    Test("private native Grip5 capture: exact old replay and isolated Grip6 trial", () => GripV6Checks.NativeCapture(Check, gripCapture));
 Console.WriteLine($"{passed} suites passed; {failed} failed; {checks} assertions.");
 if (only != null && passed + failed != 1) { Console.Error.WriteLine("Exact suite was not found."); return 2; }
 return failed == 0 ? 0 : 1;

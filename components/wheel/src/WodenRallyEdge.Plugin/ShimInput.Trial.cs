@@ -15,7 +15,7 @@ internal static partial class ShimInput
     internal static byte Run { get; private set; }
     internal static ulong Sequence => _sequence;
     private static bool TrialFences => Runtime.DiagnosticNoForce && !Runtime.Settings.FfbEnabled &&
-        !Runtime.Settings.TelemetryEnabled && !Runtime.Settings.Record && (_carTrial || Runtime.Local==null) && !Panel.Open &&
+        !Runtime.Settings.TelemetryEnabled && (_carTrial || Runtime.Local==null) && !Panel.Open &&
         DateTimeOffset.UtcNow < _trialExpiry;
     private static string TrialUnsupported => string.Concat(ShimActionMap.Names.Where(id=>_carTrial ?
         id is not ("steer" or "throttle" or "brake" or "handbrake" or "shiftUp" or "shiftDown" or "gear1" or "gear2") : id is not ("confirm" or "start" or "navLeft" or "navRight"))
@@ -23,7 +23,7 @@ internal static partial class ShimInput
     internal static void ConfigureMenuTrial(string nonce,string session,string batch,DateTimeOffset expires,bool fencesVerified)
     {
         if (Owns || _trialNonce!=null || !_requested || !fencesVerified || !Runtime.DiagnosticNoForce ||
-            Runtime.Settings.FfbEnabled || Runtime.Settings.TelemetryEnabled || Runtime.Settings.Record ||
+            Runtime.Settings.FfbEnabled || Runtime.Settings.TelemetryEnabled ||
             nonce.Length!=32 || nonce.Any(c=>!Uri.IsHexDigit(c)) || !Path.IsPathFullyQualified(session) || !Path.IsPathFullyQualified(batch) ||
             !File.Exists(session) || File.Exists(batch) || expires<=DateTimeOffset.UtcNow || expires>DateTimeOffset.UtcNow.AddMinutes(5))
             throw new InvalidOperationException("Menu trial must be cold, bounded and independently muted before ownership.");

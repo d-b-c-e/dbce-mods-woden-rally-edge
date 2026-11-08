@@ -57,12 +57,8 @@ Record remaining UX gaps in docs/UX-ADOPTION.md. The custom renderer now has key
 
 Missing channels mean unavailable. Preserve genuine zero values. All live channel names must exist in `TelemetrySchema`. Raw RPM, fuel, slip and race values keep their game scales until measured. WheelHit.force is a magnitude, not signed lateral force or steering torque. WheelHit.sidewaysSlip is not a slip angle. Do not fabricate surface rumble/curbs, tyre temperatures, engine redline or suspension compression for dashboards.
 
-Recording, stage playback, native observation, course dumps and the test-save guard are developer tools (STD-050). They
-run only with `[Dev] InternalTools = true` in `dbce.wodenrallyedgewheel.cfg` (or `DBCE_INTERNAL_TOOLS=1` in a direct
-launch), and only when `Dbce.Wheel.Recording.dll` and `Dbce.Wheel.Playback.dll` sit beside the plugin (copy them from
-`src/WodenRallyEdge.Plugin/bin/Release/net6.0`; no package ships them). Product code reaches them only through `DevSession`; its out-of-line
-bodies keep those DLLs unloaded when the switch is off. `TelemetryOutput` takes the recorder as an optional
-`ITelemetryRecorder` sink. Stage playback: `docs/STAGE-PLAYBACK.md`; shared playback artifacts: `vendor/playback`.
+The product has no recording, stage playback, native observation or course dumps (STD-050). Developer capture, if needed
+again, goes in a separate dev-only assembly that the plugin never references.
 
 ## Commands
 

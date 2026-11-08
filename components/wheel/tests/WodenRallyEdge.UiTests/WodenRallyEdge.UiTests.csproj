@@ -6,7 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Dbce.Wheel.Ffb" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Ffb.dll" />
-    <Reference Include="Dbce.Wheel.Recording" HintPath="../../lib/recording/Dbce.Wheel.Recording.dll" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/InputPolling.cs" Link="Consumer/InputPolling.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ShimInput.cs" Link="Consumer/ShimInput.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ShimInput.Trial.cs" Link="Consumer/ShimInput.Trial.cs" />
@@ -17,8 +16,6 @@
     <Compile Include="../../src/WodenRallyEdge.Plugin/StartupMenuHooks.cs" Link="Consumer/StartupMenuHooks.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CustomMenuHooks.cs" Link="Consumer/CustomMenuHooks.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/WheelPromptHooks.cs" Link="Consumer/WheelPromptHooks.cs" />
-    <Compile Include="../../src/WodenRallyEdge.Plugin/StageRunLifecycle.cs" Link="Consumer/StageRunLifecycle.cs" />
-    <Compile Include="../../src/WodenRallyEdge.Plugin/StageReplayPolicy.cs" Link="Consumer/StageReplayPolicy.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/MenuOwnership.cs" Link="Consumer/MenuOwnership.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/MenuNavigation.cs" Link="Consumer/MenuNavigation.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Panel.cs" Link="Consumer/Panel.cs" />
@@ -29,13 +26,9 @@
     <Compile Include="../../src/WodenRallyEdge.Plugin/CameraFramingStore.cs" Link="Consumer/CameraFramingStore.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/TripleGeometry.cs" Link="Consumer/TripleGeometry.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Settings.cs" Link="Consumer/Settings.cs" />
-    <Compile Include="../../src/WodenRallyEdge.Plugin/InternalTools.cs" Link="Consumer/InternalTools.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ShimBindingSnapshots.cs" Link="Consumer/ShimBindingSnapshots.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/SharedBindingHost.cs" Link="Consumer/SharedBindingHost.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Toolkit/Input/BindingEditorContract.cs" Link="Consumer/BindingEditorContract.cs" />
-    <Compile Include="../../src/WodenRallyEdge.Plugin/Toolkit/Ui/StrippedSessionStatusHud.cs" Link="Consumer/StrippedSessionStatusHud.cs" />
-    <Compile Include="../../../../tools/controls/Probe/CarWorkload.cs" Link="Qualification/CarWorkload.cs" />
-    <Compile Include="../../../../tools/controls/Probe/AppliedCarWorkload.cs" Link="Qualification/AppliedCarWorkload.cs" />
     <ProjectReference Include="../../src/WodenRallyEdge.Core/WodenRallyEdge.Core.csproj" />
     <Reference Include="BepInEx.Core" HintPath="../../lib/core/BepInEx.Core.dll" />
     <Reference Include="SemanticVersioning" HintPath="../../lib/core/SemanticVersioning.dll" />
