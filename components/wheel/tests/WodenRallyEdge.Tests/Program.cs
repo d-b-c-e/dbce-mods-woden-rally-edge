@@ -251,13 +251,10 @@ Test("grip model v4: reference rules, measuring, missing friction curve and mode
     Check(!missing.Valid && missing.Reason == "friction curve unavailable" && ForceObservationSemantics.ModelReason(missing.Reason) == 19, "missing friction curve stops the grip model");
     Check(new ForceOptions().Model == 3 && !new ForceOptions().Grip && options.Grip, "ForceOptions defaults to the classic v3 record; Model 4 is grip");
     var settings = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(Path.Combine(Path.GetTempPath(), "woden-grip-" + Guid.NewGuid().ToString("N") + ".cfg"), false));
-    Check(settings.ForceOptions.Grip && settings.FfbModel == "Grip" && settings.ForceOptions.LoadRatio == 1.5f && settings.ForceOptions.GripSmoothing == .2f && settings.ForceOptions.Damping == .05f, "the mod defaults to the grip model at the owner-accepted tune");
-    settings.FfbModel = "Classic"; Check(settings.ForceOptions.Model == 3, "Classic selects the unchanged v3 model");
-    settings.FfbModel = "anything"; settings.Validate(); Check(settings.FfbModel == "Grip", "unknown model names fall back to Grip");
-    string old = Path.Combine(Path.GetTempPath(), "woden-old-" + Guid.NewGuid().ToString("N") + ".cfg"); File.WriteAllText(old, "[ForceFeedback]\nStrengthPercent = 49.583332\nPeakPercent = 25\n");
-    Check(new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(old, false)).FfbModel == "Classic", "an existing install keeps Classic: no silent model switch");
-    string chosen = Path.Combine(Path.GetTempPath(), "woden-chosen-" + Guid.NewGuid().ToString("N") + ".cfg"); File.WriteAllText(chosen, "[ForceFeedback]\nStrengthPercent = 50\nModel = Grip\n");
-    Check(new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(chosen, false)).FfbModel == "Grip", "a saved Grip choice is kept");
+    Check(settings.ForceOptions.Grip && settings.ForceOptions.Model == GripSignal.ModelVersion && settings.ForceOptions.LoadRatio == 1.5f && settings.ForceOptions.GripSmoothing == .2f && settings.ForceOptions.Damping == .05f, "the mod defaults to the grip model at the owner-accepted tune");
+    string old = Path.Combine(Path.GetTempPath(), "woden-old-" + Guid.NewGuid().ToString("N") + ".cfg"); File.WriteAllText(old, "[ForceFeedback]\nStrengthPercent = 49.583332\nModel = Classic\nPeakPercent = 25\n");
+    var oldSettings = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(old, false));
+    Check(oldSettings.ForceOptions.Model == GripSignal.ModelVersion && oldSettings.FfbStrength == 49.583332f, "a saved Model or PeakPercent key is ignored: Grip only, Strength kept");
 });
 Test("grip model v5: Steering strength scales the tyre force only; v4 keeps its coupled damping for replay", () => {
     Check(GripSignal.ModelVersion == 8 && GripSignal.IsGripModel(4) && GripSignal.IsGripModel(5) && GripSignal.IsGripModel(6) && GripSignal.IsGripModel(7) && GripSignal.IsGripModel(8) && !GripSignal.IsGripModel(3), "grip models are 4 to 8; 8 is the latest");
@@ -281,7 +278,7 @@ Test("grip model v5: Steering strength scales the tyre force only; v4 keeps its 
     Near(v4at100.Damping, 2 * v4at50.Damping, "v4: Strength still scales the damping (exact replay of v4 recordings)", 1e-6);
     Near(v5at100.Preview, Math.Clamp(v5at100.Steering + v5at100.Damping, -1, 1), "the preview is the clamped sum of the two recorded terms", 1e-5);
     var fresh = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(Path.Combine(Path.GetTempPath(), "woden-v5-" + Guid.NewGuid().ToString("N") + ".cfg"), false));
-    Check(fresh.ForceOptions.Model == 8 && fresh.FfbModel == "Grip" && fresh.FfbLoadRatio == 1.5f && fresh.FfbDamping == .05f && fresh.FfbMigration == null, "a fresh config runs grip v8 at the owner-accepted defaults");
+    Check(fresh.ForceOptions.Model == 8 && fresh.FfbLoadRatio == 1.5f && fresh.FfbDamping == .05f, "a fresh config runs grip v8 at the owner-accepted defaults");
 });
 Test("H-pattern: a gate steps the game's own shift actions, one press at a time, never during a change", () => {
     var h = new HPatternShifter(); double now = 0; int gear = 1, presses = 0; bool held = false;
@@ -545,20 +542,16 @@ Test("curved rig: radius 0 reproduces TripleGeometry, curvature widens the sourc
     for (int f = 0; f <= WodenRallyEdge.CurveEvidence.MissingFrames && stall == null; f++) stall = evidence.SourceFrame();
     Check(stall == "the presenter never drew a frame" && evidence.Drawn == 0 && !evidence.Presented, "a presenter that never draws is reported and the evidence reset per build");
 });
-Test("real settings migrate untouched bonnet defaults and preserve custom camera/FFB choices", () => {
+Test("real settings keep custom camera/FFB choices across restart", () => {
     string path = Path.Combine(Path.GetTempPath(), "woden-camera-config-" + Guid.NewGuid() + ".cfg");
     var fresh = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(path, false));
     Near(fresh.FfbStrength, 50, "new config default 50"); Check(fresh.CameraAutoFit, "new config body fit");
-    File.WriteAllText(path, "[Camera]\nHeight = 0.85\nForward = 0.75\nPitchDegrees = 3\n[ForceFeedback]\nStrengthPercent = 42\nEnabled = false\n");
+    File.WriteAllText(path, "[ForceFeedback]\nStrengthPercent = 42\nEnabled = false\n");
     var migrated = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(path, false));
-    Near(migrated.CameraHeight, CameraPose.Bonnet.Height, "old default migrates"); Check(migrated.CameraAutoFit, "old default opts into body fit");
     Near(migrated.FfbStrength, 42, "custom strength survives"); Check(!migrated.FfbEnabled, "saved Off survives");
     migrated.CameraAutoFit = false; migrated.SetCameraPose(false, new(.1f, 1.3f, .2f, 5, 80)); migrated.Save();
     var restored = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(path, false));
     Check(!restored.CameraAutoFit && restored.GetCameraPose(false) == migrated.GetCameraPose(false), "manual pose and auto-fit Off survive restart");
-    File.WriteAllText(path, "[Camera]\nHeight = 1.25\nForward = 0.3\nPitchDegrees = 6\n");
-    var custom = new WodenRallyEdge.Settings(new BepInEx.Configuration.ConfigFile(path, false));
-    Check(!custom.CameraAutoFit, "preexisting customized camera stays manual"); Near(custom.CameraHeight, 1.25, "custom height retained");
     File.Delete(path);
 });
 Test("bonnet defaults match the owner's raised/forward correction while preserving saved manual views", () => {
@@ -764,7 +757,6 @@ Test("summary CLI bounds ordinary failures and malformed requests without runnin
 Test("grip v6 admits only finite continuous equal-knot curves; legacy arithmetic and admission stay exact", () => GripV6Checks.Curves(Check));
 Test("grip v6 learns front load only from forward-valid rows; recorded replay reference stays exact", () => GripV6Checks.ReferenceDirection(Check));
 Test("grip v8 centering: owner-accepted v7 at 50%, restoring from the first degrees, monotonic, none at standstill; damping resists", () => CenteringChecks.Run(Check));
-Test("grip v8 tune migration: the owner v7 tune 74.745544 becomes Strength 50 with an identical feel; earlier defaults take the v8 defaults; once, logged", () => CenteringChecks.Migration(Check));
 Test("grip v8 through the controller: On reaches the device; saved Off and diagnostic mute write nothing", () => CenteringChecks.Gates(Check));
 Test("ordinary HUD depth preserves ideal pixels and bounds isolated-world float precision", () => WodenRallyEdge.HudDepthChecks.Run(Check));
 Test("native gearbox preference sets only the selected player's saved choice, once, never for tooling or malformed records", () => WodenRallyEdge.NativeGearboxChecks.Run(Check));

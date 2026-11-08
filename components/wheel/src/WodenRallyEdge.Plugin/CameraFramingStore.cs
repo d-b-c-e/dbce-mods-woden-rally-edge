@@ -16,12 +16,10 @@ internal sealed class CameraFramingStore
         _config = config;
         if (config.SaveOnConfigSet) throw new InvalidOperationException("Camera settings require explicit owned-key saves.");
         CheckLinks();
-        // Preserve the framing that an existing global configuration actually showed.
-        // A fresh configuration follows STD-046: bonnet Game, bumper Realistic, chase Game.
-        bool? legacy = SavedBool("MatchGameFov"), chase = SavedBool("ChaseUsesGameFov");
-        _bonnet = Entry("BonnetRealistic", legacy.HasValue ? !legacy.Value : false);
-        _bumper = Entry("BumperRealistic", legacy.HasValue ? !legacy.Value : true);
-        _chase = Entry("ChaseRealistic", !(legacy.GetValueOrDefault() || (chase ?? true)));
+        // STD-046 defaults: bonnet Game, bumper Realistic, chase Game.
+        _bonnet = Entry("BonnetRealistic", false);
+        _bumper = Entry("BumperRealistic", true);
+        _chase = Entry("ChaseRealistic", false);
     }
     internal bool Realistic(CameraSlot camera) => Pick(camera).Value;
     private ConfigEntry<bool> Pick(CameraSlot camera) => camera.Mount switch
@@ -108,12 +106,6 @@ internal sealed class CameraFramingStore
         Save((entry.Definition.Key, camera.Key)); entry.Value = camera.Key;
     }
     private static string Number(float value) => value.ToString("R", CultureInfo.InvariantCulture);
-    private bool? SavedBool(string key)
-    {
-        string? value = ConfigLine.ReadValue(_config.ConfigFilePath, Section, key);
-        if (value == null) return null;
-        return bool.TryParse(value, out bool parsed) ? parsed : throw new InvalidDataException("Invalid saved camera choice: " + key);
-    }
     private ConfigEntry<T> Entry<T>(string key, T fallback)
     {
         if (_entries.TryGetValue(key, out object? existing)) return (ConfigEntry<T>)existing;

@@ -12,9 +12,9 @@ internal static class UxChecks
         var guid=Guid.NewGuid();
         File.WriteAllText(path,$"[ForceFeedback]\nDeviceGuid = {guid}\nEnabled = false\nStrengthPercent = 62\nSmoothingMs = 57\n[Camera]\nAutoFitBonnet = false\nDefaultsVersion = 2\nHeight = 1.27\n");
         var s=new Settings(new ConfigFile(path,false));var pose=s.GetCameraPose(false);var force=s.ForceOptions;
-        check(s.UiView=="Simple"&&s.UiPage=="Setup"&&!s.FfbFollowSteering,"legacy config defaults Simple while preserving explicit wheel");
+        check(s.UiView=="Simple"&&s.UiPage=="Setup"&&s.FfbGuid==guid.ToString(),"a config without Interface keys defaults Simple and keeps its saved wheel");
         s.SetPresentation("Advanced","Driving");check(s.GetCameraPose(false)==pose&&s.ForceOptions==force&&!s.FfbEnabled,"presentation cannot mutate runtime options");s.Save();
-        s=new(new ConfigFile(path,false));check(s.UiView=="Advanced"&&s.UiPage=="Driving"&&s.FfbGuid==guid.ToString()&&!s.FfbFollowSteering,"explicit view and wheel persist");
+        s=new(new ConfigFile(path,false));check(s.UiView=="Advanced"&&s.UiPage=="Driving"&&s.FfbGuid==guid.ToString(),"explicit view and wheel persist");
         s.SetPresentation("Simple","Driving");check(s.UiPage=="Setup","Advanced-only page maps to Setup");s.SetPresentation("typo","Controls");check(s.UiView=="Simple"&&s.UiPage=="Controls"&&!s.FfbEnabled,"invalid view keeps common page and Off");
         var fresh=new Settings(new ConfigFile(Path.Combine(dir,"fresh.cfg"),false));check(fresh.FfbFollowSteering&&fresh.UiView=="Simple"&&fresh.FfbStrength==50,"fresh settings follow Steering with 50% default");
         check(fresh.WheelEnabled,"ISS-0032: a fresh install starts with wheel controls On");

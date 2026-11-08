@@ -456,7 +456,7 @@ internal static partial class Panel
         var cfg=Runtime.Settings; bool before=cfg.WheelEnabled;
         Toggle(250,152,390,"Wheel controls",ref cfg.WheelEnabled); if(before!=cfg.WheelEnabled)Runtime.Force?.Suspend("Wheel controls changed");
         if(Button(700,152,244,"Refresh devices"))Refresh();
-        Label(250,202,690,Runtime.Settings.InputBackend=="Shim"?ShimInput.Status:"Connect your controls, check the bars, then drive.",true,36);
+        Label(250,202,690,ShimInput.Requested?ShimInput.Status:"Connect your controls, check the bars, then drive.",true,36);
         string? next=null; int row=0;
         foreach(string name in new[]{"Steer","Throttle","Brake"})
         {
@@ -523,10 +523,10 @@ internal static partial class Panel
     {
         if(ShimInput.Owns) { ShimPage(); return; }
         if(CapturePage())return; var input=Runtime.Wheel!; float y=152;
-        if(Runtime.Settings.InputBackend=="Shim")
+        if(ShimInput.Requested)
         {
             Label(250,y,690,ShimInput.Status,true,72);y+=84;
-            Label(250,y,690,"Native bindings below remain active until Shim admission. Close the game to change dbce-controls.ini or the backend.",true,60);y+=72;
+            Label(250,y,690,"Native bindings below remain active until Shim admission. Close the game to change dbce-controls.ini.",true,60);y+=72;
         }
         foreach(string name in new[]{"Steer","Throttle","Brake","Handbrake"})
         {
@@ -684,30 +684,18 @@ internal static partial class Panel
         Label(250,y,690,force.Status,true,42);y+=48;
         if(Button(250,y,330,"Default steering strength: 50%")){cfg.FfbStrength=50;Dirty();}y+=46;
         if(!Advanced && cfg.CustomFfb){if(Button(250,y,694,"Custom FFB tuning active. Review in Advanced"))Navigate("FFB","Advanced");y+=44;}
-        // One force model for players (STD-026): no selector. A saved Classic choice is kept, and said so, until Grip is tuned for this game.
-        Label(250,y,690,cfg.FfbModel=="Grip"?"Steering strength sets cornering resistance from the front tires and return to center from the wheel position; the wheel lightens as the front slides. Now: "+force.GripStatus:"Earlier force model, kept from your saved settings until the current one is tuned for this game. Reset FFB tuning (Advanced) switches to the current model.",true,46);y+=52;
+        // One force model for players (STD-026): no selector.
+        Label(250,y,690,"Steering strength sets cornering resistance from the front tires and return to center from the wheel position; the wheel lightens as the front slides. Now: "+force.GripStatus,true,46);y+=52;
         y=ToggleRow(y,"Crash effects",ref cfg.CrashEnabled);Label(250,y,690,"A short push and rattle when you hit something. Now: "+force.CrashStatus,true,40);y+=46;
         if(cfg.CrashEnabled){y=Slider(y,"Crash strength (%)",ref cfg.CrashStrength,0,100,"F0");Label(250,y,690,"Force of the hardest hit; separate from Steering strength.",true,40);y+=48;}
         if(Advanced)
         {
             Label(250,y,690,"On is remembered; feedback starts during driving. F8 / Stop FFB saves Off.",true,46);y+=58;
-            if(cfg.FfbModel=="Grip")
-            {
                 y=Slider(y,"Reference (x front load)",ref cfg.FfbLoadRatio,.2f,10,"F2");Label(250,y,690,"Tire force at Steering strength 50 as a multiple of the mean driving front load. Higher is lighter; default 1.5.",true,40);y+=48;
                 y=Slider(y,"Smoothing",ref cfg.FfbGripSmoothing,0,.95f,"F2");Label(250,y,690,"Per-update smoothing of the tire force; default 0.2.",true,40);y+=48;
                 y=Slider(y,"Steering damping",ref cfg.FfbDamping,0,.5f);Label(250,y,690,"Resists quick wheel movement with its own gain; Steering strength does not scale it. Default 0.05.",true,40);y+=48;
-            }
-            else
-            {
-                // The earlier model's own settings, shown only while a saved Classic choice is active.
-                y=Slider(y,"Peak output cap (%)",ref cfg.FfbPeak,0,50,"F0");Label(250,y,690,"Earlier model: maximum commanded force; default 25%.",true,40);y+=48;
-                y=Slider(y,"Smoothing (ms)",ref cfg.FfbSmoothing,0,200,"F0");Label(250,y,690,"Earlier model: higher values soften rapid changes but delay feedback. Default 35 ms.",true,40);y+=48;
-                y=Slider(y,"Steering damping",ref cfg.FfbDamping,0,.5f);Label(250,y,690,"Earlier model: steering damping, scaled with strength; default 0.05.",true,40);y+=48;
-                y=Slider(y,"Reference front load",ref cfg.FfbLoadReference,100,50000,"F0");Label(250,y,690,"Earlier model: higher values reduce the tire estimate. Unity force units; default 6000.",true,40);y+=48;
-                y=Slider(y,"Slip response scale",ref cfg.FfbSlipScale,.02f,3);Label(250,y,690,"Earlier model: larger values soften the slip response. Game slip units; default 0.35.",true,40);y+=48;
-            }
             y=ToggleRow(y,"Invert force direction",ref cfg.FfbInvert);
-            if(Button(250,y,280,"Reset FFB tuning")){cfg.FfbModel="Grip";cfg.FfbLoadRatio=1.5f;cfg.FfbGripSmoothing=.2f;cfg.FfbStrength=50;cfg.FfbPeak=25;cfg.FfbSmoothing=35;cfg.FfbDamping=.05f;cfg.FfbLoadReference=6000;cfg.FfbSlipScale=.35f;cfg.FfbInvert=false;Dirty();}y+=46;
+            if(Button(250,y,280,"Reset FFB tuning")){cfg.FfbLoadRatio=1.5f;cfg.FfbGripSmoothing=.2f;cfg.FfbStrength=50;cfg.FfbSmoothing=35;cfg.FfbDamping=.05f;cfg.FfbLoadReference=6000;cfg.FfbSlipScale=.35f;cfg.FfbInvert=false;Dirty();}y+=46;
             Label(250,y,690,$"Accepted output {force.Sent:P1}; calls {force.Attempts}; failures {force.Failures}. Reset preserves On/Off and device.",true,46);y+=52;
         }
         End(y);

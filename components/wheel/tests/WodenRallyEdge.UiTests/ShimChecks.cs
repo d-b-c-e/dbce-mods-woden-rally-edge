@@ -70,7 +70,7 @@ internal static partial class ShimChecks
         _opens=_ticks=_stops=_tickResult=_openedWindow=0;_latched=_badHash=_invalidateAtOpen=false;_mode="Sequential";Gamepad.all.Clear();GameWindow.Window=123;GameWindow.Valid=GameWindow.UnityFocused=true;Runtime.Focused=true;Runtime.Local=null;Pause.Paused=false;Runtime.DiagnosticNoForce=false;
         for(int i=0;i<FrameActions.Length;i++)FrameActions[i]=new(0,ShimActionMap.UnsupportedNames.Contains(ShimActionMap.Names[i])?ShimStatus.Unsupported:ShimStatus.Live);
         Keyboard.current?.Clear();
-        Runtime.Settings=new(new ConfigFile(Path.Combine(dir,Guid.NewGuid()+".cfg"),false)){InputBackend="Shim",WheelEnabled=true};
+        Runtime.Settings=new(new ConfigFile(Path.Combine(dir,Guid.NewGuid()+".cfg"),false)){WheelEnabled=true};
         Runtime.Wheel=new(Path.Combine(dir,Guid.NewGuid()+".json"));Runtime.Devices=new();
         ShimInput.Start(AppContext.BaseDirectory,dir,Path.Combine(dir,"reports"));
     }
@@ -129,9 +129,9 @@ internal static partial class ShimChecks
         Check(ShimInput.StoppedBeforeOpen&&!stopped.Ready&&stopped.Reason.StartsWith("Shared input stopped before opening"),"stopped before opening (not refused): the legacy Steer stays blocked");
         Set("_terminal",false);Set("_refused",true);
         Check(!ShimInput.PendingShared&&Runtime.Devices.ResolveForceTarget(true,"",Runtime.Wheel.SteeringGuid,Runtime.Wheel.SteeringReason).Guid==legacy,"an actual refusal (Native retained) follows the native Steer binding");
-        Reset(dir);Runtime.Settings.InputBackend="Native";ShimInput.Start(AppContext.BaseDirectory,dir,Path.Combine(dir,"reports"));
+        Reset(dir);Set("_refused",true);
         Runtime.Wheel!.Bindings.Steer=new(legacy,0,new(0,65535,32768));
-        Check(!ShimInput.PendingShared&&Runtime.Wheel.SteeringGuid==legacy&&Runtime.Wheel.SteeringReason==null,"Native backend follows the native Steer binding as before");
+        Check(!ShimInput.PendingShared&&Runtime.Wheel.SteeringGuid==legacy&&Runtime.Wheel.SteeringReason==null,"Native retained after a refusal follows the native Steer binding");
         Set("<Owns>k__BackingField",true);Set("<SteeringGuid>k__BackingField",null!);
         Check(Runtime.Wheel.SteeringGuid==null&&Runtime.Wheel.SteeringReason!.StartsWith("The shared controls profile has no usable steering"),"owning without a steering identity names the shared profile, never the native Steer");
 
@@ -286,8 +286,8 @@ internal static partial class ShimChecks
         controls.field_Private_GamePadSystem_0=null;pad.AnyKey=false;pad.PadActions=null;
         TrialCore(dir,Check);
         TrialCarCore(dir,Check);
-        Reset(dir);Runtime.Settings.InputBackend="Native";ShimInput.Start(AppContext.BaseDirectory,dir,dir);Next();
-        Check(!ShimInput.Owns&&_opens==0,"default standalone route never loads/opens an input host");
+        // The panel fixtures that follow cover a package without the shim: standalone bindings only.
+        Reset(dir);Set("_requested",false);
         Runtime.Log.Errors.Clear();Runtime.Log.Warnings.Clear();
         Console.WriteLine($"PASS {first} production shim/lease checks; fake handle calls, no device/game/force. Native ABI result reported separately.");
     }

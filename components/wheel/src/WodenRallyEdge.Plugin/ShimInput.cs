@@ -20,6 +20,7 @@ internal static partial class ShimInput
     private static IntPtr _handle;
     private static int _frame = -1, _context = -1, _window;
     internal static bool Owns { get; private set; }
+    internal static bool Requested => _requested;
     internal static bool Ready => Owns && !_terminal;
     internal static Guid? SteeringGuid { get; private set; }
     /// <summary>Shared input is requested and not actually refused, but does not own input (yet, or it stopped before
@@ -44,7 +45,8 @@ internal static partial class ShimInput
     internal static void Start(string directory, string config, string reports)
     {
         _directory = directory; _config = config; _reports = reports;
-        _requested = Runtime.Settings.InputBackend == "Shim";
+        // The shim is the input route wherever the package ships it; a package without it keeps the standalone bindings.
+        _requested = ShimNative.Loaded || File.Exists(Path.Combine(directory, "dbce_shim.dll"));
         if (_requested) Status = "Shim pilot: waiting for native input producer and game window; Native retained";
     }
 

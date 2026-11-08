@@ -113,49 +113,6 @@ internal static class CenteringChecks
         }
     }
 
-    // The one-time v8 tune migration of a saved config.
-    public static void Migration(Action<bool, string> check)
-    {
-        Settings Load(string? text, out string path)
-        {
-            path = Path.Combine(Path.GetTempPath(), "woden-v8-" + Guid.NewGuid().ToString("N") + ".cfg");
-            if (text != null) File.WriteAllText(path, text);
-            return new Settings(new BepInEx.Configuration.ConfigFile(path, false));
-        }
-        string Grip(string strength, string ratio, string damping, string extra = "") =>
-            $"[ForceFeedback]\nModel = Grip\nStrengthPercent = {strength}\nGripLoadRatio = {ratio}\nDamping = {damping}\n{extra}";
-
-        // The owner: v7 at 74.745544 / 1.5029262 / 0.05 becomes Strength 50 with the rest kept, and feels identical.
-        var owner = Load(Grip("74.745544", "1.5029262", "0.05"), out string ownerPath);
-        check(owner.FfbStrength == 50 && owner.FfbLoadRatio == OwnerLoadRatio && owner.FfbDamping == .05f && owner.ForceOptions.Model == GripSignal.ModelVersion,
-            $"owner tune migrates to Strength 50: {owner.FfbStrength} {owner.FfbLoadRatio} {owner.FfbDamping}");
-        check(owner.FfbMigration != null && owner.FfbMigration.Contains("StrengthPercent 74.745544 -> 50", StringComparison.Ordinal) &&
-            !owner.FfbMigration.Contains("GripLoadRatio", StringComparison.Ordinal) && !owner.FfbMigration.Contains("Damping", StringComparison.Ordinal),
-            "the migration is logged with exactly what changed: " + owner.FfbMigration);
-        check(Drive(owner.ForceOptions).SequenceEqual(Drive(OwnerV7)), "the owner's feel is unchanged by the migration, bit for bit");
-        owner.Save();
-        var reloaded = new Settings(new BepInEx.Configuration.ConfigFile(ownerPath, false));
-        check(reloaded.FfbMigration == null && reloaded.FfbStrength == 50 && File.ReadAllText(ownerPath).Contains("DefaultsVersion = 1", StringComparison.Ordinal),
-            "the migration is saved once with its marker and never repeats");
-
-        // Earlier defaults (v6: 50 / 2 / 0.05; v7: 50 / 3 / 0.02) take the new defaults: the new feel at 50.
-        foreach (var (ratio, damping) in new[] { ("2", "0.05"), ("3", "0.02") })
-        {
-            var d = Load(Grip("50", ratio, damping), out _);
-            check(d.FfbStrength == 50 && d.FfbLoadRatio == 1.5f && d.FfbDamping == .05f && !d.CustomFfb, $"earlier defaults 50/{ratio}/{damping} become the v8 defaults");
-        }
-        // A custom tune keeps its felt tyre force and centering: Strength / BaseGain, other values kept.
-        var custom = Load(Grip("80", "2.5", "0.1"), out _);
-        check(Math.Abs(custom.FfbStrength - 80 / GripSignal.BaseGain) < .001f && custom.FfbLoadRatio == 2.5f && custom.FfbDamping == .1f, "a custom tune keeps its feel: " + custom.FfbStrength);
-        // Already migrated, Classic and fresh configs are left alone.
-        var done = Load(Grip("74.745544", "1.5029262", "0.05", "DefaultsVersion = 1\n"), out _);
-        check(done.FfbStrength == 74.745544f && done.FfbMigration == null, "an already migrated config is not migrated again");
-        var classic = Load("[ForceFeedback]\nModel = Classic\nStrengthPercent = 70\nDamping = 0.05\n", out _);
-        check(classic.FfbModel == "Classic" && classic.FfbStrength == 70 && classic.FfbMigration == null, "Classic has no base gain and is not migrated");
-        var fresh = Load(null, out _);
-        check(fresh.FfbStrength == 50 && fresh.FfbLoadRatio == 1.5f && fresh.FfbDamping == .05f && fresh.FfbMigration == null && !fresh.CustomFfb, "a fresh config starts on the v8 defaults");
-    }
-
     // The controller's off and mute gates are unchanged: no write while saved Off or diagnostic-muted, force when On.
     public static void Gates(Action<bool, string> check)
     {

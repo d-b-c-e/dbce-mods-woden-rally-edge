@@ -12,7 +12,7 @@ internal sealed class SharedBindingHost : ISharedBindingHost, ISharedBindingSave
 {
     internal static SharedBindingHost Current { get; private set; } = Create(null,null);
     internal static bool MenuEditable => Runtime.Focused && Panel.Open && Runtime.Settings.UiPage=="Controls" &&
-        Runtime.Local == null && ShimInput.Ready && Runtime.Settings.InputBackend == "Shim";
+        Runtime.Local == null && ShimInput.Ready;
     private static SharedBindingHost Create(string? path,byte[]? bytes) => new(path,bytes,
         ()=>Runtime.Clock.Elapsed.TotalSeconds,()=>MenuEditable);
     internal static void Configure(string path,byte[] bytes) { Current.ReaderStopped();Current=Create(path,(byte[])bytes.Clone()); }
