@@ -51,7 +51,7 @@ foreground. Retry with nothing else in front.
 | ChaseUsesGameFov | true | Stock chase cameras keep the game FOV |
 | PanelWidthMm / PanelHeightMm / EyeDistanceMm / SideAngle / BezelMm | 708.4 / 398.5 / 660 / 70 / 8 | Rig geometry |
 | OfferDesktopResolution | true | Add the desktop size to the game's resolution list |
-| HideMenuBorders | true | Hide the menu pillarbox on three-wide windows |
+| HideMenuBorders | true | Hide the pillarbox bars of menus and stages on three-wide windows |
 
 TODO (STD-004): move these into F6 like the other mods; F10 vs F11 toggle consistency with DRIVE.
 

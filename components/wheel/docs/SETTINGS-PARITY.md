@@ -79,7 +79,7 @@ These are all 13 `[Triple]` binds in the four owners. Geometry is not editable i
 | Triple/EyeDistanceMm; TripleView | No F6 editor; X | mm >0; 660 | Physical rig; Adjustable or stock chase may derive virtual distance instead; config edits next start |
 | Triple/SideAngle; TripleView | No F6 editor; X | degrees 0 inclusive..90 exclusive; 70 | Frame-consumed geometry; config edits next start |
 | Triple/BezelMm; TripleView | No F6 editor; X | mm >=0; 8 | Frame-consumed geometry; config edits next start |
-| Triple/HideMenuBorders; MenuBorders | No F6 editor; X | bool; On | Wide-window check every 0.5 s; suppresses menu border images; not a reversible F6 toggle; config edits next start |
+| Triple/HideMenuBorders; MenuBorders | No F6 editor; X | bool; On | Wide-window check every 0.5 s; suppresses menu and stage border images; not a reversible F6 toggle; config edits next start |
 | Triple/OfferDesktopResolution; DesktopResolution | No F6 editor; X | bool; On | Startup resolution-list extension only; native Options owns selected resolution; next start |
 
 ## Binding, action and status inventory
