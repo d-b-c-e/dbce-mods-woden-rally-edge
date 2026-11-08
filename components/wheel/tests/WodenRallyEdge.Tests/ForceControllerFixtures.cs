@@ -10,7 +10,7 @@ internal static class Runtime
     internal static TestSettings Settings = new();
     internal static WheelInput? Wheel = new();
     internal static TestDevices? Devices = new();
-    internal static bool Focused = true, DiagnosticNoForce;
+    internal static bool Focused = true;
     internal static readonly Stopwatch Clock = Stopwatch.StartNew();
     internal static readonly TestLog Log = new();
     internal static MainCar? Local;
@@ -67,7 +67,7 @@ internal static class ForceControllerChecks
 {
     internal static (ForceController controller, FakeForceDevice device) Create()
     {
-        Runtime.Settings = new(); Runtime.Devices = new(); Runtime.Focused = true; Runtime.DiagnosticNoForce = false;
+        Runtime.Settings = new(); Runtime.Devices = new(); Runtime.Focused = true;
         Panel.Open = false; StockWheelOwner.Ready = true; MountedCamera.PlayerOwned = true;
         var device = new FakeForceDevice(); return (new(device), device);
     }
@@ -161,10 +161,7 @@ internal static class ForceControllerChecks
         check(device.Opens == 2 && controller.Failures == 2 && controller.Sent == 0, "driver failure latches without a reconnect loop");
         check(controller.Status.Contains("Fake driver failure"), "gating preserves actionable error");
         controller.Shutdown();
-        (controller, device) = Create(); Runtime.DiagnosticNoForce = true;
-        controller.Prepare(); controller.Tick(contact(1));
-        check(device.Opens == 0 && device.Writes.Count == 0 && Runtime.Settings.FfbEnabled, "agent diagnostic suppression preserves saved On");
-        Runtime.DiagnosticNoForce = false; Runtime.Settings.FfbGuid = ""; controller.Prepare();
+        (controller, device) = Create(); Runtime.Settings.FfbGuid = ""; controller.Prepare();
         check(device.Opens == 0, "missing exact selection never falls back");
     }
 }

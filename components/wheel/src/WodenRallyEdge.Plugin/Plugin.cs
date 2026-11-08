@@ -86,8 +86,6 @@ internal static class Runtime
     private static double _nextReport, _lastIdle;
     private static bool _stopped = true;
     internal static string GameAssemblyHash = "";
-    /// <summary>Set only by a shim control trial's fixtures.</summary>
-    internal static bool DiagnosticNoForce { get; set; }
     private static readonly HashSet<int> SeenPlayers = new();
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);

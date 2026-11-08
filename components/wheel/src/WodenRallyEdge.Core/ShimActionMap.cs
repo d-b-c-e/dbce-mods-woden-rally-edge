@@ -41,13 +41,12 @@ public sealed class ShimButtonGate
     private readonly bool[] _armed = new bool[ShimActionMap.Count], _held = new bool[ShimActionMap.Count], _pressed = new bool[ShimActionMap.Count];
     private readonly HashSet<string> _consumed = new();
     private int _context = int.MinValue;
-    public void Observe(IReadOnlyList<ShimAction> actions,int context,bool allowed,ulong knownNeutralMask=0)
+    public void Observe(IReadOnlyList<ShimAction> actions,int context,bool allowed)
     {
         bool changed=context!=_context; _context=context; _consumed.Clear();
         for(int i=0;i<_held.Length;i++) {
             bool down=actions[i].Applied>.5f;
-            bool live=actions[i].Status==ShimStatus.Live || (knownNeutralMask&(1UL<<i))!=0 &&
-                actions[i] is { Status:ShimStatus.TestNeutral, Value:0, Injected:false };
+            bool live=actions[i].Status==ShimStatus.Live;
             // Gear gates are positions, not action presses. A stick held in
             // first through a menu/pause must still mean first on return.
             // Core device freshness/rearm still determines Live admission.

@@ -31,7 +31,7 @@ internal sealed class ForceController
     internal bool StopRequested => System.Threading.Volatile.Read(ref _stopRequested) != 0;
     private bool _native, _suspended = true, _faulted;
     private Guid _openedGuid;
-    internal bool Armed => Runtime.Settings.FfbEnabled && !_faulted && !Runtime.DiagnosticNoForce;
+    internal bool Armed => Runtime.Settings.FfbEnabled && !_faulted;
     internal bool Connected => _native;
     internal string Status { get; private set; } = "Ready — feedback starts while driving";
     internal ForceResult Last { get; private set; } = new(false, "No car sample", 0, 0, 0, 0);
@@ -133,7 +133,6 @@ internal sealed class ForceController
     }
     private void PrepareCore()
     {
-        if (ObserveGuard("diagnostic", Runtime.DiagnosticNoForce)) { if (_native) Release("Diagnostic launch: force disabled"); Status = "Diagnostic launch: force disabled"; return; }
         if (!ObserveGuard("enabled", Runtime.Settings.FfbEnabled)) { if (_native) Release("FFB off"); Status = "FFB off"; return; }
         if (ObserveGuard("faulted", _faulted) || !ObserveGuard("focused", Runtime.Focused) || !ObserveGuard("stock-ready", StockWheelOwner.Ready) || !ObserveGuard("hub-present", Runtime.Devices != null)) return;
         if (ShimInput.Owns && !ShimInput.Ready) { if (_native) Release("Shim stopped"); Status = ShimInput.Status; return; }
@@ -228,12 +227,12 @@ internal sealed class ForceController
             simulation: sample.SimulationSeconds, elapsed: sample.ElapsedSeconds);
         sample.Add("ffb.frontLoad", Last.FrontLoad); sample.Add("ffb.alignmentEstimate", Last.Alignment); sample.Add("ffb.dampingEstimate", Last.Damping);
         sample.Add("ffb.preview", Last.Preview);
-        string gate = Runtime.DiagnosticNoForce ? "diagnostic-force-disabled" : !Runtime.Settings.FfbEnabled ? "saved-off" : _faulted ? "faulted" : Panel.Open ? "settings-open" :
+        string gate = !Runtime.Settings.FfbEnabled ? "saved-off" : _faulted ? "faulted" : Panel.Open ? "settings-open" :
             !Runtime.Focused ? "unfocused" : !StockWheelOwner.Ready ? "stock-owner-unready" :
             !MountedCamera.PlayerOwned ? "camera-not-owned" :
             Runtime.Settings.WheelEnabled && !sample.Channels.ContainsKey("wheelInput.steer") ? "wheel-input-unavailable" :
             !Last.Valid ? "model-invalid" : !_native ? "wheel-not-connected" : "active";
-        string? blocked = Runtime.DiagnosticNoForce ? "Diagnostic launch: force disabled" : !Runtime.Settings.FfbEnabled ? "FFB off" : _faulted ? Status : Panel.Open ? "FFB inactive — settings open" :
+        string? blocked = !Runtime.Settings.FfbEnabled ? "FFB off" : _faulted ? Status : Panel.Open ? "FFB inactive — settings open" :
             !Runtime.Focused ? "Unfocused" : !StockWheelOwner.Ready ? StockWheelOwner.Status :
             !MountedCamera.PlayerOwned ? MountedCamera.Status :
             Runtime.Settings.WheelEnabled && !sample.Channels.ContainsKey("wheelInput.steer") ? "Wheel input unavailable" :

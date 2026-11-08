@@ -14,16 +14,13 @@ namespace WodenRallyEdge;
 // action lease. Only native handle calls are replaced. No game, device open,
 // worker, OS input or force call occurs. An explicitly supplied private DLL is
 // loaded for ABI checks only; ordinary builds run the managed contract fixture.
-internal static partial class ShimChecks
+internal static class ShimChecks
 {
     private static readonly ShimAction[] FrameActions = new ShimAction[ShimActionMap.Count];
     private static byte[] _profile = Array.Empty<byte>();
     private static int _opens, _ticks, _stops, _tickResult, _openedWindow;
     private static string _unsupported = "";
     private static bool _badHash, _invalidateAtOpen;
-    private static bool _latched;
-    private static byte[]? _coreFrame;
-    private static bool _latchedArgs;
     private static string _mode = "Sequential";
     private static void Set(string field, object value) => typeof(ShimInput).GetField(field, BindingFlags.Static|BindingFlags.NonPublic)!.SetValue(null,value);
     private static void Replace(string field, string method)
@@ -38,20 +35,9 @@ internal static partial class ShimChecks
         _ticks++; if(_tickResult!=0)return _tickResult;
         BitConverter.GetBytes(ShimActionMap.Abi).CopyTo(frame,4);
         BitConverter.GetBytes((ulong)_ticks).CopyTo(frame,8);
-        frame[40]=(byte)(_latched?2:0);frame[41]=frame[42]=(byte)(_latched?1:0);
         for(int i=0;i<FrameActions.Length;i++)
         {int at=48+i*8;BitConverter.GetBytes(FrameActions[i].Value).CopyTo(frame,at);frame[at+4]=(byte)FrameActions[i].Status;frame[at+5]=(byte)(FrameActions[i].Injected?1:0);}
         return 0;
-    }
-    private static int CoreTick(IntPtr handle,byte[] frame) { _ticks++;_coreFrame!.CopyTo(frame,0);return 0; }
-    private static int Open2(ref ShimNative.OpenArgs args,out IntPtr handle,byte[] why,int whyLength)
-    {
-        _opens++;_profile=new byte[args.ProfileLength];Marshal.Copy(args.Profile,_profile,0,_profile.Length);
-        _latchedArgs=args.StructSize==128&&args.Flags==ShimNative.Latched&&args.FencesVerified==1&&args.ForceAbsent==1&&
-            args.CaptureFolder==IntPtr.Zero&&args.GameId==IntPtr.Zero&&args.Hz==0&&args.Seconds==0&&
-            Marshal.PtrToStringUTF8(args.AdapterVersion)==(GetCarTrial()?"woden-car-trial@1":"woden-menu-trial@1")&&File.Exists(Marshal.PtrToStringUni(args.SessionFile))&&
-            !File.Exists(Marshal.PtrToStringUni(args.BatchFile));
-        handle=new IntPtr(77);return 0;
     }
     private static int Text(string text,byte[] bytes,out int needed)
     { var b=Encoding.UTF8.GetBytes(text);needed=b.Length+1;Array.Clear(bytes);Array.Copy(b,bytes,Math.Min(b.Length,bytes.Length-1));return 0; }
@@ -64,10 +50,9 @@ internal static partial class ShimChecks
     {
         Set("_requested",false);Set("_refused",false);Set("_terminal",false);Set("_producer",null!);Set("_handle",IntPtr.Zero);Set("_frame",-1);Set("_context",-1);
         Set("_window",0);
-        Set("_sequence",0UL);Set("_trialNonce",null!);Set("_trialScope",0);
-        Set("_carTrial",false);Set("_carTrialDelivery",false);Set("_carTrialEnded",false);
+        Set("_sequence",0UL);
         Set("<Owns>k__BackingField",false);Set("<SteeringGuid>k__BackingField",null!);
-        _opens=_ticks=_stops=_tickResult=_openedWindow=0;_latched=_badHash=_invalidateAtOpen=false;_mode="Sequential";Gamepad.all.Clear();GameWindow.Window=123;GameWindow.Valid=GameWindow.UnityFocused=true;Runtime.Focused=true;Runtime.Local=null;Pause.Paused=false;Runtime.DiagnosticNoForce=false;
+        _opens=_ticks=_stops=_tickResult=_openedWindow=0;_badHash=_invalidateAtOpen=false;_mode="Sequential";Gamepad.all.Clear();GameWindow.Window=123;GameWindow.Valid=GameWindow.UnityFocused=true;Runtime.Focused=true;Runtime.Local=null;Pause.Paused=false;
         for(int i=0;i<FrameActions.Length;i++)FrameActions[i]=new(0,ShimActionMap.UnsupportedNames.Contains(ShimActionMap.Names[i])?ShimStatus.Unsupported:ShimStatus.Live);
         Keyboard.current?.Clear();
         Runtime.Settings=new(new ConfigFile(Path.Combine(dir,Guid.NewGuid()+".cfg"),false)){WheelEnabled=true};
@@ -86,7 +71,6 @@ internal static partial class ShimChecks
         Check(ShimNative.Load(AppContext.BaseDirectory)==null,"pinned native DLL exports/layout/action order match ABI 2 (no open)");
         Console.WriteLine("Private native ABI check: PASS; no native handle opened.");
 #else
-        Check(Marshal.SizeOf<ShimNative.OpenArgs>()==ShimNative.ArgsSize,"managed open-arguments layout is ABI 2 size (native DLL not qualified)");
         // All handle calls below are fixture delegates. Do not add a production
         // bypass just to make the public managed fixture independent of the DLL.
         typeof(ShimNative).GetField("<Loaded>k__BackingField",BindingFlags.Static|BindingFlags.NonPublic)!.SetValue(null,true);
@@ -102,18 +86,6 @@ internal static partial class ShimChecks
         Check(duplicate,"duplicate section refused");
         Check(new ShimAction(float.NaN,ShimStatus.Live).Applied==0 && new ShimAction(1,ShimStatus.Stale).Applied==0,"nonfinite/unavailable cannot deliver");
         Check(ShimActionMap.Compose(float.NaN,float.PositiveInfinity,0,1,0,.5f)==(1,0,.5f),"finite keyboard composition");
-        // The cold car-trial seam exposes only one transmission's bounded
-        // shift labels; clutch, reverse and menu actions remain unavailable.
-        Reset(dir);Set("_trialNonce",new string('a',32));Set("_carTrial",true);Set("_carTrialDelivery",true);
-        var delivers=typeof(ShimInput).GetMethod("TrialDelivers",BindingFlags.Static|BindingFlags.NonPublic)!;
-        bool Delivers(string label)=>(bool)delivers.Invoke(null,new object[]{label})!;
-        Set("_transmission","HPattern");
-        Check(Delivers("Gear 1")&&Delivers("Gear 2")&&!Delivers("Gear up")&&!Delivers("Gear down")&&
-            !Delivers("Gear R")&&!Delivers("Confirm"),"H-pattern car trial delivers only the bounded forward gates");
-        Set("_transmission","Sequential");
-        Check(Delivers("Gear up")&&Delivers("Gear down")&&!Delivers("Gear 1")&&!Delivers("Gear 2")&&
-            !Delivers("Clutch")&&!Delivers("Pause"),"Sequential car trial delivers only shift edges");
-
         // The force wheel never follows a stale native Steer binding while shared input is requested and has not
         // actually been refused (pending, or stopped before opening). An explicit FFB wheel always wins.
         var legacy=Guid.Parse("cccccccc-1111-2222-3333-444444444444");
@@ -284,67 +256,15 @@ internal static partial class ShimChecks
         Check(ShimInput.Owns&&!ShimInput.Ready&&Runtime.Wheel.Apply(controls)==null&&keyboardValues.SequenceEqual(keyboardSaved)&&pad.AnyKey,
             "terminal shared transport leaves native keyboard table intact while blocking legacy wheel fallback");
         controls.field_Private_GamePadSystem_0=null;pad.AnyKey=false;pad.PadActions=null;
-        TrialCore(dir,Check);
-        TrialCarCore(dir,Check);
+        // TestNeutral and injected actions never become ordinary Live input.
+        var gate=new ShimButtonGate();var actions=new ShimAction[ShimActionMap.Count];int confirm=ShimActionMap.Index("confirm");
+        actions[confirm]=new(0,ShimStatus.TestNeutral);gate.Observe(actions,0,true);
+        actions[confirm]=new(1,ShimStatus.Live,true);gate.Observe(actions,0,true);
+        Check(!gate.Read("Confirm",false),"ordinary TestNeutral cannot arm injection");
         // The panel fixtures that follow cover a package without the shim: standalone bindings only.
         Reset(dir);Set("_requested",false);
         Runtime.Log.Errors.Clear();Runtime.Log.Warnings.Clear();
         Console.WriteLine($"PASS {first} production shim/lease checks; fake handle calls, no device/game/force. Native ABI result reported separately.");
-    }
-    private static void TrialCore(string dir,Action<bool,string> check)
-    {
-        // Regress the exact release-arm failure even without the optional native
-        // Core fixture. TestNeutral does not become ordinary Live input.
-        var gate=new ShimButtonGate();var actions=new ShimAction[31];int confirm=ShimActionMap.Index("confirm");
-        actions[confirm]=new(0,ShimStatus.TestNeutral);gate.Observe(actions,0,true);
-        actions[confirm]=new(1,ShimStatus.Live,true);gate.Observe(actions,0,true);
-        check(!gate.Read("Confirm",false),"ordinary TestNeutral cannot arm injection");
-        actions[confirm]=new(0,ShimStatus.TestNeutral);gate.Observe(actions,0,true,1UL<<confirm);
-        actions[confirm]=new(1,ShimStatus.Live,true);gate.Observe(actions,0,true,1UL<<confirm);
-        check(gate.Read("Confirm",true)&&!gate.Read("Confirm",true),"owned known-neutral arms exactly one first injected edge");
-        string? source=Environment.GetEnvironmentVariable("WODEN_CORE_MENU_FRAMES"),profile=Environment.GetEnvironmentVariable("WODEN_CORE_MENU_PROFILE");
-        if(source==null||profile==null)return;
-        Panel.Close(false);Reset(dir);Runtime.DiagnosticNoForce=true;Runtime.Settings.FfbEnabled=Runtime.Settings.TelemetryEnabled=false;
-        File.WriteAllBytes(Path.Combine(dir,"dbce-controls.ini"),File.ReadAllBytes(profile));
-        string session=Path.Combine(dir,"trial-session.txt"),batch=Path.Combine(dir,"trial-batch.txt");File.WriteAllText(session,"fixture");
-        ShimInput.ConfigureMenuTrial(new string('a',32),session,batch,DateTimeOffset.UtcNow.AddMinutes(2),true);
-        Replace("_open2",nameof(Open2));Replace("_tick",nameof(CoreTick));
-        var producer=new GamePadSystem();producer.Game_Pads.Add(new());ShimInput.BeforeStock(producer);
-        var daily=new DailyMessage();var title=new TitleScreenScript{FramesToDemo=100000};
-        var garage=new GameObject();var workshop=new GameObject();garage.Right=workshop;workshop.Left=garage;
-        var events=new UnityEngine.EventSystems.EventSystem{currentSelectedGameObject=garage};
-        UnityEngine.EventSystems.EventSystem.current=null;
-        Input.Held=false;Input.Keys.Clear();Input.Down.Clear();StartupWheelControls.Reset();MenuCameraScript.Available=true;MenuCameraScript.Exiting=false;
-        int phaseBefore=-1,right=0,left=0;long delivered=MenuNavigation.Delivered;
-        using var input=new BinaryReader(File.OpenRead(source));
-        while(input.BaseStream.Position<input.BaseStream.Length)
-        {
-            int phase=input.ReadInt32();_coreFrame=input.ReadBytes(296);check(_coreFrame.Length==296,"complete actual-Core ABI frame");
-            if(phase!=phaseBefore)
-            {
-                if(phase<3)ShimInput.MenuTrialScope(phase+1);
-                if(phase==4)ShimInput.MenuTrialScope(4);
-                if(phase==2)UnityEngine.EventSystems.EventSystem.current=events;
-                phaseBefore=phase;
-            }
-            Runtime.Clock.Advance(.01);Next();
-            if(phase==0){bool original=DailyMessageInputHook.Prefix(daily,out var lease);if(original)daily.Update();DailyMessageInputHook.Postfix(lease);}
-            if(phase==1){bool original=TitleScreenInputHook.Prefix(title,out var lease);if(original)title.FixedUpdate();TitleScreenInputHook.Postfix(lease);}
-            if(phase is 2 or 3)
-            {
-                var before=events.currentSelectedGameObject;MenuNavigation.Update();
-                if(before!=events.currentSelectedGameObject){if(phase==2)right++;else left++;}
-            }
-            check(!Runtime.Wheel!.Button("Back",false)&&!Runtime.Wheel.Button("Camera",false)&&ShimInput.Axis("throttle")==0,"trial excludes unrelated actions/driving");
-            if(phase>=2)check(!Runtime.Wheel.Button("Confirm",false)&&!Runtime.Wheel.Button("Pause",false),"map cannot submit/start");
-        }
-        check(_latchedArgs&&_opens==1&&_ticks==500,"real 500 Core frames consume verified latched-only Open2 arguments");
-        check(daily.Loads==1&&title.StartLoads==1&&!daily.MyControls!.ButtonStart&&!title.MyControls!.ButtonStart,"actual startup prefixes drive each native fixture once and restore fields");
-        check(right==1&&left==1&&MenuNavigation.Delivered-delivered==2&&events.currentSelectedGameObject==garage,"actual WheelInput and MenuNavigation move native handler selection right then left once");
-        check(ShimInput.Run==4&&ShimInput.KnownNeutral("confirm")==false&&!Runtime.Wheel!.Button("Menu right",false),"Core Completed is terminal neutral after narrowing scope");
-        bool widened=false;try{ShimInput.MenuTrialScope(3);}catch(InvalidOperationException){widened=true;}check(widened,"completed scope cannot widen");
-        Input.Held=true;check(!ShimInput.TrialNativeMenuAllowed()&&!ShimInput.Ready,"physical keyboard interrupts diagnostic trial");Input.Held=false;
-        UnityEngine.EventSystems.EventSystem.current=null;Replace("_tick",nameof(Tick));_coreFrame=null;
     }
     internal static void PanelCheck(string dir,Action<bool,string> check)
     {

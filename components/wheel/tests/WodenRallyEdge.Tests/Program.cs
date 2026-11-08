@@ -726,7 +726,7 @@ Test("camera button extends the stock cycle without saving invalid native indice
     cycle.StockChanged(0, 0, false, false); Check(cycle.View == MountedView.Stock, "all disabled leaves normal cycle");
 });
 Test("FFB saved preference, transient stop recovery and panic using actual consumer policy", () => WodenRallyEdge.ForceControllerChecks.Recovery(Check, t => Contact(t)));
-Test("FFB init/write failures and diagnostic launch cannot reconnect-loop or choose another wheel", () => WodenRallyEdge.ForceControllerChecks.Failures(Check, t => Contact(t)));
+Test("FFB init/write failures cannot reconnect-loop or choose another wheel", () => WodenRallyEdge.ForceControllerChecks.Failures(Check, t => Contact(t)));
 Test("crash kick: art of rally's rules and cue on a body contact; continuity, road and delivery gates (toolkit CrashCue@2)", () => WodenRallyEdge.ForceControllerChecks.Crash(Check, t => Contact(t)));
 Test("handbrake axis/button selection, proportional values and legacy binding persistence", () => {
     Near(HandbrakeInput.Amount(true, true, .25f, false, false), .25, "quarter pull");
@@ -757,7 +757,7 @@ Test("summary CLI bounds ordinary failures and malformed requests without runnin
 Test("grip v6 admits only finite continuous equal-knot curves; legacy arithmetic and admission stay exact", () => GripV6Checks.Curves(Check));
 Test("grip v6 learns front load only from forward-valid rows; recorded replay reference stays exact", () => GripV6Checks.ReferenceDirection(Check));
 Test("grip v8 centering: owner-accepted v7 at 50%, restoring from the first degrees, monotonic, none at standstill; damping resists", () => CenteringChecks.Run(Check));
-Test("grip v8 through the controller: On reaches the device; saved Off and diagnostic mute write nothing", () => CenteringChecks.Gates(Check));
+Test("grip v8 through the controller: On reaches the device; saved Off writes nothing", () => CenteringChecks.Gates(Check));
 Test("ordinary HUD depth preserves ideal pixels and bounds isolated-world float precision", () => WodenRallyEdge.HudDepthChecks.Run(Check));
 Test("native gearbox preference sets only the selected player's saved choice, once, never for tooling or malformed records", () => WodenRallyEdge.NativeGearboxChecks.Run(Check));
 Test("the separate-monitor span takes the toolkit racing row: the four-display rig spans only the racing displays", () => WodenRallyEdge.SpanTargetChecks.Run(Check));

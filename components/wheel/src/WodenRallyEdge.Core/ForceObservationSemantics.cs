@@ -54,7 +54,6 @@ public static class ForceObservationSemantics
     public static int Gate(string gate) => gate switch
     {
         "active" => 0,
-        "diagnostic-force-disabled" => 1,
         "saved-off" => 2,
         "faulted" => 3,
         "settings-open" => 4,

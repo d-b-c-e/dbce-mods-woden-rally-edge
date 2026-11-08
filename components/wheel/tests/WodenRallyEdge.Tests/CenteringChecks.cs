@@ -113,7 +113,7 @@ internal static class CenteringChecks
         }
     }
 
-    // The controller's off and mute gates are unchanged: no write while saved Off or diagnostic-muted, force when On.
+    // The controller's off and mute gates are unchanged: no write while saved Off, force when On.
     public static void Gates(Action<bool, string> check)
     {
         var (controller, device) = ForceControllerChecks.Create();
@@ -125,10 +125,5 @@ internal static class CenteringChecks
         controller.SetEnabled(false); int writes = device.Writes.Count;
         for (int i = 0; i < 20; i++) { controller.Prepare(); var s = Drive(); controller.Tick(s); check(s.Get("ffb.deliveredOutput") == 0, "Off delivers zero"); }
         check(device.Writes.Count == writes, "saved Off writes nothing");
-        (controller, device) = ForceControllerChecks.Create(); Runtime.DiagnosticNoForce = true;
-        Runtime.Settings.Options = Defaults;
-        for (int i = 0; i < 40; i++) { controller.Prepare(); controller.Tick(Drive()); }
-        check(device.Writes.Count == 0 && device.Opens == 0, "diagnostic mute writes nothing and opens nothing");
-        Runtime.DiagnosticNoForce = false;
     }
 }

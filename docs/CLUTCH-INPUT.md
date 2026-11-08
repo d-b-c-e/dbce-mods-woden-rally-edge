@@ -132,10 +132,9 @@ The following semantics must be settled and tested before enabling support:
    support is real. Update the focused tests and
    ProtocolTests unsupported lists only with qualified observation semantics;
    update `Test-PrivateShimInstall.ps1` and the matching installer fixtures.
-5. **Native-car observation:** extend the existing raw-controls/CarTrial path,
-   rather than a second harness. `ControlsProbe` already records native wheel
-   motor/brake torque and the trial reads native gear/change state. A future
-   clutch trial needs fresh sequence-bound native input/coupling evidence plus
+5. **Native-car observation:** the old raw-controls car trial and `ControlsProbe`
+   were deleted on 2026-11-08; use the mod's own logs and the owner's check
+   instead of rebuilding a harness. A future clutch check needs fresh sequence-bound native input/coupling evidence plus
    engine RPM, drive/brake torque and gear/context readback where actually
    observable. Name missing channels. Do not infer clutch from an injector ack,
    shim normalized value, telemetry slot or pose replay.

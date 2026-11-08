@@ -301,7 +301,7 @@ internal static class NativeGearboxApply {internal static string Status=>"Keep: 
     internal static class Runtime
     {
         internal static Settings Settings=null!;internal static WheelInput? Wheel;internal static DeviceHub? Devices=new();internal static ForceController? Force=new();internal static TelemetryOutput? Output;
-        internal static bool Focused=true,DiagnosticNoForce;internal static MainCar? Local;internal static readonly TestClock Clock=new();internal static Log Log=new();
+        internal static bool Focused=true;internal static MainCar? Local;internal static readonly TestClock Clock=new();internal static Log Log=new();
         internal static PlayerControlState ControlState(MainCar c)=>new(PlayerPhase.Racing,true,Focused,Panel.Open,Pause.Paused,false,false,false,false);
         internal static bool CameraAvailable(MainCar c)=>true;
     }

@@ -7,7 +7,7 @@ namespace WodenRallyEdge;
 // Deliberately restricted pilot. Unity cannot currently join a Gamepad to the
 // shim's exact DirectInput/HID identity. Refuse coexistence instead of disabling
 // a guessed device. ReadInputs keeps its separate native keyboard overlay.
-internal static partial class ShimInput
+internal static class ShimInput
 {
     private static readonly ShimAction[] Actions = new ShimAction[ShimActionMap.Count];
     private static readonly byte[] Frame = new byte[ShimNative.FrameSize];
@@ -19,6 +19,7 @@ internal static partial class ShimInput
     private static GamePadSystem? _producer;
     private static IntPtr _handle;
     private static int _frame = -1, _context = -1, _window;
+    private static ulong _sequence;
     internal static bool Owns { get; private set; }
     internal static bool Requested => _requested;
     internal static bool Ready => Owns && !_terminal;
@@ -107,14 +108,10 @@ internal static partial class ShimInput
                 var startupProfile=File.ReadAllBytes(profilePath);
                 var bytes = ShimProfile.Section(startupProfile);
                 reason = ShimNative.Load(_directory); if (reason != null) { RefuseOrStop(reason); return; }
-                string nonce = _trialNonce ?? Guid.NewGuid().ToString("N");
+                string nonce = Guid.NewGuid().ToString("N");
                 string folder = Path.Combine(_reports, "run-" + nonce); Directory.CreateDirectory(folder);
                 if (!GameWindow.IsOwned(window)) { Status = "Shim pilot: Unity window changed before open; Native retained"; return; }
-                if (_trialNonce != null && (!TrialFences || !Runtime.Focused || !GameWindow.IsFocused(window)))
-                { Status="Shim menu trial: waiting for actual Unity focus and muted menu fences; Native retained"; return; }
-                string why;
-                int result = _trialNonce == null ? ShimNative.Open(folder, nonce, bytes, ShimActionMap.Unsupported, new IntPtr(window), out _handle, out why) :
-                    ShimNative.OpenLatched(folder, nonce, bytes, TrialUnsupported, new IntPtr(window), _trialSession!, _trialBatch!, out _handle, out why, _carTrial ? "woden-car-trial@1" : "woden-menu-trial@1");
+                int result = ShimNative.Open(folder, nonce, bytes, ShimActionMap.Unsupported, new IntPtr(window), out _handle, out string why);
                 if (result != 0) { RefuseOrStop("Open " + result + ": " + why); return; }
                 Owns = true; // Sticky: no legacy binding fallback after native ownership.
                 _window = window;
@@ -130,11 +127,11 @@ internal static partial class ShimInput
                 double tickStarted=Runtime.Clock.Elapsed.TotalSeconds;
                 int result = ShimNative.Tick(_handle, Frame);
                 if (result != 0) { RefuseOrStop("Tick " + result); return; }
-                ShimNative.Decode(Frame, Actions, out ulong sequence, out _, out _, out byte run);
-                if (!AcceptFrame(sequence,run)) return;
-                if(_trialNonce==null)ShimBindingSnapshots.AfterAcceptedTick(_handle,sequence,tickStarted);
+                ShimNative.Decode(Frame, Actions, out ulong sequence, out _, out _, out _);
+                if (!AcceptFrame(sequence)) return;
+                ShimBindingSnapshots.AfterAcceptedTick(_handle,sequence,tickStarted);
                 _context = Context;
-                _buttons.Observe(Actions, _context, Allowed, KnownNeutralMask);
+                _buttons.Observe(Actions, _context, Allowed);
                 Status = InputFocused ? "Shim pilot active · wheel-only · native keyboard retained" :
                     "Shim pilot active · Unity window unfocused; wheel actions neutral";
             }
@@ -142,24 +139,34 @@ internal static partial class ShimInput
         catch (Exception e) { RefuseOrStop(e.Message); }
     }
     private static bool InputFocused => Runtime.Focused && GameWindow.IsFocused(_window);
-    private static bool Allowed => Ready && InputFocused && Runtime.Wheel?.Capturing != true && !SharedBindingHost.Current.BlocksDispatch && (_trialNonce == null || TrialFences);
+    private static bool Allowed => Ready && InputFocused && Runtime.Wheel?.Capturing != true && !SharedBindingHost.Current.BlocksDispatch;
     private static int Context => !InputFocused ? -1 : Panel.Open ? 3 : Pause.Paused ? 2 : Runtime.Local == null ? 0 : 1;
     internal static bool Button(string action, bool edge, MainCar? car = null)
     {
         Poll();
-        if (_context != Context) { _context = Context; _buttons.Observe(Actions, _context, Allowed, KnownNeutralMask); }
+        if (_context != Context) { _context = Context; _buttons.Observe(Actions, _context, Allowed); }
         bool shift = action is "Gear up" or "Gear down";
         bool gate = ShimActionMap.Buttons.TryGetValue(action, out var id) && ShimActionMap.IsGate(id);
-        return _buttons.Read(action, edge, Allowed && TrialDelivers(action) && (!shift || ShiftReady(car ?? Runtime.Local)) &&
+        return _buttons.Read(action, edge, Allowed && (!shift || ShiftReady(car ?? Runtime.Local)) &&
             (!gate || HPatternReady(car ?? Runtime.Local)));
     }
     internal static ShimAction Action(string id) => !Ready ? default :
         (id is "shiftUp" or "shiftDown" && _transmission != "Sequential") || (ShimActionMap.IsGate(id) && !HPattern) ?
         new(0, ShimStatus.Unsupported) : Actions[ShimActionMap.Index(id)];
-    internal static float Axis(string id) => Allowed && (!_carTrial || _carTrialDelivery) ? Rest(id, Action(id).Applied) : 0;
+    internal static float Axis(string id) => Allowed ? Rest(id, Action(id).Applied) : 0;
     // The shared profile has no deadzone: zero pedal rest noise up to the same 3% floor (values above pass unchanged).
     private static float Rest(string id, float value) => id is "throttle" or "brake" or "handbrake" && value <= AxisCalibration.MinPedalDeadzone ? 0 : value;
-    internal static bool AxesLive => Allowed && (!_carTrial || _carTrialDelivery) && DrivingAxes.All(id => Action(id) is { Status: ShimStatus.Live } a && float.IsFinite(a.Value));
+    internal static bool AxesLive => Allowed && DrivingAxes.All(id => Action(id) is { Status: ShimStatus.Live } a && float.IsFinite(a.Value));
+    // Ordinary frames only: a strictly increasing sequence, no latched or native-suppression flags, no injected or
+    // test-neutral actions.
+    private static bool AcceptFrame(ulong sequence)
+    {
+        if (sequence <= _sequence) { RefuseOrStop("Non-increasing shared frame sequence"); return false; }
+        _sequence = sequence;
+        if (Frame[41] != 0 || Frame[42] != 0 || Actions.Any(a => a.Injected || a.Status == ShimStatus.TestNeutral))
+        { RefuseOrStop("Unexpected latched/native-suppression frame provenance"); return false; }
+        return true;
+    }
     private static void RefuseOrStop(string reason)
     {
         if (Owns) Stop(reason);

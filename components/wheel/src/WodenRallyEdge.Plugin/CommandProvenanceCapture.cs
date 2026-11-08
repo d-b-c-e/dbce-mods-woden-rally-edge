@@ -170,12 +170,12 @@ internal static class CommandCaptureAudit
     private static readonly HashSet<string> Calls = new() { "can-open", "open", "write", "zero-stop", "panic", "close", "reader-close", "refresh", "is-reading" };
     private static readonly HashSet<string> BooleanCalls = new() { "can-open", "open", "write", "is-reading" };
     private static readonly HashSet<string> Invocations = new() { "prepare", "tick", "setenabled", "disarm", "reconnect", "panic", "suspend", "beginruntime", "shutdown" };
-    private static readonly HashSet<string> Gates = new() { "active", "diagnostic-force-disabled", "saved-off", "faulted", "settings-open", "unfocused", "stock-owner-unready", "camera-not-owned", "wheel-input-unavailable", "model-invalid", "wheel-not-connected", "write-failed" };
+    private static readonly HashSet<string> Gates = new() { "active", "saved-off", "faulted", "settings-open", "unfocused", "stock-owner-unready", "camera-not-owned", "wheel-input-unavailable", "model-invalid", "wheel-not-connected", "write-failed" };
     internal static bool ValidTag(string kind, string code) => kind switch {
         "call-begin" or "call-end" => Calls.Contains(code),
         "invocation" or "terminal-reject" => Invocations.Contains(code),
         "gate" => Gates.Contains(code),
-        "guard" => code is "diagnostic" or "enabled" or "faulted" or "focused" or "stock-ready" or "hub-present",
+        "guard" => code is "enabled" or "faulted" or "focused" or "stock-ready" or "hub-present",
         "target" => code is "none" or "steering-unbound" or "explicit-target-missing" or "target-not-present" or "target-ambiguous" or "target-virtual" or "target-no-ffb" or "unknown",
         "target-change" => code == "changed",
         "reader" => code == "is-reading",
