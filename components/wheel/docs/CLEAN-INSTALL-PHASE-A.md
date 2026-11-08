@@ -20,5 +20,5 @@ compare-only). `-SelfTest` on throwaway state: **15/15 PASS** (exact restore, ta
 live state untouched, outside and junction targets refused). Read-only owner snapshot (`-Save` then `-Compare`, no
 restore): equal, 0.4 MB, `E:\Source\temp\woden-phaseB\owner-state-20261030-a`.
 
-Not covered: a Woden launch wrapper (Art's `Start-CleanInstallLaunch.ps1` shape) and **Phase B**
-(first launch of a clean copy), which stays blocked on the owner's Steam Cloud decision.
+Not covered here: **Phase B** (first launch of a clean copy). It ran on 2026-11-07 after the owner's Steam Cloud
+decision; see `docs/2026-11-07-clean-install.md` at the repo root.

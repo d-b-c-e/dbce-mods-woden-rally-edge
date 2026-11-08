@@ -20,6 +20,7 @@ Source verification without a device: `tools/game/Verify-Source.ps1`. Player ZIP
 - Executable harnesses (`dotnet test` does not run them): `dotnet run --project tests\WodenRallyEdge.Tests -c Release` and `tests\WodenRallyEdge.UiTests`; installer checks `components/wheel/tools/Test-Installer.ps1`.
 - In game: launch via Steam, F6 opens the panel, F8 turns FFB off. Logs: `<game>\BepInEx\LogOutput.log`.
 - Back up and restore around a run: BepInEx configs and bindings, saves and `LocalLow\ViJuDa\Super Woden Rally Edge`, and the HKCU Unity preferences.
+- Starting a copied exe directly: it restarts itself through Steam into the owner install unless `steam_appid.txt` (3218630) sits beside it; put that file only in a test copy. Saves still sync through Steam Auto-Cloud when it exits, so a fresh-profile run uploads its save; restore, then sync back (`docs/2026-11-07-clean-install.md`).
 
 ## Install on the rig
 With the game closed, run `Install.bat` from the built ZIP (packaged `Manage-Install.ps1`: verified update, backup, rollback, owned-file uninstall). Backups go to `<game>/WodenWheelBackups`. Rollback: `Uninstall.bat` or the backup.
