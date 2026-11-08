@@ -47,7 +47,7 @@ dotnet run --project tools\TelemetryInspector -c Release -- devices lib\toolkit\
 
 The device command only enumerates; it does not create force effects. `inspect` validates the complete source file and reports coverage. `reprocess` requires complete, drop-free driving data and verifies the recorded baseline. `trial` first revalidates the immutable source/case/baseline, then runs the actual managed model with a separate candidate config into a new observation. A successful comparison establishes ordered model-preview requests for the same exact case bytes; it does not establish native delivery, deterministic Unity replay, measured torque or force feel.
 
-Player install/update and receipt-based uninstall are available through `Install.bat` / `Uninstall.bat` in the ZIP; they need no SDK. Use `WodenRallyEdgeWheel-0.2.10-installer-r3-e5da2d5.zip`, which corrects package-folder discovery on Windows PowerShell 5.1. Updates back up the existing plugin/configuration and verify preserved settings. See [installation and recovery details](docs/DEVELOPMENT-BUILD.md). The repository-only `Install-Dev.ps1` remains an initial-install helper.
+Player install/update and receipt-based uninstall are available through `Install.bat` / `Uninstall.bat` in the ZIP; they need no SDK. Use `WodenRallyEdgeWheel-0.2.10-installer-r3-e5da2d5.zip`, which corrects package-folder discovery on Windows PowerShell 5.1. Updates back up the existing plugin/configuration and verify preserved settings. See [installation and recovery details](docs/DEVELOPMENT-BUILD.md).
 
 ## Design references
 

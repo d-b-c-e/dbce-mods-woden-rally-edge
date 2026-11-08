@@ -17,7 +17,7 @@ dotnet build WodenRallyEdgeWheel.sln -c Release -warnaserror
 Source verification without a device: `tools/game/Verify-Source.ps1`. Player ZIP: `components/wheel/tools/Package.ps1` (public candidate: `tools/game/Prepare-PublicRelease.ps1`).
 
 ## Test
-- Executable harnesses (`dotnet test` does not run them): `dotnet run --project tests\WodenRallyEdge.Tests -c Release` and `tests\WodenRallyEdge.UiTests`; installer checks `components/wheel/tools/Test-Installer.ps1`.
+- Executable harnesses (`dotnet test` does not run them): `dotnet run --project tests\WodenRallyEdge.Tests -c Release` and `tests\WodenRallyEdge.UiTests`; installer checks `components/wheel/tools/Test-ManageInstall.ps1 -PackageRoot <stage>` and `Test-PrivateShimInstall.ps1`. From an agent shell, give their PowerShell 5.1 child a short system PATH: .NET Framework drops a very long one, and `Install.bat` then cannot find `powershell.exe`.
 - In game: launch via Steam, F6 opens the panel, F8 turns FFB off. Logs: `<game>\BepInEx\LogOutput.log`.
 - Back up and restore around a run: BepInEx configs and bindings, saves and `LocalLow\ViJuDa\Super Woden Rally Edge`, and the HKCU Unity preferences.
 - Starting a copied exe directly: it restarts itself through Steam into the owner install unless `steam_appid.txt` (3218630) sits beside it; put that file only in a test copy. Saves still sync through Steam Auto-Cloud when it exits, so a fresh-profile run uploads its save; restore, then sync back (`docs/2026-11-07-clean-install.md`).

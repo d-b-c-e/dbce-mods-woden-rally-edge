@@ -39,7 +39,7 @@ The first attended 0.2.12 live recording completed with 116 seconds of driving, 
 - No proprietary game assemblies, generated interop, game assets, recorded owner sessions or loader caches in Git/release archives. Only the toolkit's MIT artifacts are vendored.
 - Never silently change vehicle physics or assists. Preserve the implemented stock Logitech reader suspension/SDK shutdown and refusal to arm when ownership cannot be resolved; the owner felt force on 0.2.3, but lifecycle/sign/load acceptance remains open.
 - Experimental FFB now exists. The owner explicitly requested saved On/Off with a new-config default On and no per-session arming (2026-09-14). F8/Stop saves Off; only On resumes. Never enable physical force as an unattended test. Preserve toolkit watchdog, focus/stale/pause/panel gates, exact device selection, exit guards, ramp-in, peak cap and zero-before-window-destruction rules. Normal suppression must not reconnect/enumerate devices. No native condition/periodic effects bypass the constant-force hold watchdog.
-- Never stop a running game to deploy. Install only when closed. The packaged `Manage-Install.ps1` supports verified updates, backups, rollback and owned-file uninstall; `Install-Dev.ps1` remains initial-only. Backups for the packaged route live at `<game>/WodenWheelBackups`, outside plugin scanning.
+- Never stop a running game to deploy. Install only when closed. The packaged `Manage-Install.ps1` supports verified updates, backups, rollback and owned-file uninstall. Backups for the packaged route live at `<game>/WodenWheelBackups`, outside plugin scanning.
 
 ## Architecture
 
@@ -69,8 +69,9 @@ dotnet build WodenRallyEdgeWheel.sln -c Release -warnaserror
 dotnet run --project tests\WodenRallyEdge.Tests -c Release
 dotnet run --project tests\WodenRallyEdge.UiTests -c Release
 .\tools\Package.ps1
-.\tools\Test-Installer.ps1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\Test-ManageInstall.ps1 -PackageRoot <stage>
+.\tools\Package.ps1 -PrivateShimPath <dbce_shim.dll>
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\Test-ManageInstall.ps1 -PackageRoot <ordinary stage>
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\Test-PrivateShimInstall.ps1 -NativePackageRoot <ordinary stage> -PrivatePackageRoot <shim stage>
 ```
 
 The tests are an executable harness: `dotnet test` does not run these assertions. Keep the classic `.sln`. Package via an explicit file allowlist. No CI/release automation has been set up. No commit/push to sibling projects is needed for ordinary Woden work.
