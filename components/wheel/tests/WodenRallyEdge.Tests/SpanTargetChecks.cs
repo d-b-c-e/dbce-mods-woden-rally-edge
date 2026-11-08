@@ -64,15 +64,5 @@ internal static class SpanTargetChecks
         monitors[3] = M(314, -200, 1920, 1080); // the diagnostic display moved down into the row's band
         clock += SpanTarget.RefreshSeconds;
         check(cached.Decide(true, true, out changed) == null && changed && reads == 2, "the next refresh sees the new topology and refuses: " + cached.Reason);
-
-        // The vendored selector is the toolkit's bytes (DEPENDENCIES.md): git blob ids of the checked-in files.
-        string display = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../src/WodenRallyEdge.Core/Toolkit/Display"));
-        foreach (var (file, blob) in new[] { ("RacingRow.cs", "3d43d868a58b619a75f622481325b700d168f5ad"), ("WindowsMonitors.cs", "cf20f97be06ba43b26a95c4edbd74d3dff58efd5"), ("WindowLanding.cs", "b111307d7ad3bcaca494c17ef7420cf76fa9caaa") })
-        {
-            byte[] bytes = File.ReadAllBytes(Path.Combine(display, file));
-            byte[] header = System.Text.Encoding.ASCII.GetBytes("blob " + bytes.Length + "\0");
-            string actual = Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(header.Concat(bytes).ToArray())).ToLowerInvariant();
-            check(actual == blob, file + " is the pinned toolkit blob: " + actual);
-        }
     }
 }

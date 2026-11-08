@@ -16,7 +16,7 @@
     <Compile Include="../../src/WodenRallyEdge.Plugin/TripleGeometry.cs" Link="Consumer/TripleGeometry.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CurvedRig.cs" Link="Consumer/CurvedRig.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CurveEvidence.cs" Link="Consumer/CurveEvidence.cs" />
-    <Compile Include="../../src/WodenRallyEdge.Plugin/Toolkit/Triple/*.cs" Link="Consumer/Toolkit/%(Filename)%(Extension)" />
+    <Compile Include="../../lib/toolkit/triple/core/CurvedPanelWarp.cs;../../lib/toolkit/triple/core/DisplaySurface.cs;../../lib/toolkit/triple/core/Matrix4x4d.cs;../../lib/toolkit/triple/core/OffAxisProjection.cs;../../lib/toolkit/triple/core/ProjectionCalculator.cs;../../lib/toolkit/triple/core/TripleRigBuilder.cs;../../lib/toolkit/triple/core/TripleRigDefinition.cs;../../lib/toolkit/triple/core/Vector3d.cs" Link="Consumer/Toolkit/%(Filename)%(Extension)" />
     <ProjectReference Include="../../src/WodenRallyEdge.Core/WodenRallyEdge.Core.csproj" />
     <Reference Include="Dbce.Wheel.Telemetry" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Telemetry.dll" />
     <Reference Include="Dbce.Wheel.Ffb" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Ffb.dll" />

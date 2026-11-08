@@ -10,5 +10,11 @@
     <Reference Include="Dbce.Wheel.Ffb" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Ffb.dll" />
     <None Include="../../lib/toolkit/native/WheelFfb.dll" CopyToOutputDirectory="PreserveNewest" Link="WheelFfb.dll" />
   </ItemGroup>
+  <!-- Toolkit sources, synced by tools/Sync-Toolkit.ps1 and checked against lib/toolkit/MANIFEST.txt (-Check). Never edit them here. -->
+  <ItemGroup>
+    <Compile Include="../../lib/toolkit/shared/input/BindingEditorContract.cs" LinkBase="Toolkit/Input" />
+    <Compile Include="../../lib/toolkit/shared/support/SupportReport.cs" LinkBase="Toolkit/Support" />
+    <Compile Include="../../lib/toolkit/triple/core/CurvedPanelWarp.cs;../../lib/toolkit/triple/core/DisplaySurface.cs;../../lib/toolkit/triple/core/Matrix4x4d.cs;../../lib/toolkit/triple/core/OffAxisProjection.cs;../../lib/toolkit/triple/core/ProjectionCalculator.cs;../../lib/toolkit/triple/core/TripleRigBuilder.cs;../../lib/toolkit/triple/core/TripleRigDefinition.cs;../../lib/toolkit/triple/core/Vector3d.cs" LinkBase="Toolkit/Triple" />
+  </ItemGroup>
   <Import Project="../../../../vendor/dbce-shim/PrivateShim.targets" />
 </Project>

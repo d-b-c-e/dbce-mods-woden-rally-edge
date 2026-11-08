@@ -5,7 +5,7 @@ Portfolio rules: `E:\Source\dbce-project-mgmt\HOW-WE-WORK.md` (read first; it re
 ## Game and mod
 - Super Woden Rally Edge, Steam app 3218630, `D:\Program Files (x86)\Steam\steamapps\common\Super Woden Rally Edge`. Unity with BepInEx BE #788 (generated interop references; plugin targets net6.0). Runtime flavor (Mono vs IL2CPP) is unknown — check `components/wheel/AGENTS.md`.
 - Direct wheel/pedal/handbrake controls, force feedback for any DirectInput wheel, Forza telemetry, bonnet and bumper cameras, triple screens, F6 panel. Public repo (the owner pushes).
-- Source: root `src/WodenRallyEdge.Core` and `.Plugin`; the older wheel component with its solution is `components/wheel`.
+- Source: `components/wheel/src/WodenRallyEdge.Core` and `.Plugin`, with the solution in `components/wheel`. Root `src`, `tests` and `lib` hold only ignored build leftovers.
 
 ## Build
 Exact root build command: unknown — check README. From `components/wheel`:
@@ -27,7 +27,7 @@ With the game closed, run `Install.bat` from the built ZIP (packaged `Manage-Ins
 From an agent shell, run it as `env -u PSModulePath powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File Manage-Install.ps1 -Mode Install -GameDir "<game>" < /dev/null` (bash). An inherited PowerShell 7 module path breaks `Get-FileHash` and the Steam registry lookup, and the installer then waits on a folder-picker dialog.
 
 ## Shared code
-Vendored toolkit code is under `lib/` and `vendor/` (shim, playback) and `components/wheel`; refresh with `components/wheel/tools/Sync-Toolkit.ps1`. Change shared code in the toolkit and re-sync; never edit the vendored copy.
+Toolkit DLLs and sources are in `components/wheel/lib/toolkit`, pinned by its `MANIFEST.txt`; refresh with `components/wheel/tools/Sync-Toolkit.ps1` (`-LocalRepo <toolkit> -Parts shared,triple` for sources), and `-Check` runs before every build. `vendor/dbce-shim` holds the private shim build input. Change shared code in the toolkit and re-sync; never edit the vendored copy.
 
 ## Game-specific rules
 - Never call the generated `WheelCollider.GetGroundHit(out WheelHit)` wrapper: it corrupts memory on first level entry. Use `WheelContact.Read`.

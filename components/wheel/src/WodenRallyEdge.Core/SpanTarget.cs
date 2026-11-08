@@ -3,7 +3,7 @@ using Dbce.Wheel.Display;
 namespace WodenRallyEdge.Core;
 
 /// <summary>
-/// STD-015's span decision over the toolkit racing row (shared/display, vendored under Toolkit/Display). The saved
+/// STD-015's span decision over the toolkit racing row (shared/display, synced into lib/toolkit). The saved
 /// opt-out and the triple-mode gate come first. Then the policy selects the row from the monitors Windows reports: the
 /// primary display as the center, with one display of the same size, top and bottom directly on each side. Displays
 /// wholly above or below that row, such as a diagnostic screen, are ignored. A fourth display in the row, a missing,

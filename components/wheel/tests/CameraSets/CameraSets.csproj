@@ -9,7 +9,7 @@
     <Compile Include="$(ProductionRoot)/WodenRallyEdge.Plugin/TripleGeometry.cs" Link="Production/TripleGeometry.cs" />
     <Compile Include="$(ProductionRoot)/WodenRallyEdge.Plugin/CurvedRig.cs" Link="Production/CurvedRig.cs" />
     <Compile Include="$(ProductionRoot)/WodenRallyEdge.Plugin/CameraFramingStore.cs" Link="Production/CameraFramingStore.cs" />
-    <Compile Include="$(ProductionRoot)/WodenRallyEdge.Plugin/Toolkit/Triple/*.cs" Link="Production/Toolkit/%(Filename)%(Extension)" />
+    <Compile Include="$(ProductionRoot)/../lib/toolkit/triple/core/CurvedPanelWarp.cs;$(ProductionRoot)/../lib/toolkit/triple/core/DisplaySurface.cs;$(ProductionRoot)/../lib/toolkit/triple/core/Matrix4x4d.cs;$(ProductionRoot)/../lib/toolkit/triple/core/OffAxisProjection.cs;$(ProductionRoot)/../lib/toolkit/triple/core/ProjectionCalculator.cs;$(ProductionRoot)/../lib/toolkit/triple/core/TripleRigBuilder.cs;$(ProductionRoot)/../lib/toolkit/triple/core/TripleRigDefinition.cs;$(ProductionRoot)/../lib/toolkit/triple/core/Vector3d.cs" Link="Production/Toolkit/%(Filename)%(Extension)" />
     <Reference Include="BepInEx.Core" HintPath="../../lib/core/BepInEx.Core.dll" />
     <Reference Include="SemanticVersioning" HintPath="../../lib/core/SemanticVersioning.dll" />
   </ItemGroup>

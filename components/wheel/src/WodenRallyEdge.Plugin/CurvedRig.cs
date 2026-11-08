@@ -5,7 +5,7 @@ using Dbce.TripleScreen;
 namespace WodenRallyEdge;
 
 /// <summary>
-/// The three views through the shared toolkit rig (Toolkit/Triple, 7af26cd): measured eye distance is to the panel-edge
+/// The three views through the shared toolkit rig (lib/toolkit/triple/core): measured eye distance is to the panel-edge
 /// plane. Radius 0 gives
 /// the same frusta as <see cref="TripleGeometry.Compute"/> (checked by the tests); a positive radius widens each view to
 /// the planar source surface its curved panel samples (<see cref="Warps"/>), which TripleCurve redraws along the eye rays.

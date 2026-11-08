@@ -87,7 +87,7 @@ uses `Car_Cam` and is a good render test. Turn the dev channel off after testing
 ## Separate monitors without Surround (STD-015, 2026-10-06, unverified)
 
 `SpanWindow` ports DRIVE's plain-launch span. Since 2026-10-13 the row comes from the toolkit racing-row policy
-(`shared/display/RacingRow.cs`, vendored under `Toolkit/Display`; see DEPENDENCIES.md): the primary display is the
+(`shared/display/RacingRow.cs`, synced into `lib/toolkit`; see DEPENDENCIES.md): the primary display is the
 center, with one display of the same width, height and top directly on each side. Displays wholly above or below that
 row, such as the owner's 1920x1080 diagnostic display above it, are ignored. A fourth display in the row, a missing,
 offset or different-size neighbor, two candidates for a side, or a primary at an end of the row select no row, and the
@@ -109,7 +109,7 @@ single screen.
 Unity opens its window on the monitor saved in its own preferences (`UnitySelectMonitor`). On 2026-10-24 that index
 still named the 1920x1080 dashboard display from separate-monitor use, so under Surround the game opened there at
 1920x1080 and the mod did nothing. Without a span, the toolkit's `WindowLandingPolicy.Decide` (`shared/display/WindowLanding.cs`,
-vendored under `src/WodenRallyEdge.Core/Toolkit/Display`; see DEPENDENCIES.md) now decides from the same racing-row policy: a
+synced into `lib/toolkit/shared/display`; see DEPENDENCIES.md) now decides from the same racing-row policy: a
 game window whose center is on a display other than the row's primary (the whole row under Surround, the center display
 for separate monitors) is moved to that primary. Inside `FirstResolutionSet` the game's own apply becomes one windowed
 apply at the primary's size, then the window is placed as a borderless popup over it and re-checked like the span. A

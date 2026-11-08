@@ -8,7 +8,7 @@
     <ProjectReference Include="$(ProductionRoot)/WodenRallyEdge.Core/WodenRallyEdge.Core.csproj" />
     <Compile Include="$(ProductionRoot)/WodenRallyEdge.Plugin/CameraFramingStore.cs" />
     <Compile Include="$(ProductionRoot)/WodenRallyEdge.Plugin/TripleGeometry.cs" />
-    <Compile Include="$(ProductionRoot)/WodenRallyEdge.Plugin/Toolkit/Triple/*.cs" />
+    <Compile Include="$(ProductionRoot)/../lib/toolkit/triple/core/CurvedPanelWarp.cs;$(ProductionRoot)/../lib/toolkit/triple/core/DisplaySurface.cs;$(ProductionRoot)/../lib/toolkit/triple/core/Matrix4x4d.cs;$(ProductionRoot)/../lib/toolkit/triple/core/OffAxisProjection.cs;$(ProductionRoot)/../lib/toolkit/triple/core/ProjectionCalculator.cs;$(ProductionRoot)/../lib/toolkit/triple/core/TripleRigBuilder.cs;$(ProductionRoot)/../lib/toolkit/triple/core/TripleRigDefinition.cs;$(ProductionRoot)/../lib/toolkit/triple/core/Vector3d.cs" />
     <Compile Include="$(HarnessRoot)/Program.cs;$(HarnessRoot)/Host.cs;$(HarnessRoot)/UiHost.cs;$(GeneratedRoot)/TripleView.Fields.cs;$(GeneratedRoot)/Panel.Fields.cs" />
     <Reference Include="BepInEx.Core"><HintPath>$(LibDir)/core/BepInEx.Core.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="SemanticVersioning"><HintPath>$(LibDir)/core/SemanticVersioning.dll</HintPath><Private>true</Private></Reference>

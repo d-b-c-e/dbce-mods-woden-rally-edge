@@ -18,7 +18,7 @@
     <Compile Include="../../src/WodenRallyEdge.Plugin/MenuNavigation.cs" Link="Consumer/MenuNavigation.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Panel.cs" Link="Consumer/Panel.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/Panel.Support.cs" Link="Consumer/Panel.Support.cs" />
-    <Compile Include="../../src/WodenRallyEdge.Plugin/Toolkit/Support/SupportReport.cs" Link="Consumer/SupportReport.cs" />
+    <Compile Include="../../lib/toolkit/shared/support/SupportReport.cs" Link="Consumer/SupportReport.cs" />
     <Compile Include="$(WheelInputSource)" Link="Consumer/WheelInput.cs" />
     <Compile Include="$(CameraShortcutsSource)" Link="Consumer/CameraShortcuts.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/CameraFramingStore.cs" Link="Consumer/CameraFramingStore.cs" />
@@ -26,7 +26,7 @@
     <Compile Include="../../src/WodenRallyEdge.Plugin/Settings.cs" Link="Consumer/Settings.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/ShimBindingSnapshots.cs" Link="Consumer/ShimBindingSnapshots.cs" />
     <Compile Include="../../src/WodenRallyEdge.Plugin/SharedBindingHost.cs" Link="Consumer/SharedBindingHost.cs" />
-    <Compile Include="../../src/WodenRallyEdge.Plugin/Toolkit/Input/BindingEditorContract.cs" Link="Consumer/BindingEditorContract.cs" />
+    <Compile Include="../../lib/toolkit/shared/input/BindingEditorContract.cs" Link="Consumer/BindingEditorContract.cs" />
     <ProjectReference Include="../../src/WodenRallyEdge.Core/WodenRallyEdge.Core.csproj" />
     <Reference Include="BepInEx.Core" HintPath="../../lib/core/BepInEx.Core.dll" />
     <Reference Include="SemanticVersioning" HintPath="../../lib/core/SemanticVersioning.dll" />

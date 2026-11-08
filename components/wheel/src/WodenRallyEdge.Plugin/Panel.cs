@@ -436,12 +436,7 @@ internal static partial class Panel
             float viewportWidth = threeDisplays ? Screen.width / 3f : Screen.width;
             float width = Math.Min(viewportWidth - 48 * scale, 1000 * scale);
             float left = 24 * scale;
-            if (threeDisplays)
-            {
-                // Use the recording HUD's center-display anchor, with this hint's existing size and padding.
-                var layout = SessionStatusPresentation.Layout(Screen.width, Screen.height, true);
-                left = layout.X + (layout.Width - width) / 2;
-            }
+            if (threeDisplays) left = (Screen.width - width) / 2; // centered on the center display
             var rect = new Rect(left, Screen.height - 90 * scale, width, 64 * scale);
             if (Event.current.type == EventType.Repaint) { GUI.color = new Color(.035f,.05f,.075f,1); GUI.DrawTexture(rect,Texture2D.whiteTexture); GUI.color = old; }
             GUI.Label(new Rect(rect.x+12*scale,rect.y+8*scale,rect.width-24*scale,rect.height-16*scale),new GUIContent(Message),_help);

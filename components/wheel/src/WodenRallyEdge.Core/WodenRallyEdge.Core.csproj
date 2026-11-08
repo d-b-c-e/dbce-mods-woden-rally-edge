@@ -4,4 +4,10 @@
     <Reference Include="Dbce.Wheel.Ffb" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Ffb.dll" />
     <Reference Include="Dbce.Wheel.Telemetry" HintPath="../../lib/toolkit/dotnet/Dbce.Wheel.Telemetry.dll" />
   </ItemGroup>
+  <!-- Toolkit sources, synced by tools/Sync-Toolkit.ps1 and checked against lib/toolkit/MANIFEST.txt (-Check). Never edit them here. -->
+  <ItemGroup>
+    <Compile Include="../../lib/toolkit/shared/display/RacingRow.cs;../../lib/toolkit/shared/display/WindowLanding.cs;../../lib/toolkit/shared/display/WindowsMonitors.cs" LinkBase="Toolkit/Display" />
+    <Compile Include="../../lib/toolkit/shared/ui/BindingSaveStatus.cs;../../lib/toolkit/shared/ui/F6Style.cs;../../lib/toolkit/shared/ui/SettingsPresentation.cs" LinkBase="Toolkit/Ui" />
+    <Compile Include="../../lib/toolkit/shared/input/BindingCapture.cs;../../lib/toolkit/shared/input/BindingCaptureFlow.cs;../../lib/toolkit/shared/input/ControlBinding.cs;../../lib/toolkit/shared/input/ControlProfileDocument.cs;../../lib/toolkit/shared/input/ControlProfileDraft.cs;../../lib/toolkit/shared/input/DeclaredControlExtras.cs;../../lib/toolkit/shared/input/PovSnapshotReader.cs" LinkBase="Toolkit/Input" />
+  </ItemGroup>
 </Project>
