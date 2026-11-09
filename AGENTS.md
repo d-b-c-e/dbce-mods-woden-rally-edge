@@ -8,6 +8,7 @@ Portfolio rules: `E:\Source\dbce-project-mgmt\HOW-WE-WORK.md` (read first; it re
 - Source: `components/wheel/src/WodenRallyEdge.Core` and `.Plugin`, with the solution in `components/wheel`.
 
 ## Build
+- **One command:** `pwsh build.ps1` at the repo root builds and runs every offline test, with no arguments. Run it before pushing.
 Exact root build command: unknown — check README. From `components/wheel`:
 ```powershell
 .\tools\Initialize-Dependencies.ps1
